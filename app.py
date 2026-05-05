@@ -1,0 +1,942 @@
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+from werkzeug.security import generate_password_hash, check_password_hash
+from markupsafe import Markup
+from datetime import datetime, timedelta
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.units import cm
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+from io import BytesIO
+import requests
+import threading
+import time
+import json
+import os
+import hashlib
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ================================================================
+# Initialization
+# ================================================================
+app = Flask(__name__)
+
+# ================================================================
+# Config
+# ================================================================
+app.config['SECRET_KEY']                  = os.getenv('SECRET_KEY', 'change-this-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///site.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config['MAIL_SERVER']         = 'smtp-relay.brevo.com'
+app.config['MAIL_PORT']           = 587
+app.config['MAIL_USE_TLS']        = True
+app.config['MAIL_USE_SSL']        = False
+app.config['MAIL_USERNAME']       = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD']       = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
+
+API_KEY          = os.getenv('VIRUSTOTAL_API_KEY')
+ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
+
+# ================================================================
+# Extensions
+# ================================================================
+db            = SQLAlchemy(app)
+mail          = Mail(app)
+login_manager = LoginManager(app)
+login_manager.login_view             = 'login'
+login_manager.login_message          = 'Please log in to access this page.'
+login_manager.login_message_category = 'warning'
+serializer    = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+
+# ================================================================
+# Database Models
+# ================================================================
+
+class User(db.Model, UserMixin):
+    id            = db.Column(db.Integer, primary_key=True)
+    username      = db.Column(db.String(80),  nullable=False)
+    email         = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_verified   = db.Column(db.Boolean, default=False)
+    is_admin      = db.Column(db.Boolean, default=False)
+    date_joined   = db.Column(db.DateTime, default=datetime.utcnow)
+    scans         = db.relationship('Scan', backref='owner', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
+class Scan(db.Model):
+    id          = db.Column(db.Integer, primary_key=True)
+    url         = db.Column(db.String(500), nullable=False)
+    result      = db.Column(db.String(1000))
+    raw_report  = db.Column(db.Text)
+    verdict     = db.Column(db.String(50))
+    status      = db.Column(db.String(20), default='pending')
+    date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    user_id     = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+
+with app.app_context():
+    db.create_all()
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+
+# ================================================================
+# Email Helpers
+# ================================================================
+
+def send_verification_email(user):
+    token = serializer.dumps(user.email, salt='email-verify')
+    link  = url_for('verify_email', token=token, _external=True)
+    msg   = Message('✅ Verify your MyScanner account', recipients=[user.email])
+    msg.body = f"""Hello {user.username},
+
+Please click the link below to verify your email address:
+
+{link}
+
+This link expires in 1 hour.
+
+— MyScanner Team
+"""
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"[MAIL ERROR] {e}")
+
+
+def send_reset_email(user):
+    token = serializer.dumps(user.email, salt='password-reset')
+    link  = url_for('reset_password', token=token, _external=True)
+    msg   = Message('🔑 Reset your MyScanner password', recipients=[user.email])
+    msg.body = f"""Hello {user.username},
+
+Click the link below to reset your password:
+
+{link}
+
+This link expires in 30 minutes.
+
+— MyScanner Team
+"""
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"[MAIL ERROR] {e}")
+
+
+# ================================================================
+# VirusTotal Logic
+# ================================================================
+
+def perform_virustotal_scan(url, api_key):
+    headers = {"x-apikey": api_key}
+    try:
+        resp = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data={"url": url})
+        if resp.status_code not in (200, 201):
+            return {"error": f"Submission failed (HTTP {resp.status_code})"}
+        url_id     = resp.json()["data"]["id"]
+        report_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Network error: {str(e)}"}
+
+    for _ in range(20):
+        try:
+            r      = requests.get(report_url, headers=headers)
+            report = r.json()
+            if report["data"]["attributes"].get("status") == "completed":
+                break
+            time.sleep(3)
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Polling error: {str(e)}"}
+    else:
+        return {"error": "Scan timeout."}
+
+    stats      = report["data"]["attributes"].get("stats", {})
+    malicious  = stats.get("malicious", 0)
+    suspicious = stats.get("suspicious", 0)
+    harmless   = stats.get("harmless", 0)
+
+    if malicious > 0:
+        verdict = "malicious"
+    elif suspicious > 0:
+        verdict = "suspicious"
+    elif harmless > 0:
+        verdict = "harmless"
+    else:
+        verdict = "unknown"
+
+    return {"verdict": verdict, "raw_report": report}
+
+
+def scan_in_background(scan_id, url):
+    with app.app_context():
+        s = db.session.get(Scan, scan_id)
+        if not s:
+            return
+        s.status = 'running'
+        db.session.commit()
+
+    res = perform_virustotal_scan(url, API_KEY)
+
+    with app.app_context():
+        s = db.session.get(Scan, scan_id)
+        if not s:
+            return
+        if "error" in res:
+            s.status     = 'error'
+            s.verdict    = 'error'
+            s.result     = f"<p>❌ {res['error']}</p>"
+            s.raw_report = json.dumps(res)
+        else:
+            s.status     = 'completed'
+            s.verdict    = res['verdict']
+            s.result     = f"<p>Verdict: {res['verdict']}</p>"
+            s.raw_report = json.dumps(res['raw_report'])
+        db.session.commit()
+
+
+# ================================================================
+# Auth Routes
+# ================================================================
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email    = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        confirm  = request.form.get('confirm_password', '')
+
+        if not username or not email or not password:
+            flash('All fields are required.', 'danger')
+            return redirect(url_for('register'))
+
+        if password != confirm:
+            flash('Passwords do not match.', 'danger')
+            return redirect(url_for('register'))
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'danger')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered.', 'danger')
+            return redirect(url_for('register'))
+
+        user = User(username=username, email=email)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+
+        user.is_verified = True
+        db.session.commit()
+        flash('Account created! You can now log in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
+@app.route('/verify/<token>')
+def verify_email(token):
+    try:
+        email = serializer.loads(token, salt='email-verify', max_age=3600)
+    except Exception:
+        flash('Verification link is invalid or has expired.', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('login'))
+
+    if user.is_verified:
+        flash('Account already verified. Please log in.', 'info')
+    else:
+        user.is_verified = True
+        db.session.commit()
+        flash('Email verified! You can now log in.', 'success')
+
+    return redirect(url_for('login'))
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        email    = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        remember = request.form.get('remember') == 'on'
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user or not user.check_password(password):
+            flash('Invalid email or password.', 'danger')
+            return redirect(url_for('login'))
+
+        if not user.is_verified:
+            flash('Please verify your email before logging in.', 'warning')
+            return redirect(url_for('login'))
+
+        login_user(user, remember=remember)
+        flash(f'Welcome back, {user.username}!', 'success')
+        next_page = request.args.get('next')
+        return redirect(next_page or url_for('home'))
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        user  = User.query.filter_by(email=email).first()
+        if user:
+            send_reset_email(user)
+        flash('If that email exists, a reset link has been sent.', 'info')
+        return redirect(url_for('login'))
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = serializer.loads(token, salt='password-reset', max_age=1800)
+    except Exception:
+        flash('Reset link is invalid or has expired.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm  = request.form.get('confirm_password', '')
+
+        if password != confirm:
+            flash('Passwords do not match.', 'danger')
+            return redirect(request.url)
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'danger')
+            return redirect(request.url)
+
+        user.set_password(password)
+        db.session.commit()
+        flash('Password updated! You can now log in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token)
+
+
+@app.route('/profile')
+@login_required
+def profile():
+    scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(10).all()
+    return render_template('profile.html', scans=scans)
+
+
+# ================================================================
+# Main Routes
+# ================================================================
+
+@app.route('/', methods=['GET', 'POST'])
+@login_required
+def home():
+    if request.method == 'POST':
+        url = request.form.get('url', '').strip()
+        if not url:
+            return redirect(url_for('home'))
+
+        new_scan = Scan(url=url, verdict='pending', result='Pending...', user_id=current_user.id)
+        db.session.add(new_scan)
+        db.session.commit()
+
+        t = threading.Thread(target=scan_in_background, args=(new_scan.id, url), daemon=True)
+        t.start()
+
+        return redirect(url_for('result_page', scan_id=new_scan.id))
+
+    return render_template('index.html')
+
+
+@app.route('/result/<int:scan_id>')
+@login_required
+def result_page(scan_id):
+    scan = db.session.get(Scan, scan_id)
+    if not scan:
+        flash('Scan not found.', 'danger')
+        return redirect(url_for('home'))
+    if scan.user_id != current_user.id and not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('home'))
+    return render_template('result.html', scan=scan)
+
+
+# ================================================================
+# API Routes
+# ================================================================
+
+@app.route('/api/scan_status/<int:scan_id>')
+@login_required
+def api_scan_status(scan_id):
+    scan = db.session.get(Scan, scan_id)
+    if not scan or (scan.user_id != current_user.id and not current_user.is_admin):
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({"id": scan.id, "status": scan.status, "verdict": scan.verdict})
+
+
+@app.route('/api/scan_result/<int:scan_id>')
+@login_required
+def api_scan_result(scan_id):
+    scan = db.session.get(Scan, scan_id)
+    if not scan or (scan.user_id != current_user.id and not current_user.is_admin):
+        return jsonify({"error": "Not found"}), 404
+
+    raw = None
+    if scan.raw_report:
+        try:
+            raw = json.loads(scan.raw_report)
+        except Exception:
+            raw = None
+
+    return jsonify({
+        "id": scan.id, "url": scan.url,
+        "status": scan.status, "verdict": scan.verdict,
+        "result_html": scan.result, "raw_report": raw,
+        "date": scan.date_posted.strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+
+@app.route('/api/recent_scans')
+@login_required
+def api_recent_scans():
+    if current_user.is_admin:
+        scans = Scan.query.order_by(Scan.date_posted.desc()).limit(15).all()
+    else:
+        scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(15).all()
+
+    data = []
+    for scan in scans:
+        # تجهيز summary
+        summary = ''
+        if scan.result:
+            soup = BeautifulSoup(scan.result, 'html.parser')
+            summary = soup.get_text(strip=True)[:250]
+        elif scan.raw_report:
+            summary = 'Report available'
+        else:
+            summary = 'No summary available'
+        
+        data.append({
+            "id": scan.id,
+            "url": scan.url,
+            "verdict": scan.verdict if scan.verdict else 'unknown',
+            "summary": summary,
+            "date": scan.date_posted.strftime("%Y-%m-%d %H:%M:%S")
+        })
+    
+    return jsonify({"scans": data})
+
+
+# ================================================================
+# Admin
+# ================================================================
+
+@app.route('/admin')
+@login_required
+def admin_panel():
+    if not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('home'))
+    users = User.query.order_by(User.date_joined.desc()).all()
+    scans = Scan.query.order_by(Scan.date_posted.desc()).limit(50).all()
+    return render_template('admin.html', users=users, scans=scans)
+
+
+# ================================================================
+# Email Check
+# ================================================================
+
+@app.route('/email-check')
+@login_required
+def email_check():
+    return render_template('email_check.html')
+
+
+@app.route('/api/check-email', methods=['POST'])
+@login_required
+def api_check_email():
+    data  = request.get_json()
+    email = data.get('email', '').strip()
+
+    if not email:
+        return jsonify({"error": "No email provided"}), 400
+
+    try:
+        resp = requests.get(
+            "https://emailreputation.abstractapi.com/v1/",
+            params={"api_key": ABSTRACT_API_KEY, "email": email}
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": f"API error: {resp.status_code}"}), 500
+
+        r = resp.json()
+
+        deliverability = r.get("email_deliverability", {})
+        quality        = r.get("email_quality", {})
+        risk           = r.get("email_risk", {})
+        breaches       = r.get("email_breaches", {})
+        domain         = r.get("email_domain", {})
+
+        is_valid       = deliverability.get("is_format_valid", False)
+        is_mx          = deliverability.get("is_mx_valid", False)
+        is_smtp        = deliverability.get("is_smtp_valid", False)
+        is_disposable  = quality.get("is_disposable", False)
+        is_free        = quality.get("is_free_email", False)
+        quality_score  = quality.get("score", 0)
+        status         = deliverability.get("status", "unknown")
+        address_risk   = risk.get("address_risk_status", "unknown")
+        total_breaches = breaches.get("total_breaches", 0)
+        last_breached  = breaches.get("date_last_breached", None)
+        breached_list  = breaches.get("breached_domains", [])[:10]
+
+        if not is_valid:
+            verdict = "invalid"
+        elif is_disposable:
+            verdict = "disposable"
+        elif total_breaches > 0 and address_risk == "high":
+            verdict = "breached"
+        elif not is_mx:
+            verdict = "no_mx"
+        elif status == "deliverable":
+            verdict = "safe"
+        else:
+            verdict = "risky"
+
+        return jsonify({
+            "email":           email,
+            "verdict":         verdict,
+            "is_valid":        is_valid,
+            "is_disposable":   is_disposable,
+            "is_free":         is_free,
+            "is_mx":           is_mx,
+            "is_smtp":         is_smtp,
+            "deliverability":  status.upper(),
+            "quality_score":   quality_score,
+            "address_risk":    address_risk,
+            "total_breaches":  total_breaches,
+            "last_breached":   last_breached,
+            "breached_domains": breached_list,
+            "domain_age":      domain.get("domain_age", 0),
+            "registrar":       domain.get("registrar", "Unknown"),
+        })
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Network error: {str(e)}"}), 500
+
+
+# ================================================================
+# IP Check
+# ================================================================
+
+@app.route('/ip-check')
+@login_required
+def ip_check():
+    return render_template('ip_check.html')
+
+
+@app.route('/api/check-ip', methods=['POST'])
+@login_required
+def api_check_ip():
+    data = request.get_json()
+    ip   = data.get('ip', '').strip()
+
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+
+    try:
+        resp = requests.get(
+            f"http://ip-api.com/json/{ip}",
+            params={"fields": "status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,proxy,hosting,mobile,query"}
+        )
+        r = resp.json()
+
+        if r.get('status') == 'fail':
+            return jsonify({"error": r.get('message', 'Invalid IP')}), 400
+
+        verdict = "suspicious" if r.get('proxy') or r.get('hosting') else "safe"
+
+        return jsonify({
+            "ip":           r.get('query'),
+            "verdict":      verdict,
+            "country":      r.get('country'),
+            "country_code": r.get('countryCode'),
+            "city":         r.get('city'),
+            "region":       r.get('regionName'),
+            "timezone":     r.get('timezone'),
+            "isp":          r.get('isp'),
+            "org":          r.get('org'),
+            "lat":          r.get('lat'),
+            "lon":          r.get('lon'),
+            "is_proxy":     r.get('proxy', False),
+            "is_hosting":   r.get('hosting', False),
+            "is_mobile":    r.get('mobile', False),
+        })
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Network error: {str(e)}"}), 500
+
+
+# ================================================================
+# Dashboard
+# ================================================================
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    scans      = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).all()
+    total      = len(scans)
+    harmless   = sum(1 for s in scans if s.verdict == 'harmless')
+    malicious  = sum(1 for s in scans if s.verdict == 'malicious')
+    suspicious = sum(1 for s in scans if s.verdict == 'suspicious')
+    unknown    = sum(1 for s in scans if s.verdict == 'unknown')
+
+    seven_days    = [(datetime.utcnow() - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
+    scans_per_day = [sum(1 for s in scans if s.date_posted.strftime('%Y-%m-%d') == day) for day in seven_days]
+
+    return render_template('dashboard.html',
+        total=total, harmless=harmless, malicious=malicious,
+        suspicious=suspicious, unknown=unknown,
+        seven_days=seven_days, scans_per_day=scans_per_day,
+        recent_scans=scans[:5]
+    )
+
+
+# ================================================================
+# PDF Report
+# ================================================================
+
+@app.route('/report/pdf/<int:scan_id>')
+@login_required
+def download_pdf(scan_id):
+    scan = db.session.get(Scan, scan_id)
+    if not scan:
+        flash('Scan not found.', 'danger')
+        return redirect(url_for('home'))
+    if scan.user_id != current_user.id and not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('home'))
+
+    raw = {}
+    try:
+        if scan.raw_report:
+            raw = json.loads(scan.raw_report)
+    except Exception:
+        pass
+
+    stats      = raw.get('data', {}).get('attributes', {}).get('stats', {})
+    harmless   = stats.get('harmless', 0)
+    malicious  = stats.get('malicious', 0)
+    suspicious = stats.get('suspicious', 0)
+    undetected = stats.get('undetected', 0)
+
+    buffer = BytesIO()
+    doc    = SimpleDocTemplate(buffer, pagesize=A4,
+                               rightMargin=2*cm, leftMargin=2*cm,
+                               topMargin=2*cm, bottomMargin=2*cm)
+    elements = []
+
+    title_style = ParagraphStyle('title', fontSize=22, fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#00c8ff'), spaceAfter=6)
+    sub_style = ParagraphStyle('sub', fontSize=10, fontName='Helvetica',
+        textColor=colors.HexColor('#888888'), spaceAfter=20)
+    section_style = ParagraphStyle('section', fontSize=13, fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#00c8ff'), spaceBefore=16, spaceAfter=10)
+
+    elements.append(Paragraph('MyScanner', title_style))
+    elements.append(Paragraph('Security Scan Report', sub_style))
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e0e0e0')))
+    elements.append(Spacer(1, 16))
+    elements.append(Paragraph('SCAN INFORMATION', section_style))
+
+    info_data = [
+        ['Scan ID',    f'#{scan.id}'],
+        ['URL',        scan.url],
+        ['Status',     scan.status.upper()],
+        ['Verdict',    scan.verdict.upper()],
+        ['Date',       scan.date_posted.strftime('%Y-%m-%d %H:%M:%S UTC')],
+        ['Scanned By', current_user.username],
+    ]
+
+    info_table = Table(info_data, colWidths=[4*cm, 13*cm])
+    info_table.setStyle(TableStyle([
+        ('FONTNAME',  (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',  (0,0), (-1,-1), 10),
+        ('TEXTCOLOR', (0,0), (0,-1), colors.HexColor('#888888')),
+        ('TEXTCOLOR', (1,0), (1,-1), colors.HexColor('#222222')),
+        ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#f7f8fa'), colors.white]),
+        ('TOPPADDING',    (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEFTPADDING',   (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e8e8e8')),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph('SCAN STATISTICS', section_style))
+
+    verdict_color = {'harmless':'#28a745','malicious':'#dc3545','suspicious':'#ffc107','unknown':'#6c757d','error':'#343434'}.get(scan.verdict, '#6c757d')
+
+    stats_data = [
+        ['Metric', 'Count', 'Status'],
+        ['Harmless',   str(harmless),   'Safe'],
+        ['Malicious',  str(malicious),  'Threat' if malicious > 0 else 'Clean'],
+        ['Suspicious', str(suspicious), 'Warning' if suspicious > 0 else 'Clean'],
+        ['Undetected', str(undetected), 'N/A'],
+    ]
+
+    stats_table = Table(stats_data, colWidths=[7*cm, 4*cm, 6*cm])
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND',  (0,0), (-1,0), colors.HexColor('#1a1a2e')),
+        ('TEXTCOLOR',   (0,0), (-1,0), colors.HexColor('#00c8ff')),
+        ('FONTNAME',    (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',    (0,0), (-1,-1), 10),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor('#f7f8fa'), colors.white]),
+        ('TOPPADDING',    (0,0), (-1,-1), 9),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 9),
+        ('LEFTPADDING',   (0,0), (-1,-1), 12),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e8e8e8')),
+    ]))
+    elements.append(stats_table)
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph('OVERALL VERDICT', section_style))
+
+    verdict_text = {
+        'harmless':   'HARMLESS — No threats detected. This URL appears to be safe.',
+        'malicious':  'MALICIOUS — This URL was flagged by multiple security engines.',
+        'suspicious': 'SUSPICIOUS — Some engines flagged this URL. Proceed with caution.',
+        'unknown':    'UNKNOWN — Not enough data to determine safety.',
+        'error':      'ERROR — Scan could not be completed.',
+    }.get(scan.verdict, 'UNKNOWN')
+
+    verdict_style = ParagraphStyle('verdict', fontSize=12, fontName='Helvetica-Bold',
+        textColor=colors.HexColor(verdict_color),
+        backColor=colors.HexColor('#f7f8fa'),
+        borderPad=12, spaceBefore=4, spaceAfter=20)
+
+    elements.append(Paragraph(verdict_text, verdict_style))
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e0e0e0')))
+    elements.append(Spacer(1, 10))
+
+    footer_style = ParagraphStyle('footer', fontSize=8, fontName='Helvetica',
+        textColor=colors.HexColor('#aaaaaa'), alignment=1)
+    elements.append(Paragraph(
+        f'Generated by MyScanner · {scan.date_posted.strftime("%Y-%m-%d %H:%M")} UTC · Ahmed Sairafi',
+        footer_style
+    ))
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    return send_file(buffer, as_attachment=True,
+                     download_name=f'myscanner-report-{scan.id}.pdf',
+                     mimetype='application/pdf')
+
+
+# ================================================================
+# Site Scanner
+# ================================================================
+
+@app.route('/site-scanner')
+@login_required
+def site_scanner():
+    return render_template('site_scanner.html')
+
+
+@app.route('/api/site-scan', methods=['POST'])
+@login_required
+def api_site_scan():
+    data   = request.get_json()
+    domain = data.get('domain', '').strip()
+
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+
+    if not domain.startswith('http://') and not domain.startswith('https://'):
+        domain = 'https://' + domain
+    domain = domain.strip('/')
+
+    try:
+        resp = requests.get(domain, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        base  = urlparse(domain).netloc
+        links = set()
+
+        for tag in soup.find_all('a', href=True):
+            href   = urljoin(domain, tag['href'])
+            parsed = urlparse(href)
+            if parsed.netloc == base and href.startswith('http'):
+                links.add(href)
+
+        links = list(links)[:10]
+        links.insert(0, domain)
+        links = list(set(links))[:10]
+
+    except Exception as e:
+        return jsonify({"error": f"Could not reach domain: {str(e)}"}), 400
+
+    headers = {"x-apikey": API_KEY}
+    results = []
+
+    for url in links:
+        try:
+            r = requests.post("https://www.virustotal.com/api/v3/urls",
+                              headers=headers, data={"url": url}, timeout=10)
+            if r.status_code not in (200, 201):
+                results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
+                continue
+
+            url_id     = r.json()["data"]["id"]
+            report_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
+            verdict    = "unknown"
+            malicious  = harmless = suspicious = 0
+
+            for _ in range(8):
+                time.sleep(2)
+                rr     = requests.get(report_url, headers=headers, timeout=10)
+                report = rr.json()
+                if report["data"]["attributes"].get("status") == "completed":
+                    s          = report["data"]["attributes"].get("stats", {})
+                    malicious  = s.get("malicious", 0)
+                    suspicious = s.get("suspicious", 0)
+                    harmless   = s.get("harmless", 0)
+                    if malicious > 0:   verdict = "malicious"
+                    elif suspicious > 0: verdict = "suspicious"
+                    elif harmless > 0:  verdict = "harmless"
+                    break
+
+            results.append({"url": url, "verdict": verdict,
+                            "malicious": malicious, "suspicious": suspicious, "harmless": harmless})
+            time.sleep(15)
+
+        except Exception:
+            results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
+
+    total             = len(results)
+    malicious_count   = sum(1 for r in results if r['verdict'] == 'malicious')
+    suspicious_count  = sum(1 for r in results if r['verdict'] == 'suspicious')
+    harmless_count    = sum(1 for r in results if r['verdict'] == 'harmless')
+    overall           = "malicious" if malicious_count > 0 else ("suspicious" if suspicious_count > 0 else "harmless")
+
+    return jsonify({"domain": domain, "total": total, "overall": overall,
+                    "malicious": malicious_count, "suspicious": suspicious_count,
+                    "harmless": harmless_count, "results": results})
+
+
+# ================================================================
+# Password Check
+# ================================================================
+
+@app.route('/password-check')
+@login_required
+def password_check():
+    return render_template('password_check.html')
+
+
+@app.route('/api/check-password', methods=['POST'])
+@login_required
+def api_check_password():
+    data     = request.get_json()
+    password = data.get('password', '')
+
+    if not password:
+        return jsonify({"error": "No password provided"}), 400
+
+    sha1   = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+    prefix = sha1[:5]
+    suffix = sha1[5:]
+
+    try:
+        resp = requests.get(f"https://api.pwnedpasswords.com/range/{prefix}",
+                            headers={"Add-Padding": "true"})
+        if resp.status_code != 200:
+            return jsonify({"error": "API error"}), 500
+
+        count = 0
+        for line in resp.text.splitlines():
+            parts = line.split(':')
+            if len(parts) == 2 and parts[0] == suffix:
+                count = int(parts[1])
+                break
+
+        return jsonify({"verdict": "pwned" if count > 0 else "safe", "count": count, "safe": count == 0})
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Network error: {str(e)}"}), 500
+
+
+# ================================================================
+# Other Pages
+# ================================================================
+
+@app.route('/search')
+@login_required
+def search():
+    return render_template('search.html')
+
+@app.route('/products')
+def products():
+    return render_template('products.html')
+
+@app.route('/resources')
+def resources():
+    return render_template('resources.html')
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+
+# ================================================================
+# Run
+# ================================================================
+if __name__ == '__main__':
+    app.run(debug=True)

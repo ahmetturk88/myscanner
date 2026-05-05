@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .dash-wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 52px 24px 100px;
+  }
+
+  /* HEADER */
+  .dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .dash-header-left .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .dash-header-left h1 {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .dash-header-left p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .new-scan-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: #000;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .2s;
+    white-space: nowrap;
+  }
+  .new-scan-btn:hover { background: #00aad9; color: #000; }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s, transform .2s;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.total::before   { background: var(--accent); }
+  .stat-card.safe::before    { background: var(--green); }
+  .stat-card.danger::before  { background: var(--red); }
+  .stat-card.warn::before    { background: var(--yellow); }
+  .stat-card.gray::before    { background: var(--muted); }
+
+  .stat-card:hover { border-color: rgba(0,200,255,0.2); }
+  .stat-card.safe:hover  { border-color: rgba(0,230,118,0.2); }
+  .stat-card.danger:hover{ border-color: rgba(255,69,96,0.2); }
+  .stat-card.warn:hover  { border-color: rgba(255,211,42,0.2); }
+
+  .stat-icon {
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-card.safe .stat-num   { color: var(--green); }
+  .stat-card.danger .stat-num { color: var(--red); }
+  .stat-card.warn .stat-num   { color: var(--yellow); }
+  .stat-card.total .stat-num  { color: var(--accent); }
+
+  .stat-lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* CHARTS ROW */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+
+  @media (max-width: 700px) {
+    .charts-row { grid-template-columns: 1fr; }
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+
+  .chart-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  .chart-container {
+    position: relative;
+    height: 220px;
+  }
+
+  /* RECENT SCANS */
+  .recent-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+  }
+
+  .recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .recent-head h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .recent-head a {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color .2s;
+  }
+  .recent-head a:hover { color: var(--accent); }
+
+  .scan-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+  .scan-item:last-child { border-bottom: none; }
+
+  .scan-verdict-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-harmless   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-malicious  { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+  .dot-suspicious { background: var(--yellow);box-shadow: 0 0 6px var(--yellow); }
+  .dot-unknown, .dot-error, .dot-pending { background: var(--muted); }
+
+  .scan-url {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scan-date {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .scan-link {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .scan-link:hover { opacity: 0.7; }
+
+  .v-badge {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .v-harmless   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(0,230,118,.3); }
+  .v-malicious  { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,69,96,.3); }
+  .v-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .v-unknown, .v-error, .v-pending { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .empty-state a { color: var(--accent); text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-wrap">
+
+  <!-- Header -->
+  <div class="dash-header">
+    <div class="dash-header-left">
+      <div class="label">Overview</div>
+      <h1>Dashboard</h1>
+      <p>Welcome back, {{ current_user.username }} — here's your security overview</p>
+    </div>
+    <a href="{{ url_for('home') }}" class="new-scan-btn">+ New Scan</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card total">
+      <div class="stat-icon">🔍</div>
+      <div class="stat-num">{{ total }}</div>
+      <div class="stat-lbl">Total Scans</div>
+    </div>
+    <div class="stat-card safe">
+      <div class="stat-icon">✅</div>
+      <div class="stat-num">{{ harmless }}</div>
+      <div class="stat-lbl">Safe URLs</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-icon">🚨</div>
+      <div class="stat-num">{{ malicious }}</div>
+      <div class="stat-lbl">Malicious</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-num">{{ suspicious }}</div>
+      <div class="stat-lbl">Suspicious</div>
+    </div>
+    <div class="stat-card gray">
+      <div class="stat-icon">❓</div>
+      <div class="stat-num">{{ unknown }}</div>
+      <div class="stat-lbl">Unknown</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-row">
+
+    <!-- Line Chart — Scans per Day -->
+    <div class="chart-card">
+      <div class="chart-title">📈 Scans — Last 7 Days</div>
+      <div class="chart-container">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Doughnut Chart — Verdict Breakdown -->
+    <div class="chart-card">
+      <div class="chart-title">🍩 Verdict Breakdown</div>
+      <div class="chart-container">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Recent Scans -->
+  <div class="recent-card">
+    <div class="recent-head">
+      <h3>⏱ Recent Scans</h3>
+      <a href="{{ url_for('profile') }}">View All →</a>
+    </div>
+
+    {% if recent_scans %}
+      {% for scan in recent_scans %}
+      <div class="scan-item">
+        <div class="scan-verdict-dot dot-{{ scan.verdict }}"></div>
+        <div class="scan-url">{{ scan.url }}</div>
+        <span class="v-badge v-{{ scan.verdict }}">{{ scan.verdict | upper }}</span>
+        <span class="scan-date">{{ scan.date_posted.strftime('%m/%d') }}</span>
+        <a href="{{ url_for('result_page', scan_id=scan.id) }}" class="scan-link">View →</a>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        No scans yet. <a href="{{ url_for('home') }}">Start scanning →</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  // Data from Flask
+  const days       = {{ seven_days | tojson }};
+  const scansPerDay= {{ scans_per_day | tojson }};
+  const harmless   = {{ harmless }};
+  const malicious  = {{ malicious }};
+  const suspicious = {{ suspicious }};
+  const unknown    = {{ unknown }};
+
+  const chartDefaults = {
+    font: { family: "'Space Mono', monospace" }
+  };
+  Chart.defaults.font.family = "'Space Mono', monospace";
+  Chart.defaults.color = '#6a6a90';
+
+  // ── LINE CHART ──
+  new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: days.map(d => d.slice(5)),
+      datasets: [{
+        label: 'Scans',
+        data: scansPerDay,
+        borderColor: '#00c8ff',
+        backgroundColor: 'rgba(0,200,255,0.08)',
+        borderWidth: 2,
+        pointBackgroundColor: '#00c8ff',
+        pointBorderColor: '#080810',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#18182a',
+          borderColor: '#2a2a45',
+          borderWidth: 1,
+          titleColor: '#00c8ff',
+          bodyColor: '#dde0f0',
+          padding: 10,
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#6a6a90', font: { size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#6a6a90', font: { size: 10 }, stepSize: 1 },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+
+  // ── DONUT CHART ──
+  const total = harmless + malicious + suspicious + unknown;
+
+  new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Harmless', 'Malicious', 'Suspicious', 'Unknown'],
+      datasets: [{
+        data: [harmless, malicious, suspicious, unknown],
+        backgroundColor: [
+          'rgba(0,230,118,0.8)',
+          'rgba(255,69,96,0.8)',
+          'rgba(255,211,42,0.8)',
+          'rgba(106,106,144,0.8)',
+        ],
+        borderColor: '#10101a',
+        borderWidth: 3,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#6a6a90',
+            padding: 16,
+            font: { size: 11 },
+            usePointStyle: true,
+            pointStyleWidth: 8,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#18182a',
+          borderColor: '#2a2a45',
+          borderWidth: 1,
+          titleColor: '#dde0f0',
+          bodyColor: '#6a6a90',
+          padding: 10,
+          callbacks: {
+            label: ctx => {
+              const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+              return ` ${ctx.parsed} scans (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

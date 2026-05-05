@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+
+{% block head_extra %}
+<style>
+  .profile-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 52px 24px 100px;
+  }
+
+  /* Header */
+  .profile-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .profile-avatar {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--accent), #006aff);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: #000;
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(0,200,255,0.2);
+  }
+
+  .profile-info h2 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    text-align: left;
+  }
+
+  .profile-info p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .profile-plan {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(0,200,255,0.25);
+    flex-shrink: 0;
+  }
+
+  .profile-plan.admin {
+    background: var(--yellow-dim);
+    color: var(--yellow);
+    border-color: rgba(255,211,42,0.25);
+  }
+
+  /* Stats */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color .2s;
+  }
+
+  .stat-card:hover { border-color: rgba(0,200,255,0.2); }
+
+  .stat-card .num {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .stat-card .lbl {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+  }
+
+  /* Cards */
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row .k { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; }
+  .info-row .v { color: var(--text); font-weight: 600; }
+
+  /* Scans Table */
+  .scans-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .scans-table th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scans-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .scans-table tr:last-child td { border-bottom: none; }
+  .scans-table tr:hover td { background: var(--surface2); }
+
+  .v-badge {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .v-harmless   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(0,230,118,.3); }
+  .v-malicious  { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,69,96,.3); }
+  .v-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .v-unknown, .v-pending, .v-error { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .empty-state a { color: var(--accent); text-decoration: none; }
+
+  /* Action buttons */
+  .action-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all .2s;
+  }
+
+  .btn-home   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-home:hover { background: var(--surface3); color: var(--text); }
+  .btn-logout { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.25); }
+  .btn-logout:hover { background: rgba(255,69,96,0.2); color: var(--red); }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .profile-header { flex-direction: column; text-align: center; }
+    .profile-plan { margin: 0 auto; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-wrap">
+
+  <!-- Header -->
+  <div class="profile-header">
+    <div class="profile-avatar">{{ current_user.username[0].upper() }}</div>
+    <div class="profile-info">
+      <h2>{{ current_user.username }}</h2>
+      <p>{{ current_user.email }}</p>
+      <p style="margin-top:2px;">Member since {{ current_user.date_joined.strftime('%B %Y') }}</p>
+    </div>
+    {% if current_user.is_admin %}
+      <span class="profile-plan admin">⚡ ADMIN</span>
+    {% else %}
+      <span class="profile-plan">FREE PLAN</span>
+    {% endif %}
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="num">{{ scans | length }}</div>
+      <div class="lbl">Total Scans</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--red);">
+        {{ scans | selectattr('verdict', 'equalto', 'malicious') | list | length }}
+      </div>
+      <div class="lbl">Malicious Found</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--green);">
+        {{ scans | selectattr('verdict', 'equalto', 'harmless') | list | length }}
+      </div>
+      <div class="lbl">Safe URLs</div>
+    </div>
+  </div>
+
+  <!-- Account Info -->
+  <div class="info-card">
+    <div class="card-title">Account Information</div>
+    <div class="info-row">
+      <span class="k">NAME</span>
+      <span class="v">{{ current_user.username }}</span>
+    </div>
+    <div class="info-row">
+      <span class="k">EMAIL</span>
+      <span class="v">{{ current_user.email }}</span>
+    </div>
+    <div class="info-row">
+      <span class="k">VERIFIED</span>
+      <span class="v">
+        {% if current_user.is_verified %}
+          <span style="color:var(--green);">✓ Verified</span>
+        {% else %}
+          <span style="color:var(--red);">✗ Not Verified</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="k">ROLE</span>
+      <span class="v">{% if current_user.is_admin %}Administrator{% else %}Free User{% endif %}</span>
+    </div>
+    <div class="info-row">
+      <span class="k">JOINED</span>
+      <span class="v">{{ current_user.date_joined.strftime('%Y-%m-%d') }}</span>
+    </div>
+  </div>
+
+  <!-- Recent Scans -->
+  <div class="info-card">
+    <div class="card-title">Recent Scans</div>
+    {% if scans %}
+      <div style="overflow-x:auto;">
+        <table class="scans-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>URL</th>
+              <th>Verdict</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for scan in scans %}
+            <tr>
+              <td style="color:var(--muted); font-family:var(--mono); font-size:11px;">{{ scan.id }}</td>
+              <td>
+                <a href="{{ scan.url }}" target="_blank" rel="noopener"
+                   style="color:var(--accent); text-decoration:none; font-size:12px; font-family:var(--mono);
+                          max-width:280px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                  {{ scan.url }}
+                </a>
+              </td>
+              <td>
+                <span class="v-badge v-{{ scan.verdict }}">{{ scan.verdict | upper }}</span>
+              </td>
+              <td style="color:var(--muted); font-family:var(--mono); font-size:11px;">
+                {{ scan.date_posted.strftime('%Y-%m-%d') }}
+              </td>
+              <td>
+                <a href="{{ url_for('result_page', scan_id=scan.id) }}"
+                   style="color:var(--accent); font-family:var(--mono); font-size:11px; text-decoration:none; font-weight:700;">
+                  View →
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        No scans yet. <a href="{{ url_for('home') }}">Scan your first URL →</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Actions -->
+  <div class="action-row">
+    <a href="{{ url_for('home') }}" class="btn-action btn-home">← Back to Scanner</a>
+    <a href="{{ url_for('logout') }}" class="btn-action btn-logout">Logout</a>
+  </div>
+
+</div>
+{% endblock %}

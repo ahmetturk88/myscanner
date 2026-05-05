@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: myscanner
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: SECRET_KEY
+        value: your-secret-key
+      - key: VIRUSTOTAL_API_KEY
+        value: your-key
+      - key: ABSTRACT_API_KEY
+        value: your-key
+      - key: MAIL_USERNAME
+        value: your-email
+      - key: MAIL_PASSWORD
+        value: your-app-password

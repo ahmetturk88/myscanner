@@ -533,16 +533,42 @@
         }
 
         @media (max-width: 768px) {
-            .footer-inner { grid-template-columns: 1fr 1fr; gap: 32px; }
-            .steps-grid { grid-template-columns: 1fr; }
-            .stats-row { gap: 24px; }
+            .hero { padding: 120px 16px 60px; }
+            .hero h1 { font-size: 28px; }
+            .hero p { font-size: 14px; }
+            .hero-btns { flex-direction: column; align-items: center; }
+            .hero-btns .btn { width: 100%; text-align: center; justify-content: center; }
+            
+            .stats-row { gap: 20px; padding-bottom: 40px; }
+            .stat-item .num { font-size: 22px; }
+            .stat-item .lbl { font-size: 11px; }
+            
+            .section { padding: 60px 16px; }
+            .section-title { font-size: 20px; }
+            .section-sub { font-size: 14px; margin-bottom: 32px; }
+            
+            .services-grid { grid-template-columns: 1fr; gap: 12px; }
+            .svc-card { padding: 20px; }
+            .svc-card h3 { font-size: 15px; }
+            .svc-card p { font-size: 12px; }
+            
+            .steps-grid { grid-template-columns: 1fr; gap: 16px; }
+            .step-card { padding: 24px 16px; }
+            
+            .cta-section { padding: 60px 16px; }
+            .cta-section h2 { font-size: 22px; }
+            
+            .footer-inner { grid-template-columns: 1fr; gap: 24px; }
+            .footer-col { text-align: center; }
+            .footer-socials { justify-content: center; }
+            
+            .navbar { padding: 0 16px; }
         }
 
         @media (max-width: 480px) {
-            .footer-inner { grid-template-columns: 1fr; }
-            .hero { padding: 100px 16px 60px; }
-            .hero h1 { font-size: 28px; }
-            .section { padding: 60px 16px; }
+            .hero { padding: 100px 12px 40px; }
+            .hero h1 { font-size: 24px; }
+            .hero-glow { width: 300px; height: 200px; }
         }
     </style>
 </head>

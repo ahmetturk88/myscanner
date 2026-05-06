@@ -71,7 +71,7 @@ def send_email_via_resend(to_email, subject, body):
                 "Content-Type": "application/json"
             },
             json={
-                "from": "MyScanner <noreply@myscanner.onrender.com>",
+                "from": "MyScanner <ahmetsayrafi538213@gmail.com>",
                 "to": [to_email],
                 "subject": subject,
                 "text": body

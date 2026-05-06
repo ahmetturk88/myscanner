@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
 from markupsafe import Markup
@@ -36,28 +35,87 @@ app.config['SECRET_KEY']                  = os.getenv('SECRET_KEY', 'change-this
 app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.config['MAIL_SERVER']         = 'smtp-relay.brevo.com'
-app.config['MAIL_PORT']           = 587
-app.config['MAIL_USE_TLS']        = True
-app.config['MAIL_USE_SSL']        = False
-app.config['MAIL_USERNAME']       = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD']       = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
-
 API_KEY          = os.getenv('VIRUSTOTAL_API_KEY')
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
 ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY')
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 
 # ================================================================
 # Extensions
 # ================================================================
 db            = SQLAlchemy(app)
-mail          = Mail(app)
 login_manager = LoginManager(app)
 login_manager.login_view             = 'login'
 login_manager.login_message          = 'Please log in to access this page.'
 login_manager.login_message_category = 'warning'
 serializer    = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+
+# ================================================================
+# Email Helper (Resend API)
+# ================================================================
+
+def send_email_via_resend(to_email, subject, body):
+    """إرسال إيميل عبر Resend API"""
+    if not RESEND_API_KEY:
+        print("[RESEND] No API key configured")
+        return False
+    
+    try:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": "MyScanner <noreply@myscanner.onrender.com>",
+                "to": [to_email],
+                "subject": subject,
+                "text": body
+            }
+        )
+        if resp.status_code in (200, 201):
+            print(f"[RESEND SUCCESS] Email sent to {to_email}")
+            return True
+        else:
+            print(f"[RESEND ERROR] {resp.status_code}: {resp.text}")
+            return False
+    except Exception as e:
+        print(f"[RESEND ERROR] {e}")
+        return False
+
+def send_verification_email(user):
+    token = serializer.dumps(user.email, salt='email-verify')
+    link  = url_for('verify_email', token=token, _external=True)
+    subject = '✅ Verify your MyScanner account'
+    body = f"""Hello {user.username},
+
+Please click the link below to verify your email address:
+
+{link}
+
+This link expires in 1 hour.
+
+— MyScanner Team
+"""
+    send_email_via_resend(user.email, subject, body)
+
+def send_reset_email(user):
+    token = serializer.dumps(user.email, salt='password-reset')
+    link  = url_for('reset_password', token=token, _external=True)
+    subject = '🔑 Reset your MyScanner password'
+    body = f"""Hello {user.username},
+
+Click the link below to reset your password:
+
+{link}
+
+This link expires in 30 minutes.
+
+— MyScanner Team
+"""
+    send_email_via_resend(user.email, subject, body)
 
 
 # ================================================================
@@ -99,52 +157,6 @@ with app.app_context():
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
-
-
-# ================================================================
-# Email Helpers
-# ================================================================
-
-def send_verification_email(user):
-    token = serializer.dumps(user.email, salt='email-verify')
-    link  = url_for('verify_email', token=token, _external=True)
-    msg   = Message('✅ Verify your MyScanner account', 
-                    recipients=[user.email],
-                    sender=('MyScanner', 'ahmetsayrafi538213@gmail.com'))
-    msg.body = f"""Hello {user.username},
-
-Please click the link below to verify your email address:
-
-{link}
-
-This link expires in 1 hour.
-
-— MyScanner Team
-"""
-    try:
-        mail.send(msg)
-        print(f"[MAIL SUCCESS] Verification email sent to {user.email}")
-    except Exception as e:
-        print(f"[MAIL ERROR] {e}")
-
-def send_reset_email(user):
-    token = serializer.dumps(user.email, salt='password-reset')
-    link  = url_for('reset_password', token=token, _external=True)
-    msg   = Message('🔑 Reset your MyScanner password', recipients=[user.email])
-    msg.body = f"""Hello {user.username},
-
-Click the link below to reset your password:
-
-{link}
-
-This link expires in 30 minutes.
-
-— MyScanner Team
-"""
-    try:
-        mail.send(msg)
-    except Exception as e:
-        print(f"[MAIL ERROR] {e}")
 
 
 # ================================================================
@@ -252,21 +264,16 @@ def register():
         # إنشاء المستخدم (بدون توثيق)
         user = User(username=username, email=email)
         user.set_password(password)
-        # is_verified = False (افتراضي)
         db.session.add(user)
         db.session.commit()
 
         # إرسال إيميل التحقق
         try:
             send_verification_email(user)
-            flash('Account created! A verification email has been sent. Please check your inbox.', 'success')
         except Exception as e:
             print(f"[MAIL ERROR] {e}")
-            # إذا فشل الإرسال، نوثق المستخدم تلقائياً
-            user.is_verified = True
-            db.session.commit()
-            flash('Account created! You can now log in.', 'success')
 
+        flash('Account created! A verification email has been sent. Please check your inbox.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -465,7 +472,6 @@ def api_recent_scans():
 
     data = []
     for scan in scans:
-        # تجهيز summary
         summary = ''
         if scan.result:
             soup = BeautifulSoup(scan.result, 'html.parser')
@@ -547,7 +553,6 @@ def api_check_email():
         total_breaches = breaches.get("total_breaches", 0)
         last_breached  = breaches.get("date_last_breached", None)
         
-        # ── إصلاح قائمة الاختراقات ──
         breached_raw   = breaches.get("breached_domains", [])
         breached_list  = []
         for b in breached_raw:
@@ -559,7 +564,6 @@ def api_check_email():
                     "breach_date": b.get("breach_date", b.get("date", "N/A"))
                 })
         
-        # حدد أول 10 فقط
         breached_list = breached_list[:10]
 
         if not is_valid:
@@ -617,7 +621,6 @@ def api_check_ip():
         return jsonify({"error": "No IP provided"}), 400
 
     try:
-        # 1. IP info
         resp = requests.get(
             f"http://ip-api.com/json/{ip}",
             params={"fields": "status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,proxy,hosting,mobile,query"}
@@ -628,7 +631,6 @@ def api_check_ip():
 
         verdict = "suspicious" if r.get('proxy') or r.get('hosting') else "safe"
 
-        # 2. AbuseIPDB Blacklist Check
         blacklist_count = 0
         blacklist_results = []
         
@@ -644,7 +646,6 @@ def api_check_ip():
                     abuse_score = abuse_data.get("data", {}).get("abuseConfidenceScore", 0)
                     total_reports = abuse_data.get("data", {}).get("totalReports", 0)
                     
-                    # إضافة AbuseIPDB كـ blacklist
                     if abuse_score > 0:
                         blacklist_results.append({
                             "name": "AbuseIPDB",
@@ -659,7 +660,6 @@ def api_check_ip():
                             "detail": "Clean"
                         })
                     
-                    # تحديث الحكم إذا كان score عالي
                     if abuse_score >= 50:
                         verdict = "blacklisted"
                 else:

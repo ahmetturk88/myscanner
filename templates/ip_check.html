@@ -9,7 +9,6 @@
     padding: 56px 24px 100px;
   }
 
-  /* PAGE HEADER */
   .page-head {
     text-align: center;
     margin-bottom: 44px;
@@ -47,7 +46,6 @@
     line-height: 1.7;
   }
 
-  /* SEARCH BOX */
   .search-box {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -112,7 +110,6 @@
   }
   .my-ip-btn button:hover { color: var(--accent); border-color: var(--accent); }
 
-  /* ERROR */
   #error-div {
     background: var(--red-dim);
     border: 1px solid rgba(255,69,96,.3);
@@ -124,7 +121,6 @@
     margin-bottom: 16px;
   }
 
-  /* LOADING */
   #loading-div {
     text-align: center;
     padding: 40px;
@@ -145,7 +141,6 @@
   }
   @keyframes rot { to { transform: rotate(360deg); } }
 
-  /* RESULT */
   .result-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -155,7 +150,6 @@
     display: none;
   }
 
-  /* Verdict Banner */
   .verdict-banner {
     border-radius: 12px;
     padding: 20px 24px;
@@ -170,9 +164,9 @@
 
   .banner-safe       { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(0,230,118,.3); }
   .banner-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .banner-blacklisted{ background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,69,96,.3); }
   .banner-unknown    { background: var(--surface2);   color: var(--muted);  border: 1px solid var(--border); }
 
-  /* Stats Grid */
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -198,7 +192,6 @@
   .stat-box.warn { border-color: rgba(255,211,42,.25); }
   .stat-box.warn .s-value { color: var(--yellow); }
 
-  /* Details Table */
   .details-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .details-table tr { border-bottom: 1px solid var(--border); }
   .details-table tr:last-child { border-bottom: none; }
@@ -206,7 +199,6 @@
   .details-table td:first-child { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; width: 38%; }
   .details-table td:last-child  { color: var(--text); font-weight: 600; }
 
-  /* Map Card */
   .map-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -245,9 +237,88 @@
   }
   .coord-item span { color: var(--accent); font-weight: 700; }
 
+  /* Blacklist Card */
+  .blacklist-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    display: none;
+  }
+
+  .blacklist-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .blacklist-top h3 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .bl-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+  .bl-badge.clean { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .bl-badge.listed{ background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,69,96,.3); }
+
+  .bl-summary {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .bl-item .bl-lbl { font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; margin-bottom: 4px; }
+  .bl-item .bl-val { font-size: 18px; font-weight: 700; font-family: var(--mono); }
+
+  .bl-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .bl-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    transition: border-color .15s;
+  }
+  .bl-entry:hover { border-color: rgba(255,69,96,.2); }
+  .bl-entry .bl-name { font-weight: 600; color: var(--text); font-family: var(--mono); font-size: 12px; }
+  .bl-entry .bl-status { font-size: 11px; font-family: var(--mono); font-weight: 700; }
+  .bl-entry .bl-status.listed { color: var(--red); }
+  .bl-entry .bl-status.clean  { color: var(--green); }
+
+  .no-blist {
+    text-align: center;
+    padding: 32px;
+    color: var(--green);
+    font-weight: 600;
+    font-size: 15px;
+  }
+
   @media (max-width: 580px) {
     .search-box { flex-direction: column; }
     .stats-grid { grid-template-columns: repeat(2,1fr); }
+    .bl-summary { flex-direction: column; gap: 14px; }
   }
 </style>
 {% endblock %}
@@ -255,14 +326,12 @@
 {% block content %}
 <div class="ip-wrap">
 
-  <!-- Header -->
   <div class="page-head">
     <div class="label">Security Tool</div>
     <h1>IP Address <span>Lookup</span></h1>
-    <p>Analyze any IP — location, ISP, proxy detection, and threat assessment</p>
+    <p>Analyze any IP — location, ISP, proxy detection, blacklist status, and threat assessment</p>
   </div>
 
-  <!-- Search -->
   <div class="search-box">
     <input type="text" id="ip-input" placeholder="Enter IP address (e.g. 8.8.8.8)" autocomplete="off">
     <button id="check-btn" onclick="checkIP()">Analyze →</button>
@@ -275,9 +344,7 @@
   <div id="error-div">❌ <span id="error-msg"></span></div>
   <div id="loading-div"><span class="spin"></span>Analyzing IP address...</div>
 
-  <!-- Result -->
   <div class="result-card" id="result-card">
-
     <div id="verdict-banner" class="verdict-banner">
       <div class="v-icon" id="v-icon"></div>
       <div class="v-text">
@@ -285,13 +352,19 @@
         <p id="v-sub"></p>
       </div>
     </div>
-
     <div class="stats-grid" id="stats-grid"></div>
     <table class="details-table" id="details-table"></table>
-
   </div>
 
-  <!-- Map -->
+  <div class="blacklist-card" id="blacklist-card">
+    <div class="blacklist-top">
+      <h3>🚫 Blacklist Status</h3>
+      <span class="bl-badge clean" id="bl-badge">CLEAN</span>
+    </div>
+    <div class="bl-summary" id="bl-summary"></div>
+    <div class="bl-list" id="bl-list"></div>
+  </div>
+
   <div class="map-card" id="map-card">
     <div class="map-card-title">📍 Geographic Location</div>
     <iframe id="map-frame" src="" frameborder="0" allowfullscreen></iframe>
@@ -307,9 +380,10 @@
 {% block body_extra %}
 <script>
   const VC = {
-    safe:       { icon:'✅', title:'Clean IP Address',     sub:'No threats detected. This IP appears to be safe.',              cls:'banner-safe' },
-    suspicious: { icon:'⚠️', title:'Suspicious IP',        sub:'This IP is associated with a proxy, VPN, or hosting service.',  cls:'banner-suspicious' },
-    unknown:    { icon:'❓', title:'Unknown',              sub:'Could not determine the threat level of this IP.',              cls:'banner-unknown' },
+    safe:        { icon:'✅', title:'Clean IP Address',     sub:'No threats detected. This IP appears to be safe.',              cls:'banner-safe' },
+    suspicious:  { icon:'⚠️', title:'Suspicious IP',        sub:'This IP is associated with a proxy, VPN, or hosting service.',  cls:'banner-suspicious' },
+    blacklisted: { icon:'🚫', title:'Blacklisted IP',       sub:'This IP was found in one or more blacklists!',                  cls:'banner-blacklisted' },
+    unknown:     { icon:'❓', title:'Unknown',              sub:'Could not determine the threat level of this IP.',              cls:'banner-unknown' },
   };
 
   async function checkMyIP() {
@@ -326,36 +400,24 @@
   async function checkIP() {
     const ip  = document.getElementById('ip-input').value.trim();
     const btn = document.getElementById('check-btn');
-
-    ['result-card','map-card','loading-div','error-div'].forEach(id => {
+    ['result-card','map-card','blacklist-card','loading-div','error-div'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
-
     if (!ip) { showErr('Please enter an IP address.'); return; }
-
     btn.disabled = true;
     document.getElementById('loading-div').style.display = 'block';
-
     try {
-      const r    = await fetch('/api/check-ip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip })
-      });
+      const r    = await fetch('/api/check-ip', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ip }) });
       const data = await r.json();
       document.getElementById('loading-div').style.display = 'none';
-
       if (data.error) { showErr(data.error); return; }
-
       renderResult(data);
+      renderBlacklist(data);
       renderMap(data);
-
     } catch(e) {
       document.getElementById('loading-div').style.display = 'none';
       showErr('Network error. Please try again.');
-    } finally {
-      btn.disabled = false;
-    }
+    } finally { btn.disabled = false; }
   }
 
   function showErr(msg) {
@@ -365,9 +427,8 @@
 
   function yn(v, reverse) {
     const good = reverse ? !v : v;
-    return good
-      ? '<span style="color:var(--green);font-weight:700;">✓ Yes</span>'
-      : '<span style="color:var(--red);font-weight:700;">✗ No</span>';
+    return good ? '<span style="color:var(--green);font-weight:700;">✓ Yes</span>'
+                : '<span style="color:var(--red);font-weight:700;">✗ No</span>';
   }
 
   function renderResult(d) {
@@ -381,68 +442,66 @@
     const flag = d.country_code ? `https://flagcdn.com/24x18/${d.country_code.toLowerCase()}.png` : '';
 
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-box">
-        <div class="s-icon">🌐</div>
-        <div class="s-label">IP ADDRESS</div>
-        <div class="s-value">${d.ip || '—'}</div>
-      </div>
-      <div class="stat-box">
-        <div class="s-icon">${flag ? `<img src="${flag}" style="border-radius:2px;">` : '🌍'}</div>
-        <div class="s-label">COUNTRY</div>
-        <div class="s-value">${d.country || '—'}</div>
-      </div>
-      <div class="stat-box">
-        <div class="s-icon">🏙️</div>
-        <div class="s-label">CITY</div>
-        <div class="s-value">${d.city || '—'}</div>
-      </div>
-      <div class="stat-box">
-        <div class="s-icon">📡</div>
-        <div class="s-label">ISP</div>
-        <div class="s-value" style="font-size:11px;">${d.isp || '—'}</div>
-      </div>
-      <div class="stat-box ${d.is_proxy ? 'bad' : 'good'}">
-        <div class="s-icon">🔒</div>
-        <div class="s-label">PROXY/VPN</div>
-        <div class="s-value">${d.is_proxy ? 'Yes ⚠️' : 'No'}</div>
-      </div>
-      <div class="stat-box ${d.is_hosting ? 'warn' : 'good'}">
-        <div class="s-icon">🖥️</div>
-        <div class="s-label">HOSTING</div>
-        <div class="s-value">${d.is_hosting ? 'Yes' : 'No'}</div>
-      </div>
-      <div class="stat-box">
-        <div class="s-icon">📱</div>
-        <div class="s-label">MOBILE</div>
-        <div class="s-value">${d.is_mobile ? 'Yes' : 'No'}</div>
-      </div>
-      <div class="stat-box">
-        <div class="s-icon">🕐</div>
-        <div class="s-label">TIMEZONE</div>
-        <div class="s-value" style="font-size:11px;">${d.timezone || '—'}</div>
-      </div>
+      <div class="stat-box"><div class="s-icon">🌐</div><div class="s-label">IP ADDRESS</div><div class="s-value">${d.ip||'—'}</div></div>
+      <div class="stat-box"><div class="s-icon">${flag?`<img src="${flag}" style="border-radius:2px;">`:'🌍'}</div><div class="s-label">COUNTRY</div><div class="s-value">${d.country||'—'}</div></div>
+      <div class="stat-box"><div class="s-icon">🏙️</div><div class="s-label">CITY</div><div class="s-value">${d.city||'—'}</div></div>
+      <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${d.isp||'—'}</div></div>
+      <div class="stat-box ${d.is_proxy?'bad':'good'}"><div class="s-icon">🔒</div><div class="s-label">PROXY/VPN</div><div class="s-value">${d.is_proxy?'Yes ⚠️':'No'}</div></div>
+      <div class="stat-box ${d.is_hosting?'warn':'good'}"><div class="s-icon">🖥️</div><div class="s-label">HOSTING</div><div class="s-value">${d.is_hosting?'Yes':'No'}</div></div>
+      <div class="stat-box"><div class="s-icon">📱</div><div class="s-label">MOBILE</div><div class="s-value">${d.is_mobile?'Yes':'No'}</div></div>
+      <div class="stat-box ${(d.blacklist_count||0)>0?'bad':'good'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLISTS</div><div class="s-value">${d.blacklist_count||0}</div></div>
     `;
 
     document.getElementById('details-table').innerHTML = `
-      <tr><td>IP ADDRESS</td><td>${d.ip || '—'}</td></tr>
-      <tr><td>COUNTRY</td><td>${d.country || '—'} ${d.country_code ? '('+d.country_code+')' : ''}</td></tr>
-      <tr><td>REGION</td><td>${d.region || '—'}</td></tr>
-      <tr><td>CITY</td><td>${d.city || '—'}</td></tr>
-      <tr><td>TIMEZONE</td><td>${d.timezone || '—'}</td></tr>
-      <tr><td>ISP</td><td>${d.isp || '—'}</td></tr>
-      <tr><td>ORGANIZATION</td><td>${d.org || '—'}</td></tr>
+      <tr><td>IP ADDRESS</td><td>${d.ip||'—'}</td></tr>
+      <tr><td>COUNTRY</td><td>${d.country||'—'} ${d.country_code?'('+d.country_code+')':''}</td></tr>
+      <tr><td>REGION</td><td>${d.region||'—'}</td></tr>
+      <tr><td>CITY</td><td>${d.city||'—'}</td></tr>
+      <tr><td>TIMEZONE</td><td>${d.timezone||'—'}</td></tr>
+      <tr><td>ISP</td><td>${d.isp||'—'}</td></tr>
+      <tr><td>ORGANIZATION</td><td>${d.org||'—'}</td></tr>
       <tr><td>PROXY / VPN</td><td>${yn(d.is_proxy)}</td></tr>
       <tr><td>HOSTING SERVER</td><td>${yn(d.is_hosting)}</td></tr>
       <tr><td>MOBILE NETWORK</td><td>${yn(d.is_mobile)}</td></tr>
+      <tr><td>BLACKLIST COUNT</td><td>${(d.blacklist_count||0)}</td></tr>
       <tr><td>COORDINATES</td><td>${d.lat}, ${d.lon}</td></tr>
     `;
 
     document.getElementById('result-card').style.display = 'block';
   }
 
+  function renderBlacklist(d) {
+    const bl = d.blacklist_results || [];
+    const count = d.blacklist_count || 0;
+    const badge = document.getElementById('bl-badge');
+
+    if (count === 0) {
+      badge.className = 'bl-badge clean';
+      badge.textContent = 'CLEAN';
+      document.getElementById('bl-summary').innerHTML = `
+        <div class="bl-item"><div class="bl-lbl">BLACKLISTS CHECKED</div><div class="bl-val" style="color:var(--green);">${bl.length||0}</div></div>
+        <div class="bl-item"><div class="bl-lbl">LISTED</div><div class="bl-val" style="color:var(--green);">0</div></div>
+      `;
+      document.getElementById('bl-list').innerHTML = '<div class="no-blist">✅ IP is clean — not found in any blacklist.</div>';
+    } else {
+      badge.className = 'bl-badge listed';
+      badge.textContent = count + ' LISTED';
+      document.getElementById('bl-summary').innerHTML = `
+        <div class="bl-item"><div class="bl-lbl">BLACKLISTS CHECKED</div><div class="bl-val" style="color:var(--red);">${bl.length||0}</div></div>
+        <div class="bl-item"><div class="bl-lbl">LISTED</div><div class="bl-val" style="color:var(--red);">${count}</div></div>
+      `;
+      document.getElementById('bl-list').innerHTML = bl.map(b => `
+        <div class="bl-entry">
+          <span class="bl-name">🚫 ${b.name}</span>
+          <span class="bl-status ${b.listed ? 'listed' : 'clean'}">${b.listed ? '⚠ LISTED' : '✅ CLEAN'}</span>
+        </div>
+      `).join('');
+    }
+    document.getElementById('blacklist-card').style.display = 'block';
+  }
+
   function renderMap(d) {
     if (!d.lat || !d.lon) return;
-
     const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${d.lon-0.05},${d.lat-0.05},${d.lon+0.05},${d.lat+0.05}&layer=mapnik&marker=${d.lat},${d.lon}`;
     document.getElementById('map-frame').src = mapUrl;
     document.getElementById('coord-lat').textContent = d.lat;

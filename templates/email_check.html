@@ -494,16 +494,16 @@
     document.getElementById('result-card').style.display = 'block';
   }
 
-  function renderBreaches(d) {
+ function renderBreaches(d) {
     allB = d.breached_domains || [];
     const total = d.total_breaches || 0;
     const badge = document.getElementById('breach-badge');
-    badge.textContent = total + (total !== 1 ? ' BREACHES':' BREACH') + ' FOUND';
-
+    
     if (total === 0) {
       badge.style.background = 'var(--green-dim)';
       badge.style.color = 'var(--green)';
       badge.style.borderColor = 'rgba(0,230,118,.3)';
+      badge.textContent = '0 BREACHES FOUND';
       document.getElementById('breaches-list').innerHTML = '<div class="no-breach">✅ Great news! No known data breaches found for this email.</div>';
       document.getElementById('breach-summary').style.display = 'none';
     } else {
@@ -511,15 +511,12 @@
       document.getElementById('breach-summary').innerHTML = `
         <div class="bs-item"><div class="bs-lbl">TOTAL BREACHES</div><div class="bs-val">${total}</div></div>
         <div class="bs-item"><div class="bs-lbl">LAST BREACHED</div><div class="bs-val" style="font-size:14px;">${d.last_breached||'Unknown'}</div></div>
-        <div class="bs-item"><div class="bs-lbl">SHOWN BELOW</div><div class="bs-val">${Math.min(allB.length,10)} / ${total}</div></div>
       `;
-      renderBList(allB.slice(0,10));
+      renderBList(allB.slice(0, 10));
       if (allB.length > 10) document.getElementById('show-more').style.display = 'block';
     }
-
     document.getElementById('breaches-card').style.display = 'block';
   }
-
   function renderBList(list) {
     document.getElementById('breaches-list').innerHTML = list.map(b => `
       <div class="breach-item">

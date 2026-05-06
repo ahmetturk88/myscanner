@@ -46,6 +46,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
 
 API_KEY          = os.getenv('VIRUSTOTAL_API_KEY')
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
+ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY')
 
 # ================================================================
 # Extensions
@@ -107,7 +108,9 @@ def load_user(user_id):
 def send_verification_email(user):
     token = serializer.dumps(user.email, salt='email-verify')
     link  = url_for('verify_email', token=token, _external=True)
-    msg   = Message('✅ Verify your MyScanner account', recipients=[user.email])
+    msg   = Message('✅ Verify your MyScanner account', 
+                    recipients=[user.email],
+                    sender=('MyScanner', 'ahmetsayrafi538213@gmail.com'))
     msg.body = f"""Hello {user.username},
 
 Please click the link below to verify your email address:
@@ -120,9 +123,9 @@ This link expires in 1 hour.
 """
     try:
         mail.send(msg)
+        print(f"[MAIL SUCCESS] Verification email sent to {user.email}")
     except Exception as e:
         print(f"[MAIL ERROR] {e}")
-
 
 def send_reset_email(user):
     token = serializer.dumps(user.email, salt='password-reset')
@@ -246,14 +249,24 @@ def register():
             flash('Email already registered.', 'danger')
             return redirect(url_for('register'))
 
+        # إنشاء المستخدم (بدون توثيق)
         user = User(username=username, email=email)
         user.set_password(password)
+        # is_verified = False (افتراضي)
         db.session.add(user)
         db.session.commit()
 
-        user.is_verified = True
-        db.session.commit()
-        flash('Account created! You can now log in.', 'success')
+        # إرسال إيميل التحقق
+        try:
+            send_verification_email(user)
+            flash('Account created! A verification email has been sent. Please check your inbox.', 'success')
+        except Exception as e:
+            print(f"[MAIL ERROR] {e}")
+            # إذا فشل الإرسال، نوثق المستخدم تلقائياً
+            user.is_verified = True
+            db.session.commit()
+            flash('Account created! You can now log in.', 'success')
+
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -533,7 +546,21 @@ def api_check_email():
         address_risk   = risk.get("address_risk_status", "unknown")
         total_breaches = breaches.get("total_breaches", 0)
         last_breached  = breaches.get("date_last_breached", None)
-        breached_list  = breaches.get("breached_domains", [])[:10]
+        
+        # ── إصلاح قائمة الاختراقات ──
+        breached_raw   = breaches.get("breached_domains", [])
+        breached_list  = []
+        for b in breached_raw:
+            if isinstance(b, str):
+                breached_list.append({"domain": b, "breach_date": "N/A"})
+            elif isinstance(b, dict):
+                breached_list.append({
+                    "domain": b.get("domain", b.get("name", "Unknown")),
+                    "breach_date": b.get("breach_date", b.get("date", "N/A"))
+                })
+        
+        # حدد أول 10 فقط
+        breached_list = breached_list[:10]
 
         if not is_valid:
             verdict = "invalid"
@@ -590,16 +617,69 @@ def api_check_ip():
         return jsonify({"error": "No IP provided"}), 400
 
     try:
+        # 1. IP info
         resp = requests.get(
             f"http://ip-api.com/json/{ip}",
             params={"fields": "status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,proxy,hosting,mobile,query"}
         )
         r = resp.json()
-
         if r.get('status') == 'fail':
             return jsonify({"error": r.get('message', 'Invalid IP')}), 400
 
         verdict = "suspicious" if r.get('proxy') or r.get('hosting') else "safe"
+
+        # 2. AbuseIPDB Blacklist Check
+        blacklist_count = 0
+        blacklist_results = []
+        
+        if ABUSEIPDB_API_KEY:
+            try:
+                abuse_resp = requests.get(
+                    "https://api.abuseipdb.com/api/v2/check",
+                    params={"ipAddress": ip, "maxAgeInDays": 90},
+                    headers={"Key": ABUSEIPDB_API_KEY, "Accept": "application/json"}
+                )
+                if abuse_resp.status_code == 200:
+                    abuse_data = abuse_resp.json()
+                    abuse_score = abuse_data.get("data", {}).get("abuseConfidenceScore", 0)
+                    total_reports = abuse_data.get("data", {}).get("totalReports", 0)
+                    
+                    # إضافة AbuseIPDB كـ blacklist
+                    if abuse_score > 0:
+                        blacklist_results.append({
+                            "name": "AbuseIPDB",
+                            "listed": True,
+                            "detail": f"Score: {abuse_score}% ({total_reports} reports)"
+                        })
+                        blacklist_count += 1
+                    else:
+                        blacklist_results.append({
+                            "name": "AbuseIPDB",
+                            "listed": False,
+                            "detail": "Clean"
+                        })
+                    
+                    # تحديث الحكم إذا كان score عالي
+                    if abuse_score >= 50:
+                        verdict = "blacklisted"
+                else:
+                    blacklist_results.append({
+                        "name": "AbuseIPDB",
+                        "listed": False,
+                        "detail": "API unavailable"
+                    })
+            except:
+                blacklist_results.append({
+                    "name": "AbuseIPDB",
+                    "listed": False,
+                    "detail": "Check failed"
+                })
+        else:
+            blacklist_results.append({
+                "name": "AbuseIPDB",
+                "listed": False,
+                "detail": "Not configured"
+            })
 
         return jsonify({
             "ip":           r.get('query'),
@@ -616,6 +696,8 @@ def api_check_ip():
             "is_proxy":     r.get('proxy', False),
             "is_hosting":   r.get('hosting', False),
             "is_mobile":    r.get('mobile', False),
+            "blacklist_count": blacklist_count,
+            "blacklist_results": blacklist_results,
         })
 
     except requests.exceptions.RequestException as e:
@@ -812,9 +894,9 @@ def api_site_scan():
             if parsed.netloc == base and href.startswith('http'):
                 links.add(href)
 
-        links = list(links)[:10]
+        links = list(links)[:50]
         links.insert(0, domain)
-        links = list(set(links))[:10]
+        links = list(set(links))[:50]
 
     except Exception as e:
         return jsonify({"error": f"Could not reach domain: {str(e)}"}), 400

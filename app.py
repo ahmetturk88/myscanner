@@ -55,6 +55,8 @@ serializer    = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 # Email Helper (Resend API)
 # ================================================================
 
+import base64
+
 def send_email_via_resend(to_email, subject, body):
     """إرسال إيميل عبر Resend API"""
     if not RESEND_API_KEY:

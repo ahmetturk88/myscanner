@@ -659,26 +659,27 @@
                 <span class="nav-brand-name">My<em>Scanner</em></span>
             </a>
             <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="Toggle menu">☰</button>
-            <div class="nav-links" id="nav-links">
-                <a href="{{ url_for('dashboard') }}">Home</a>
-                <a href="{{ url_for('email_check') }}">Email Checker</a>
-                <a href="{{ url_for('ip_check') }}">IP Checker</a>
-                <a href="{{ url_for('site_scanner') }}">Site Scanner</a>
-                <a href="{{ url_for('file_scanner') }}">File Scanner</a>
-                <a href="{{ url_for('password_check') }}">Password Check</a>
-                <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('about') }}">About</a>
-                <a href="{{ url_for('contact') }}">Contact</a>
-                {% if current_user.is_authenticated %}
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin_panel') }}" class="n-admin">⚡ Admin</a>
-                    {% endif %}
-                    <a href="{{ url_for('profile') }}" class="n-user">👤 {{ current_user.username }}</a>
-                    <a href="{{ url_for('logout') }}" class="n-logout">Logout</a>
-                {% else %}
-                    <a href="{{ url_for('login') }}" class="n-login">Login →</a>
-                {% endif %}
-            </div>
+<div class="nav-links" id="nav-links">
+    {% if current_user.is_authenticated %}
+        <a href="{{ url_for('dashboard') }}">Home</a>
+        <a href="{{ url_for('email_check') }}">Email Checker</a>
+        <a href="{{ url_for('ip_check') }}">IP Checker</a>
+        <a href="{{ url_for('site_scanner') }}">Site Scanner</a>
+        <a href="{{ url_for('file_scanner') }}">File Scanner</a>
+        <a href="{{ url_for('password_check') }}">Password Check</a>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('about') }}">About</a>
+        <a href="{{ url_for('contact') }}">Contact</a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin_panel') }}" class="n-admin">⚡ Admin</a>
+        {% endif %}
+        <a href="{{ url_for('profile') }}" class="n-user">👤 {{ current_user.username }}</a>
+        <a href="{{ url_for('logout') }}" class="n-logout">Logout</a>
+    {% else %}
+        <a href="{{ url_for('login') }}" class="n-login">Sign In</a>
+        <a href="{{ url_for('register') }}" class="n-register" style="background:var(--accent);color:#000;font-weight:700;padding:5px 14px;border-radius:6px;">Get Started</a>
+    {% endif %}
+</div>
         </div>
     </nav>
 

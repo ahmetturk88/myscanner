@@ -239,7 +239,7 @@ def scan_in_background(scan_id, url):
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -263,23 +263,16 @@ def register():
             flash('Email already registered.', 'danger')
             return redirect(url_for('register'))
 
-        # إنشاء المستخدم (بدون توثيق)
         user = User(username=username, email=email)
         user.set_password(password)
+        user.is_verified = True
         db.session.add(user)
         db.session.commit()
 
-        # إرسال إيميل التحقق
-        try:
-            send_verification_email(user)
-        except Exception as e:
-            print(f"[MAIL ERROR] {e}")
-
-        flash('Account created! A verification email has been sent. Please check your inbox.', 'success')
+        flash('Account created! You can now log in.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
-
 
 @app.route('/verify/<token>')
 def verify_email(token):
@@ -307,7 +300,7 @@ def verify_email(token):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         email    = request.form.get('email', '').strip().lower()
@@ -327,7 +320,7 @@ def login():
         login_user(user, remember=remember)
         flash(f'Welcome back, {user.username}!', 'success')
         next_page = request.args.get('next')
-        return redirect(next_page or url_for('home'))
+        return redirect(next_page or url_for('dashboard'))
 
     return render_template('login.html')
 
@@ -396,13 +389,20 @@ def profile():
 # Main Routes
 # ================================================================
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
+def landing():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return render_template('home.html')
+
+
+@app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
-def home():
+def dashboard():
     if request.method == 'POST':
         url = request.form.get('url', '').strip()
         if not url:
-            return redirect(url_for('home'))
+            return redirect(url_for('dashboard'))
 
         new_scan = Scan(url=url, verdict='pending', result='Pending...', user_id=current_user.id)
         db.session.add(new_scan)
@@ -422,10 +422,10 @@ def result_page(scan_id):
     scan = db.session.get(Scan, scan_id)
     if not scan:
         flash('Scan not found.', 'danger')
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
     if scan.user_id != current_user.id and not current_user.is_admin:
         flash('Access denied.', 'danger')
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
     return render_template('result.html', scan=scan)
 
 
@@ -503,7 +503,7 @@ def api_recent_scans():
 def admin_panel():
     if not current_user.is_admin:
         flash('Access denied.', 'danger')
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
     users = User.query.order_by(User.date_joined.desc()).all()
     scans = Scan.query.order_by(Scan.date_posted.desc()).limit(50).all()
     return render_template('admin.html', users=users, scans=scans)
@@ -707,31 +707,6 @@ def api_check_ip():
 
 
 # ================================================================
-# Dashboard
-# ================================================================
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    scans      = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).all()
-    total      = len(scans)
-    harmless   = sum(1 for s in scans if s.verdict == 'harmless')
-    malicious  = sum(1 for s in scans if s.verdict == 'malicious')
-    suspicious = sum(1 for s in scans if s.verdict == 'suspicious')
-    unknown    = sum(1 for s in scans if s.verdict == 'unknown')
-
-    seven_days    = [(datetime.utcnow() - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
-    scans_per_day = [sum(1 for s in scans if s.date_posted.strftime('%Y-%m-%d') == day) for day in seven_days]
-
-    return render_template('dashboard.html',
-        total=total, harmless=harmless, malicious=malicious,
-        suspicious=suspicious, unknown=unknown,
-        seven_days=seven_days, scans_per_day=scans_per_day,
-        recent_scans=scans[:5]
-    )
-
-
-# ================================================================
 # PDF Report
 # ================================================================
 
@@ -741,10 +716,10 @@ def download_pdf(scan_id):
     scan = db.session.get(Scan, scan_id)
     if not scan:
         flash('Scan not found.', 'danger')
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
     if scan.user_id != current_user.id and not current_user.is_admin:
         flash('Access denied.', 'danger')
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard'))
 
     raw = {}
     try:
@@ -949,6 +924,92 @@ def api_site_scan():
     return jsonify({"domain": domain, "total": total, "overall": overall,
                     "malicious": malicious_count, "suspicious": suspicious_count,
                     "harmless": harmless_count, "results": results})
+
+@app.route('/file-scanner')
+@login_required
+def file_scanner():
+    return render_template('file_scanner.html')
+
+
+@app.route('/api/scan-file', methods=['POST'])
+@login_required
+def api_scan_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    
+    try:
+        file_content = file.read()
+        file_size = len(file_content)
+        file_name = file.filename
+        
+        headers = {"x-apikey": API_KEY}
+        files = {'file': (file_name, file_content)}
+        upload_resp = requests.post(
+            "https://www.virustotal.com/api/v3/files",
+            headers=headers,
+            files=files
+        )
+        
+        if upload_resp.status_code not in (200, 201):
+            return jsonify({"error": f"Upload failed: {upload_resp.status_code}"}), 500
+        
+        upload_data = upload_resp.json()
+        analysis_id = upload_data.get("data", {}).get("id", "")
+        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
+        
+        for _ in range(30):
+            time.sleep(2)
+            analysis_resp = requests.get(analysis_url, headers=headers)
+            if analysis_resp.status_code == 200:
+                analysis_data = analysis_resp.json()
+                status = analysis_data.get("data", {}).get("attributes", {}).get("status", "")
+                if status == "completed":
+                    break
+        else:
+            return jsonify({"error": "Analysis timeout"}), 500
+        
+        stats = analysis_data.get("data", {}).get("attributes", {}).get("stats", {})
+        results = analysis_data.get("data", {}).get("attributes", {}).get("results", {})
+        
+        malicious = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+        harmless = stats.get("harmless", 0)
+        undetected = stats.get("undetected", 0)
+        
+        if malicious > 0:
+            verdict = "malicious"
+        elif suspicious > 0:
+            verdict = "suspicious"
+        else:
+            verdict = "harmless"
+        
+        engine_results = []
+        for engine_name, engine_data in results.items():
+            category = engine_data.get("category", "undetected")
+            if category in ("malicious", "suspicious"):
+                engine_results.append({
+                    "name": engine_name,
+                    "result": engine_data.get("result", category),
+                    "category": category
+                })
+        
+        return jsonify({
+            "file_name": file_name,
+            "file_size": file_size,
+            "verdict": verdict,
+            "malicious": malicious,
+            "suspicious": suspicious,
+            "harmless": harmless,
+            "undetected": undetected,
+            "engine_results": engine_results
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Scan error: {str(e)}"}), 500
 
 
 # ================================================================

@@ -446,7 +446,7 @@
     <h1>Scan. Verify.<br><span>Stay Protected.</span></h1>
     <p>Check any URL for threats, verify email addresses, and protect yourself — powered by 90+ security engines.</p>
 
-    <form method="POST" action="{{ url_for('home') }}" target="_blank">
+    <form method="POST" action="{{ url_for('dashboard') }}" target="_blank">
       <div class="scan-box">
         <input type="text" name="url" placeholder="https://example.com — enter URL to scan" required>
         <button type="submit">Scan URL →</button>
@@ -480,7 +480,7 @@
 
   <div class="services-grid">
 
-    <a href="{{ url_for('home') }}" class="svc-card">
+    <a href="{{ url_for('dashboard') }}" class="svc-card">
       <div class="svc-icon">🔗</div>
       <h3>URL Scanner</h3>
       <p>Scan any URL for malware, phishing, and threats using 90+ security engines powered by VirusTotal.</p>
@@ -515,12 +515,42 @@
       <span class="svc-link">Check Now →</span>
     </a>
 
-    <a href="{{ url_for('home') }}" class="svc-card">
+    <a href="{{ url_for('dashboard') }}" class="svc-card">
       <div class="svc-icon">📄</div>
       <h3>PDF Reports</h3>
       <p>After scanning any URL, download a professional PDF report directly from the results page.</p>
       <span class="svc-link">Scan to Get Report →</span>
     </a>
+
+    <a href="{{ url_for('file_scanner') }}" class="svc-card">
+  <div class="svc-icon">📁</div>
+  <h3>File Scanner</h3>
+  <p>Upload any file and scan it for viruses, malware, and threats using 70+ security engines.</p>
+  <span class="svc-link">Scan Now →</span>
+</a>
+<div class="svc-card disabled">
+  <div class="svc-badge">Coming Soon</div>
+  <div class="svc-icon">🔍</div>
+  <h3>Domain Lookup</h3>
+  <p>Get complete information about any domain — WHOIS, DNS records, SSL certificate, and more.</p>
+  <span class="svc-link disabled-link">Coming Soon</span>
+</div>
+
+<div class="svc-card disabled">
+  <div class="svc-badge">Coming Soon</div>
+  <div class="svc-icon">📱</div>
+  <h3>QR Code Scanner</h3>
+  <p>Scan QR codes from URLs or uploaded images and verify their safety before opening them.</p>
+  <span class="svc-link disabled-link">Coming Soon</span>
+</div>
+
+<div class="svc-card disabled">
+  <div class="svc-badge">Coming Soon</div>
+  <div class="svc-icon">🛡️</div>
+  <h3>SSL Checker</h3>
+  <p>Verify SSL/TLS certificates for any website — expiration, issuer, and security grade.</p>
+  <span class="svc-link disabled-link">Coming Soon</span>
+</div>
 
   </div>
 

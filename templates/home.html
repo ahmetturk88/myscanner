@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="icon" href="{{ url_for('static', filename='security-scan.png') }}" type="image/png">
     <style>
         :root {
             --bg:         #080810;
@@ -52,6 +53,40 @@
             pointer-events: none;
             z-index: 0;
         }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes typewriter {
+            from { width: 0; }
+            to   { width: 100%; }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── HERO TYPEWRITER ── */
+        .typewriter-line {
+            display: block;
+            overflow: hidden;
+            white-space: nowrap;
+            margin: 0 auto;
+            animation: typewriter 1.5s steps(20) forwards;
+        }
+
+        .typewriter-delay-1 { animation-delay: 0.3s; }
+        .typewriter-delay-2 { animation-delay: 0.9s; }
 
         /* NAVBAR */
         .navbar {
@@ -98,6 +133,19 @@
         }
 
         .nav-brand-name em { color: var(--accent); font-style: normal; }
+
+        .nav-toggle {
+            display: none;
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
 
         .nav-links {
             display: flex;
@@ -177,6 +225,7 @@
             letter-spacing: 1.5px;
             text-transform: uppercase;
             margin-bottom: 24px;
+            animation: fadeInUp 0.8s ease;
         }
 
         .hero-tag::before {
@@ -210,6 +259,7 @@
             max-width: 500px;
             margin: 0 auto 36px;
             line-height: 1.7;
+            animation: fadeInUp 1s ease;
         }
 
         .hero-btns {
@@ -217,6 +267,7 @@
             gap: 12px;
             justify-content: center;
             flex-wrap: wrap;
+            animation: fadeInUp 1.2s ease;
         }
 
         .btn {
@@ -255,9 +306,7 @@
             flex-wrap: wrap;
         }
 
-        .stat-item {
-            text-align: center;
-        }
+        .stat-item { text-align: center; }
 
         .stat-item .num {
             font-family: var(--mono);
@@ -266,11 +315,7 @@
             color: var(--accent);
         }
 
-        .stat-item .lbl {
-            font-size: 13px;
-            color: var(--muted);
-            margin-top: 4px;
-        }
+        .stat-item .lbl { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
         /* SECTION */
         .section {
@@ -324,71 +369,39 @@
             box-shadow: 0 12px 40px rgba(0,200,255,0.08);
         }
 
-        .svc-card.disabled {
-            opacity: 0.55;
-            cursor: default;
-        }
-
-        .svc-card.disabled:hover {
-            border-color: var(--border);
-            transform: none;
-            box-shadow: none;
-        }
+        .svc-card.disabled { opacity: 0.55; cursor: default; }
+        .svc-card.disabled:hover { border-color: var(--border); transform: none; box-shadow: none; }
 
         .svc-badge {
             position: absolute;
-            top: 16px;
-            right: 16px;
+            top: 16px; right: 16px;
             font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            background: var(--yellow-dim);
-            color: var(--yellow);
+            font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+            background: var(--yellow-dim); color: var(--yellow);
             border: 1px solid rgba(255,211,42,0.25);
-            padding: 3px 10px;
-            border-radius: 20px;
+            padding: 3px 10px; border-radius: 20px;
         }
 
         .svc-icon {
-            width: 48px;
-            height: 48px;
+            width: 48px; height: 48px;
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 12px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            margin-bottom: 18px;
+            align-items: center; justify-content: center;
+            font-size: 22px; margin-bottom: 18px;
             transition: background .2s;
         }
 
         .svc-card:hover .svc-icon { background: var(--accent-dim); }
 
-        .svc-card h3 {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 8px;
-        }
-
-        .svc-card p {
-            font-size: 13px;
-            color: var(--muted);
-            line-height: 1.7;
-            margin-bottom: 20px;
-        }
+        .svc-card h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+        .svc-card p { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 20px; }
 
         .svc-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--accent);
-            font-family: var(--mono);
-            transition: gap .2s;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 13px; font-weight: 600; color: var(--accent);
+            font-family: var(--mono); transition: gap .2s;
         }
 
         .svc-card:hover .svc-link { gap: 10px; }
@@ -414,30 +427,15 @@
 
         .step-num {
             width: 48px; height: 48px;
-            background: var(--accent);
-            color: #000;
+            background: var(--accent); color: #000;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: var(--mono);
-            font-size: 18px;
-            font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--mono); font-size: 18px; font-weight: 700;
             margin: 0 auto 16px;
         }
 
-        .step-card h4 {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 8px;
-        }
-
-        .step-card p {
-            font-size: 13px;
-            color: var(--muted);
-            line-height: 1.6;
-        }
+        .step-card h4 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+        .step-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
 
         /* CTA */
         .cta-section {
@@ -449,90 +447,73 @@
 
         .cta-section h2 {
             font-family: var(--mono);
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 16px;
+            font-size: 28px; font-weight: 700;
+            color: var(--text); margin-bottom: 16px;
         }
-
-        .cta-section p {
-            font-size: 15px;
-            color: var(--muted);
-            margin-bottom: 32px;
-        }
+        .cta-section p { font-size: 15px; color: var(--muted); margin-bottom: 32px; }
 
         /* FOOTER */
         footer {
             background: var(--surface);
             border-top: 1px solid var(--border);
             padding: 52px 28px 0;
-            position: relative;
-            z-index: 1;
+            position: relative; z-index: 1;
         }
 
         .footer-inner {
-            max-width: 1000px;
-            margin: 0 auto;
+            max-width: 1000px; margin: 0 auto;
             display: grid;
             grid-template-columns: 2fr 1fr 1fr 1.5fr;
-            gap: 48px;
-            padding-bottom: 40px;
+            gap: 48px; padding-bottom: 40px;
         }
 
         .footer-col-title {
             font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 2.5px;
-            text-transform: uppercase;
-            color: var(--accent);
-            margin-bottom: 14px;
+            font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 14px;
         }
 
-        .footer-col p,
-        .footer-col a {
-            display: block;
-            font-size: 13px;
-            color: var(--muted);
-            line-height: 2;
-            text-decoration: none;
-            transition: color .15s;
+        .footer-col p, .footer-col a {
+            display: block; font-size: 13px; color: var(--muted);
+            line-height: 2; text-decoration: none; transition: color .15s;
         }
-
         .footer-col a:hover { color: var(--text); }
 
         .footer-socials { display: flex; gap: 10px; margin-top: 14px; }
 
         .footer-socials a {
             width: 34px; height: 34px;
-            background: var(--surface2);
-            border: 1px solid var(--border);
+            background: var(--surface2); border: 1px solid var(--border);
             border-radius: 8px;
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
-            color: var(--muted) !important;
-            font-size: 13px;
-            line-height: 1 !important;
-            text-decoration: none;
-            transition: all .18s;
+            display: flex !important; align-items: center; justify-content: center;
+            color: var(--muted) !important; font-size: 13px; line-height: 1 !important;
+            text-decoration: none; transition: all .18s;
         }
 
         .footer-socials a:hover {
-            background: var(--accent) !important;
-            border-color: var(--accent) !important;
+            background: var(--accent) !important; border-color: var(--accent) !important;
             color: #000 !important;
         }
 
         .footer-bottom {
             border-top: 1px solid var(--border);
-            padding: 14px 0;
-            text-align: center;
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--muted);
+            padding: 14px 0; text-align: center;
+            font-family: var(--mono); font-size: 11px; color: var(--muted);
         }
 
         @media (max-width: 768px) {
+            .nav-toggle { display: block; }
+            .nav-links { 
+                display: none; flex-direction: column; 
+                position: absolute; top: 60px; left: 0; right: 0;
+                background: rgba(8,8,16,0.99); border-bottom: 1px solid var(--border);
+                padding: 10px 16px; z-index: 199;
+            }
+            .nav-links.open { display: flex; }
+            .nav-links a { padding: 12px 16px; border-bottom: 1px solid rgba(42,42,69,0.5); font-size: 14px; }
+            .nav-links a:last-child { border-bottom: none; }
+            .n-login, .n-register { text-align: center; margin-top: 8px; }
+            
             .hero { padding: 120px 16px 60px; }
             .hero h1 { font-size: 28px; }
             .hero p { font-size: 14px; }
@@ -578,14 +559,17 @@
     <nav>
         <div class="navbar">
             <a href="/" class="nav-brand">
-                <div class="nav-brand-icon">🔍</div>
+                <div class="nav-brand-icon">
+                <img src="{{ url_for('static', filename='security-scan.png') }}" alt="logo" style="width: 20px; height: 20px;">
+                </div>
                 <span class="nav-brand-name">My<em>Scanner</em></span>
             </a>
-            <div class="nav-links">
+            <button class="nav-toggle" onclick="document.getElementById('nav-links').classList.toggle('open')">☰</button>
+            <div class="nav-links" id="nav-links">
                 <a href="/">Home</a>
                 <a href="#services">Services</a>
                 <a href="{{ url_for('login') }}" class="n-login">Sign In</a>
-                <a href="{{ url_for('register') }}" class="n-register">Get Started →</a>
+                <a href="{{ url_for('register') }}" class="n-register">Get Started</a>
             </div>
         </div>
     </nav>
@@ -594,7 +578,10 @@
     <div class="hero">
         <div class="hero-glow"></div>
         <div class="hero-tag">Cybersecurity Toolkit</div>
-        <h1>Scan. Verify.<br><span>Stay Protected.</span></h1>
+        <h1>
+            <span class="typewriter-line">Scan. Verify.</span>
+            <span class="typewriter-line typewriter-delay-1"><span>Stay Protected.</span></span>
+        </h1>
         <p>Check URLs, files, IPs, emails, and more — powered by 90+ security engines. Free to use, real-time results.</p>
         <div class="hero-btns">
             <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started Free →</a>
@@ -613,82 +600,16 @@
     <div class="section" id="services">
         <h2 class="section-title">🛡️ Our Services</h2>
         <p class="section-sub">Everything you need to stay safe online — all in one place.</p>
-
         <div class="services-grid">
-
-            <!-- URL Scanner -->
-            <a href="{{ url_for('login') }}" class="svc-card">
-                <div class="svc-icon">🔗</div>
-                <h3>URL Scanner</h3>
-                <p>Scan any URL for malware, phishing, and threats using 90+ engines powered by VirusTotal.</p>
-                <span class="svc-link">Login to Scan →</span>
-            </a>
-
-            <!-- Email Checker -->
-            <a href="{{ url_for('login') }}" class="svc-card">
-                <div class="svc-icon">📧</div>
-                <h3>Email Checker</h3>
-                <p>Verify any email — check validity, deliverability, and data breach history with detailed reports.</p>
-                <span class="svc-link">Login to Check →</span>
-            </a>
-
-            <!-- IP Lookup -->
-            <a href="{{ url_for('login') }}" class="svc-card">
-                <div class="svc-icon">🌐</div>
-                <h3>IP Address Lookup</h3>
-                <p>Analyze any IP address — find location, ISP, threat level, and blacklist status instantly.</p>
-                <span class="svc-link">Login to Check →</span>
-            </a>
-
-            <!-- Site Scanner -->
-            <a href="{{ url_for('login') }}" class="svc-card">
-                <div class="svc-icon">🌍</div>
-                <h3>Full Site Scanner</h3>
-                <p>Enter a domain and scan all its links at once — get a complete security report.</p>
-                <span class="svc-link">Login to Scan →</span>
-            </a>
-
-            <!-- Password Check -->
-            <a href="{{ url_for('login') }}" class="svc-card">
-                <div class="svc-icon">🔐</div>
-                <h3>Password Breach Check</h3>
-                <p>Check if your password was exposed in known data breaches without revealing it.</p>
-                <span class="svc-link">Login to Check →</span>
-            </a>
-
-            <!-- File Scanner -->
-            <a href="{{ url_for('login') }}" class="svc-card">
-                <div class="svc-icon">📁</div>
-                <h3>File Scanner</h3>
-                <p>Upload any file and scan it for viruses, malware, and threats using 70+ engines.</p>
-                <span class="svc-link">Login to Scan →</span>
-            </a>
-
-            <!-- Coming Soon Cards -->
-            <div class="svc-card disabled">
-                <div class="svc-badge">Soon</div>
-                <div class="svc-icon">🔍</div>
-                <h3>Domain Lookup</h3>
-                <p>Get complete WHOIS, DNS, and registration info for any domain.</p>
-                <span class="svc-link disabled-link">Coming Soon</span>
-            </div>
-
-            <div class="svc-card disabled">
-                <div class="svc-badge">Soon</div>
-                <div class="svc-icon">📱</div>
-                <h3>QR Code Scanner</h3>
-                <p>Scan QR codes from URLs or images and verify their safety instantly.</p>
-                <span class="svc-link disabled-link">Coming Soon</span>
-            </div>
-
-            <div class="svc-card disabled">
-                <div class="svc-badge">Soon</div>
-                <div class="svc-icon">🛡️</div>
-                <h3>SSL Checker</h3>
-                <p>Verify SSL/TLS certificates — expiration, issuer, and security grade.</p>
-                <span class="svc-link disabled-link">Coming Soon</span>
-            </div>
-
+            <a href="{{ url_for('login') }}" class="svc-card"><div class="svc-icon">🔗</div><h3>URL Scanner</h3><p>Scan any URL for malware, phishing, and threats using 90+ engines powered by VirusTotal.</p><span class="svc-link">Login to Scan →</span></a>
+            <a href="{{ url_for('login') }}" class="svc-card"><div class="svc-icon">📧</div><h3>Email Checker</h3><p>Verify any email — check validity, deliverability, and data breach history with detailed reports.</p><span class="svc-link">Login to Check →</span></a>
+            <a href="{{ url_for('login') }}" class="svc-card"><div class="svc-icon">🌐</div><h3>IP Address Lookup</h3><p>Analyze any IP address — find location, ISP, threat level, and blacklist status instantly.</p><span class="svc-link">Login to Check →</span></a>
+            <a href="{{ url_for('login') }}" class="svc-card"><div class="svc-icon">🌍</div><h3>Full Site Scanner</h3><p>Enter a domain and scan all its links at once — get a complete security report.</p><span class="svc-link">Login to Scan →</span></a>
+            <a href="{{ url_for('login') }}" class="svc-card"><div class="svc-icon">🔐</div><h3>Password Breach Check</h3><p>Check if your password was exposed in known data breaches without revealing it.</p><span class="svc-link">Login to Check →</span></a>
+            <a href="{{ url_for('login') }}" class="svc-card"><div class="svc-icon">📁</div><h3>File Scanner</h3><p>Upload any file and scan it for viruses, malware, and threats using 70+ engines.</p><span class="svc-link">Login to Scan →</span></a>
+            <div class="svc-card disabled"><div class="svc-badge">Soon</div><div class="svc-icon">🔍</div><h3>Domain Lookup</h3><p>Get complete WHOIS, DNS, and registration info for any domain.</p><span class="svc-link disabled-link">Coming Soon</span></div>
+            <div class="svc-card disabled"><div class="svc-badge">Soon</div><div class="svc-icon">📱</div><h3>QR Code Scanner</h3><p>Scan QR codes from URLs or images and verify their safety instantly.</p><span class="svc-link disabled-link">Coming Soon</span></div>
+            <div class="svc-card disabled"><div class="svc-badge">Soon</div><div class="svc-icon">🛡️</div><h3>SSL Checker</h3><p>Verify SSL/TLS certificates — expiration, issuer, and security grade.</p><span class="svc-link disabled-link">Coming Soon</span></div>
         </div>
     </div>
 
@@ -697,26 +618,14 @@
         <h2 class="section-title">⚡ How It Works</h2>
         <p class="section-sub">Three simple steps to secure your digital presence.</p>
         <div class="steps-grid">
-            <div class="step-card">
-                <div class="step-num">1</div>
-                <h4>Enter Target</h4>
-                <p>Enter a URL, email, IP, or upload a file you want to scan.</p>
-            </div>
-            <div class="step-card">
-                <div class="step-num">2</div>
-                <h4>Scan & Analyze</h4>
-                <p>We run the scan across 90+ security engines in real-time.</p>
-            </div>
-            <div class="step-card">
-                <div class="step-num">3</div>
-                <h4>Get Results</h4>
-                <p>Instantly see if it's safe, malicious, or suspicious. Download PDF reports.</p>
-            </div>
+            <div class="step-card reveal"><div class="step-num">1</div><h4>Enter Target</h4><p>Enter a URL, email, IP, or upload a file you want to scan.</p></div>
+            <div class="step-card reveal"><div class="step-num">2</div><h4>Scan & Analyze</h4><p>We run the scan across 90+ security engines in real-time.</p></div>
+            <div class="step-card reveal"><div class="step-num">3</div><h4>Get Results</h4><p>Instantly see if it's safe, malicious, or suspicious. Download PDF reports.</p></div>
         </div>
     </div>
 
     <!-- CTA -->
-    <div class="cta-section">
+    <div class="cta-section reveal">
         <h2>Ready to secure your online presence?</h2>
         <p>Join thousands of users who trust MyScanner to keep them safe.</p>
         <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started Free →</a>
@@ -725,39 +634,25 @@
     <!-- FOOTER -->
     <footer>
         <div class="footer-inner">
-            <div class="footer-col">
-                <div class="footer-col-title">MYSCANNER</div>
-                <p>Your all-in-one cybersecurity toolkit. Scan URLs, verify emails, and stay protected online.</p>
-                <div class="footer-socials">
-                    <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
-                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="#"><i class="fa-brands fa-linkedin-in"></i></a>
-                </div>
-            </div>
-            <div class="footer-col">
-                <div class="footer-col-title">SERVICES</div>
-                <a href="#">URL Scanner</a>
-                <a href="#">Email Checker</a>
-                <a href="#">IP Checker</a>
-                <a href="#">Site Scanner</a>
-                <a href="#">Password Check</a>
-            </div>
-            <div class="footer-col">
-                <div class="footer-col-title">LINKS</div>
-                <a href="#">About</a>
-                <a href="#">Products</a>
-                <a href="#">Resources</a>
-                <a href="#">Contact Us</a>
-            </div>
-            <div class="footer-col">
-                <div class="footer-col-title">CONTACT</div>
-                <p>ahmetsayrafi538213@gmail.com</p>
-                <p>+90 538 213 1162</p>
-                <p>Küçükçekmece, Istanbul, TR</p>
-            </div>
+            <div class="footer-col"><div class="footer-col-title">MYSCANNER</div><p>Your all-in-one cybersecurity toolkit. Scan URLs, verify emails, and stay protected online.</p><div class="footer-socials"><a href="#"><i class="fa-brands fa-facebook-f"></i></a><a href="#"><i class="fa-brands fa-instagram"></i></a><a href="#"><i class="fa-brands fa-x-twitter"></i></a><a href="#"><i class="fa-brands fa-linkedin-in"></i></a></div></div>
+            <div class="footer-col"><div class="footer-col-title">SERVICES</div><a href="#">URL Scanner</a><a href="#">Email Checker</a><a href="#">IP Checker</a><a href="#">Site Scanner</a><a href="#">Password Check</a></div>
+            <div class="footer-col"><div class="footer-col-title">LINKS</div><a href="#">About</a><a href="#">Products</a><a href="#">Resources</a><a href="#">Contact Us</a></div>
+            <div class="footer-col"><div class="footer-col-title">CONTACT</div><p>ahmetsayrafi538213@gmail.com</p><p>+90 538 213 1162</p><p>Küçükçekmece, Istanbul, TR</p></div>
         </div>
         <div class="footer-bottom">© 2025 MyScanner — All rights reserved · Built by Ahmed Sairafi</div>
     </footer>
+
+    <script>
+        // Fade-in on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
 </body>
 </html>

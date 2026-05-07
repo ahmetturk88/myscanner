@@ -10,8 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-    <link rel="icon" href="{{ url_for('static', filename='istockphoto-876112880-612x612.jpg') }}" type="image/jpg">
-
+    <link rel="icon" href="{{ url_for('static', filename='security-scan.png') }}" type="image/png">
     <style>
         :root {
             --bg:         #080810;
@@ -655,31 +654,32 @@
     <nav>
         <div class="navbar">
             <a href="{{ url_for('dashboard') }}" class="nav-brand">
-                <div class="nav-brand-icon">🔍</div>
+                <div class="nav-brand-icon">
+                <img src="{{ url_for('static', filename='security-scan.png') }}" alt="logo" style="width: 20px; height: 20px;">
+                </div>
                 <span class="nav-brand-name">My<em>Scanner</em></span>
             </a>
             <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="Toggle menu">☰</button>
-<div class="nav-links" id="nav-links">
-    {% if current_user.is_authenticated %}
-        <a href="{{ url_for('dashboard') }}">Home</a>
-        <a href="{{ url_for('email_check') }}">Email Checker</a>
-        <a href="{{ url_for('ip_check') }}">IP Checker</a>
-        <a href="{{ url_for('site_scanner') }}">Site Scanner</a>
-        <a href="{{ url_for('file_scanner') }}">File Scanner</a>
-        <a href="{{ url_for('password_check') }}">Password Check</a>
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('about') }}">About</a>
-        <a href="{{ url_for('contact') }}">Contact</a>
-        {% if current_user.is_admin %}
-        <a href="{{ url_for('admin_panel') }}" class="n-admin">⚡ Admin</a>
-        {% endif %}
-        <a href="{{ url_for('profile') }}" class="n-user">👤 {{ current_user.username }}</a>
-        <a href="{{ url_for('logout') }}" class="n-logout">Logout</a>
-    {% else %}
-        <a href="{{ url_for('login') }}" class="n-login">Sign In</a>
-        <a href="{{ url_for('register') }}" class="n-register" style="background:var(--accent);color:#000;font-weight:700;padding:5px 14px;border-radius:6px;">Get Started</a>
-    {% endif %}
-</div>
+            <div class="nav-links" id="nav-links">
+                <a href="{{ url_for('landing') }}">Home</a>
+                <a href="{{ url_for('email_check') }}">Email Checker</a>
+                <a href="{{ url_for('ip_check') }}">IP Checker</a>
+                <a href="{{ url_for('site_scanner') }}">Site Scanner</a>
+                <a href="{{ url_for('file_scanner') }}">File Scanner</a>
+                <a href="{{ url_for('password_check') }}">Password Check</a>
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('about') }}">About</a>
+                <a href="{{ url_for('contact') }}">Contact</a>
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_panel') }}" class="n-admin">⚡ Admin</a>
+                    {% endif %}
+                    <a href="{{ url_for('profile') }}" class="n-user">👤 {{ current_user.username }}</a>
+                    <a href="{{ url_for('logout') }}" class="n-logout">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="n-login">Login →</a>
+                {% endif %}
+            </div>
         </div>
     </nav>
 

@@ -551,6 +551,15 @@
             .hero h1 { font-size: 24px; }
             .hero-glow { width: 300px; height: 200px; }
         }
+                #typing-text::after {
+            content: '|';
+            animation: blink 0.7s infinite;
+            color: var(--accent);
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -582,7 +591,7 @@
             <span class="typewriter-line">Scan. Verify.</span>
             <span class="typewriter-line typewriter-delay-1"><span>Stay Protected.</span></span>
         </h1>
-        <p>Check URLs, files, IPs, emails, and more — powered by 90+ security engines. Free to use, real-time results.</p>
+        <p><span id="typing-text"></span></p>
         <div class="hero-btns">
             <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started Free →</a>
             <a href="#services" class="btn btn-outline">Explore Services ↓</a>
@@ -653,6 +662,42 @@
         }, { threshold: 0.15 });
 
         document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+        <script>
+        const phrases = [
+            "Check URLs, files, IPs, emails, and more — powered by 90+ security engines.",
+            "Free to use, real-time results.",
+            "Your all-in-one cybersecurity toolkit."
+        ];
+        let i = 0, j = 0, isDeleting = false;
+        const el = document.getElementById('typing-text');
+
+        function loop() {
+            const phrase = phrases[i];
+            
+            if (!isDeleting) {
+                el.textContent = phrase.substring(0, j + 1);
+                j++;
+                if (j === phrase.length) {
+                    // وقفة بعد الكتابة
+                    setTimeout(() => { isDeleting = true; loop(); }, 2000);
+                    return;
+                }
+            } else {
+                el.textContent = phrase.substring(0, j - 1);
+                j--;
+                if (j === 0) {
+                    isDeleting = false;
+                    i = (i + 1) % phrases.length;
+                    setTimeout(loop, 300);
+                    return;
+                }
+            }
+            
+            const speed = isDeleting ? 20 : 50;
+            setTimeout(loop, speed);
+        }
+        loop();
     </script>
 </body>
 </html>

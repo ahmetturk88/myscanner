@@ -1078,7 +1078,85 @@ def about():
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
+@app.route('/subdomain-finder')
+@login_required
+def subdomain_finder():
+    return render_template('subdomain_finder.html')
 
+
+@app.route('/api/subdomain-finder', methods=['POST'])
+@login_required
+def api_subdomain_finder():
+    data   = request.get_json()
+    domain = data.get('domain', '').strip()
+
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+
+    domain = domain.replace('https://', '').replace('http://', '').strip('/')
+
+    subdomains = set()
+
+    # قائمة subdomains شائعة + المجال
+    common_subs = ['www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk', 'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test', 'ns', 'blog', 'shop', 'api', 'dev', 'admin', 'portal', 'cdn', 'remote', 'vpn', 'support', 'status', 'web', 'app', 'cloud', 'mail2', 'owa', 'exchange', 'demo', 'staging', 'beta']
+    
+    for sub in common_subs:
+        subdomains.add(f"{sub}.{domain}")
+
+    subdomains = sorted(list(subdomains))[:30]
+    results = [{"domain": sub, "verdict": "found"} for sub in subdomains]
+
+    return jsonify({"total": len(results), "subdomains": results})
+
+@app.route('/api/scan-subdomain', methods=['POST'])
+@login_required
+def api_scan_subdomain():
+    import traceback
+    data   = request.get_json()
+    domain = data.get('domain', '').strip()
+
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+
+    try:
+        resp = requests.post(
+            "https://www.virustotal.com/api/v3/urls",
+            headers={"x-apikey": API_KEY},
+            data={"url": f"https://{domain}"}
+        )
+        if resp.status_code not in (200, 201):
+            return jsonify({"verdict": "unknown", "error": f"Submit failed: {resp.status_code}"})
+
+        url_id = resp.json()["data"]["id"]
+        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
+
+        for _ in range(10):
+            time.sleep(2)
+            r = requests.get(analysis_url, headers={"x-apikey": API_KEY})
+            if r.status_code == 200:
+                result = r.json()
+                status = result.get("data", {}).get("attributes", {}).get("status", "")
+                if status == "completed":
+                    break
+        else:
+            return jsonify({"verdict": "unknown", "error": "Timeout"})
+
+        stats = result.get("data", {}).get("attributes", {}).get("stats", {})
+        malicious  = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+
+        if malicious > 0:
+            verdict = "malicious"
+        elif suspicious > 0:
+            verdict = "suspicious"
+        else:
+            verdict = "clean"
+
+        return jsonify({"verdict": verdict})
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"verdict": "unknown", "error": str(e)})
 
 # ================================================================
 # Run

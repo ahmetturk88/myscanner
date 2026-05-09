@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Domain Lookup{% endblock %}
+
+{% block head_extra %}
+<style>
+  .dl-wrap { max-width: 820px; margin: 0 auto; padding: 56px 24px 100px; }
+  .page-head { text-align: center; margin-bottom: 44px; }
+  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
+  .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .page-head h1 span { color: var(--accent); }
+  .page-head p { font-size: 15px; color: var(--muted); max-width: 440px; margin: 0 auto; line-height: 1.7; }
+  .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px; display: flex; gap: 8px; margin-bottom: 12px; }
+  .search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 12px 16px; font-family: var(--mono); font-size: 13px; color: var(--text); min-width: 0; }
+  .search-box input::placeholder { color: var(--muted); }
+  .search-box button { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 26px; font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .search-box button:hover { background: #00aad9; }
+  .search-box button:disabled { background: var(--muted); cursor: not-allowed; }
+  #error-div { background: var(--red-dim); border: 1px solid rgba(255,69,96,.3); border-radius: 10px; padding: 12px 16px; color: var(--red); font-size: 13px; display: none; margin-bottom: 16px; }
+  #loading-div { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; display: none; }
+  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; display: none; }
+  .result-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .result-top h3 { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 28px; }
+  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+  .stat-box .s-icon { font-size: 20px; margin-bottom: 6px; }
+  .stat-box .s-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; margin-bottom: 4px; text-transform: uppercase; }
+  .stat-box .s-value { font-size: 13px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .section-title { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+  .dns-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+  .dns-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+  .dns-type { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent); min-width: 40px; }
+  .dns-value { font-size: 12px; color: var(--text); word-break: break-all; margin-left: 12px; flex: 1; text-align: right; }
+  @media (max-width: 580px) { .search-box { flex-direction: column; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dl-wrap">
+  <div class="page-head">
+    <div class="label">Security Tool</div>
+    <h1>Domain <span>Lookup</span></h1>
+    <p>Get complete WHOIS, DNS, and registration info for any domain</p>
+  </div>
+  <div class="search-box">
+    <input type="text" id="domain-input" placeholder="example.com" autocomplete="off">
+    <button id="check-btn" onclick="lookupDomain()">Lookup →</button>
+  </div>
+  <div id="error-div">❌ <span id="error-msg"></span></div>
+  <div id="loading-div"><span class="spin"></span>Looking up domain...</div>
+  <div class="result-card" id="result-card">
+    <div class="result-top"><h3 id="result-domain"></h3></div>
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="section-title">📡 DNS Records</div>
+    <div class="dns-list" id="dns-list"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  async function lookupDomain() {
+    const domain = document.getElementById('domain-input').value.trim();
+    const btn = document.getElementById('check-btn');
+    document.getElementById('error-div').style.display = 'none';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('loading-div').style.display = 'block';
+    if (!domain) { showErr('Please enter a domain.'); document.getElementById('loading-div').style.display = 'none'; return; }
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/domain-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }) });
+      const data = await r.json();
+      document.getElementById('loading-div').style.display = 'none';
+      if (data.error) { showErr(data.error); return; }
+      renderResult(data);
+    } catch(e) { document.getElementById('loading-div').style.display = 'none'; showErr('Network error.'); }
+    finally { btn.disabled = false; }
+  }
+  function showErr(msg) { document.getElementById('error-msg').textContent = msg; document.getElementById('error-div').style.display = 'block'; }
+  function renderResult(d) {
+    document.getElementById('result-domain').textContent = '🌐 ' + d.domain;
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-box"><div class="s-icon">🏢</div><div class="s-label">Registrar</div><div class="s-value">${d.registrar||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">📅</div><div class="s-label">Created</div><div class="s-value">${d.created||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">⏰</div><div class="s-label">Expires</div><div class="s-value">${d.expires||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">🖥️</div><div class="s-label">IP Address</div><div class="s-value">${d.ip||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">🌍</div><div class="s-label">Country</div><div class="s-value">${d.country||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">🔒</div><div class="s-label">Nameservers</div><div class="s-value">${(d.nameservers||[]).length||0}</div></div>
+    `;
+    document.getElementById('dns-list').innerHTML = (d.dns||[]).map(r => `<div class="dns-item"><span class="dns-type">${r.type}</span><span class="dns-value">${r.value}</span></div>`).join('');
+    document.getElementById('result-card').style.display = 'block';
+  }
+</script>
+{% endblock %}

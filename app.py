@@ -1158,6 +1158,111 @@ def api_scan_subdomain():
         print(traceback.format_exc())
         return jsonify({"verdict": "unknown", "error": str(e)})
 
+
+@app.route('/domain-lookup')
+@login_required
+def domain_lookup():
+    return render_template('domain_lookup.html')
+
+
+@app.route('/api/domain-lookup', methods=['POST'])
+@login_required
+def api_domain_lookup():
+    data   = request.get_json()
+    domain = data.get('domain', '').strip()
+
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+
+    domain = domain.replace('https://', '').replace('http://', '').strip('/')
+
+    result = {
+        "domain": domain,
+        "registrar": "N/A",
+        "created": "N/A",
+        "expires": "N/A",
+        "ip": "N/A",
+        "country": "N/A",
+        "nameservers": [],
+        "dns": []
+    }
+
+    try:
+        resp = requests.get(f"http://ip-api.com/json/{domain}", timeout=10)
+        if resp.status_code == 200:
+            r = resp.json()
+            if r.get('status') != 'fail':
+                result["ip"] = r.get('query', 'N/A')
+                result["country"] = r.get('country', 'N/A')
+                result["registrar"] = r.get('org', 'N/A')
+    except:
+        pass
+
+    try:
+        for rtype in ['A', 'AAAA', 'MX', 'NS', 'TXT']:
+            resp = requests.get(
+                f"https://dns.google/resolve?name={domain}&type={rtype}",
+                timeout=10
+            )
+            if resp.status_code == 200:
+                answers = resp.json().get('Answer', [])
+                for ans in answers[:3]:
+                    val = ans.get('data', '')
+                    if val:
+                        result["dns"].append({"type": rtype, "value": val})
+    except:
+        pass
+
+    return jsonify(result)
+@app.route('/qr-scanner')
+@login_required
+def qr_scanner():
+    return render_template('qr_scanner.html')
+@app.route('/api/scan-qr-url', methods=['POST'])
+@login_required
+def api_scan_qr_url():
+    data = request.get_json()
+    url = data.get('url', '').strip()
+
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    try:
+        resp = requests.post(
+            "https://www.virustotal.com/api/v3/urls",
+            headers={"x-apikey": API_KEY},
+            data={"url": url}
+        )
+        if resp.status_code not in (200, 201):
+            return jsonify({"verdict": "unknown", "stats": {}})
+
+        url_id = resp.json()["data"]["id"]
+        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
+
+        for _ in range(10):
+            time.sleep(2)
+            r = requests.get(analysis_url, headers={"x-apikey": API_KEY})
+            if r.status_code == 200:
+                result = r.json()
+                if result.get("data", {}).get("attributes", {}).get("status") == "completed":
+                    break
+        else:
+            return jsonify({"verdict": "unknown", "stats": {}})
+
+        stats = result["data"]["attributes"].get("stats", {})
+        malicious = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+
+        if malicious > 0: verdict = "malicious"
+        elif suspicious > 0: verdict = "suspicious"
+        else: verdict = "clean"
+
+        return jsonify({"verdict": verdict, "stats": stats})
+
+    except:
+        return jsonify({"verdict": "unknown", "stats": {}})
+
+
 # ================================================================
 # Run
 # ================================================================

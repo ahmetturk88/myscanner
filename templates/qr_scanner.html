@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}QR Code Scanner{% endblock %}
+
+{% block head_extra %}
+<style>
+  .qr-wrap { max-width: 820px; margin: 0 auto; padding: 56px 24px 100px; }
+  .page-head { text-align: center; margin-bottom: 44px; }
+  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
+  .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .page-head h1 span { color: var(--accent); }
+  .page-head p { font-size: 15px; color: var(--muted); max-width: 440px; margin: 0 auto; line-height: 1.7; }
+  
+  .upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: 14px; padding: 48px; text-align: center; margin-bottom: 16px; transition: all .3s; cursor: pointer; }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(0,200,255,0.03); transform: scale(1.01); }
+  .upload-zone .uz-icon { font-size: 48px; margin-bottom: 16px; transition: transform .3s; }
+  .upload-zone:hover .uz-icon { transform: scale(1.1); }
+  .upload-zone .uz-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .upload-zone .uz-sub { font-size: 13px; color: var(--muted); }
+  #qr-file-input { display: none; }
+  
+  #error-div { background: var(--red-dim); border: 1px solid rgba(255,69,96,.3); border-radius: 10px; padding: 12px 16px; color: var(--red); font-size: 13px; display: none; margin-bottom: 16px; }
+  #loading-div { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; display: none; }
+  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; display: none; animation: fadeInUp 0.5s ease; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .verdict-banner .v-icon { font-size: 40px; flex-shrink: 0; }
+  .verdict-banner .v-text h3 { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
+  .verdict-banner .v-text p { font-size: 13px; opacity: 0.85; word-break: break-all; font-family: var(--mono); }
+  .banner-clean { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .banner-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  .banner-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .banner-unknown { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; transition: all .2s; }
+  .stat-box:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat-box .s-icon { font-size: 20px; margin-bottom: 6px; }
+  .stat-box .s-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; margin-bottom: 4px; text-transform: uppercase; }
+  .stat-box .s-value { font-size: 20px; font-weight: 700; color: var(--text); font-family: var(--mono); }
+  .stat-box.good { border-color: rgba(0,230,118,.25); } .stat-box.good .s-value { color: var(--green); }
+  .stat-box.bad { border-color: rgba(255,69,96,.25); } .stat-box.bad .s-value { color: var(--red); }
+  .stat-box.warn { border-color: rgba(255,211,42,.25); } .stat-box.warn .s-value { color: var(--yellow); }
+
+  .scan-btn { width: 100%; background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 14px; font-family: var(--sans); font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s; margin-top: 16px; }
+  .scan-btn:hover { background: #00aad9; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,200,255,0.2); }
+  .scan-btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .file-selected { background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; display: none; align-items: center; gap: 12px; }
+  .file-selected .fs-icon { font-size: 28px; }
+  .file-selected .fs-info { flex: 1; }
+  .file-selected .fs-name { font-size: 14px; font-weight: 600; color: var(--text); word-break: break-all; }
+  
+  .content-type-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
+  .type-url { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
+  .type-email { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .type-text { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  @media (max-width: 580px) { .upload-zone { padding: 32px 20px; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qr-wrap">
+  <div class="page-head">
+    <div class="label">Security Tool</div>
+    <h1>QR Code <span>Scanner</span></h1>
+    <p>Upload a QR code image to decode the hidden URL and scan it for threats</p>
+  </div>
+
+  <div class="upload-zone" id="upload-zone" onclick="document.getElementById('qr-file-input').click()">
+    <div class="uz-icon">📱</div>
+    <div class="uz-title">Click to upload QR code image</div>
+    <div class="uz-sub">PNG, JPG, GIF, SVG accepted</div>
+  </div>
+  <input type="file" id="qr-file-input" accept="image/*" onchange="fileSelected(this.files[0])">
+
+  <div class="file-selected" id="file-selected">
+    <div class="fs-icon">🖼️</div>
+    <div class="fs-info"><div class="fs-name" id="fs-name">—</div></div>
+  </div>
+
+  <button class="scan-btn" id="scan-btn" onclick="decodeAndScan()">🔍 Decode & Scan</button>
+
+  <div id="error-div">❌ <span id="error-msg"></span></div>
+  <div id="loading-div"><span class="spin"></span><span id="loading-text">Decoding QR code...</span></div>
+
+  <div class="result-card" id="result-card">
+    <div id="content-type-badge" class="content-type-badge type-url" style="display:none;"></div>
+    <div id="verdict-banner" class="verdict-banner">
+      <div class="v-icon" id="v-icon"></div>
+      <div class="v-text"><h3 id="v-title"></h3><p id="v-url"></p></div>
+    </div>
+    <div class="stats-grid" id="stats-grid"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+  let selectedFile = null;
+  let decodedURL = '';
+
+  function fileSelected(file) {
+    if (!file) return;
+    selectedFile = file;
+    document.getElementById('fs-name').textContent = file.name;
+    document.getElementById('file-selected').style.display = 'flex';
+    document.getElementById('scan-btn').style.display = 'block';
+  }
+
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) fileSelected(e.dataTransfer.files[0]);
+  });
+
+  async function decodeAndScan() {
+    if (!selectedFile) return;
+    const btn = document.getElementById('scan-btn');
+    document.getElementById('error-div').style.display = 'none';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('loading-div').style.display = 'block';
+    document.getElementById('loading-text').textContent = 'Decoding QR code...';
+    btn.disabled = true;
+
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(selectedFile);
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject('Failed to load image');
+        img.src = url;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+      
+      URL.revokeObjectURL(url);
+
+      if (!code) {
+        document.getElementById('loading-div').style.display = 'none';
+        showErr('No QR code found in this image. Please try another image.');
+        btn.disabled = false;
+        return;
+      }
+
+      decodedURL = code.data;
+
+      // إذا كان URL
+      if (decodedURL.startsWith('http://') || decodedURL.startsWith('https://')) {
+        showContentType('URL', 'type-url');
+        document.getElementById('loading-text').textContent = 'Scanning URL with 90+ engines...';
+        const scanR = await fetch('/api/scan-qr-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: decodedURL })
+        });
+        const scanData = await scanR.json();
+        document.getElementById('loading-div').style.display = 'none';
+        renderResult(decodedURL, scanData);
+      } else if (decodedURL.startsWith('mailto:')) {
+        showContentType('Email', 'type-email');
+        document.getElementById('loading-div').style.display = 'none';
+        renderText(decodedURL);
+      } else {
+        showContentType('Text', 'type-text');
+        document.getElementById('loading-div').style.display = 'none';
+        renderText(decodedURL);
+      }
+    } catch(e) {
+      document.getElementById('loading-div').style.display = 'none';
+      showErr('Error: ' + e);
+    } finally { btn.disabled = false; }
+  }
+
+  function showContentType(type, cls) {
+    const badge = document.getElementById('content-type-badge');
+    badge.textContent = type + ' Detected';
+    badge.className = 'content-type-badge ' + cls;
+    badge.style.display = 'inline-block';
+  }
+
+  function renderText(text) {
+    document.getElementById('v-icon').textContent = '📝';
+    document.getElementById('v-title').textContent = 'Content Decoded';
+    document.getElementById('v-url').textContent = text;
+    document.getElementById('verdict-banner').className = 'verdict-banner banner-unknown';
+    document.getElementById('stats-grid').innerHTML = '';
+    document.getElementById('result-card').style.display = 'block';
+  }
+
+  function renderResult(url, data) {
+    const verdict = data.verdict || 'unknown';
+    const icons = { clean: '✅', malicious: '🚨', suspicious: '⚠️', unknown: '❓' };
+    const titles = { clean: 'URL is Safe', malicious: 'Malicious URL Detected!', suspicious: 'Suspicious URL', unknown: 'Scan Result' };
+    const banners = { clean: 'banner-clean', malicious: 'banner-malicious', suspicious: 'banner-suspicious', unknown: 'banner-unknown' };
+
+    document.getElementById('v-icon').textContent = icons[verdict] || '❓';
+    document.getElementById('v-title').textContent = titles[verdict] || 'Scan Result';
+    document.getElementById('v-url').textContent = url;
+    document.getElementById('verdict-banner').className = 'verdict-banner ' + (banners[verdict] || 'banner-unknown');
+
+    const s = data.stats || {};
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-box good"><div class="s-icon">✅</div><div class="s-label">Harmless</div><div class="s-value">${s.harmless||0}</div></div>
+      <div class="stat-box bad"><div class="s-icon">🚨</div><div class="s-label">Malicious</div><div class="s-value">${s.malicious||0}</div></div>
+      <div class="stat-box warn"><div class="s-icon">⚠️</div><div class="s-label">Suspicious</div><div class="s-value">${s.suspicious||0}</div></div>
+      <div class="stat-box"><div class="s-icon">🕵️</div><div class="s-label">Undetected</div><div class="s-value">${s.undetected||0}</div></div>
+    `;
+
+    document.getElementById('result-card').style.display = 'block';
+  }
+
+  function showErr(msg) { document.getElementById('error-msg').textContent = msg; document.getElementById('error-div').style.display = 'block'; }
+</script>
+{% endblock %}

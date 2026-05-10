@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}SSL Checker{% endblock %}
+
+{% block head_extra %}
+<style>
+  .ssl-wrap { max-width: 820px; margin: 0 auto; padding: 56px 24px 100px; }
+  .page-head { text-align: center; margin-bottom: 44px; }
+  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
+  .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .page-head h1 span { color: var(--accent); }
+  .page-head p { font-size: 15px; color: var(--muted); max-width: 440px; margin: 0 auto; line-height: 1.7; }
+  
+  .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px; display: flex; gap: 8px; margin-bottom: 12px; transition: border-color .3s, box-shadow .3s; }
+  .search-box:focus-within { border-color: rgba(0,200,255,0.4); box-shadow: 0 0 30px rgba(0,200,255,0.08); }
+  .search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 12px 16px; font-family: var(--mono); font-size: 13px; color: var(--text); min-width: 0; }
+  .search-box input::placeholder { color: var(--muted); }
+  .search-box button { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 26px; font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all .2s; }
+  .search-box button:hover { background: #00aad9; }
+  .search-box button:disabled { background: var(--muted); cursor: not-allowed; }
+  
+  #error-div { background: var(--red-dim); border: 1px solid rgba(255,69,96,.3); border-radius: 10px; padding: 12px 16px; color: var(--red); font-size: 13px; display: none; margin-bottom: 16px; }
+  #loading-div { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; display: none; }
+  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; display: none; animation: fadeInUp 0.5s ease; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .verdict-banner .v-icon { font-size: 40px; flex-shrink: 0; }
+  .verdict-banner .v-text h3 { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
+  .verdict-banner .v-text p { font-size: 13px; opacity: 0.85; }
+  .banner-valid { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .banner-expiring { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .banner-expired { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  .banner-error { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; transition: all .2s; }
+  .stat-box:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat-box .s-icon { font-size: 20px; margin-bottom: 6px; }
+  .stat-box .s-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; margin-bottom: 4px; text-transform: uppercase; }
+  .stat-box .s-value { font-size: 15px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .stat-box.good { border-color: rgba(0,230,118,.25); } .stat-box.good .s-value { color: var(--green); }
+  .stat-box.bad { border-color: rgba(255,69,96,.25); } .stat-box.bad .s-value { color: var(--red); }
+  .stat-box.warn { border-color: rgba(255,211,42,.25); } .stat-box.warn .s-value { color: var(--yellow); }
+  
+  .grade-circle { width: 90px; height: 90px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-family: var(--mono); font-size: 36px; font-weight: 700; }
+  .grade-a { background: var(--green-dim); color: var(--green); border: 3px solid var(--green); }
+  .grade-b { background: rgba(0,230,118,0.08); color: #00cc66; border: 3px solid #00cc66; }
+  .grade-c { background: var(--yellow-dim); color: var(--yellow); border: 3px solid var(--yellow); }
+  .grade-d { background: rgba(255,107,53,0.12); color: var(--orange); border: 3px solid var(--orange); }
+  .grade-f { background: var(--red-dim); color: var(--red); border: 3px solid var(--red); }
+  
+  .days-remaining { text-align: center; font-family: var(--mono); font-size: 13px; margin-bottom: 24px; padding: 12px; border-radius: 10px; }
+  .days-good { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .days-warn { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .days-bad { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  
+  .details-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .details-table tr { border-bottom: 1px solid var(--border); }
+  .details-table tr:last-child { border-bottom: none; }
+  .details-table td { padding: 10px 6px; }
+  .details-table td:first-child { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; width: 35%; }
+  .details-table td:last-child { color: var(--text); font-weight: 600; word-break: break-all; }
+
+  @media (max-width: 580px) { .search-box { flex-direction: column; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ssl-wrap">
+  <div class="page-head">
+    <div class="label">Security Tool</div>
+    <h1>SSL <span>Checker</span></h1>
+    <p>Verify SSL/TLS certificates — expiration, issuer, and security grade</p>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="domain-input" placeholder="example.com" autocomplete="off">
+    <button id="check-btn" onclick="checkSSL()">Check →</button>
+  </div>
+
+  <div id="error-div">❌ <span id="error-msg"></span></div>
+  <div id="loading-div"><span class="spin"></span>Checking SSL certificate...</div>
+
+  <div class="result-card" id="result-card">
+    <div class="grade-circle" id="grade-circle" style="display:none;"></div>
+    <div id="verdict-banner" class="verdict-banner">
+      <div class="v-icon" id="v-icon"></div>
+      <div class="v-text"><h3 id="v-title"></h3><p id="v-sub"></p></div>
+    </div>
+    <div class="days-remaining" id="days-remaining" style="display:none;"></div>
+    <div class="stats-grid" id="stats-grid"></div>
+    <table class="details-table" id="details-table"></table>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  async function checkSSL() {
+    const domain = document.getElementById('domain-input').value.trim().replace(/^https?:\/\//, '').split('/')[0];
+    const btn = document.getElementById('check-btn');
+    document.getElementById('error-div').style.display = 'none';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('loading-div').style.display = 'block';
+    if (!domain) { showErr('Please enter a domain.'); document.getElementById('loading-div').style.display = 'none'; return; }
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/ssl-checker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }) });
+      const data = await r.json();
+      document.getElementById('loading-div').style.display = 'none';
+      if (data.error) { showErr(data.error); return; }
+      renderResult(data);
+    } catch(e) { document.getElementById('loading-div').style.display = 'none'; showErr('Connection error.'); }
+    finally { btn.disabled = false; }
+  }
+
+  function showErr(msg) { document.getElementById('error-msg').textContent = msg; document.getElementById('error-div').style.display = 'block'; }
+
+  function renderResult(d) {
+    // Grade Circle
+    const grade = d.grade || 'N/A';
+    const gradeEl = document.getElementById('grade-circle');
+    gradeEl.textContent = grade;
+    gradeEl.style.display = 'flex';
+    if (grade.startsWith('A')) gradeEl.className = 'grade-circle grade-a';
+    else if (grade.startsWith('B')) gradeEl.className = 'grade-circle grade-b';
+    else if (grade.startsWith('C')) gradeEl.className = 'grade-circle grade-c';
+    else if (grade.startsWith('D')) gradeEl.className = 'grade-circle grade-d';
+    else gradeEl.className = 'grade-circle grade-f';
+
+    // Verdict Banner
+    const days = d.days_remaining || 0;
+    let icon, title, sub, bannerCls;
+    if (d.valid) {
+      if (days > 30) { icon = '✅'; title = 'SSL Certificate Valid'; sub = 'Your certificate is valid and secure.'; bannerCls = 'banner-valid'; }
+      else if (days > 0) { icon = '⚠️'; title = 'SSL Certificate Expiring Soon'; sub = `Only ${days} days remaining. Renew soon.`; bannerCls = 'banner-expiring'; }
+      else { icon = '🚨'; title = 'SSL Certificate Expired!'; sub = 'Certificate has expired. Renew immediately.'; bannerCls = 'banner-expired'; }
+    } else { icon = '❌'; title = 'SSL Check Failed'; sub = d.error_msg || 'Could not verify certificate.'; bannerCls = 'banner-error'; }
+
+    document.getElementById('v-icon').textContent = icon;
+    document.getElementById('v-title').textContent = title;
+    document.getElementById('v-sub').textContent = sub;
+    document.getElementById('verdict-banner').className = 'verdict-banner ' + bannerCls;
+
+    // Days Remaining
+    const daysEl = document.getElementById('days-remaining');
+    if (d.valid) {
+      daysEl.style.display = 'block';
+      if (days > 30) { daysEl.className = 'days-remaining days-good'; daysEl.textContent = `🔒 ${days} days remaining — Safe`; }
+      else if (days > 0) { daysEl.className = 'days-remaining days-warn'; daysEl.textContent = `⚠️ Only ${days} days — Renew soon`; }
+      else { daysEl.className = 'days-remaining days-bad'; daysEl.textContent = `🚨 EXPIRED — Renew now`; }
+    } else { daysEl.style.display = 'none'; }
+
+    // Stats Grid
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-box ${d.valid ? 'good' : 'bad'}"><div class="s-icon">🔒</div><div class="s-label">Status</div><div class="s-value">${d.valid ? 'Valid' : 'Invalid'}</div></div>
+      <div class="stat-box ${days > 30 ? 'good' : days > 0 ? 'warn' : 'bad'}"><div class="s-icon">📅</div><div class="s-label">Days Left</div><div class="s-value">${d.valid ? days : '–'}</div></div>
+      <div class="stat-box"><div class="s-icon">🏢</div><div class="s-label">Issuer</div><div class="s-value" style="font-size:11px;">${d.issuer||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">📅</div><div class="s-label">Expiry Date</div><div class="s-value" style="font-size:12px;">${d.expiry_date||'N/A'}</div></div>
+    `;
+
+    // Details Table
+    document.getElementById('details-table').innerHTML = `
+      <tr><td>DOMAIN</td><td>${d.domain}</td></tr>
+      <tr><td>ISSUER</td><td>${d.issuer||'N/A'}</td></tr>
+      <tr><td>SUBJECT</td><td>${d.subject||'N/A'}</td></tr>
+      <tr><td>VALID FROM</td><td>${d.valid_from||'N/A'}</td></tr>
+      <tr><td>VALID UNTIL</td><td>${d.valid_until||'N/A'}</td></tr>
+      <tr><td>TLS VERSION</td><td>${d.tls_version||'N/A'}</td></tr>
+      <tr><td>CERTIFICATE GRADE</td><td>${grade}</td></tr>
+      <tr><td>SERIAL NUMBER</td><td style="font-size:11px;">${d.serial_number||'N/A'}</td></tr>
+    `;
+
+    document.getElementById('result-card').style.display = 'block';
+  }
+</script>
+{% endblock %}

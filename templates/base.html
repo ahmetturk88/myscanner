@@ -673,6 +673,7 @@
                 <a href="{{ url_for('dashboard') }}">Dashboard</a>
                 <a href="{{ url_for('about') }}">About</a>
                 <a href="{{ url_for('contact') }}">Contact</a>
+                <a href="{{ url_for('ssl_checker') }}">SSL Checker</a>
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin %}
                     <a href="{{ url_for('admin_panel') }}" class="n-admin">⚡ Admin</a>

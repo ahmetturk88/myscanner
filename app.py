@@ -528,21 +528,21 @@ def api_check_email():
     if not email:
         return jsonify({"error": "No email provided"}), 400
 
+    domain = email.split('@')[-1] if '@' in email else email
+
     try:
+        # 1. Email Reputation
         resp = requests.get(
             "https://emailreputation.abstractapi.com/v1/",
             params={"api_key": ABSTRACT_API_KEY, "email": email}
         )
-        if resp.status_code != 200:
-            return jsonify({"error": f"API error: {resp.status_code}"}), 500
-
-        r = resp.json()
+        r = resp.json() if resp.status_code == 200 else {}
 
         deliverability = r.get("email_deliverability", {})
         quality        = r.get("email_quality", {})
         risk           = r.get("email_risk", {})
         breaches       = r.get("email_breaches", {})
-        domain         = r.get("email_domain", {})
+        domain_info    = r.get("email_domain", {})
 
         is_valid       = deliverability.get("is_format_valid", False)
         is_mx          = deliverability.get("is_mx_valid", False)
@@ -565,17 +565,95 @@ def api_check_email():
                     "domain": b.get("domain", b.get("name", "Unknown")),
                     "breach_date": b.get("breach_date", b.get("date", "N/A"))
                 })
-        
         breached_list = breached_list[:10]
 
+        # 2. SPF / DKIM / DMARC Check via Google DNS
+        spf_record = None
+        dkim_record = None
+        dmarc_record = None
+
+        try:
+            # SPF
+            resp_txt = requests.get(
+                f"https://dns.google/resolve?name={domain}&type=TXT",
+                timeout=10
+            )
+            if resp_txt.status_code == 200:
+                for ans in resp_txt.json().get('Answer', []):
+                    txt = ans.get('data', '').strip('"')
+                    if 'v=spf1' in txt:
+                        spf_record = txt
+                        break
+        except:
+            pass
+
+        try:
+            # DKIM (google._domainkey)
+            resp_dkim = requests.get(
+                f"https://dns.google/resolve?name=google._domainkey.{domain}&type=TXT",
+                timeout=10
+            )
+            if resp_dkim.status_code == 200:
+                for ans in resp_dkim.json().get('Answer', []):
+                    txt = ans.get('data', '').strip('"')
+                    if 'v=DKIM1' in txt:
+                        dkim_record = txt
+                        break
+        except:
+            pass
+
+        try:
+            # DMARC
+            resp_dmarc = requests.get(
+                f"https://dns.google/resolve?name=_dmarc.{domain}&type=TXT",
+                timeout=10
+            )
+            if resp_dmarc.status_code == 200:
+                for ans in resp_dmarc.json().get('Answer', []):
+                    txt = ans.get('data', '').strip('"')
+                    if 'v=DMARC1' in txt:
+                        dmarc_record = txt
+                        break
+        except:
+            pass
+
+        # 3. Blacklist Check (via domain)
+        blacklisted = False
+        blacklist_count = 0
+        blacklist_results = []
+
+        try:
+            # Check a few blacklists
+            bl_checks = [
+                ("Spamhaus DBL", f"{domain}.dbl.spamhaus.org"),
+                ("Surriel", f"{domain}.multi.surriel.com"),
+                ("Barracuda", f"{domain}.bb.barracudacentral.org"),
+            ]
+            import socket
+            for bl_name, bl_domain in bl_checks:
+                try:
+                    socket.gethostbyname(bl_domain)
+                    blacklisted = True
+                    blacklist_count += 1
+                    blacklist_results.append({"name": bl_name, "listed": True})
+                except:
+                    blacklist_results.append({"name": bl_name, "listed": False})
+        except:
+            pass
+
+        # Verdict
         if not is_valid:
             verdict = "invalid"
         elif is_disposable:
             verdict = "disposable"
         elif total_breaches > 0 and address_risk == "high":
             verdict = "breached"
+        elif blacklisted:
+            verdict = "blacklisted"
         elif not is_mx:
             verdict = "no_mx"
+        elif not spf_record:
+            verdict = "no_spf"
         elif status == "deliverable":
             verdict = "safe"
         else:
@@ -583,6 +661,7 @@ def api_check_email():
 
         return jsonify({
             "email":           email,
+            "domain":          domain,
             "verdict":         verdict,
             "is_valid":        is_valid,
             "is_disposable":   is_disposable,
@@ -595,8 +674,17 @@ def api_check_email():
             "total_breaches":  total_breaches,
             "last_breached":   last_breached,
             "breached_domains": breached_list,
-            "domain_age":      domain.get("domain_age", 0),
-            "registrar":       domain.get("registrar", "Unknown"),
+            "domain_age":      domain_info.get("domain_age", 0),
+            "registrar":       domain_info.get("registrar", "Unknown"),
+            "spf_record":      spf_record,
+            "spf_valid":       spf_record is not None,
+            "dkim_record":     dkim_record,
+            "dkim_valid":      dkim_record is not None,
+            "dmarc_record":    dmarc_record,
+            "dmarc_valid":     dmarc_record is not None,
+            "blacklisted":     blacklisted,
+            "blacklist_count": blacklist_count,
+            "blacklist_results": blacklist_results,
         })
 
     except requests.exceptions.RequestException as e:
@@ -863,12 +951,20 @@ def api_site_scan():
         resp = requests.get(domain, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(resp.text, 'html.parser')
         base  = urlparse(domain).netloc
+        # استخراج النطاق الأساسي (مثلاً: wikipedia.org)
+        base_parts = base.split('.')
+        base_domain = '.'.join(base_parts[-2:]) if len(base_parts) >= 2 else base
+        
         links = set()
 
         for tag in soup.find_all('a', href=True):
             href   = urljoin(domain, tag['href'])
             parsed = urlparse(href)
-            if parsed.netloc == base and href.startswith('http'):
+            parsed_parts = parsed.netloc.split('.')
+            parsed_domain = '.'.join(parsed_parts[-2:]) if len(parsed_parts) >= 2 else parsed.netloc
+            
+            # قبول أي رابط من نفس النطاق الأساسي أو نطاقات فرعية
+            if parsed_domain == base_domain and href.startswith('http'):
                 links.add(href)
 
         links = list(links)[:50]
@@ -880,14 +976,16 @@ def api_site_scan():
 
     headers = {"x-apikey": API_KEY}
     results = []
+    lock = threading.Lock()
 
-    for url in links:
+    def scan_url(url):
         try:
             r = requests.post("https://www.virustotal.com/api/v3/urls",
                               headers=headers, data={"url": url}, timeout=10)
             if r.status_code not in (200, 201):
-                results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
-                continue
+                with lock:
+                    results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
+                return
 
             url_id     = r.json()["data"]["id"]
             report_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
@@ -896,10 +994,10 @@ def api_site_scan():
 
             for _ in range(8):
                 time.sleep(2)
-                rr     = requests.get(report_url, headers=headers, timeout=10)
+                rr = requests.get(report_url, headers=headers, timeout=10)
                 report = rr.json()
                 if report["data"]["attributes"].get("status") == "completed":
-                    s          = report["data"]["attributes"].get("stats", {})
+                    s = report["data"]["attributes"].get("stats", {})
                     malicious  = s.get("malicious", 0)
                     suspicious = s.get("suspicious", 0)
                     harmless   = s.get("harmless", 0)
@@ -908,12 +1006,25 @@ def api_site_scan():
                     elif harmless > 0:  verdict = "harmless"
                     break
 
-            results.append({"url": url, "verdict": verdict,
-                            "malicious": malicious, "suspicious": suspicious, "harmless": harmless})
-            time.sleep(15)
+            with lock:
+                results.append({"url": url, "verdict": verdict,
+                                "malicious": malicious, "suspicious": suspicious, "harmless": harmless})
 
         except Exception:
-            results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
+            with lock:
+                results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
+
+    # فحص 10 روابط في نفس الوقت
+    threads_list = []
+    for i in range(0, len(links), 10):
+        batch = links[i:i+10]
+        batch_threads = []
+        for url in batch:
+            t = threading.Thread(target=scan_url, args=(url,))
+            t.start()
+            batch_threads.append(t)
+        for t in batch_threads:
+            t.join()
 
     total             = len(results)
     malicious_count   = sum(1 for r in results if r['verdict'] == 'malicious')
@@ -1183,10 +1294,39 @@ def api_domain_lookup():
         "expires": "N/A",
         "ip": "N/A",
         "country": "N/A",
+        "isp": "N/A",
         "nameservers": [],
-        "dns": []
+        "dns": [],
+        "whois_updated": "N/A",
+        "status": "N/A",
     }
 
+    # 1. WHOIS via whoisxmlapi (free)
+    try:
+        whois_resp = requests.get(
+            f"https://www.whoisxmlapi.com/whoisserver/WhoisService",
+            params={
+                "domainName": domain,
+                "apiKey": "at_free_demo_key",  # demo key - limited
+                "outputFormat": "JSON"
+            },
+            timeout=15
+        )
+        if whois_resp.status_code == 200:
+            whois_data = whois_resp.json()
+            reg_record = whois_data.get("WhoisRecord", {})
+            result["registrar"] = reg_record.get("registrarName", "N/A")
+            result["created"] = reg_record.get("createdDate", "N/A")[:10] if reg_record.get("createdDate") else "N/A"
+            result["expires"] = reg_record.get("expiresDate", "N/A")[:10] if reg_record.get("expiresDate") else "N/A"
+            result["whois_updated"] = reg_record.get("updatedDate", "N/A")[:10] if reg_record.get("updatedDate") else "N/A"
+            result["status"] = reg_record.get("status", "N/A")
+            
+            nameservers = reg_record.get("nameServers", {}).get("hostNames", [])
+            result["nameservers"] = nameservers[:5] if nameservers else []
+    except:
+        pass
+
+    # 2. IP info via ip-api
     try:
         resp = requests.get(f"http://ip-api.com/json/{domain}", timeout=10)
         if resp.status_code == 200:
@@ -1194,12 +1334,15 @@ def api_domain_lookup():
             if r.get('status') != 'fail':
                 result["ip"] = r.get('query', 'N/A')
                 result["country"] = r.get('country', 'N/A')
-                result["registrar"] = r.get('org', 'N/A')
+                result["isp"] = r.get('isp', 'N/A')
+                if result["registrar"] == "N/A":
+                    result["registrar"] = r.get('org', 'N/A')
     except:
         pass
 
+    # 3. DNS Records
     try:
-        for rtype in ['A', 'AAAA', 'MX', 'NS', 'TXT']:
+        for rtype in ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA']:
             resp = requests.get(
                 f"https://dns.google/resolve?name={domain}&type={rtype}",
                 timeout=10
@@ -1214,6 +1357,7 @@ def api_domain_lookup():
         pass
 
     return jsonify(result)
+
 @app.route('/qr-scanner')
 @login_required
 def qr_scanner():

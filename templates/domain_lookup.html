@@ -87,7 +87,9 @@
       <div class="stat-box"><div class="s-icon">🖥️</div><div class="s-label">IP Address</div><div class="s-value">${d.ip||'N/A'}</div></div>
       <div class="stat-box"><div class="s-icon">🌍</div><div class="s-label">Country</div><div class="s-value">${d.country||'N/A'}</div></div>
       <div class="stat-box"><div class="s-icon">🔒</div><div class="s-label">Nameservers</div><div class="s-value">${(d.nameservers||[]).length||0}</div></div>
-    `;
+      <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${d.isp||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">🔄</div><div class="s-label">Status</div><div class="s-value" style="font-size:11px;">${d.status||'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">📋</div><div class="s-label">Updated</div><div class="s-value" style="font-size:11px;">${d.whois_updated||'N/A'}</div></div>`;
     document.getElementById('dns-list').innerHTML = (d.dns||[]).map(r => `<div class="dns-item"><span class="dns-type">${r.type}</span><span class="dns-value">${r.value}</span></div>`).join('');
     document.getElementById('result-card').style.display = 'block';
   }

@@ -403,17 +403,14 @@ def dashboard():
         url = request.form.get('url', '').strip()
         if not url:
             return redirect(url_for('dashboard'))
-
         new_scan = Scan(url=url, verdict='pending', result='Pending...', user_id=current_user.id)
         db.session.add(new_scan)
         db.session.commit()
-
         t = threading.Thread(target=scan_in_background, args=(new_scan.id, url), daemon=True)
         t.start()
-
         return redirect(url_for('result_page', scan_id=new_scan.id))
 
-    return render_template('index.html')
+    return render_template('dashboard-v2.html')
 
 
 @app.route('/result/<int:scan_id>')
@@ -798,6 +795,9 @@ def api_check_ip():
 # PDF Report
 # ================================================================
 
+from reportlab.graphics.shapes import Drawing
+from reportlab.graphics.charts.piecharts import Pie
+
 @app.route('/report/pdf/<int:scan_id>')
 @login_required
 def download_pdf(scan_id):
@@ -813,116 +813,128 @@ def download_pdf(scan_id):
     try:
         if scan.raw_report:
             raw = json.loads(scan.raw_report)
-    except Exception:
+    except:
         pass
 
-    stats      = raw.get('data', {}).get('attributes', {}).get('stats', {})
-    harmless   = stats.get('harmless', 0)
-    malicious  = stats.get('malicious', 0)
-    suspicious = stats.get('suspicious', 0)
-    undetected = stats.get('undetected', 0)
+    stats = raw.get('data', {}).get('attributes', {}).get('stats', {})
+    results = raw.get('data', {}).get('attributes', {}).get('results', {})
+    h = stats.get('harmless', 0)
+    m = stats.get('malicious', 0)
+    sus = stats.get('suspicious', 0)
+    u = stats.get('undetected', 0)
+    total = h + m + sus + u
+    risk = round(((m * 3 + sus * 2) / (total * 3)) * 100) if total > 0 else 0
 
     buffer = BytesIO()
-    doc    = SimpleDocTemplate(buffer, pagesize=A4,
-                               rightMargin=2*cm, leftMargin=2*cm,
-                               topMargin=2*cm, bottomMargin=2*cm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.2*cm, leftMargin=1.2*cm, topMargin=1.2*cm, bottomMargin=1.2*cm, allowSplitting=1)
     elements = []
 
-    title_style = ParagraphStyle('title', fontSize=22, fontName='Helvetica-Bold',
-        textColor=colors.HexColor('#00c8ff'), spaceAfter=6)
-    sub_style = ParagraphStyle('sub', fontSize=10, fontName='Helvetica',
-        textColor=colors.HexColor('#888888'), spaceAfter=20)
-    section_style = ParagraphStyle('section', fontSize=13, fontName='Helvetica-Bold',
-        textColor=colors.HexColor('#00c8ff'), spaceBefore=16, spaceAfter=10)
+    # Colors
+    accent = colors.HexColor('#00c8ff')
+    dark_bg = colors.HexColor('#0a0a14')
+    card_bg = colors.HexColor('#141425')
+    green = colors.HexColor('#00e676')
+    red = colors.HexColor('#ff4560')
+    yellow = colors.HexColor('#ffd32a')
+    white = colors.HexColor('#dde0f0')
+    muted = colors.HexColor('#6a6a90')
+    border = colors.HexColor('#2a2a45')
 
+    # Styles
+    title_style = ParagraphStyle('t', fontSize=20, fontName='Helvetica-Bold', textColor=accent, alignment=1, spaceAfter=2)
+    sub_style = ParagraphStyle('s', fontSize=9, fontName='Helvetica', textColor=muted, alignment=1, spaceAfter=12)
+    section_style = ParagraphStyle('sec', fontSize=11, fontName='Helvetica-Bold', textColor=accent, alignment=1, spaceBefore=14, spaceAfter=8)
+    small_style = ParagraphStyle('sm', fontSize=8, fontName='Helvetica', textColor=white)
+    tiny_style = ParagraphStyle('ty', fontSize=7, fontName='Helvetica', textColor=muted)
+
+    # Header
     elements.append(Paragraph('MyScanner', title_style))
     elements.append(Paragraph('Security Scan Report', sub_style))
-    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e0e0e0')))
-    elements.append(Spacer(1, 16))
-    elements.append(Paragraph('SCAN INFORMATION', section_style))
 
+    # Verdict
+    v_map = {'harmless': ('SAFE ✅', green), 'malicious': ('MALICIOUS 🚨', red), 'suspicious': ('SUSPICIOUS ⚠️', yellow)}
+    v_text, v_color = v_map.get(scan.verdict, ('UNKNOWN', muted))
+    v_style = ParagraphStyle('v', fontSize=14, fontName='Helvetica-Bold', textColor=v_color, alignment=1, spaceAfter=8)
+    elements.append(Paragraph(v_text, v_style))
+
+    # Info Table
     info_data = [
-        ['Scan ID',    f'#{scan.id}'],
-        ['URL',        scan.url],
-        ['Status',     scan.status.upper()],
-        ['Verdict',    scan.verdict.upper()],
-        ['Date',       scan.date_posted.strftime('%Y-%m-%d %H:%M:%S UTC')],
-        ['Scanned By', current_user.username],
+        [Paragraph('Scan ID', small_style), Paragraph(f'#{scan.id}', small_style)],
+        [Paragraph('URL', small_style), Paragraph(scan.url[:70], tiny_style)],
+        [Paragraph('Status', small_style), Paragraph(scan.status.upper(), small_style)],
+        [Paragraph('Date', small_style), Paragraph(scan.date_posted.strftime('%Y-%m-%d %H:%M UTC'), tiny_style)],
+        [Paragraph('User', small_style), Paragraph(current_user.username, small_style)],
+        [Paragraph('Risk Score', small_style), Paragraph(f'{risk}%', small_style)],
     ]
-
-    info_table = Table(info_data, colWidths=[4*cm, 13*cm])
+    info_table = Table(info_data, colWidths=[3*cm, 13*cm])
     info_table.setStyle(TableStyle([
-        ('FONTNAME',  (0,0), (0,-1), 'Helvetica-Bold'),
-        ('FONTSIZE',  (0,0), (-1,-1), 10),
-        ('TEXTCOLOR', (0,0), (0,-1), colors.HexColor('#888888')),
-        ('TEXTCOLOR', (1,0), (1,-1), colors.HexColor('#222222')),
-        ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#f7f8fa'), colors.white]),
-        ('TOPPADDING',    (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ('LEFTPADDING',   (0,0), (-1,-1), 10),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e8e8e8')),
+        ('TEXTCOLOR', (0,0), (0,-1), muted),
+        ('TEXTCOLOR', (1,0), (1,-1), white),
+        ('BACKGROUND', (0,0), (-1,-1), card_bg),
+        ('TOPPADDING', (0,0), (-1,-1), 5), ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('GRID', (0,0), (-1,-1), 0.3, border),
     ]))
     elements.append(info_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 8))
+
+    # Stats Table
     elements.append(Paragraph('SCAN STATISTICS', section_style))
-
-    verdict_color = {'harmless':'#28a745','malicious':'#dc3545','suspicious':'#ffc107','unknown':'#6c757d','error':'#343434'}.get(scan.verdict, '#6c757d')
-
-    stats_data = [
-        ['Metric', 'Count', 'Status'],
-        ['Harmless',   str(harmless),   'Safe'],
-        ['Malicious',  str(malicious),  'Threat' if malicious > 0 else 'Clean'],
-        ['Suspicious', str(suspicious), 'Warning' if suspicious > 0 else 'Clean'],
-        ['Undetected', str(undetected), 'N/A'],
-    ]
-
-    stats_table = Table(stats_data, colWidths=[7*cm, 4*cm, 6*cm])
+    stats_data = [['HARMLESS', 'MALICIOUS', 'SUSPICIOUS', 'UNDETECTED'], [str(h), str(m), str(sus), str(u)]]
+    stats_table = Table(stats_data, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
     stats_table.setStyle(TableStyle([
-        ('BACKGROUND',  (0,0), (-1,0), colors.HexColor('#1a1a2e')),
-        ('TEXTCOLOR',   (0,0), (-1,0), colors.HexColor('#00c8ff')),
-        ('FONTNAME',    (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',    (0,0), (-1,-1), 10),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor('#f7f8fa'), colors.white]),
-        ('TOPPADDING',    (0,0), (-1,-1), 9),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 9),
-        ('LEFTPADDING',   (0,0), (-1,-1), 12),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e8e8e8')),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,0), 8),
+        ('FONTSIZE', (0,1), (-1,1), 16), ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0,0), (-1,0), muted),
+        ('TEXTCOLOR', (0,1), (0,1), green), ('TEXTCOLOR', (1,1), (1,1), red),
+        ('TEXTCOLOR', (2,1), (2,1), yellow), ('TEXTCOLOR', (3,1), (3,1), white),
+        ('BACKGROUND', (0,0), (-1,-1), card_bg), ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('TOPPADDING', (0,0), (-1,-1), 6), ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('GRID', (0,0), (-1,-1), 0.3, border),
     ]))
     elements.append(stats_table)
-    elements.append(Spacer(1, 20))
-    elements.append(Paragraph('OVERALL VERDICT', section_style))
+    elements.append(Spacer(1, 8))
 
-    verdict_text = {
-        'harmless':   'HARMLESS — No threats detected. This URL appears to be safe.',
-        'malicious':  'MALICIOUS — This URL was flagged by multiple security engines.',
-        'suspicious': 'SUSPICIOUS — Some engines flagged this URL. Proceed with caution.',
-        'unknown':    'UNKNOWN — Not enough data to determine safety.',
-        'error':      'ERROR — Scan could not be completed.',
-    }.get(scan.verdict, 'UNKNOWN')
+    # PIE CHART
+    elements.append(Paragraph('THREAT DISTRIBUTION', section_style))
+    drawing = Drawing(200, 140)
+    pie = Pie()
+    pie.x, pie.y, pie.width, pie.height = 40, 10, 120, 120
+    pie.data = [h, m, sus, u]
+    pie.labels = ['Harmless', 'Malicious', 'Suspicious', 'Undetected']
+    pie.slices[0].fillColor = green
+    pie.slices[1].fillColor = red
+    pie.slices[2].fillColor = yellow
+    pie.slices[3].fillColor = muted
+    pie.slices.strokeWidth = 0.5
+    pie.slices.popout = 2
+    drawing.add(pie)
+    elements.append(drawing)
+    elements.append(Spacer(1, 8))
 
-    verdict_style = ParagraphStyle('verdict', fontSize=12, fontName='Helvetica-Bold',
-        textColor=colors.HexColor(verdict_color),
-        backColor=colors.HexColor('#f7f8fa'),
-        borderPad=12, spaceBefore=4, spaceAfter=20)
+    # Engine Results
+    elements.append(Paragraph('ENGINE RESULTS', section_style))
+    engine_rows = [['Engine', 'Category', 'Result']]
+    for name, info in list(results.items())[:10]:
+        engine_rows.append([Paragraph(name[:25], tiny_style), Paragraph(info.get('category', '').upper(), tiny_style), Paragraph(str(info.get('result', ''))[:35], tiny_style)])
+    engine_table = Table(engine_rows, colWidths=[5.5*cm, 4.5*cm, 6*cm])
+    engine_table.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,0), 7),
+        ('TEXTCOLOR', (0,0), (-1,0), accent), ('BACKGROUND', (0,0), (-1,0), dark_bg),
+        ('TEXTCOLOR', (0,1), (-1,-1), white), ('BACKGROUND', (0,1), (-1,-1), card_bg),
+        ('TOPPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 6), ('GRID', (0,0), (-1,-1), 0.3, border),
+    ]))
+    elements.append(engine_table)
+    elements.append(Spacer(1, 12))
 
-    elements.append(Paragraph(verdict_text, verdict_style))
-    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e0e0e0')))
-    elements.append(Spacer(1, 10))
-
-    footer_style = ParagraphStyle('footer', fontSize=8, fontName='Helvetica',
-        textColor=colors.HexColor('#aaaaaa'), alignment=1)
-    elements.append(Paragraph(
-        f'Generated by MyScanner · {scan.date_posted.strftime("%Y-%m-%d %H:%M")} UTC · Ahmed Sairafi',
-        footer_style
-    ))
+    # Footer
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=border))
+    elements.append(Paragraph(f'Generated by MyScanner · {scan.date_posted.strftime("%Y-%m-%d %H:%M")} UTC', tiny_style))
 
     doc.build(elements)
     buffer.seek(0)
-
-    return send_file(buffer, as_attachment=True,
-                     download_name=f'myscanner-report-{scan.id}.pdf',
-                     mimetype='application/pdf')
-
+    return send_file(buffer, as_attachment=True, download_name=f'myscanner-report-{scan.id}.pdf', mimetype='application/pdf')
 
 # ================================================================
 # Site Scanner
@@ -1468,6 +1480,102 @@ def api_ssl_checker():
 
     except Exception as e:
         return jsonify({"valid": False, "error_msg": str(e)})
+@app.route('/api/url-analysis/<int:scan_id>')
+@login_required
+def api_url_analysis(scan_id):
+    scan = db.session.get(Scan, scan_id)
+    if not scan or (scan.user_id != current_user.id and not current_user.is_admin):
+        return jsonify({"error": "Not found"}), 404
+
+    url = scan.url
+    
+    analysis = {
+        "redirect_chain": [],
+        "final_url": url,
+        "cookies": [],
+        "security_headers": {},
+        "tech_stack": [],
+        "status_codes": [],
+    }
+
+    try:
+        # 🔄 Redirect Chain + Cookies + Headers
+        resp = requests.get(url, timeout=15, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+        
+        # Redirect chain
+        for r in resp.history:
+            analysis["redirect_chain"].append({
+                "url": r.url,
+                "status_code": r.status_code
+            })
+        analysis["final_url"] = resp.url
+        analysis["status_codes"].append(resp.status_code)
+
+        # 🍪 Cookies Analysis
+        for cookie in resp.cookies:
+            analysis["cookies"].append({
+                "name": cookie.name,
+                "secure": bool(cookie.secure),
+                "httponly": bool(cookie.has_nonstandard_attr('httponly') if hasattr(cookie, 'has_nonstandard_attr') else False),
+                "samesite": cookie.get('samesite', 'Not Set') if hasattr(cookie, 'get') else 'Not Set',
+                "domain": cookie.domain if cookie.domain else 'N/A'
+            })
+
+        # 📊 Security Headers
+        headers = resp.headers
+        analysis["security_headers"] = {
+            "Strict-Transport-Security": headers.get("Strict-Transport-Security", "Missing ❌"),
+            "Content-Security-Policy": headers.get("Content-Security-Policy", "Missing ❌"),
+            "X-Frame-Options": headers.get("X-Frame-Options", "Missing ❌"),
+            "X-Content-Type-Options": headers.get("X-Content-Type-Options", "Missing ❌"),
+            "Referrer-Policy": headers.get("Referrer-Policy", "Missing ❌"),
+            "Permissions-Policy": headers.get("Permissions-Policy", "Missing ❌"),
+            "X-XSS-Protection": headers.get("X-XSS-Protection", "Missing ❌"),
+        }
+
+        # 🔍 Technology Stack Detection
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        tech = []
+        
+        # Meta tags
+        generator = soup.find('meta', {'name': 'generator'})
+        if generator: tech.append(generator.get('content', ''))
+        
+        # Scripts
+        scripts = soup.find_all('script')
+        for script in scripts[:10]:
+            src = script.get('src', '')
+            if src:
+                if 'jquery' in src: tech.append('jQuery')
+                elif 'react' in src: tech.append('React')
+                elif 'vue' in src: tech.append('Vue.js')
+                elif 'angular' in src: tech.append('Angular')
+                elif 'bootstrap' in src: tech.append('Bootstrap')
+                elif 'tailwind' in src: tech.append('Tailwind CSS')
+                elif 'wordpress' in src: tech.append('WordPress')
+                elif 'analytics' in src or 'gtag' in src: tech.append('Google Analytics')
+                elif 'fontawesome' in src: tech.append('Font Awesome')
+        
+        # Server header
+        server = headers.get("Server", "")
+        if server: tech.append(f"Server: {server}")
+        
+        # Powered by
+        powered = headers.get("X-Powered-By", "")
+        if powered: tech.append(f"Powered by: {powered}")
+        
+        analysis["tech_stack"] = list(set(tech))[:15]
+
+    except Exception as e:
+        analysis["error"] = str(e)
+
+    return jsonify(analysis)
+
+@app.route('/dashboard-v2')
+@login_required
+def dashboard_v2():
+    return render_template('dashboard-v2.html')
+
 
 
 # ================================================================

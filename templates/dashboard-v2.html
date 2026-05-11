@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  .dash-container { max-width: 1200px; margin: 0 auto; padding: 20px 24px 40px; }
+  body { overflow-x: hidden; }
+  .header { text-align: center; margin-bottom: 36px; }
+  .header .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,200,255,0.1); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; }
+  .header .badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.8); } }
+  .header h1 { font-family: var(--mono); font-size: 28px; font-weight: 700; }
+  .header h1 span { color: var(--accent); }
+  .header p { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; text-align: center; transition: all .2s; cursor: pointer; }
+  .stat-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .stat-card.active { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,200,255,0.1); }
+  .stat-card .s-icon { font-size: 26px; margin-bottom: 6px; }
+  .stat-card .s-value { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .stat-card .s-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+  .stat-card.total .s-value { color: var(--accent); }
+  .stat-card.safe .s-value { color: var(--green); }
+  .stat-card.malicious .s-value { color: var(--red); }
+  .stat-card.suspicious .s-value { color: var(--yellow); }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .chart-card h3 { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-bottom: 14px; }
+  .chart-wrap { position: relative; width: 100%; max-height: 260px; }
+  .chart-wrap canvas { max-height: 260px; }
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .filter-bar input { flex: 1; min-width: 180px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-family: var(--mono); font-size: 12px; color: var(--text); outline: none; }
+  .filter-bar input:focus { border-color: var(--accent); }
+  .filter-bar select { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: var(--text); outline: none; cursor: pointer; }
+  .filter-bar select:focus { border-color: var(--accent); }
+  .filter-bar .count { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .table-card h3 { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 9px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(42,42,69,0.3); color: var(--text); }
+  tr:hover td { background: var(--surface2); }
+  .verdict-badge { padding: 2px 8px; border-radius: 10px; font-family: var(--mono); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+  .v-harmless { color: var(--green); background: rgba(0,230,118,0.1); }
+  .v-malicious { color: var(--red); background: rgba(255,69,96,0.1); }
+  .v-suspicious { color: var(--yellow); background: rgba(255,211,42,0.1); }
+  .v-unknown { color: var(--muted); background: rgba(106,106,144,0.1); }
+  @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-container">
+  <div class="header">
+    <div class="badge">Live Dashboard</div>
+    <h1>My<span>Scanner</span></h1>
+    <p>Security Scan Analytics & Insights</p>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card total active" onclick="filterBy('all')"><div class="s-icon">📊</div><div class="s-value" id="total-count">0</div><div class="s-label">Total Scans</div></div>
+    <div class="stat-card safe" onclick="filterBy('harmless')"><div class="s-icon">✅</div><div class="s-value" id="safe-count">0</div><div class="s-label">Safe</div></div>
+    <div class="stat-card malicious" onclick="filterBy('malicious')"><div class="s-icon">🚨</div><div class="s-value" id="mal-count">0</div><div class="s-label">Malicious</div></div>
+    <div class="stat-card suspicious" onclick="filterBy('suspicious')"><div class="s-icon">⚠️</div><div class="s-value" id="sus-count">0</div><div class="s-label">Suspicious</div></div>
+  </div>
+  <div class="charts-grid">
+    <div class="chart-card"><h3>📊 Threat Distribution</h3><div class="chart-wrap"><canvas id="pie-chart"></canvas></div></div>
+    <div class="chart-card"><h3>📈 Scans Over Time</h3><div class="chart-wrap"><canvas id="bar-chart"></canvas></div></div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="search-input" placeholder="🔍 Search by URL..." oninput="renderTable()">
+    <select id="filter-select" onchange="filterBy(this.value)">
+      <option value="all">All Verdicts</option>
+      <option value="harmless">Safe</option>
+      <option value="malicious">Malicious</option>
+      <option value="suspicious">Suspicious</option>
+    </select>
+    <span class="count" id="filtered-count">0 scans</span>
+  </div>
+  <div class="table-card">
+    <h3>📋 Scan History</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>#</th><th>URL</th><th>Verdict</th><th>Summary</th><th>Date</th></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  let allScans = [];
+  let currentFilter = 'all';
+  let pieChart, barChart;
+  async function loadData() {
+    try {
+      const r = await fetch('/api/recent_scans');
+      const data = await r.json();
+      allScans = data.scans || [];
+      updateStats();
+      renderCharts();
+      renderTable();
+    } catch(e) { console.error(e); }
+  }
+  function updateStats() {
+    const total = allScans.length;
+    const safe = allScans.filter(s => s.verdict === 'harmless').length;
+    const mal = allScans.filter(s => s.verdict === 'malicious').length;
+    const sus = allScans.filter(s => s.verdict === 'suspicious').length;
+    document.getElementById('total-count').textContent = total;
+    document.getElementById('safe-count').textContent = safe;
+    document.getElementById('mal-count').textContent = mal;
+    document.getElementById('sus-count').textContent = sus;
+    document.getElementById('filtered-count').textContent = (currentFilter === 'all' ? allScans : allScans.filter(s => s.verdict === currentFilter)).length + ' scans';
+  }
+  function renderCharts() {
+    const ctx1 = document.getElementById('pie-chart').getContext('2d');
+    const ctx2 = document.getElementById('bar-chart').getContext('2d');
+    const safe = allScans.filter(s => s.verdict === 'harmless').length;
+    const mal = allScans.filter(s => s.verdict === 'malicious').length;
+    const sus = allScans.filter(s => s.verdict === 'suspicious').length;
+    const unk = allScans.length - safe - mal - sus;
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(ctx1, {
+      type: 'doughnut',
+      data: { labels: ['Safe', 'Malicious', 'Suspicious', 'Unknown'], datasets: [{ data: [safe, mal, sus, Math.max(unk,0)], backgroundColor: ['#00e676', '#ff4560', '#ffd32a', '#6a6a90'], borderColor: '#10101a', borderWidth: 3 }] },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { color: '#6a6a90', font: { family: 'Space Mono', size: 10 } } } } }
+    });
+    const days = [], counts = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const dayStr = d.toISOString().split('T')[0]; days.push(dayStr.substring(5)); counts.push(allScans.filter(s => s.date?.startsWith(dayStr)).length); }
+    if (barChart) barChart.destroy();
+    barChart = new Chart(ctx2, { type: 'bar', data: { labels: days, datasets: [{ data: counts, backgroundColor: '#00c8ff', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } }, y: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } } } } });
+  }
+  function filterBy(verdict) {
+    currentFilter = verdict;
+    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+    document.querySelector(`.stat-card.${verdict}`)?.classList.add('active');
+    document.getElementById('filter-select').value = verdict;
+    updateStats();
+    renderTable();
+  }
+  function renderTable() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    let filtered = currentFilter === 'all' ? allScans : allScans.filter(s => s.verdict === currentFilter);
+    if (search) filtered = filtered.filter(s => s.url?.toLowerCase().includes(search));
+    document.getElementById('table-body').innerHTML = filtered.map(s => `<tr><td style="color:var(--muted);font-family:var(--mono);font-size:10px;">#${s.id}</td><td style="font-family:var(--mono);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.url||'N/A'}</td><td><span class="verdict-badge v-${s.verdict||'unknown'}">${(s.verdict||'unknown').toUpperCase()}</span></td><td style="color:var(--muted);font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.summary||'–'}</td><td style="color:var(--muted);font-family:var(--mono);font-size:10px;">${s.date||'–'}</td></tr>`).join('');
+    document.getElementById('filtered-count').textContent = filtered.length + ' scans';
+  }
+  loadData();
+  setInterval(loadData, 30000);
+</script>
+{% endblock %}

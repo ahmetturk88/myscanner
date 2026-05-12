@@ -32,7 +32,7 @@ app = Flask(__name__)
 # Config
 # ================================================================
 app.config['SECRET_KEY']                  = os.getenv('SECRET_KEY', 'change-this-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///site.db'
+app.config['SQLALCHEMY_DATABASE_URI']     = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 API_KEY          = os.getenv('VIRUSTOTAL_API_KEY')
@@ -392,9 +392,8 @@ def profile():
 @app.route('/')
 def landing():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return render_template('home.html')
-
+        return render_template('index.html')  # صفحة فحص الروابط
+    return render_template('home.html')  # الصفحة الرئيسية العامة
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
@@ -410,8 +409,7 @@ def dashboard():
         t.start()
         return redirect(url_for('result_page', scan_id=new_scan.id))
 
-    return render_template('dashboard-v2.html')
-
+    return render_template('index.html')
 
 @app.route('/result/<int:scan_id>')
 @login_required
@@ -797,6 +795,7 @@ def api_check_ip():
 
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.piecharts import Pie
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 @app.route('/report/pdf/<int:scan_id>')
 @login_required
@@ -826,10 +825,9 @@ def download_pdf(scan_id):
     risk = round(((m * 3 + sus * 2) / (total * 3)) * 100) if total > 0 else 0
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.2*cm, leftMargin=1.2*cm, topMargin=1.2*cm, bottomMargin=1.2*cm, allowSplitting=1)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=1.5*cm, allowSplitting=1)
     elements = []
 
-    # Colors
     accent = colors.HexColor('#00c8ff')
     dark_bg = colors.HexColor('#0a0a14')
     card_bg = colors.HexColor('#141425')
@@ -840,97 +838,96 @@ def download_pdf(scan_id):
     muted = colors.HexColor('#6a6a90')
     border = colors.HexColor('#2a2a45')
 
-    # Styles
-    title_style = ParagraphStyle('t', fontSize=20, fontName='Helvetica-Bold', textColor=accent, alignment=1, spaceAfter=2)
-    sub_style = ParagraphStyle('s', fontSize=9, fontName='Helvetica', textColor=muted, alignment=1, spaceAfter=12)
-    section_style = ParagraphStyle('sec', fontSize=11, fontName='Helvetica-Bold', textColor=accent, alignment=1, spaceBefore=14, spaceAfter=8)
-    small_style = ParagraphStyle('sm', fontSize=8, fontName='Helvetica', textColor=white)
-    tiny_style = ParagraphStyle('ty', fontSize=7, fontName='Helvetica', textColor=muted)
+    title_style = ParagraphStyle('title', fontSize=26, fontName='Helvetica-Bold', textColor=accent, alignment=TA_CENTER, spaceAfter=4)
+    sub_style = ParagraphStyle('sub', fontSize=10, fontName='Helvetica', textColor=muted, alignment=TA_CENTER, spaceAfter=16)
+    section_style = ParagraphStyle('sec', fontSize=12, fontName='Helvetica-Bold', textColor=accent, spaceBefore=20, spaceAfter=10, alignment=TA_LEFT)
+    text_style = ParagraphStyle('txt', fontSize=9, fontName='Helvetica', textColor=white, leading=14)
+    small_style = ParagraphStyle('sm', fontSize=8, fontName='Courier', textColor=white)
+    tiny_style = ParagraphStyle('ty', fontSize=7, fontName='Courier', textColor=muted)
+    footer_style = ParagraphStyle('ft', fontSize=7, fontName='Helvetica', textColor=muted, alignment=TA_CENTER)
+    verdict_style = ParagraphStyle('v', fontSize=16, fontName='Helvetica-Bold', alignment=TA_CENTER, spaceAfter=12)
+    score_style = ParagraphStyle('score', fontSize=12, fontName='Helvetica', textColor=muted, alignment=TA_CENTER, spaceAfter=16)
 
-    # Header
-    elements.append(Paragraph('MyScanner', title_style))
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph('🛡️ MyScanner', title_style))
     elements.append(Paragraph('Security Scan Report', sub_style))
+    elements.append(HRFlowable(width="90%", thickness=1, color=accent, spaceBefore=0, spaceAfter=12))
 
-    # Verdict
-    v_map = {'harmless': ('SAFE ✅', green), 'malicious': ('MALICIOUS 🚨', red), 'suspicious': ('SUSPICIOUS ⚠️', yellow)}
-    v_text, v_color = v_map.get(scan.verdict, ('UNKNOWN', muted))
-    v_style = ParagraphStyle('v', fontSize=14, fontName='Helvetica-Bold', textColor=v_color, alignment=1, spaceAfter=8)
-    elements.append(Paragraph(v_text, v_style))
+    v_map = {'harmless': ('✅ HARMLESS', green), 'malicious': ('🚨 MALICIOUS', red), 'suspicious': ('⚠️ SUSPICIOUS', yellow)}
+    v_text, v_color = v_map.get(scan.verdict, ('❓ UNKNOWN', muted))
+    verdict_style.textColor = v_color
+    elements.append(Paragraph(v_text, verdict_style))
+    elements.append(Paragraph(f'Risk Score: {risk}%', score_style))
 
-    # Info Table
+    elements.append(Paragraph('📋 SCAN INFORMATION', section_style))
     info_data = [
-        [Paragraph('Scan ID', small_style), Paragraph(f'#{scan.id}', small_style)],
-        [Paragraph('URL', small_style), Paragraph(scan.url[:70], tiny_style)],
-        [Paragraph('Status', small_style), Paragraph(scan.status.upper(), small_style)],
+        [Paragraph('Scan ID', small_style), Paragraph(f'#{scan.id}', text_style)],
+        [Paragraph('URL', small_style), Paragraph(scan.url[:80], tiny_style)],
+        [Paragraph('Status', small_style), Paragraph(scan.status.upper(), text_style)],
         [Paragraph('Date', small_style), Paragraph(scan.date_posted.strftime('%Y-%m-%d %H:%M UTC'), tiny_style)],
-        [Paragraph('User', small_style), Paragraph(current_user.username, small_style)],
-        [Paragraph('Risk Score', small_style), Paragraph(f'{risk}%', small_style)],
+        [Paragraph('User', small_style), Paragraph(current_user.username, text_style)],
+        [Paragraph('Risk Score', small_style), Paragraph(f'{risk}%', text_style)],
     ]
-    info_table = Table(info_data, colWidths=[3*cm, 13*cm])
+    info_table = Table(info_data, colWidths=[3.5*cm, 12.5*cm])
     info_table.setStyle(TableStyle([
-        ('TEXTCOLOR', (0,0), (0,-1), muted),
-        ('TEXTCOLOR', (1,0), (1,-1), white),
-        ('BACKGROUND', (0,0), (-1,-1), card_bg),
-        ('TOPPADDING', (0,0), (-1,-1), 5), ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('GRID', (0,0), (-1,-1), 0.3, border),
+        ('BACKGROUND', (0,0), (-1,-1), card_bg), ('TEXTCOLOR', (0,0), (0,-1), muted),
+        ('TEXTCOLOR', (1,0), (1,-1), white), ('TOPPADDING', (0,0), (-1,-1), 7),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 7), ('LEFTPADDING', (0,0), (-1,-1), 12),
+        ('GRID', (0,0), (-1,-1), 0.5, border),
     ]))
     elements.append(info_table)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 14))
 
-    # Stats Table
-    elements.append(Paragraph('SCAN STATISTICS', section_style))
-    stats_data = [['HARMLESS', 'MALICIOUS', 'SUSPICIOUS', 'UNDETECTED'], [str(h), str(m), str(sus), str(u)]]
+    elements.append(Paragraph('📊 SCAN STATISTICS', section_style))
+    stats_data = [
+        [Paragraph('HARMLESS', small_style), Paragraph('MALICIOUS', small_style), Paragraph('SUSPICIOUS', small_style), Paragraph('UNDETECTED', small_style)],
+        [Paragraph(str(h), ParagraphStyle('b1', fontSize=22, fontName='Helvetica-Bold', textColor=green, alignment=TA_CENTER)),
+         Paragraph(str(m), ParagraphStyle('b2', fontSize=22, fontName='Helvetica-Bold', textColor=red, alignment=TA_CENTER)),
+         Paragraph(str(sus), ParagraphStyle('b3', fontSize=22, fontName='Helvetica-Bold', textColor=yellow, alignment=TA_CENTER)),
+         Paragraph(str(u), ParagraphStyle('b4', fontSize=22, fontName='Helvetica-Bold', textColor=white, alignment=TA_CENTER))],
+    ]
     stats_table = Table(stats_data, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
     stats_table.setStyle(TableStyle([
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,0), 8),
-        ('FONTSIZE', (0,1), (-1,1), 16), ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (0,0), (-1,0), muted),
-        ('TEXTCOLOR', (0,1), (0,1), green), ('TEXTCOLOR', (1,1), (1,1), red),
-        ('TEXTCOLOR', (2,1), (2,1), yellow), ('TEXTCOLOR', (3,1), (3,1), white),
         ('BACKGROUND', (0,0), (-1,-1), card_bg), ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('TOPPADDING', (0,0), (-1,-1), 6), ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('GRID', (0,0), (-1,-1), 0.3, border),
+        ('TOPPADDING', (0,0), (-1,-1), 10), ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 0.5, border),
     ]))
     elements.append(stats_table)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 14))
 
-    # PIE CHART
-    elements.append(Paragraph('THREAT DISTRIBUTION', section_style))
-    drawing = Drawing(200, 140)
+    elements.append(Paragraph('🎯 THREAT DISTRIBUTION', section_style))
+    drawing = Drawing(250, 160)
     pie = Pie()
-    pie.x, pie.y, pie.width, pie.height = 40, 10, 120, 120
-    pie.data = [h, m, sus, u]
+    pie.x, pie.y, pie.width, pie.height = 60, 15, 130, 130
+    pie.data = [max(h,1), max(m,1), max(sus,1), max(u,1)]
     pie.labels = ['Harmless', 'Malicious', 'Suspicious', 'Undetected']
-    pie.slices[0].fillColor = green
-    pie.slices[1].fillColor = red
-    pie.slices[2].fillColor = yellow
-    pie.slices[3].fillColor = muted
-    pie.slices.strokeWidth = 0.5
-    pie.slices.popout = 2
+    pie.slices[0].fillColor = green; pie.slices[1].fillColor = red
+    pie.slices[2].fillColor = yellow; pie.slices[3].fillColor = muted
+    pie.slices.strokeWidth = 1; pie.slices.strokeColor = dark_bg
+    pie.slices.popout = 3; pie.sideLabels = True; pie.simpleLabels = False
     drawing.add(pie)
     elements.append(drawing)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 16))
 
-    # Engine Results
-    elements.append(Paragraph('ENGINE RESULTS', section_style))
-    engine_rows = [['Engine', 'Category', 'Result']]
+    elements.append(Paragraph('🔍 ENGINE RESULTS', section_style))
+    engine_rows = [[Paragraph('Engine', small_style), Paragraph('Category', small_style), Paragraph('Result', small_style)]]
     for name, info in list(results.items())[:10]:
-        engine_rows.append([Paragraph(name[:25], tiny_style), Paragraph(info.get('category', '').upper(), tiny_style), Paragraph(str(info.get('result', ''))[:35], tiny_style)])
-    engine_table = Table(engine_rows, colWidths=[5.5*cm, 4.5*cm, 6*cm])
+        cat = info.get('category', 'undetected').upper()
+        res = str(info.get('result', 'N/A'))[:40]
+        engine_rows.append([Paragraph(name[:25], tiny_style), Paragraph(cat, tiny_style), Paragraph(res, tiny_style)])
+    engine_table = Table(engine_rows, colWidths=[5.5*cm, 4*cm, 6.5*cm])
     engine_table.setStyle(TableStyle([
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,0), 7),
-        ('TEXTCOLOR', (0,0), (-1,0), accent), ('BACKGROUND', (0,0), (-1,0), dark_bg),
-        ('TEXTCOLOR', (0,1), (-1,-1), white), ('BACKGROUND', (0,1), (-1,-1), card_bg),
-        ('TOPPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING', (0,0), (-1,-1), 6), ('GRID', (0,0), (-1,-1), 0.3, border),
+        ('BACKGROUND', (0,0), (-1,0), dark_bg), ('TEXTCOLOR', (0,0), (-1,0), accent),
+        ('BACKGROUND', (0,1), (-1,-1), card_bg), ('TEXTCOLOR', (0,1), (-1,-1), white),
+        ('TOPPADDING', (0,0), (-1,-1), 5), ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING', (0,0), (-1,-1), 8), ('GRID', (0,0), (-1,-1), 0.5, border),
     ]))
     elements.append(engine_table)
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 20))
 
-    # Footer
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=border))
-    elements.append(Paragraph(f'Generated by MyScanner · {scan.date_posted.strftime("%Y-%m-%d %H:%M")} UTC', tiny_style))
+    elements.append(HRFlowable(width="90%", thickness=0.5, color=border))
+    elements.append(Spacer(1, 8))
+    elements.append(Paragraph(f'Generated by MyScanner · {scan.date_posted.strftime("%Y-%m-%d %H:%M")} UTC · Ahmed Sairafi', footer_style))
 
     doc.build(elements)
     buffer.seek(0)
@@ -1480,6 +1477,13 @@ def api_ssl_checker():
 
     except Exception as e:
         return jsonify({"valid": False, "error_msg": str(e)})
+
+
+@app.route('/dashboard-v2')
+@login_required
+def dashboard_v2():
+    return render_template('dashboard-v2.html')
+
 @app.route('/api/url-analysis/<int:scan_id>')
 @login_required
 def api_url_analysis(scan_id):
@@ -1488,93 +1492,87 @@ def api_url_analysis(scan_id):
         return jsonify({"error": "Not found"}), 404
 
     url = scan.url
-    
+    domain = urlparse(url).netloc
+
     analysis = {
         "redirect_chain": [],
         "final_url": url,
         "cookies": [],
         "security_headers": {},
         "tech_stack": [],
-        "status_codes": [],
+        "screenshot": f"https://image.thum.io/get/1024x768/crop/{url}",
+        "whois": {},
+        "geo": {},
+        "similar_sites": [],
+        "history_scans": []
     }
 
     try:
-        # 🔄 Redirect Chain + Cookies + Headers
         resp = requests.get(url, timeout=15, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
-        
-        # Redirect chain
         for r in resp.history:
-            analysis["redirect_chain"].append({
-                "url": r.url,
-                "status_code": r.status_code
-            })
+            analysis["redirect_chain"].append({"url": r.url, "status_code": r.status_code})
         analysis["final_url"] = resp.url
-        analysis["status_codes"].append(resp.status_code)
 
-        # 🍪 Cookies Analysis
         for cookie in resp.cookies:
             analysis["cookies"].append({
                 "name": cookie.name,
                 "secure": bool(cookie.secure),
-                "httponly": bool(cookie.has_nonstandard_attr('httponly') if hasattr(cookie, 'has_nonstandard_attr') else False),
-                "samesite": cookie.get('samesite', 'Not Set') if hasattr(cookie, 'get') else 'Not Set',
-                "domain": cookie.domain if cookie.domain else 'N/A'
+                "domain": cookie.domain or 'N/A'
             })
 
-        # 📊 Security Headers
         headers = resp.headers
         analysis["security_headers"] = {
-            "Strict-Transport-Security": headers.get("Strict-Transport-Security", "Missing ❌"),
-            "Content-Security-Policy": headers.get("Content-Security-Policy", "Missing ❌"),
-            "X-Frame-Options": headers.get("X-Frame-Options", "Missing ❌"),
-            "X-Content-Type-Options": headers.get("X-Content-Type-Options", "Missing ❌"),
-            "Referrer-Policy": headers.get("Referrer-Policy", "Missing ❌"),
-            "Permissions-Policy": headers.get("Permissions-Policy", "Missing ❌"),
-            "X-XSS-Protection": headers.get("X-XSS-Protection", "Missing ❌"),
+            "HSTS": headers.get("Strict-Transport-Security", "Missing ❌"),
+            "CSP": headers.get("Content-Security-Policy", "Missing ❌"),
+            "X-Frame": headers.get("X-Frame-Options", "Missing ❌"),
+            "X-Content": headers.get("X-Content-Type-Options", "Missing ❌"),
         }
+    except:
+        pass
 
-        # 🔍 Technology Stack Detection
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        tech = []
-        
-        # Meta tags
-        generator = soup.find('meta', {'name': 'generator'})
-        if generator: tech.append(generator.get('content', ''))
-        
-        # Scripts
-        scripts = soup.find_all('script')
-        for script in scripts[:10]:
-            src = script.get('src', '')
-            if src:
-                if 'jquery' in src: tech.append('jQuery')
-                elif 'react' in src: tech.append('React')
-                elif 'vue' in src: tech.append('Vue.js')
-                elif 'angular' in src: tech.append('Angular')
-                elif 'bootstrap' in src: tech.append('Bootstrap')
-                elif 'tailwind' in src: tech.append('Tailwind CSS')
-                elif 'wordpress' in src: tech.append('WordPress')
-                elif 'analytics' in src or 'gtag' in src: tech.append('Google Analytics')
-                elif 'fontawesome' in src: tech.append('Font Awesome')
-        
-        # Server header
-        server = headers.get("Server", "")
-        if server: tech.append(f"Server: {server}")
-        
-        # Powered by
-        powered = headers.get("X-Powered-By", "")
-        if powered: tech.append(f"Powered by: {powered}")
-        
-        analysis["tech_stack"] = list(set(tech))[:15]
+    # WHOIS
+    try:
+        whois_resp = requests.get(f"https://www.whoisxmlapi.com/whoisserver/WhoisService?domainName={domain}&apiKey=at_free_demo_key&outputFormat=JSON", timeout=10)
+        if whois_resp.status_code == 200:
+            w = whois_resp.json().get("WhoisRecord", {})
+            analysis["whois"] = {
+                "registrar": w.get("registrarName", "N/A"),
+                "created": (w.get("createdDate") or "N/A")[:10],
+                "expires": (w.get("expiresDate") or "N/A")[:10],
+            }
+    except:
+        pass
 
-    except Exception as e:
-        analysis["error"] = str(e)
+    # Geo
+    try:
+        geo_resp = requests.get(f"http://ip-api.com/json/{domain}", timeout=10)
+        if geo_resp.status_code == 200:
+            g = geo_resp.json()
+            if g.get("status") != "fail":
+                analysis["geo"] = {"lat": g.get("lat"), "lon": g.get("lon"), "city": g.get("city", ""), "country": g.get("country", "")}
+    except:
+        pass
+
+    # Similar Sites (via similarweb)
+    try:
+        sim_resp = requests.get(f"https://data.similarweb.com/api/v1/data?domain={domain}", timeout=10)
+        if sim_resp.status_code == 200:
+            sim_data = sim_resp.json()
+            similar = sim_data.get("GlobalRank", {}).get("TopCountries", [])[:5]
+            analysis["similar_sites"] = similar
+    except:
+        pass
+
+    # History Scans
+    try:
+        history = Scan.query.filter(Scan.url.contains(domain)).order_by(Scan.date_posted.desc()).limit(10).all()
+        analysis["history_scans"] = [{"id": s.id, "verdict": s.verdict, "date": s.date_posted.strftime("%Y-%m-%d")} for s in history]
+    except:
+        pass
 
     return jsonify(analysis)
 
-@app.route('/dashboard-v2')
-@login_required
-def dashboard_v2():
-    return render_template('dashboard-v2.html')
+
 
 
 

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Email Checker{% endblock %}
+{% block title %}Email Checker - Advanced Email Security Scanner{% endblock %}
 
 {% block head_extra %}
 <style>
-  .email-wrap { max-width: 820px; margin: 0 auto; padding: 56px 24px 100px; }
+  .email-wrap { max-width: 1000px; margin: 0 auto; padding: 56px 24px 100px; }
   .page-head { text-align: center; margin-bottom: 44px; }
   .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
   .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
   .page-head h1 span { color: var(--accent); }
-  .page-head p { font-size: 15px; color: var(--muted); max-width: 440px; margin: 0 auto; line-height: 1.7; }
+  .page-head p { font-size: 15px; color: var(--muted); max-width: 640px; margin: 0 auto; line-height: 1.7; }
   .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px; display: flex; gap: 8px; margin-bottom: 12px; transition: border-color .3s, box-shadow .3s; }
   .search-box:focus-within { border-color: rgba(0,200,255,0.4); box-shadow: 0 0 30px rgba(0,200,255,0.08); }
   .search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 12px 16px; font-family: var(--mono); font-size: 13px; color: var(--text); min-width: 0; }
@@ -16,12 +16,25 @@
   .search-box button { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 26px; font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .2s; flex-shrink: 0; }
   .search-box button:hover { background: #00aad9; }
   .search-box button:disabled { background: var(--muted); cursor: not-allowed; }
+  
+  /* Suggestion Box */
+  .suggestion-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: none; animation: fadeInUp 0.3s ease; }
+  .suggestion-box .title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .suggestion-box .suggestion-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .suggestion-box .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-box .original { font-family: var(--mono); font-size: 12px; color: var(--red); text-decoration: line-through; }
+  .suggestion-box .corrected { font-family: var(--mono); font-size: 12px; color: var(--green); }
+  .suggestion-box .use-btn { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 12px; font-size: 11px; cursor: pointer; transition: all .2s; }
+  .suggestion-box .use-btn:hover { background: var(--accent); color: #000; }
+  
   #error-div { background: var(--red-dim); border: 1px solid rgba(255,69,96,.3); border-radius: 10px; padding: 12px 16px; color: var(--red); font-size: 13px; display: none; margin-bottom: 16px; }
   #loading-div { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; display: none; }
   .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
   @keyframes rot { to { transform: rotate(360deg); } }
+  
   .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; margin-bottom: 18px; display: none; animation: fadeInUp 0.5s ease; }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  
   .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
   .verdict-banner .v-icon { font-size: 34px; flex-shrink: 0; }
   .verdict-banner .v-text h3 { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
@@ -29,17 +42,17 @@
   .banner-safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .banner-invalid { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   .banner-disposable { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .banner-risky { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .banner-moderate_risk { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .banner-high_risk { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   .banner-undeliverable { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-no_mx { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-breached { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-no_spf { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
   .banner-blacklisted { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  
   .q-bar-wrap { margin-bottom: 28px; }
   .q-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 8px; letter-spacing: 0.5px; }
   .q-bar-bg { background: var(--surface2); border-radius: 6px; height: 8px; overflow: hidden; border: 1px solid var(--border); }
   .q-bar-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 28px; }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 28px; }
   .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; transition: all .2s; }
   .stat-box:hover { border-color: var(--accent); transform: translateY(-2px); }
   .stat-box .s-icon { font-size: 20px; margin-bottom: 6px; }
@@ -48,28 +61,32 @@
   .stat-box.good { border-color: rgba(0,230,118,.25); } .stat-box.good .s-value { color: var(--green); }
   .stat-box.bad { border-color: rgba(255,69,96,.25); } .stat-box.bad .s-value { color: var(--red); }
   .stat-box.warn { border-color: rgba(255,211,42,.25); } .stat-box.warn .s-value { color: var(--yellow); }
+  
+  .quality-breakdown { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 28px; border: 1px solid var(--border); }
+  .quality-breakdown h4 { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 12px; letter-spacing: 1px; }
+  .quality-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px dashed var(--border); }
+  .quality-item .check { color: var(--green); }
+  .quality-item .cross { color: var(--red); }
+  
+  .smtp-details { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 28px; border: 1px solid var(--border); }
+  .smtp-details h4 { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .mx-server { display: flex; align-items: center; gap: 12px; padding: 8px; background: var(--surface); border-radius: 8px; margin-bottom: 8px; font-size: 12px; font-family: var(--mono); }
+  .mx-pref { background: var(--accent-dim); padding: 2px 8px; border-radius: 12px; font-size: 10px; }
+  
   .details-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .details-table tr { border-bottom: 1px solid var(--border); }
   .details-table tr:last-child { border-bottom: none; }
   .details-table td { padding: 10px 6px; }
-  .details-table td:first-child { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; width: 40%; }
-  .details-table td:last-child { color: var(--text); font-weight: 600; }
-  .breaches-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; display: none; }
-  .breaches-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-  .breaches-top h3 { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text); }
-  .breach-badge { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px; background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .breach-summary { background: var(--red-dim); border: 1px solid rgba(255,69,96,.2); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 32px; flex-wrap: wrap; }
-  .bs-item .bs-lbl { font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; margin-bottom: 4px; }
-  .bs-item .bs-val { font-size: 18px; font-weight: 700; color: var(--red); font-family: var(--mono); }
-  .breaches-list { display: flex; flex-direction: column; gap: 6px; }
-  .breach-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; transition: border-color .15s; }
-  .breach-item:hover { border-color: rgba(255,69,96,.2); }
-  .breach-item .bd { font-weight: 600; color: var(--text); font-family: var(--mono); font-size: 12px; }
-  .breach-item .bt { color: var(--muted); font-size: 11px; font-family: var(--mono); }
-  .no-breach { text-align: center; padding: 32px; color: var(--green); font-weight: 600; font-size: 15px; }
-  .show-more { width: 100%; margin-top: 12px; padding: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: var(--mono); font-size: 12px; cursor: pointer; transition: all .2s; display: none; }
-  .show-more:hover { color: var(--text); background: var(--surface3); }
-  @media (max-width: 580px) { .search-box { flex-direction: column; } .stats-grid { grid-template-columns: repeat(2,1fr); } .breach-summary { flex-direction: column; gap: 14px; } }
+  .details-table td:first-child { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; width: 35%; }
+  .details-table td:last-child { color: var(--text); font-weight: 600; word-break: break-all; }
+  
+  .suggestions-tag { background: var(--yellow-dim); color: var(--yellow); padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 6px; }
+  
+  .export-buttons { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 12px; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 6px; }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  
+  @media (max-width: 580px) { .search-box { flex-direction: column; } .stats-grid { grid-template-columns: repeat(2,1fr); } }
 </style>
 {% endblock %}
 
@@ -78,31 +95,52 @@
   <div class="page-head">
     <div class="label">Security Tool</div>
     <h1>Email <span>Checker</span></h1>
-    <p>Verify any email — SPF, DKIM, DMARC, blacklist, and data breach history</p>
+    <p>Advanced email verification — SMTP, SPF, DKIM, DMARC, Blacklists, Domain Reputation & AI Classification</p>
   </div>
+  
   <div class="search-box">
     <input type="email" id="email-input" placeholder="user@example.com" autocomplete="off">
     <button id="check-btn" onclick="checkEmail()">Analyze →</button>
   </div>
+  
+  <div id="suggestion-box" class="suggestion-box">
+    <div class="title">💡 Did you mean?</div>
+    <div id="suggestions-list"></div>
+  </div>
+  
   <div id="error-div">❌ <span id="error-msg"></span></div>
-  <div id="loading-div"><span class="spin"></span>Analyzing email address...</div>
+  <div id="loading-div"><span class="spin"></span>Analyzing email address with advanced checks (SMTP, DNS, Blacklists)...</div>
+  
   <div class="result-card" id="result-card">
     <div id="verdict-banner" class="verdict-banner">
       <div class="v-icon" id="v-icon"></div>
       <div class="v-text"><h3 id="v-title"></h3><p id="v-sub"></p></div>
     </div>
+    
     <div class="q-bar-wrap">
-      <div class="q-bar-label"><span>QUALITY SCORE</span><span id="q-num">—</span></div>
+      <div class="q-bar-label"><span>🔍 QUALITY SCORE</span><span id="q-num">—</span></div>
       <div class="q-bar-bg"><div class="q-bar-fill" id="q-bar" style="width:0%;"></div></div>
     </div>
+    
     <div class="stats-grid" id="stats-grid"></div>
+    
+    <div class="quality-breakdown" id="quality-breakdown" style="display: none;">
+      <h4>📊 Quality Score Breakdown</h4>
+      <div id="quality-items"></div>
+    </div>
+    
+    <div class="smtp-details" id="smtp-details" style="display: none;">
+      <h4>📡 SMTP & MX Details</h4>
+      <div id="mx-servers"></div>
+      <div id="smtp-result"></div>
+    </div>
+    
     <table class="details-table" id="details-table"></table>
-  </div>
-  <div class="breaches-card" id="breaches-card">
-    <div class="breaches-top"><h3>🔓 Data Breach History</h3><span class="breach-badge" id="breach-badge">—</span></div>
-    <div class="breach-summary" id="breach-summary" style="display:none;"></div>
-    <div class="breaches-list" id="breaches-list"></div>
-    <button class="show-more" id="show-more" onclick="showAll()">▼ Show All Breaches</button>
+    
+    <div class="export-buttons">
+      <button class="export-btn" onclick="exportJSON()">📄 Export JSON</button>
+      <button class="export-btn" onclick="copyToClipboard()">📋 Copy Report</button>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -110,42 +148,85 @@
 {% block body_extra %}
 <script>
   const VC = {
-    safe:          { icon:'✅', title:'Safe & Valid',          sub:'This email appears legitimate and deliverable.',          cls:'banner-safe' },
-    invalid:       { icon:'❌', title:'Invalid Format',        sub:'This email address has an invalid format.',               cls:'banner-invalid' },
-    disposable:    { icon:'⚠️', title:'Disposable Email',      sub:'Temporary/disposable email — not recommended to trust.', cls:'banner-disposable' },
-    risky:         { icon:'⚠️', title:'Risky Email',           sub:'This email has reliability issues.',                     cls:'banner-risky' },
-    undeliverable: { icon:'🚫', title:'Undeliverable',         sub:'Emails to this address will likely bounce.',             cls:'banner-undeliverable' },
-    no_mx:         { icon:'🚫', title:'No Mail Server',        sub:'The domain has no configured mail server.',             cls:'banner-no_mx' },
-    breached:      { icon:'🔓', title:'Found in Data Breaches',sub:'This email appears in breach databases — be cautious!', cls:'banner-breached' },
-    no_spf:        { icon:'⚠️', title:'Missing SPF Record',   sub:'Domain lacks SPF — vulnerable to email spoofing.',       cls:'banner-no_spf' },
-    blacklisted:   { icon:'🚫', title:'Domain Blacklisted',    sub:'This domain appears in one or more blacklists!',         cls:'banner-blacklisted' },
+    safe:             { icon:'✅', title:'Safe & Valid', sub:'This email appears legitimate and deliverable. All security checks passed.', cls:'banner-safe' },
+    invalid:          { icon:'❌', title:'Invalid Format', sub:'This email address has an invalid format.', cls:'banner-invalid' },
+    disposable:       { icon:'⚠️', title:'Disposable Email', sub:'Temporary/disposable email — not recommended for business or trusted communications.', cls:'banner-disposable' },
+    moderate_risk:    { icon:'⚠️', title:'Moderate Risk', sub:'This email has some reliability issues. Proceed with caution.', cls:'banner-moderate_risk' },
+    high_risk:        { icon:'⚠️', title:'High Risk', sub:'Multiple security issues detected on this email/domain.', cls:'banner-high_risk' },
+    undeliverable:    { icon:'🚫', title:'Undeliverable', sub:'Emails to this address will likely bounce or never arrive.', cls:'banner-undeliverable' },
+    blacklisted:      { icon:'🚫', title:'Domain Blacklisted', sub:'This domain appears in one or more anti-spam blacklists!', cls:'banner-blacklisted' },
   };
-  let allB = [];
+  
+  let lastResult = null;
 
   async function checkEmail() {
     const email = document.getElementById('email-input').value.trim();
     const btn = document.getElementById('check-btn');
-    ['result-card','breaches-card','loading-div','error-div'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+    document.getElementById('suggestion-box').style.display = 'none';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('loading-div').style.display = 'block';
+    document.getElementById('error-div').style.display = 'none';
+    
     if (!email) { showErr('Please enter an email address.'); return; }
     btn.disabled = true;
-    document.getElementById('loading-div').style.display = 'block';
+    
     try {
-      const r = await fetch('/api/check-email', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email}) });
+      const r = await fetch('/api/check-email', { 
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body: JSON.stringify({email}) 
+      });
       const data = await r.json();
       document.getElementById('loading-div').style.display = 'none';
-      if (data.error) { showErr(data.error); return; }
+      
+      if (data.error) { 
+        showErr(data.error); 
+        if (data.suggestions && data.suggestions.length) showSuggestions(data.suggestions);
+        return; 
+      }
+      
+      lastResult = data;
       renderMain(data);
-      renderBreaches(data);
-    } catch(e) { document.getElementById('loading-div').style.display = 'none'; showErr('Network error. Please try again.'); }
-    finally { btn.disabled = false; }
+    } catch(e) { 
+      document.getElementById('loading-div').style.display = 'none'; 
+      showErr('Network error. Please try again.'); 
+    } finally { 
+      btn.disabled = false; 
+    }
   }
 
-  function showErr(msg) { document.getElementById('error-msg').textContent = msg; document.getElementById('error-div').style.display = 'block'; }
+  function showSuggestions(suggestions) {
+    const box = document.getElementById('suggestion-box');
+    const list = document.getElementById('suggestions-list');
+    list.innerHTML = suggestions.map(s => `
+      <div class="suggestion-item">
+        <div>
+          <span class="original">${s.original}</span> → 
+          <span class="corrected">${s.suggested}</span>
+          <span class="suggestions-tag">${s.type === 'domain_typo' ? 'Typo' : 'Similar'}</span>
+        </div>
+        <button class="use-btn" onclick="useSuggestion('${s.suggested}')">Use →</button>
+      </div>
+    `).join('');
+    box.style.display = 'block';
+  }
+  
+  function useSuggestion(corrected) {
+    document.getElementById('email-input').value = corrected;
+    document.getElementById('suggestion-box').style.display = 'none';
+    checkEmail();
+  }
+
+  function showErr(msg) { 
+    document.getElementById('error-msg').textContent = msg; 
+    document.getElementById('error-div').style.display = 'block'; 
+  }
 
   function yn(v) { return v ? '<span style="color:var(--green);font-weight:700;">✓ Yes</span>' : '<span style="color:var(--red);font-weight:700;">✗ No</span>'; }
+  function statusBadge(v) { return v ? '<span style="color:var(--green);">✓</span>' : '<span style="color:var(--red);">✗</span>'; }
 
   function renderMain(d) {
-    const vc = VC[d.verdict] || VC.risky;
+    const vc = VC[d.verdict] || VC.moderate_risk;
     const banner = document.getElementById('verdict-banner');
     banner.className = 'verdict-banner ' + vc.cls;
     document.getElementById('v-icon').textContent = vc.icon;
@@ -153,68 +234,115 @@
     document.getElementById('v-sub').textContent = vc.sub;
 
     const score = Math.round((d.quality_score || 0) * 100);
-    const col = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--yellow)' : 'var(--red)';
+    const col = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
     document.getElementById('q-bar').style.width = score + '%';
     document.getElementById('q-bar').style.background = col;
     document.getElementById('q-num').textContent = score + ' / 100';
 
+    // Stats Grid with enhanced info
     document.getElementById('stats-grid').innerHTML = `
       <div class="stat-box ${d.is_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">FORMAT</div><div class="s-value">${d.is_valid ? 'Valid':'Invalid'}</div></div>
-      <div class="stat-box ${d.is_mx ? 'good':'bad'}"><div class="s-icon">📡</div><div class="s-label">MAIL SERVER</div><div class="s-value">${d.is_mx ? 'Found':'Not Found'}</div></div>
+      <div class="stat-box ${d.is_mx ? 'good':'bad'}"><div class="s-icon">📡</div><div class="s-label">MX RECORDS</div><div class="s-value">${d.is_mx ? 'Found':'Not Found'}</div></div>
       <div class="stat-box ${d.is_smtp ? 'good':'bad'}"><div class="s-icon">🔌</div><div class="s-label">SMTP</div><div class="s-value">${d.is_smtp ? 'Valid':'Invalid'}</div></div>
-      <div class="stat-box ${d.is_disposable ? 'bad':'good'}"><div class="s-icon">🗑️</div><div class="s-label">DISPOSABLE</div><div class="s-value">${d.is_disposable ? 'Yes ⚠':'No'}</div></div>
-      <div class="stat-box ${d.is_free ? 'warn':'good'}"><div class="s-icon">🆓</div><div class="s-label">FREE EMAIL</div><div class="s-value">${d.is_free ? 'Yes':'Business'}</div></div>
-      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERY</div><div class="s-value" style="font-size:11px;">${d.deliverability}</div></div>
-      <div class="stat-box ${d.total_breaches===0?'good':'bad'}"><div class="s-icon">🔓</div><div class="s-label">BREACHES</div><div class="s-value">${d.total_breaches}</div></div>
-      <div class="stat-box ${d.address_risk==='low'?'good':'bad'}"><div class="s-icon">🛡️</div><div class="s-label">RISK</div><div class="s-value" style="font-size:12px;">${(d.address_risk||'N/A').toUpperCase()}</div></div>
-      <div class="stat-box ${d.spf_valid ? 'good':'bad'}"><div class="s-icon">🛡️</div><div class="s-label">SPF</div><div class="s-value">${d.spf_valid ? 'Valid':'Missing'}</div></div>
-      <div class="stat-box ${d.dkim_valid ? 'good':'bad'}"><div class="s-icon">🔐</div><div class="s-label">DKIM</div><div class="s-value">${d.dkim_valid ? 'Valid':'Missing'}</div></div>
-      <div class="stat-box ${d.dmarc_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">DMARC</div><div class="s-value">${d.dmarc_valid ? 'Valid':'Missing'}</div></div>
-      <div class="stat-box ${d.blacklisted ? 'bad':'good'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLIST</div><div class="s-value">${d.blacklisted ? d.blacklist_count : 'Clean'}</div></div>
+      <div class="stat-box ${!d.is_disposable ? 'good':'bad'}"><div class="s-icon">🗑️</div><div class="s-label">DISPOSABLE</div><div class="s-value">${d.is_disposable ? '⚠️ Yes' : 'Clean'}</div></div>
+      <div class="stat-box ${!d.is_free ? 'good':'warn'}"><div class="s-icon">🆓</div><div class="s-label">EMAIL TYPE</div><div class="s-value">${d.is_free ? 'Personal/Free' : 'Business'}</div></div>
+      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERABILITY</div><div class="s-value" style="font-size:11px;">${d.deliverability}</div></div>
+      <div class="stat-box ${!d.blacklisted ? 'good':'bad'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLIST</div><div class="s-value">${d.blacklisted ? `⚠️ ${d.blacklist_count} lists` : 'Clean'}</div></div>
+      <div class="stat-box ${d.spf_valid ? 'good':'bad'}"><div class="s-icon">🛡️</div><div class="s-label">SPF</div><div class="s-value">${d.spf_valid ? 'Valid' : 'Missing'}</div></div>
+      <div class="stat-box ${d.dmarc_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">DMARC</div><div class="s-value">${d.dmarc_valid ? 'Valid' : 'Missing'}</div></div>
     `;
 
+    // Quality breakdown
+    if (d.quality_breakdown) {
+      document.getElementById('quality-breakdown').style.display = 'block';
+      document.getElementById('quality-items').innerHTML = `
+        <div class="quality-item"><span>SMTP Validation</span> ${statusBadge(d.quality_breakdown.smtp_valid)}</div>
+        <div class="quality-item"><span>Not Disposable Email</span> ${statusBadge(d.quality_breakdown.no_disposable)}</div>
+        <div class="quality-item"><span>Not Blacklisted</span> ${statusBadge(d.quality_breakdown.not_blacklisted)}</div>
+        <div class="quality-item"><span>SPF Record Exists</span> ${statusBadge(d.quality_breakdown.spf_exists)}</div>
+        <div class="quality-item"><span>DMARC Record Exists</span> ${statusBadge(d.quality_breakdown.dmarc_exists)}</div>
+        <div class="quality-item"><strong>Final Score</strong> <strong style="color:${col}">${score}%</strong></div>
+      `;
+    }
+
+    // SMTP Details
+    if (d.smtp_details && d.smtp_details.mx_servers && d.smtp_details.mx_servers.length > 0) {
+      document.getElementById('smtp-details').style.display = 'block';
+      document.getElementById('mx-servers').innerHTML = d.smtp_details.mx_servers.map(mx => `
+        <div class="mx-server">
+          <span class="mx-pref">Priority ${mx.preference}</span>
+          <span style="font-family:monospace">${mx.server}</span>
+        </div>
+      `).join('');
+      document.getElementById('smtp-result').innerHTML = `
+        <div style="margin-top:12px; padding:8px; background:var(--surface); border-radius:8px;">
+          <strong>SMTP Check:</strong> ${d.smtp_details.message}
+        </div>
+      `;
+    }
+
+    // Details Table
     document.getElementById('details-table').innerHTML = `
-      <tr><td>EMAIL ADDRESS</td><td>${d.email}</td></tr>
-      <tr><td>VALID FORMAT</td><td>${yn(d.is_valid)}</td></tr>
-      <tr><td>MX RECORDS</td><td>${yn(d.is_mx)}</td></tr>
-      <tr><td>SMTP VALID</td><td>${yn(d.is_smtp)}</td></tr>
-      <tr><td>DISPOSABLE</td><td>${yn(!d.is_disposable)}</td></tr>
-      <tr><td>FREE PROVIDER</td><td>${d.is_free ? 'Yes (Gmail/Yahoo/etc)':'No (Business)'}</td></tr>
-      <tr><td>DELIVERABILITY</td><td>${d.deliverability}</td></tr>
-      <tr><td>RISK LEVEL</td><td>${(d.address_risk||'N/A').toUpperCase()}</td></tr>
-      <tr><td>SPF RECORD</td><td>${yn(d.spf_valid)}</td></tr>
-      <tr><td>DKIM RECORD</td><td>${yn(d.dkim_valid)}</td></tr>
-      <tr><td>DMARC RECORD</td><td>${yn(d.dmarc_valid)}</td></tr>
-      <tr><td>BLACKLISTED</td><td>${d.blacklisted ? 'Yes ('+d.blacklist_count+' lists)' : 'No'}</td></tr>
-      <tr><td>REGISTRAR</td><td>${d.registrar||'N/A'}</td></tr>
-      <tr><td>DOMAIN AGE</td><td>${d.domain_age ? d.domain_age+' days':'N/A'}</td></tr>
-      <tr><td>QUALITY SCORE</td><td>${score} / 100</td></tr>
+      <tr><td>📧 EMAIL ADDRESS</td><td>${d.email}</td></tr>
+      <tr><td>🌐 DOMAIN</td><td>${d.domain}</td></tr>
+      <tr><td>✓ VALID FORMAT</td><td>${yn(d.is_valid)}</td></tr>
+      <tr><td>📡 MX RECORDS</td><td>${yn(d.is_mx)}</td></tr>
+      <tr><td>🔌 SMTP VALID</td><td>${yn(d.is_smtp)}</td></tr>
+      <tr><td>🗑️ DISPOSABLE</td><td>${yn(!d.is_disposable)}</td></tr>
+      <tr><td>🆓 FREE PROVIDER</td><td>${d.is_free ? 'Yes (Personal)' : 'No (Business/Custom)'}</td></tr>
+      <tr><td>📬 DELIVERABILITY</td><td><span class="${d.deliverability === 'DELIVERABLE' ? 'good' : 'bad'}">${d.deliverability}</span></td></tr>
+      <tr><td>⚠️ RISK LEVEL</td><td><span class="${d.verdict === 'safe' ? 'good' : 'bad'}">${(d.address_risk || d.verdict).toUpperCase()}</span></td></tr>
+      <tr><td>🛡️ SPF RECORD</td><td>${yn(d.spf_valid)}${d.spf_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${d.spf_record.substring(0, 80)}${d.spf_record.length > 80 ? '...' : ''}</span>` : ''}</td></tr>
+      <tr><td>📋 DMARC RECORD</td><td>${yn(d.dmarc_valid)}${d.dmarc_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${d.dmarc_record.substring(0, 80)}</span>` : ''}</td></tr>
+      <tr><td>🚫 BLACKLISTED</td><td>${d.blacklisted ? `Yes (${d.blacklist_count} lists)` : 'No'}</td></tr>
+      <tr><td>🏢 REGISTRAR</td><td>${d.registrar || 'N/A'}</td></tr>
+      <tr><td>📅 DOMAIN AGE</td><td>${d.domain_age ? d.domain_age + ' days' + (d.domain_age < 30 ? ' ⚠️ New domain' : '') : 'N/A'}</td></tr>
+      <tr><td>🎯 QUALITY SCORE</td><td><strong style="color:${col}">${score} / 100</strong></td></tr>
     `;
 
     document.getElementById('result-card').style.display = 'block';
+    window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
   }
 
-  function renderBreaches(d) {
-    allB = d.breached_domains || [];
-    const total = d.total_breaches || 0;
-    const badge = document.getElementById('breach-badge');
-    if (total === 0) {
-      badge.style.background = 'var(--green-dim)'; badge.style.color = 'var(--green)'; badge.style.borderColor = 'rgba(0,230,118,.3)';
-      badge.textContent = '0 BREACHES FOUND';
-      document.getElementById('breaches-list').innerHTML = '<div class="no-breach">✅ Great news! No known data breaches found for this email.</div>';
-      document.getElementById('breach-summary').style.display = 'none';
-    } else {
-      document.getElementById('breach-summary').style.display = 'flex';
-      document.getElementById('breach-summary').innerHTML = `<div class="bs-item"><div class="bs-lbl">TOTAL BREACHES</div><div class="bs-val">${total}</div></div><div class="bs-item"><div class="bs-lbl">LAST BREACHED</div><div class="bs-val" style="font-size:14px;">${d.last_breached||'Unknown'}</div></div>`;
-      renderBList(allB.slice(0, 10));
-      if (allB.length > 10) document.getElementById('show-more').style.display = 'block';
-    }
-    document.getElementById('breaches-card').style.display = 'block';
+  function exportJSON() {
+    if (!lastResult) return;
+    const dataStr = JSON.stringify(lastResult, null, 2);
+    const blob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `email-report-${lastResult.email}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
-  function renderBList(list) { document.getElementById('breaches-list').innerHTML = list.map(b => `<div class="breach-item"><span class="bd">🔓 ${b.domain}</span><span class="bt">📅 ${b.breach_date}</span></div>`).join(''); }
-
-  function showAll() { renderBList(allB); document.getElementById('show-more').style.display = 'none'; }
+  function copyToClipboard() {
+    if (!lastResult) return;
+    const report = `
+╔══════════════════════════════════════════════════════════════╗
+║                    Email Security Report                      ║
+╠══════════════════════════════════════════════════════════════╣
+║ Email: ${lastResult.email}
+║ Domain: ${lastResult.domain}
+║ Verdict: ${lastResult.verdict.toUpperCase()}
+║ Quality Score: ${Math.round((lastResult.quality_score || 0) * 100)}/100
+╠══════════════════════════════════════════════════════════════╣
+║ ✓ Format Valid: ${lastResult.is_valid}
+║ ✓ MX Records: ${lastResult.is_mx}
+║ ✓ SMTP Valid: ${lastResult.is_smtp}
+║ ✓ Deliverable: ${lastResult.deliverability}
+║ ✓ Disposable: ${lastResult.is_disposable}
+║ ✓ Email Type: ${lastResult.is_free ? 'Personal/Free' : 'Business'}
+║ ✓ SPF: ${lastResult.spf_valid ? 'Valid' : 'Missing'}
+║ ✓ DMARC: ${lastResult.dmarc_valid ? 'Valid' : 'Missing'}
+║ ✓ Blacklisted: ${lastResult.blacklisted ? 'Yes (' + lastResult.blacklist_count + ' lists)' : 'No'}
+╠══════════════════════════════════════════════════════════════╣
+║ Generated by MyScanner Email Security Tool
+╚══════════════════════════════════════════════════════════════╝
+    `;
+    navigator.clipboard.writeText(report);
+    alert('✅ Report copied to clipboard!');
+  }
 
   document.getElementById('email-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkEmail(); });
 </script>

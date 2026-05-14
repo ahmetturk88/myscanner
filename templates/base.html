@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
     <link rel="icon" href="{{ url_for('static', filename='security-scan.png') }}" type="image/png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root {
             --bg: #080810; --surface: #10101a; --surface2: #18182a; --surface3: #202035;
@@ -72,7 +73,7 @@
         .dropdown-menu a:last-child { border-bottom: none; }
         .dropdown-menu a:hover { background: var(--surface2); color: var(--text); }
         /* MOBILE NAVBAR */
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
             .nav-toggle{ display:block; }
             .nav-links{ display:none; position:fixed; top:60px; left:0; right:0; background:rgba(8,8,16,0.99); border-bottom:1px solid var(--border); padding:10px 16px 20px; flex-direction:column; align-items:stretch; gap:2px; z-index:199; max-height:calc(100vh - 60px); overflow-y:auto; }
             .nav-links.open{ display:flex; }
@@ -85,7 +86,7 @@
             .dropdown-menu { position: static; border: none; background: transparent; padding: 0; min-width: auto; }
             .dropdown-menu a { padding-left: 30px; }
         }
-        @media (min-width: 901px) {
+        @media (min-width: 1025px) {
             .nav-toggle{ display:none; }
             .nav-links{ display:flex !important; }
         }
@@ -134,6 +135,11 @@
         @media (min-width:768px){ .wa-float{ right:20px; bottom:20px; } }
         .wa-float:hover{ transform:scale(1.1); } .wa-float img{ width:26px; }
         .table-responsive{ width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        @media (max-width: 1024px) {
+        .nav-dropdown {
+            display: none;
+        }
+    }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
@@ -241,38 +247,44 @@
     </footer>
 
     <script>
-        function toggleNav() {
-            document.getElementById('nav-links').classList.toggle('open');
+    function toggleNav() {
+        document.getElementById('nav-links').classList.toggle('open');
+    }
+    
+    function toggleMobileDropdown(e) {
+        if (window.innerWidth <= 900) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('services-dropdown').classList.toggle('show');
         }
-        
-        function toggleMobileDropdown(e) {
+    }
+    
+    // إغلاق القائمة عند الضغط على أي رابط
+    document.querySelectorAll('.nav-links a').forEach(link => {
+        link.addEventListener('click', () => {
             if (window.innerWidth <= 900) {
-                e.preventDefault();
-                document.getElementById('services-dropdown').classList.toggle('show');
+                document.getElementById('nav-links').classList.remove('open');
             }
+        });
+    });
+    
+    // إغلاق القائمة عند الضغط برا
+    document.addEventListener('click', function(e) {
+        const nav = document.getElementById('nav-links');
+        const toggle = document.getElementById('nav-toggle');
+        if (nav && toggle && !nav.contains(e.target) && !toggle.contains(e.target)) {
+            nav.classList.remove('open');
+            document.getElementById('services-dropdown').classList.remove('show');
         }
-        
-        document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
-                document.getElementById('nav-links').classList.remove('open');
-            });
-        });
-        
-        document.addEventListener('click', function(e) {
-            const nav = document.getElementById('nav-links');
-            const toggle = document.getElementById('nav-toggle');
-            if (nav && toggle && !nav.contains(e.target) && !toggle.contains(e.target)) {
-                nav.classList.remove('open');
-            }
-        });
-        
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 900) {
-                document.getElementById('nav-links').classList.remove('open');
-                document.getElementById('services-dropdown').classList.remove('show');
-            }
-        });
-    </script>
+    });
+    
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 900) {
+            document.getElementById('nav-links').classList.remove('open');
+            document.getElementById('services-dropdown').classList.remove('show');
+        }
+    });
+</script>
 
     {% block body_extra %}{% endblock %}
 </body>

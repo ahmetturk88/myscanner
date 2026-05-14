@@ -1,510 +1,287 @@
 {% extends "base.html" %}
-{% block title %}Site Scanner{% endblock %}
+{% block title %}Site Scanner - Website Security Analysis{% endblock %}
 
 {% block head_extra %}
 <style>
-  .site-wrap {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 56px 24px 100px;
-  }
-
-  /* PAGE HEADER */
-  .page-head {
-    text-align: center;
-    margin-bottom: 44px;
-  }
-
-  .page-head .label {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: var(--accent-dim);
-    border: 1px solid rgba(0,200,255,0.2);
-    border-radius: 20px;
-    padding: 4px 14px;
-    margin-bottom: 16px;
-  }
-
-  .page-head h1 {
-    font-family: var(--mono);
-    font-size: clamp(28px, 5vw, 40px);
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 10px;
-  }
-
+  .scanner-wrap { max-width: 1200px; margin: 0 auto; padding: 56px 24px 100px; }
+  .page-head { text-align: center; margin-bottom: 44px; }
+  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
+  .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
   .page-head h1 span { color: var(--accent); }
-
-  .page-head p {
-    font-size: 15px;
-    color: var(--muted);
-    max-width: 480px;
-    margin: 0 auto;
-    line-height: 1.7;
-  }
-
-  /* WARNING BOX */
-  .warning-box {
-    background: var(--yellow-dim);
-    border: 1px solid rgba(255,211,42,0.25);
-    border-radius: 10px;
-    padding: 12px 18px;
-    font-size: 13px;
-    color: var(--yellow);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--mono);
-  }
-
-  /* SEARCH BOX */
-  .search-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 8px;
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-    transition: border-color .3s, box-shadow .3s;
-  }
-
-  .search-box:focus-within {
-    border-color: rgba(0,200,255,0.4);
-    box-shadow: 0 0 30px rgba(0,200,255,0.08);
-  }
-
-  .search-box input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    padding: 12px 16px;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--text);
-    min-width: 0;
-  }
-  .search-box input::placeholder { color: var(--muted); }
-
-  .search-box button {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    border-radius: 10px;
-    padding: 12px 26px;
-    font-family: var(--sans);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background .2s;
-    flex-shrink: 0;
-  }
-  .search-box button:hover    { background: #00aad9; }
-  .search-box button:disabled { background: var(--muted); cursor: not-allowed; }
-
-  /* ERROR */
-  #error-div {
-    background: var(--red-dim);
-    border: 1px solid rgba(255,69,96,.3);
-    border-radius: 10px;
-    padding: 12px 16px;
-    color: var(--red);
-    font-size: 13px;
-    display: none;
-    margin-bottom: 16px;
-  }
-
-  /* LOADING */
-  #loading-div {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 40px;
-    text-align: center;
-    display: none;
-    margin-bottom: 18px;
-  }
-
-  .spin {
-    display: inline-block;
-    width: 28px; height: 28px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: rot .7s linear infinite;
-    margin-bottom: 16px;
-  }
+  .page-head p { font-size: 15px; color: var(--muted); max-width: 540px; margin: 0 auto; line-height: 1.7; }
+  
+  .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px; display: flex; gap: 8px; margin-bottom: 24px; }
+  .search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 12px 16px; font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .search-box button { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 26px; font-weight: 700; cursor: pointer; }
+  
+  #loading-div { text-align: center; padding: 40px; color: var(--muted); display: none; }
+  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
   @keyframes rot { to { transform: rotate(360deg); } }
-
-  #loading-div h3 {
-    font-family: var(--mono);
-    font-size: 15px;
-    color: var(--text);
-    margin-bottom: 8px;
-  }
-
-  #loading-div p {
-    font-size: 13px;
-    color: var(--muted);
-  }
-
-  #loading-progress {
-    margin-top: 20px;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent);
-  }
-
-  /* SUMMARY CARD */
-  .summary-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 28px;
-    margin-bottom: 18px;
-    display: none;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .summary-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-  }
-
-  .summary-card.harmless::before   { background: var(--green); }
-  .summary-card.malicious::before  { background: var(--red); }
-  .summary-card.suspicious::before { background: var(--yellow); }
-
-  /* Verdict Banner */
-  .verdict-banner {
-    border-radius: 12px;
-    padding: 20px 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .verdict-banner .v-icon { font-size: 34px; flex-shrink: 0; }
-  .verdict-banner .v-text h3 { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
-  .verdict-banner .v-text p  { font-size: 13px; opacity: 0.75; }
-
-  .banner-harmless   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(0,230,118,.3); }
-  .banner-malicious  { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,69,96,.3); }
-  .banner-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-
-  /* Stats */
-  .summary-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
-  }
-
-  .s-stat {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-    text-align: center;
-  }
-  .s-stat .num {
-    font-family: var(--mono);
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 4px;
-  }
-  .s-stat .lbl {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-  }
-  .s-stat.green .num { color: var(--green); }
-  .s-stat.red   .num { color: var(--red); }
-  .s-stat.yellow .num { color: var(--yellow); }
-  .s-stat.blue  .num { color: var(--accent); }
-
-  /* RESULTS TABLE */
-  .results-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 28px;
-    display: none;
-  }
-
-  .results-title {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .result-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .result-item:last-child { border-bottom: none; }
-
-  .result-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .dot-harmless   { background: var(--green);  box-shadow: 0 0 6px var(--green); }
-  .dot-malicious  { background: var(--red);    box-shadow: 0 0 6px var(--red); }
-  .dot-suspicious { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-  .dot-unknown, .dot-error { background: var(--muted); }
-
-  .result-url {
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  .result-url a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-  .result-url a:hover { text-decoration: underline; }
-
-  .v-badge {
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .v-harmless   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(0,230,118,.3); }
-  .v-malicious  { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,69,96,.3); }
-  .v-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .v-unknown, .v-error { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
-
-  .result-nums {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  @media (max-width: 580px) {
-    .search-box { flex-direction: column; }
-    .summary-stats { grid-template-columns: repeat(2,1fr); }
-  }
+  
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; display: none; animation: fadeInUp 0.5s ease; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+  .verdict-banner .v-icon { font-size: 42px; }
+  .banner-secure { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .banner-moderate { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .banner-insecure { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  .banner-error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  
+  .score-bar { margin-bottom: 28px; }
+  .score-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-family: var(--mono); }
+  .score-bg { background: var(--surface2); border-radius: 10px; height: 12px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+  
+  .section-card { background: var(--surface2); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+  .section-title { font-family: var(--mono); font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .grid-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .badge-good { background: var(--green-dim); color: var(--green); padding: 4px 12px; border-radius: 20px; font-size: 11px; }
+  .badge-warn { background: var(--yellow-dim); color: var(--yellow); padding: 4px 12px; border-radius: 20px; font-size: 11px; }
+  .badge-bad { background: var(--red-dim); color: var(--red); padding: 4px 12px; border-radius: 20px; font-size: 11px; }
+  
+  .recommendations-list { list-style: none; padding: 0; }
+  .recommendations-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  
+  .export-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 12px; cursor: pointer; }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  
+  .error-message { background: var(--red-dim); border: 1px solid var(--red); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px; }
+  
+  @media (max-width: 580px) { .search-box { flex-direction: column; } }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="site-wrap">
-
-  <!-- Header -->
+<div class="scanner-wrap">
   <div class="page-head">
     <div class="label">Security Tool</div>
-    <h1>Full Site <span>Scanner</span></h1>
-    <p>Enter any domain and we'll scan all its links — get a complete security report in minutes</p>
+    <h1>Site <span>Scanner</span></h1>
+    <p>Comprehensive website analysis — SSL, Security Headers, DNS, SEO, Performance & Mobile Friendly</p>
   </div>
-
-  <!-- Warning -->
-  <div class="warning-box">
-    ⚠️ Free plan: up to 50 links per scan · Each scan takes 2-3 minutes
-  </div>
-
-  <!-- Search -->
+  
   <div class="search-box">
-    <input type="text" id="domain-input" placeholder="example.com or https://example.com" autocomplete="off">
-    <button id="scan-btn" onclick="startScan()">Scan Site →</button>
+    <input type="text" id="domain-input" placeholder="example.com" autocomplete="off">
+    <button id="scan-btn" onclick="scanSite()">Scan Site →</button>
   </div>
-
-  <div id="error-div">❌ <span id="error-msg"></span></div>
-
-  <!-- Loading -->
-  <div id="loading-div">
-    <div class="spin"></div>
-    <h3>Scanning in progress...</h3>
-    <p>Fetching links and analyzing each one with VirusTotal</p>
-    <div id="loading-progress">Initializing scan...</div>
-  </div>
-
-  <!-- Summary -->
-  <div class="summary-card" id="summary-card">
-    <div id="verdict-banner" class="verdict-banner">
-      <div class="v-icon" id="v-icon"></div>
-      <div class="v-text">
-        <h3 id="v-title"></h3>
-        <p id="v-sub"></p>
-      </div>
-    </div>
-
-    <div class="summary-stats">
-      <div class="s-stat blue">
-        <div class="num" id="s-total">0</div>
-        <div class="lbl">TOTAL LINKS</div>
-      </div>
-      <div class="s-stat green">
-        <div class="num" id="s-harmless">0</div>
-        <div class="lbl">HARMLESS</div>
-      </div>
-      <div class="s-stat red">
-        <div class="num" id="s-malicious">0</div>
-        <div class="lbl">MALICIOUS</div>
-      </div>
-      <div class="s-stat yellow">
-        <div class="num" id="s-suspicious">0</div>
-        <div class="lbl">SUSPICIOUS</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Results -->
-  <div class="results-card" id="results-card">
-    <div class="results-title">🔍 Link-by-Link Results</div>
-    <div id="results-list"></div>
-  </div>
-
+  
+  <div id="loading-div"><span class="spin"></span>Analyzing website (SSL, DNS, Security Headers, SEO)...</div>
+  
+  <div class="result-card" id="result-card"></div>
 </div>
-{% endblock %}
 
-{% block body_extra %}
 <script>
-  const VC = {
-    harmless:   { icon:'✅', title:'Site Appears Safe',        sub:'No threats detected across all scanned links.',           cls:'banner-harmless',   cardCls:'harmless' },
-    malicious:  { icon:'🚨', title:'Malicious Content Found',  sub:'One or more links were flagged as malicious — be careful!', cls:'banner-malicious', cardCls:'malicious' },
-    suspicious: { icon:'⚠️', title:'Suspicious Content Found', sub:'Some links look suspicious — proceed with caution.',      cls:'banner-suspicious', cardCls:'suspicious' },
-  };
+let lastResult = null;
 
-  let scanning = false;
-
-  async function startScan() {
-    if (scanning) return;
-
-    const domain = document.getElementById('domain-input').value.trim();
-    const btn    = document.getElementById('scan-btn');
-
-    ['summary-card','results-card','error-div'].forEach(id => {
-      document.getElementById(id).style.display = 'none';
+async function scanSite() {
+  const domain = document.getElementById('domain-input').value.trim();
+  const btn = document.getElementById('scan-btn');
+  const loadingDiv = document.getElementById('loading-div');
+  const resultCard = document.getElementById('result-card');
+  
+  if (!domain) {
+    alert('Please enter a domain name');
+    return;
+  }
+  
+  resultCard.style.display = 'none';
+  loadingDiv.style.display = 'block';
+  btn.disabled = true;
+  
+  try {
+    const response = await fetch('/api/site-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain })
     });
-
-    if (!domain) { showErr('Please enter a domain name.'); return; }
-
-    scanning = true;
-    btn.disabled = true;
-    btn.textContent = 'Scanning...';
-    document.getElementById('loading-div').style.display = 'block';
-
-    // Progress messages
-    const msgs = [
-      'Fetching domain links...',
-      'Submitting URLs to VirusTotal...',
-      'Waiting for scan results...',
-      'Analyzing responses...',
-      'Almost done...',
-    ];
-    let msgIdx = 0;
-    const progressEl = document.getElementById('loading-progress');
-    const progressInterval = setInterval(() => {
-      progressEl.textContent = msgs[msgIdx % msgs.length];
-      msgIdx++;
-    }, 15000);
-
-    try {
-      const r    = await fetch('/api/site-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain })
-      });
-      const data = await r.json();
-
-      clearInterval(progressInterval);
-      document.getElementById('loading-div').style.display = 'none';
-
-      if (data.error) { showErr(data.error); return; }
-
-      renderSummary(data);
-      renderResults(data.results);
-
-    } catch(e) {
-      clearInterval(progressInterval);
-      document.getElementById('loading-div').style.display = 'none';
-      showErr('Network error. Please try again.');
-    } finally {
-      scanning = false;
-      btn.disabled = false;
-      btn.textContent = 'Scan Site →';
+    const data = await response.json();
+    loadingDiv.style.display = 'none';
+    
+    if (data.error) {
+      showError(data.error);
+      return;
     }
+    
+    lastResult = data;
+    renderResult(data);
+    
+  } catch (error) {
+    loadingDiv.style.display = 'none';
+    showError('Network error: ' + error.message);
+  } finally {
+    btn.disabled = false;
   }
+}
 
-  function showErr(msg) {
-    document.getElementById('error-msg').textContent = msg;
-    document.getElementById('error-div').style.display = 'block';
-  }
+function showError(message) {
+  const resultCard = document.getElementById('result-card');
+  resultCard.innerHTML = `
+    <div class="error-message">
+      <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+      <h3>Scan Failed</h3>
+      <p>${message}</p>
+    </div>
+  `;
+  resultCard.style.display = 'block';
+}
 
-  function renderSummary(data) {
-    const vc = VC[data.overall] || VC.harmless;
-
-    const card = document.getElementById('summary-card');
-    card.className = 'summary-card ' + vc.cardCls;
-
-    const banner = document.getElementById('verdict-banner');
-    banner.className = 'verdict-banner ' + vc.cls;
-    document.getElementById('v-icon').textContent  = vc.icon;
-    document.getElementById('v-title').textContent = vc.title;
-    document.getElementById('v-sub').textContent   = vc.sub;
-
-    document.getElementById('s-total').textContent     = data.total;
-    document.getElementById('s-harmless').textContent  = data.harmless;
-    document.getElementById('s-malicious').textContent = data.malicious;
-    document.getElementById('s-suspicious').textContent= data.suspicious;
-
-    card.style.display = 'block';
-  }
-
-  function renderResults(results) {
-    const list = document.getElementById('results-list');
-    list.innerHTML = results.map(r => `
-      <div class="result-item">
-        <div class="result-dot dot-${r.verdict}"></div>
-        <div class="result-url">
-          <a href="${r.url}" target="_blank" rel="noopener">${r.url}</a>
-        </div>
-        <span class="v-badge v-${r.verdict}">${r.verdict.toUpperCase()}</span>
-        <span class="result-nums">
-          ✅${r.harmless} 🚨${r.malicious} ⚠️${r.suspicious || 0}
-        </span>
+function renderResult(d) {
+  // التحقق من وجود البيانات المطلوبة
+  const verdicts = {
+    secure: { icon: '✅', title: 'SECURE', subtitle: 'Website security is good. No critical issues found.', cls: 'banner-secure' },
+    moderate: { icon: '⚠️', title: 'MODERATE RISK', subtitle: 'Some security issues detected. Review recommendations.', cls: 'banner-moderate' },
+    insecure: { icon: '🚨', title: 'INSECURE', subtitle: 'Critical security issues found! Take action immediately.', cls: 'banner-insecure' }
+  };
+  
+  const v = verdicts[d.verdict] || verdicts.moderate;
+  const score = d.security_score || 0;
+  const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+  
+  // SSL data with safe defaults
+  const ssl = d.ssl || { valid: false, days_remaining: 0, issuer: 'N/A', tls_version: 'N/A', grade: 'F' };
+  // Performance data
+  const perf = d.performance || { load_time_ms: 0, grade: 'N/A', status_code: 200, server: 'Unknown' };
+  // Security headers data
+  const secHeaders = d.security_headers || { headers: {}, score: 0, grade: 'F' };
+  const headers = secHeaders.headers || {};
+  // DNS data
+  const dnsData = d.dns || { a_records: [], mx_records: [], has_spf: false, has_dmarc: false };
+  // SEO data
+  const seo = d.seo || { seo_score: 0, title: 'N/A', description: 'N/A', h1_tags: [], images_alt: { with_alt: 0, total: 0 }, internal_links: 0, external_links: 0 };
+  // Mobile data
+  const mobile = d.mobile_friendly || { is_mobile_friendly: false, viewport: false };
+  // Recommendations
+  const recommendations = d.recommendations || [];
+  
+  const html = `
+    <div class="verdict-banner ${v.cls}">
+      <div class="v-icon">${v.icon}</div>
+      <div><h3>${v.title}</h3><p>${v.subtitle}</p></div>
+    </div>
+    
+    <div class="score-bar">
+      <div class="score-label"><span>🔒 SECURITY SCORE</span><span>${score} / 100</span></div>
+      <div class="score-bg"><div class="score-fill" style="width:${score}%; background:${color}"></div></div>
+    </div>
+    
+    <div class="grid-2col">
+      <!-- SSL Section -->
+      <div class="section-card">
+        <div class="section-title">🔐 SSL Certificate</div>
+        <div class="info-row"><span>Status</span><span class="${ssl.valid ? 'badge-good' : 'badge-bad'}">${ssl.valid ? 'Valid' : 'Invalid'}</span></div>
+        <div class="info-row"><span>Issuer</span><span>${ssl.issuer || 'N/A'}</span></div>
+        <div class="info-row"><span>Days Remaining</span><span class="${ssl.days_remaining > 30 ? 'badge-good' : 'badge-warn'}">${ssl.days_remaining || 0} days</span></div>
+        <div class="info-row"><span>TLS Version</span><span>${ssl.tls_version || 'N/A'}</span></div>
+        <div class="info-row"><span>Grade</span><span class="badge-good">${ssl.grade || 'N/A'}</span></div>
       </div>
-    `).join('');
+      
+      <!-- Performance Section -->
+      <div class="section-card">
+        <div class="section-title">⚡ Performance</div>
+        <div class="info-row"><span>Load Time</span><span class="${perf.load_time_ms < 1000 ? 'badge-good' : 'badge-warn'}">${perf.load_time_ms} ms</span></div>
+        <div class="info-row"><span>Grade</span><span>${perf.grade || 'N/A'}</span></div>
+        <div class="info-row"><span>Status Code</span><span>${perf.status_code || 200}</span></div>
+        <div class="info-row"><span>Server</span><span>${perf.server || 'Unknown'}</span></div>
+      </div>
+    </div>
+    
+    <!-- Security Headers -->
+    <div class="section-card">
+      <div class="section-title">🛡️ Security Headers</div>
+      <div class="info-row"><span>Grade</span><span class="badge-${secHeaders.grade === 'A' ? 'good' : 'warn'}">${secHeaders.grade || 'F'}</span></div>
+      <div class="info-row"><span>HSTS</span><span class="${headers.strict_transport_security !== 'Missing' ? 'badge-good' : 'badge-bad'}">${(headers.strict_transport_security || 'Missing').substring(0, 50)}</span></div>
+      <div class="info-row"><span>CSP</span><span class="${headers.content_security_policy !== 'Missing' ? 'badge-good' : 'badge-bad'}">${(headers.content_security_policy || 'Missing').substring(0, 50)}</span></div>
+      <div class="info-row"><span>X-Frame-Options</span><span class="${headers.x_frame_options !== 'Missing' ? 'badge-good' : 'badge-bad'}">${headers.x_frame_options || 'Missing'}</span></div>
+    </div>
+    
+    <!-- DNS Records -->
+    <div class="section-card">
+      <div class="section-title">🌐 DNS Records</div>
+      <div class="info-row"><span>A Records</span><span>${(dnsData.a_records || []).join(', ') || 'None'}</span></div>
+      <div class="info-row"><span>MX Records</span><span>${(dnsData.mx_records || []).map(m => `${m.exchange} (${m.preference})`).join(', ') || 'None'}</span></div>
+      <div class="info-row"><span>SPF Record</span><span class="${dnsData.has_spf ? 'badge-good' : 'badge-bad'}">${dnsData.has_spf ? '✓ Configured' : '✗ Missing'}</span></div>
+      <div class="info-row"><span>DMARC Record</span><span class="${dnsData.has_dmarc ? 'badge-good' : 'badge-bad'}">${dnsData.has_dmarc ? '✓ Configured' : '✗ Missing'}</span></div>
+    </div>
+    
+    <!-- SEO Section -->
+    <div class="section-card">
+      <div class="section-title">📈 SEO Analysis</div>
+      <div class="info-row"><span>SEO Score</span><span class="badge-${seo.seo_score >= 70 ? 'good' : 'warn'}">${seo.seo_score}/100</span></div>
+      <div class="info-row"><span>Title</span><span>${seo.title || 'Missing'}</span></div>
+      <div class="info-row"><span>Description</span><span>${(seo.description || 'Missing').substring(0, 100)}</span></div>
+      <div class="info-row"><span>H1 Tags</span><span>${(seo.h1_tags || []).length} found</span></div>
+      <div class="info-row"><span>Images with Alt</span><span>${seo.images_alt?.with_alt || 0}/${seo.images_alt?.total || 0}</span></div>
+      <div class="info-row"><span>Internal Links</span><span>${seo.internal_links || 0}</span></div>
+      <div class="info-row"><span>External Links</span><span>${seo.external_links || 0}</span></div>
+    </div>
+    
+    <!-- Mobile Friendly -->
+    <div class="section-card">
+      <div class="section-title">📱 Mobile Friendly</div>
+      <div class="info-row"><span>Status</span><span class="${mobile.is_mobile_friendly ? 'badge-good' : 'badge-bad'}">${mobile.is_mobile_friendly ? '✓ Mobile Friendly' : '✗ Not Mobile Friendly'}</span></div>
+      <div class="info-row"><span>Viewport</span><span class="${mobile.viewport ? 'badge-good' : 'badge-bad'}">${mobile.viewport ? '✓ Configured' : '✗ Missing'}</span></div>
+    </div>
+    
+    <!-- Recommendations -->
+    ${recommendations.length > 0 ? `
+    <div class="section-card">
+      <div class="section-title">📋 Recommendations</div>
+      <ul class="recommendations-list">
+        ${recommendations.map(r => `<li>${r}</li>`).join('')}
+      </ul>
+    </div>
+    ` : ''}
+    
+    <div class="export-buttons">
+      <button class="export-btn" onclick="exportJSON()">📄 Export JSON</button>
+      <button class="export-btn" onclick="copyReport()">📋 Copy Report</button>
+    </div>
+  `;
+  
+  document.getElementById('result-card').innerHTML = html;
+  document.getElementById('result-card').style.display = 'block';
+  window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
+}
 
-    document.getElementById('results-card').style.display = 'block';
-  }
+function exportJSON() {
+  if (!lastResult) return;
+  const dataStr = JSON.stringify(lastResult, null, 2);
+  const blob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `site-scan-${lastResult.domain}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-  document.getElementById('domain-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') startScan();
-  });
+function copyReport() {
+  if (!lastResult) return;
+  const report = `
+╔══════════════════════════════════════════════════════════════╗
+║                    Site Security Report                      ║
+╠══════════════════════════════════════════════════════════════╣
+║ Domain: ${lastResult.domain}
+║ URL: ${lastResult.url || 'N/A'}
+║ Verdict: ${(lastResult.verdict || 'unknown').toUpperCase()}
+║ Security Score: ${lastResult.security_score || 0}/100
+╠══════════════════════════════════════════════════════════════╣
+║ SSL: ${lastResult.ssl?.valid ? 'Valid' : 'Invalid'} (${lastResult.ssl?.days_remaining || 0} days left)
+║ Load Time: ${lastResult.performance?.load_time_ms || 0} ms
+║ SEO Score: ${lastResult.seo?.seo_score || 0}/100
+║ Mobile Friendly: ${lastResult.mobile_friendly?.is_mobile_friendly ? 'Yes' : 'No'}
+╠══════════════════════════════════════════════════════════════╣
+║ Generated by MyScanner Site Security Tool
+╚══════════════════════════════════════════════════════════════╝
+  `;
+  navigator.clipboard.writeText(report);
+  alert('✅ Report copied to clipboard!');
+}
+
+document.getElementById('domain-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') scanSite();
+});
 </script>
 {% endblock %}

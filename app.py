@@ -20,6 +20,18 @@ import json
 import os
 import hashlib
 from dotenv import load_dotenv
+import re
+import socket
+import dns.resolver
+import smtplib
+import Levenshtein
+import redis
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from email_validator import validate_email, EmailNotValidError
+from typing import Any
+from file_analyzer import FileAnalyzer
+from werkzeug.utils import secure_filename
+from site_analyzer import SiteAnalyzer
 
 load_dotenv()
 
@@ -31,14 +43,417 @@ app = Flask(__name__)
 # ================================================================
 # Config
 # ================================================================
-app.config['SECRET_KEY']                  = os.getenv('SECRET_KEY', 'change-this-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI']     = os.getenv('DATABASE_URL', 'sqlite:///site.db')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-API_KEY          = os.getenv('VIRUSTOTAL_API_KEY')
+API_KEY = os.getenv('VIRUSTOTAL_API_KEY')
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
 ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY')
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+# File Scanner Settings
+UPLOAD_FOLDER = 'temp_uploads'
+ALLOWED_EXTENSIONS = {'exe', 'dll', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', '7z', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'scr', 'msi'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# ================================================================
+# Email Checker Constants & Lists
+# ================================================================
+
+# قائمة موسعة من النطاقات المؤقتة (Temporary/Disposable Email Domains)
+DISPOSABLE_DOMAINS = {
+    'tempmail', 'guerrillamail', 'mailinator', '10minutemail', 'throwawaymail',
+    'temp-mail', 'yopmail', 'getnada', 'mailnator', 'sharklasers', 'guerrillamail',
+    'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.biz', 'maildrop',
+    'spambox', 'trashmail', 'trashmail.com', 'trashmail.net', 'tempinbox',
+    'tempemail', 'tempail', 'tempmail.net', 'tempmail.org', 'tempinbox.co',
+    'tempail.com', 'tempmail2.com', 'tempmail3.com', 'tempmail4.com', 'tempmail5.com',
+    'mail-temp', 'temp-mail.org', 'temp-mail.io', 'temp-mail.com', 'mail-temp.com',
+    'tmp-mail', 'tmpmail', 'tmp-email', 'tmpemail', 'tmpemail.net', 'tmpmail.net',
+    'tmpmail.org', 'tmp-mail.net', 'tmp-mail.org', 'guerrillamail.com', 'guerrillamail.co.uk',
+    'mailnesia', 'throwawaymail.com', 'throwaway.email', 'throwawaymail.co.uk',
+    'spambox.us', 'spambox.me', 'spambox.org', 'spambox.info', 'spambox.net',
+    'trash2009', 'trash2020', 'trashdev', 'trashmail.ws', 'trashmail.me',
+    'trashmail.co', 'trashmail.fr', 'trashmail.io', 'trashmail.net.au',
+    'trashmail.org', 'trashmail.xyz', 'trashmail.cloud', 'trashmail.space',
+    'mailinator.com', 'mailinator.net', 'guerrillamail.biz', 'guerrillamail.org',
+    'guerrillamail.net', 'guerrillamail.com', 'mailmetrash.com', 'thankyou2010.com',
+    'trash2009.com', 'mt2009.com', 'trashymail.com', 'tyldd.com', 'hopemail.biz',
+    'banit.club', 'banit.me', 'maildrop.cc', 'maildrop.biz', 'maildrop.org'
+}
+
+# النطاقات المجانية الشائعة
+FREE_DOMAINS = {
+    'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com',
+    'icloud.com', 'mail.com', 'protonmail.com', 'proton.me', 'tutanota.com',
+    'gmx.com', 'gmx.net', 'yandex.com', 'yandex.ru', 'zoho.com', 'rediffmail.com',
+    'live.com', 'msn.com', 'qq.com', '163.com', '126.com', 'sina.com',
+    'sohu.com', 'tom.com', 'yeah.net', 'foxmail.com', 'mail.ru', 'list.ru',
+    'inbox.ru', 'bk.ru', 'ya.ru', 'rambler.ru', 'ukr.net', 'meta.ua',
+    'i.ua', 'bigmir.net', 'ex.ua', 'volia.com', 'ua.fm', 'mail.ua'
+}
+
+# قوائم الحظر السوداء للفحص الموسعة
+BLACKLISTS = [
+    "spamhaus.org", "zen.spamhaus.org", "bl.spamcop.net", "dnsbl.sorbs.net",
+    "b.barracudacentral.org", "cbl.abuseat.org", "dnsbl-1.uceprotect.net",
+    "dnsbl-2.uceprotect.net", "dnsbl-3.uceprotect.net", "psbl.surriel.com",
+    "list.dnswl.org", "all.s5h.net", "bl.score.sbl.net", "spamrbl.imp.ch",
+    "ubl.unsubscore.com", "dnsbl.dronebl.org", "ix.dnsbl.manitu.net",
+    "tor.dnsbl.sectoor.de", "rbl.interserver.net", "rbl.megarbl.net",
+    "dnsbl-1.uceprotect.net", "dnsbl-2.uceprotect.net", "dbl.spamhaus.org"
+]
+# ================================================================
+# Advanced Email Checker Class
+# ================================================================
+
+class AdvancedEmailChecker:
+    """أداة متقدمة لفحص الإيميلات مع جميع الميزات"""
+    
+    def __init__(self, redis_client=None):
+        self.redis = redis_client
+        self.cache_ttl = 3600
+        self.executor = ThreadPoolExecutor(max_workers=10)
+        
+    def _get_cache_key(self, email: str, check_type: str) -> str:
+        return f"email_check:{hashlib.md5(email.encode()).hexdigest()}:{check_type}"
+    
+    def _cache_get(self, key: str):
+        if self.redis:
+            try:
+                data = self.redis.get(key)
+                if data:
+                    return json.loads(data)
+            except:
+                pass
+        return None
+
+    def _cache_set(self, key: str, value: Any, ttl: int = None):
+        if self.redis:
+            try:
+                self.redis.setex(key, ttl or self.cache_ttl, json.dumps(value))
+            except:
+                pass
+
+    def validate_format(self, email: str):
+        """التحقق من صحة صيغة الإيميل مع اقتراح تصحيحات"""
+        try:
+            validation = validate_email(email, check_deliverability=False)
+            normalized = validation.normalized
+            
+            domain = email.split('@')[-1] if '@' in email else email
+            suggestions = []
+            
+            common_domains = {
+                'gmial.com': 'gmail.com', 'gmail.co': 'gmail.com',
+                'yaho.com': 'yahoo.com', 'hotmai.com': 'hotmail.com',
+                'outloo.com': 'outlook.com', 'protonmal.com': 'protonmail.com'
+            }
+            
+            if domain in common_domains:
+                corrected = email.replace(domain, common_domains[domain])
+                suggestions.append({
+                    "original": email,
+                    "suggested": corrected,
+                    "type": "domain_typo",
+                    "confidence": 0.95
+                })
+            
+            for known_domain in FREE_DOMAINS:
+                ratio = Levenshtein.ratio(domain, known_domain)
+                if ratio > 0.8 and ratio < 1.0:
+                    corrected = email.replace(domain, known_domain)
+                    suggestions.append({
+                        "original": email,
+                        "suggested": corrected,
+                        "type": "similar_domain",
+                        "confidence": ratio
+                    })
+                    break
+            
+            return True, normalized, {"suggestions": suggestions}
+            
+        except EmailNotValidError as e:
+            return False, email, {"error": str(e), "suggestions": []}
+    
+    def check_smtp(self, email: str, timeout: int = 10):
+        """فحص SMTP المباشر للتأكد من وجود الصندوق"""
+        cache_key = self._get_cache_key(email, "smtp")
+        cached = self._cache_get(cache_key)
+        if cached:
+            return cached
+        
+        domain = email.split('@')[-1]
+        result = {
+            "valid": False,
+            "message": "Not checked",
+            "mx_servers": [],
+            "response_code": None,
+            "response_message": None
+        }
+        
+        try:
+            mx_records = dns.resolver.resolve(domain, 'MX')
+            mx_servers = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in mx_records])
+            result["mx_servers"] = [{"preference": pref, "server": server} for pref, server in mx_servers]
+            
+            if not mx_servers:
+                result["message"] = "No MX records found"
+                self._cache_set(cache_key, result, 3600)
+                return result
+            
+            for pref, mx in mx_servers[:3]:
+                try:
+                    smtp = smtplib.SMTP(timeout=timeout)
+                    smtp.connect(mx, 25)
+                    smtp.helo('checker.local')
+                    smtp.mail('verify@checker.local')
+                    code, message = smtp.rcpt(email)
+                    
+                    result["response_code"] = code
+                    result["response_message"] = message.decode() if isinstance(message, bytes) else str(message)
+                    
+                    if code == 250:
+                        result["valid"] = True
+                        result["message"] = "Mailbox exists"
+                    elif code in (550, 551):
+                        result["valid"] = False
+                        result["message"] = "Mailbox does not exist"
+                    else:
+                        result["message"] = f"Response: {code}"
+                    
+                    smtp.quit()
+                    break
+                    
+                except Exception:
+                    continue
+                    
+        except Exception as e:
+            result["message"] = f"Error: {str(e)}"
+        
+        self._cache_set(cache_key, result, 3600)
+        return result
+    
+    def check_dns_records(self, domain: str):
+        """فحص جميع سجلات DNS المتعلقة بالإيميل"""
+        cache_key = self._get_cache_key(domain, "dns")
+        cached = self._cache_get(cache_key)
+        if cached:
+            return cached
+        
+        result = {
+            "spf": {"exists": False, "record": None, "valid": False, "details": None},
+            "dkim": {"exists": False, "records": [], "valid": False},
+            "dmarc": {"exists": False, "record": None, "policy": None, "pct": None},
+            "mx": {"exists": False, "records": []},
+            "txt": {"records": []}
+        }
+        
+        # فحص MX
+        try:
+            mx = dns.resolver.resolve(domain, 'MX')
+            result["mx"]["exists"] = True
+            result["mx"]["records"] = [{"preference": r.preference, "exchange": str(r.exchange).rstrip('.')} for r in mx]
+        except:
+            pass
+        
+        # فحص TXT (يشمل SPF)
+        try:
+            txt = dns.resolver.resolve(domain, 'TXT')
+            for r in txt:
+                txt_str = str(r).strip('"')
+                result["txt"]["records"].append(txt_str)
+                
+                if 'v=spf1' in txt_str.lower():
+                    result["spf"]["exists"] = True
+                    result["spf"]["record"] = txt_str
+                    result["spf"]["valid"] = True
+        except:
+            pass
+        
+        # فحص DMARC
+        try:
+            dmarc_domain = f"_dmarc.{domain}"
+            dmarc = dns.resolver.resolve(dmarc_domain, 'TXT')
+            for r in dmarc:
+                txt_str = str(r).strip('"')
+                if 'v=DMARC1' in txt_str:
+                    result["dmarc"]["exists"] = True
+                    result["dmarc"]["record"] = txt_str
+                    if 'p=reject' in txt_str.lower():
+                        result["dmarc"]["policy"] = "reject"
+                    elif 'p=quarantine' in txt_str.lower():
+                        result["dmarc"]["policy"] = "quarantine"
+                    elif 'p=none' in txt_str.lower():
+                        result["dmarc"]["policy"] = "none"
+                    break
+        except:
+            pass
+        
+        self._cache_set(cache_key, result, 7200)
+        return result
+    
+    def check_blacklists(self, domain: str, ip: str = None):
+        """فحص النطاق أو IP ضد قوائم الحظر السوداء"""
+        cache_key = self._get_cache_key(f"{domain}:{ip}", "blacklist")
+        cached = self._cache_get(cache_key)
+        if cached:
+            return cached
+        
+        result = {
+            "is_blacklisted": False,
+            "total_lists": len(BLACKLISTS),
+            "blacklisted_on": [],
+            "clean_on": []
+        }
+        
+        if not ip:
+            try:
+                ip = socket.gethostbyname(domain)
+            except:
+                ip = "unknown"
+        
+        if ip != "unknown":
+            ip_reversed = '.'.join(reversed(ip.split('.')))
+            
+            for bl in BLACKLISTS[:10]:  # حددنا العدد لتجنب الوقت الطويل
+                bl_domain = f"{ip_reversed}.{bl}"
+                try:
+                    socket.gethostbyname(bl_domain)
+                    result["is_blacklisted"] = True
+                    result["blacklisted_on"].append(bl)
+                except socket.gaierror:
+                    result["clean_on"].append(bl)
+                except Exception:
+                    pass
+        
+        self._cache_set(cache_key, result, 3600)
+        return result
+    
+    def check_domain_info(self, domain: str):
+        """الحصول على معلومات النطاق"""
+        cache_key = self._get_cache_key(domain, "domain_info")
+        cached = self._cache_get(cache_key)
+        if cached:
+            return cached
+        
+        result = {
+            "domain": domain,
+            "age_days": None,
+            "creation_date": None,
+            "expiration_date": None,
+            "registrar": None,
+            "name_servers": []
+        }
+        
+        try:
+            import whois
+            w = whois.whois(domain)
+            
+            if w.creation_date:
+                if isinstance(w.creation_date, list):
+                    creation = w.creation_date[0]
+                else:
+                    creation = w.creation_date
+                result["creation_date"] = creation.strftime("%Y-%m-%d")
+                result["age_days"] = (datetime.now() - creation).days
+            
+            if w.expiration_date:
+                if isinstance(w.expiration_date, list):
+                    exp = w.expiration_date[0]
+                else:
+                    exp = w.expiration_date
+                result["expiration_date"] = exp.strftime("%Y-%m-%d")
+            
+            result["registrar"] = w.registrar or "Unknown"
+            result["name_servers"] = w.name_servers or []
+            
+        except Exception as e:
+            result["error"] = str(e)
+        
+        self._cache_set(cache_key, result, 86400)
+        return result
+    
+    def check_all(self, email: str):
+        """الفحص الشامل للإيميل بكل الميزات"""
+        
+        valid_format, normalized, format_details = self.validate_format(email)
+        
+        if not valid_format:
+            return {
+                "email": email,
+                "valid": False,
+                "verdict": "invalid",
+                "error": format_details.get("error"),
+                "suggestions": format_details.get("suggestions", [])
+            }
+        
+        domain = normalized.split('@')[-1]
+        
+        smtp_result = self.check_smtp(normalized)
+        dns_result = self.check_dns_records(domain)
+        is_disposable = domain in DISPOSABLE_DOMAINS
+        is_free = domain in FREE_DOMAINS
+        blacklist_result = self.check_blacklists(domain)
+        domain_info = self.check_domain_info(domain)
+        
+        # حساب نقاط الجودة
+        quality_score = 100
+        
+        if not smtp_result.get("valid", False):
+            quality_score -= 30
+        if is_disposable:
+            quality_score -= 50
+        if blacklist_result.get("is_blacklisted", False):
+            quality_score -= 40
+        if not dns_result.get("spf", {}).get("exists", False):
+            quality_score -= 10
+        if not dns_result.get("dmarc", {}).get("exists", False):
+            quality_score -= 10
+        if domain_info.get("age_days", 0) and domain_info.get("age_days", 0) < 30:
+            quality_score -= 20
+        
+        quality_score = max(0, min(100, quality_score))
+        
+        # تحديد الحكم النهائي
+        if is_disposable:
+            verdict = "disposable"
+        elif blacklist_result.get("is_blacklisted", False):
+            verdict = "blacklisted"
+        elif not smtp_result.get("valid", False):
+            verdict = "undeliverable"
+        elif quality_score >= 80:
+            verdict = "safe"
+        elif quality_score >= 50:
+            verdict = "moderate_risk"
+        else:
+            verdict = "high_risk"
+        
+        return {
+            "email": normalized,
+            "domain": domain,
+            "valid": True,
+            "verdict": verdict,
+            "quality_score": quality_score,
+            "format_suggestions": format_details.get("suggestions", []),
+            "smtp": smtp_result,
+            "dns": dns_result,
+            "is_disposable": is_disposable,
+            "is_free": is_free,
+            "blacklist": blacklist_result,
+            "domain_info": domain_info,
+            "deliverability": "DELIVERABLE" if smtp_result.get("valid", False) else "UNDELIVERABLE",
+            "checked_at": datetime.now().isoformat()
+        }
+   # ================================================================
+# Redis Cache Setup (Disabled - no Redis server)
+# ================================================================
+redis_client = None
+print("[REDIS] Disabled - running without cache")
 
 # ================================================================
 # Extensions
@@ -488,6 +903,47 @@ def api_recent_scans():
     
     return jsonify({"scans": data})
 
+@app.route('/api/bulk-email-check', methods=['POST'])
+@login_required
+def api_bulk_email_check():
+    """فحص عدة إيميلات دفعة واحدة (Bulk Check)"""
+    data = request.get_json()
+    emails = data.get('emails', [])
+    
+    if not emails or not isinstance(emails, list):
+        return jsonify({"error": "Please provide a list of emails"}), 400
+    
+    if len(emails) > 100:
+        return jsonify({"error": "Maximum 100 emails per bulk request"}), 400
+    
+    checker = AdvancedEmailChecker(redis_client)
+    results = []
+    
+    for email in emails[:20]:  # حد أقصى 20 في الطلب الواحد لتجنب التأخير
+        result = checker.check_all(email.strip())
+        results.append({
+            "email": result.get("email", email),
+            "valid": result.get("valid", False),
+            "verdict": result.get("verdict", "unknown"),
+            "quality_score": result.get("quality_score", 0),
+            "is_disposable": result.get("is_disposable", False),
+            "deliverability": result.get("deliverability", "unknown")
+        })
+    
+    # إحصائيات
+    stats = {
+        "total": len(results),
+        "valid": sum(1 for r in results if r["valid"]),
+        "invalid": sum(1 for r in results if not r["valid"]),
+        "disposable": sum(1 for r in results if r.get("is_disposable", False)),
+        "safe": sum(1 for r in results if r.get("verdict") == "safe"),
+        "average_score": sum(r.get("quality_score", 0) for r in results) / len(results) if results else 0
+    }
+    
+    return jsonify({
+        "stats": stats,
+        "results": results
+    })
 
 # ================================================================
 # Admin
@@ -517,173 +973,61 @@ def email_check():
 @app.route('/api/check-email', methods=['POST'])
 @login_required
 def api_check_email():
-    data  = request.get_json()
+    """API متطور لفحص الإيميلات مع جميع الميزات الجديدة"""
+    data = request.get_json()
     email = data.get('email', '').strip()
-
+    
     if not email:
         return jsonify({"error": "No email provided"}), 400
-
-    domain = email.split('@')[-1] if '@' in email else email
-
-    try:
-        # 1. Email Reputation
-        resp = requests.get(
-            "https://emailreputation.abstractapi.com/v1/",
-            params={"api_key": ABSTRACT_API_KEY, "email": email}
-        )
-        r = resp.json() if resp.status_code == 200 else {}
-
-        deliverability = r.get("email_deliverability", {})
-        quality        = r.get("email_quality", {})
-        risk           = r.get("email_risk", {})
-        breaches       = r.get("email_breaches", {})
-        domain_info    = r.get("email_domain", {})
-
-        is_valid       = deliverability.get("is_format_valid", False)
-        is_mx          = deliverability.get("is_mx_valid", False)
-        is_smtp        = deliverability.get("is_smtp_valid", False)
-        is_disposable  = quality.get("is_disposable", False)
-        is_free        = quality.get("is_free_email", False)
-        quality_score  = quality.get("score", 0)
-        status         = deliverability.get("status", "unknown")
-        address_risk   = risk.get("address_risk_status", "unknown")
-        total_breaches = breaches.get("total_breaches", 0)
-        last_breached  = breaches.get("date_last_breached", None)
-        
-        breached_raw   = breaches.get("breached_domains", [])
-        breached_list  = []
-        for b in breached_raw:
-            if isinstance(b, str):
-                breached_list.append({"domain": b, "breach_date": "N/A"})
-            elif isinstance(b, dict):
-                breached_list.append({
-                    "domain": b.get("domain", b.get("name", "Unknown")),
-                    "breach_date": b.get("breach_date", b.get("date", "N/A"))
-                })
-        breached_list = breached_list[:10]
-
-        # 2. SPF / DKIM / DMARC Check via Google DNS
-        spf_record = None
-        dkim_record = None
-        dmarc_record = None
-
-        try:
-            # SPF
-            resp_txt = requests.get(
-                f"https://dns.google/resolve?name={domain}&type=TXT",
-                timeout=10
-            )
-            if resp_txt.status_code == 200:
-                for ans in resp_txt.json().get('Answer', []):
-                    txt = ans.get('data', '').strip('"')
-                    if 'v=spf1' in txt:
-                        spf_record = txt
-                        break
-        except:
-            pass
-
-        try:
-            # DKIM (google._domainkey)
-            resp_dkim = requests.get(
-                f"https://dns.google/resolve?name=google._domainkey.{domain}&type=TXT",
-                timeout=10
-            )
-            if resp_dkim.status_code == 200:
-                for ans in resp_dkim.json().get('Answer', []):
-                    txt = ans.get('data', '').strip('"')
-                    if 'v=DKIM1' in txt:
-                        dkim_record = txt
-                        break
-        except:
-            pass
-
-        try:
-            # DMARC
-            resp_dmarc = requests.get(
-                f"https://dns.google/resolve?name=_dmarc.{domain}&type=TXT",
-                timeout=10
-            )
-            if resp_dmarc.status_code == 200:
-                for ans in resp_dmarc.json().get('Answer', []):
-                    txt = ans.get('data', '').strip('"')
-                    if 'v=DMARC1' in txt:
-                        dmarc_record = txt
-                        break
-        except:
-            pass
-
-        # 3. Blacklist Check (via domain)
-        blacklisted = False
-        blacklist_count = 0
-        blacklist_results = []
-
-        try:
-            # Check a few blacklists
-            bl_checks = [
-                ("Spamhaus DBL", f"{domain}.dbl.spamhaus.org"),
-                ("Surriel", f"{domain}.multi.surriel.com"),
-                ("Barracuda", f"{domain}.bb.barracudacentral.org"),
-            ]
-            import socket
-            for bl_name, bl_domain in bl_checks:
-                try:
-                    socket.gethostbyname(bl_domain)
-                    blacklisted = True
-                    blacklist_count += 1
-                    blacklist_results.append({"name": bl_name, "listed": True})
-                except:
-                    blacklist_results.append({"name": bl_name, "listed": False})
-        except:
-            pass
-
-        # Verdict
-        if not is_valid:
-            verdict = "invalid"
-        elif is_disposable:
-            verdict = "disposable"
-        elif total_breaches > 0 and address_risk == "high":
-            verdict = "breached"
-        elif blacklisted:
-            verdict = "blacklisted"
-        elif not is_mx:
-            verdict = "no_mx"
-        elif not spf_record:
-            verdict = "no_spf"
-        elif status == "deliverable":
-            verdict = "safe"
-        else:
-            verdict = "risky"
-
+    
+    # استخدام الفاحص المتقدم
+    checker = AdvancedEmailChecker(redis_client)
+    result = checker.check_all(email)
+    
+    if not result.get("valid"):
         return jsonify({
-            "email":           email,
-            "domain":          domain,
-            "verdict":         verdict,
-            "is_valid":        is_valid,
-            "is_disposable":   is_disposable,
-            "is_free":         is_free,
-            "is_mx":           is_mx,
-            "is_smtp":         is_smtp,
-            "deliverability":  status.upper(),
-            "quality_score":   quality_score,
-            "address_risk":    address_risk,
-            "total_breaches":  total_breaches,
-            "last_breached":   last_breached,
-            "breached_domains": breached_list,
-            "domain_age":      domain_info.get("domain_age", 0),
-            "registrar":       domain_info.get("registrar", "Unknown"),
-            "spf_record":      spf_record,
-            "spf_valid":       spf_record is not None,
-            "dkim_record":     dkim_record,
-            "dkim_valid":      dkim_record is not None,
-            "dmarc_record":    dmarc_record,
-            "dmarc_valid":     dmarc_record is not None,
-            "blacklisted":     blacklisted,
-            "blacklist_count": blacklist_count,
-            "blacklist_results": blacklist_results,
-        })
-
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"Network error: {str(e)}"}), 500
+            "error": result.get("error", "Invalid email format"),
+            "suggestions": result.get("suggestions", [])
+        }), 400
+    
+    # إعادة النتائج بصيغة متوافقة مع الواجهة الحالية مع ميزات إضافية
+    return jsonify({
+        "email": result["email"],
+        "domain": result["domain"],
+        "verdict": result["verdict"],
+        "is_valid": result["valid"],
+        "is_disposable": result["is_disposable"],
+        "is_free": result["is_free"],
+        "is_mx": result["dns"]["mx"]["exists"],
+        "is_smtp": result["smtp"]["valid"],
+        "deliverability": result["deliverability"],
+        "quality_score": result["quality_score"] / 100,
+        "address_risk": result["verdict"],
+        "total_breaches": 0,  # API خارجي للـ breaches
+        "last_breached": None,
+        "breached_domains": [],
+        "domain_age": result["domain_info"].get("age_days", 0),
+        "registrar": result["domain_info"].get("registrar", "Unknown"),
+        "spf_record": result["dns"]["spf"]["record"],
+        "spf_valid": result["dns"]["spf"]["exists"],
+        "dkim_record": None,
+        "dkim_valid": False,
+        "dmarc_record": result["dns"]["dmarc"]["record"],
+        "dmarc_valid": result["dns"]["dmarc"]["exists"],
+        "blacklisted": result["blacklist"]["is_blacklisted"],
+        "blacklist_count": len(result["blacklist"].get("blacklisted_on", [])),
+        "blacklist_results": result["blacklist"].get("blacklisted_on", []),
+        "smtp_details": result["smtp"],
+        "quality_breakdown": {
+            "score": result["quality_score"],
+            "smtp_valid": result["smtp"]["valid"],
+            "no_disposable": not result["is_disposable"],
+            "not_blacklisted": not result["blacklist"]["is_blacklisted"],
+            "spf_exists": result["dns"]["spf"]["exists"],
+            "dmarc_exists": result["dns"]["dmarc"]["exists"]
+        },
+        "format_suggestions": result.get("format_suggestions", [])
+    })
 
 
 # ================================================================
@@ -936,7 +1280,6 @@ def download_pdf(scan_id):
 # ================================================================
 # Site Scanner
 # ================================================================
-
 @app.route('/site-scanner')
 @login_required
 def site_scanner():
@@ -946,195 +1289,31 @@ def site_scanner():
 @app.route('/api/site-scan', methods=['POST'])
 @login_required
 def api_site_scan():
-    data   = request.get_json()
+    """API متطور لفحص المواقع الإلكترونية"""
+    data = request.get_json()
     domain = data.get('domain', '').strip()
-
+    
     if not domain:
         return jsonify({"error": "No domain provided"}), 400
-
-    if not domain.startswith('http://') and not domain.startswith('https://'):
-        domain = 'https://' + domain
-    domain = domain.strip('/')
-
-    try:
-        resp = requests.get(domain, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        base  = urlparse(domain).netloc
-        # استخراج النطاق الأساسي (مثلاً: wikipedia.org)
-        base_parts = base.split('.')
-        base_domain = '.'.join(base_parts[-2:]) if len(base_parts) >= 2 else base
-        
-        links = set()
-
-        for tag in soup.find_all('a', href=True):
-            href   = urljoin(domain, tag['href'])
-            parsed = urlparse(href)
-            parsed_parts = parsed.netloc.split('.')
-            parsed_domain = '.'.join(parsed_parts[-2:]) if len(parsed_parts) >= 2 else parsed.netloc
-            
-            # قبول أي رابط من نفس النطاق الأساسي أو نطاقات فرعية
-            if parsed_domain == base_domain and href.startswith('http'):
-                links.add(href)
-
-        links = list(links)[:50]
-        links.insert(0, domain)
-        links = list(set(links))[:50]
-
-    except Exception as e:
-        return jsonify({"error": f"Could not reach domain: {str(e)}"}), 400
-
-    headers = {"x-apikey": API_KEY}
-    results = []
-    lock = threading.Lock()
-
-    def scan_url(url):
-        try:
-            r = requests.post("https://www.virustotal.com/api/v3/urls",
-                              headers=headers, data={"url": url}, timeout=10)
-            if r.status_code not in (200, 201):
-                with lock:
-                    results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
-                return
-
-            url_id     = r.json()["data"]["id"]
-            report_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
-            verdict    = "unknown"
-            malicious  = harmless = suspicious = 0
-
-            for _ in range(8):
-                time.sleep(2)
-                rr = requests.get(report_url, headers=headers, timeout=10)
-                report = rr.json()
-                if report["data"]["attributes"].get("status") == "completed":
-                    s = report["data"]["attributes"].get("stats", {})
-                    malicious  = s.get("malicious", 0)
-                    suspicious = s.get("suspicious", 0)
-                    harmless   = s.get("harmless", 0)
-                    if malicious > 0:   verdict = "malicious"
-                    elif suspicious > 0: verdict = "suspicious"
-                    elif harmless > 0:  verdict = "harmless"
-                    break
-
-            with lock:
-                results.append({"url": url, "verdict": verdict,
-                                "malicious": malicious, "suspicious": suspicious, "harmless": harmless})
-
-        except Exception:
-            with lock:
-                results.append({"url": url, "verdict": "error", "malicious": 0, "harmless": 0, "suspicious": 0})
-
-    # فحص 10 روابط في نفس الوقت
-    threads_list = []
-    for i in range(0, len(links), 10):
-        batch = links[i:i+10]
-        batch_threads = []
-        for url in batch:
-            t = threading.Thread(target=scan_url, args=(url,))
-            t.start()
-            batch_threads.append(t)
-        for t in batch_threads:
-            t.join()
-
-    total             = len(results)
-    malicious_count   = sum(1 for r in results if r['verdict'] == 'malicious')
-    suspicious_count  = sum(1 for r in results if r['verdict'] == 'suspicious')
-    harmless_count    = sum(1 for r in results if r['verdict'] == 'harmless')
-    overall           = "malicious" if malicious_count > 0 else ("suspicious" if suspicious_count > 0 else "harmless")
-
-    return jsonify({"domain": domain, "total": total, "overall": overall,
-                    "malicious": malicious_count, "suspicious": suspicious_count,
-                    "harmless": harmless_count, "results": results})
-
-@app.route('/file-scanner')
-@login_required
-def file_scanner():
-    return render_template('file_scanner.html')
-
-
-@app.route('/api/scan-file', methods=['POST'])
-@login_required
-def api_scan_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
     
     try:
-        file_content = file.read()
-        file_size = len(file_content)
-        file_name = file.filename
+        analyzer = SiteAnalyzer()
+        result = analyzer.comprehensive_analysis(domain)
         
-        headers = {"x-apikey": API_KEY}
-        files = {'file': (file_name, file_content)}
-        upload_resp = requests.post(
-            "https://www.virustotal.com/api/v3/files",
-            headers=headers,
-            files=files
-        )
+        if "error" in result:
+            return jsonify({"error": result["error"]}), 400
         
-        if upload_resp.status_code not in (200, 201):
-            return jsonify({"error": f"Upload failed: {upload_resp.status_code}"}), 500
-        
-        upload_data = upload_resp.json()
-        analysis_id = upload_data.get("data", {}).get("id", "")
-        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
-        
-        for _ in range(30):
-            time.sleep(2)
-            analysis_resp = requests.get(analysis_url, headers=headers)
-            if analysis_resp.status_code == 200:
-                analysis_data = analysis_resp.json()
-                status = analysis_data.get("data", {}).get("attributes", {}).get("status", "")
-                if status == "completed":
-                    break
-        else:
-            return jsonify({"error": "Analysis timeout"}), 500
-        
-        stats = analysis_data.get("data", {}).get("attributes", {}).get("stats", {})
-        results = analysis_data.get("data", {}).get("attributes", {}).get("results", {})
-        
-        malicious = stats.get("malicious", 0)
-        suspicious = stats.get("suspicious", 0)
-        harmless = stats.get("harmless", 0)
-        undetected = stats.get("undetected", 0)
-        
-        if malicious > 0:
-            verdict = "malicious"
-        elif suspicious > 0:
-            verdict = "suspicious"
-        else:
-            verdict = "harmless"
-        
-        engine_results = []
-        for engine_name, engine_data in results.items():
-            category = engine_data.get("category", "undetected")
-            if category in ("malicious", "suspicious"):
-                engine_results.append({
-                    "name": engine_name,
-                    "result": engine_data.get("result", category),
-                    "category": category
-                })
-        
-        return jsonify({
-            "file_name": file_name,
-            "file_size": file_size,
-            "verdict": verdict,
-            "malicious": malicious,
-            "suspicious": suspicious,
-            "harmless": harmless,
-            "undetected": undetected,
-            "engine_results": engine_results
-        })
+        return jsonify(result)
         
     except Exception as e:
-        return jsonify({"error": f"Scan error: {str(e)}"}), 500
-
-
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+    # ================================================================
+# Password Checker
 # ================================================================
-# Password Check
-# ================================================================
+
+from password_analyzer import PasswordAnalyzer
 
 @app.route('/password-check')
 @login_required
@@ -1145,33 +1324,41 @@ def password_check():
 @app.route('/api/check-password', methods=['POST'])
 @login_required
 def api_check_password():
-    data     = request.get_json()
+    """API متطور لفحص قوة كلمات المرور"""
+    data = request.get_json()
     password = data.get('password', '')
-
+    
     if not password:
         return jsonify({"error": "No password provided"}), 400
-
-    sha1   = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
-    prefix = sha1[:5]
-    suffix = sha1[5:]
-
+    
+    # تحديد إذا كان يجب إظهار الكلمة (لن نعرضها أبداً)
+    show_password = data.get('show_password', False)
+    
     try:
-        resp = requests.get(f"https://api.pwnedpasswords.com/range/{prefix}",
-                            headers={"Add-Padding": "true"})
-        if resp.status_code != 200:
-            return jsonify({"error": "API error"}), 500
+        analyzer = PasswordAnalyzer()
+        result = analyzer.comprehensive_analysis(password)
+        
+        if "error" in result:
+            return jsonify({"error": result["error"]}), 400
+        
+        # لا نرسل كلمة المرور أبداً في الـ response
+        result.pop('password', None)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+    
+# ================================================================
+# File Scanner  👈 👈 👈 أضف هنا
+# ================================================================
 
-        count = 0
-        for line in resp.text.splitlines():
-            parts = line.split(':')
-            if len(parts) == 2 and parts[0] == suffix:
-                count = int(parts[1])
-                break
-
-        return jsonify({"verdict": "pwned" if count > 0 else "safe", "count": count, "safe": count == 0})
-
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"Network error: {str(e)}"}), 500
+@app.route('/file-scanner')
+@login_required
+def file_scanner():
+    return render_template('file_scanner.html')
 
 
 # ================================================================

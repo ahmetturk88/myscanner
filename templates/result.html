@@ -3,60 +3,61 @@
 
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  .result-wrap { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+  .result-wrap { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
   .page-head .label { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
   .page-head h1 { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--text); }
-  .page-head .url-text { margin-top: 8px; font-size: 13px; color: var(--muted); word-break: break-all; }
+  .page-head .url-text { margin-top: 8px; font-size: 13px; color: var(--muted); word-break: break-all; font-family: var(--mono); }
   .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all .2s; white-space: nowrap; border: none; cursor: pointer; }
   .btn-outline { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
   .btn-outline:hover { background: var(--surface3); }
   .btn-danger { background: var(--red); color: #fff; }
   .btn-danger:hover { opacity: 0.9; }
   .btn-success { background: var(--green); color: #000; font-weight: 700; }
-  .btn-success:hover { opacity: 0.9; }
+  .btn-primary { background: var(--accent); color: #000; }
 
   .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
   .badge { padding: 4px 14px; border-radius: 20px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; display: inline-block; }
   .badge-harmless { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .badge-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   .badge-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .badge-unknown,.badge-undetected { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
   .badge-pending,.badge-running { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
-  .badge-error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
 
   .loading-area { text-align: center; padding: 30px; color: var(--muted); }
   .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .verdict-area { display: none; }
   .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-  .verdict-banner .v-icon { font-size: 40px; }
-  .verdict-banner .v-title { font-size: 18px; font-weight: 700; }
-  .verdict-banner .v-sub { font-size: 13px; opacity: 0.8; }
+  .verdict-banner .v-icon { font-size: 42px; }
+  .v-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .v-sub { font-size: 13px; opacity: 0.8; }
   .banner-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .banner-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   .banner-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
 
   .risk-score-section { margin-bottom: 24px; }
-  .risk-title { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .risk-title { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-bottom: 10px; }
   .risk-bar-wrap { display: flex; align-items: center; gap: 12px; }
-  .risk-bar-bg { flex: 1; background: var(--surface2); border-radius: 6px; height: 10px; overflow: hidden; border: 1px solid var(--border); }
+  .risk-bar-bg { flex: 1; background: var(--surface2); border-radius: 6px; height: 10px; overflow: hidden; }
   .risk-bar-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
   .risk-num { font-family: var(--mono); font-size: 18px; font-weight: 700; min-width: 50px; text-align: right; }
 
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
   .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
-  .stat-card .stat-icon { font-size: 20px; margin-bottom: 4px; }
+  .stat-card .stat-icon { font-size: 24px; margin-bottom: 6px; }
   .stat-card .stat-label { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px; }
-  .stat-card .stat-value { font-size: 24px; font-weight: 700; font-family: var(--mono); }
-  .stat-green { border-color: rgba(0,230,118,.25); } .stat-green .stat-value { color: var(--green); }
-  .stat-red { border-color: rgba(255,69,96,.25); } .stat-red .stat-value { color: var(--red); }
-  .stat-yellow { border-color: rgba(255,211,42,.25); } .stat-yellow .stat-value { color: var(--yellow); }
+  .stat-card .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+  .stat-green .stat-value { color: var(--green); }
+  .stat-red .stat-value { color: var(--red); }
+  .stat-yellow .stat-value { color: var(--yellow); }
+  .stat-blue .stat-value { color: var(--accent); }
 
+  .grid-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
   .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 16px; }
-  .section-title { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 14px; }
+  .section-title { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(42,42,69,0.3); font-size: 13px; }
   .info-row:last-child { border-bottom: none; }
   .info-label { color: var(--muted); font-family: var(--mono); font-size: 11px; }
@@ -65,42 +66,49 @@
   .info-bad { color: var(--red); }
   .info-warn { color: var(--yellow); }
 
-  .threat-tag { display: inline-block; padding: 3px 10px; border-radius: 4px; font-family: var(--mono); font-size: 10px; font-weight: 700; margin: 2px; }
-  .threat-critical { background: var(--red-dim); color: var(--red); }
-  .threat-warning { background: var(--yellow-dim); color: var(--yellow); }
-  .threat-info { background: var(--accent-dim); color: var(--accent); }
-  .tech-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: var(--mono); font-size: 10px; font-weight: 700; margin: 3px; background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
+  .threat-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: var(--mono); font-size: 11px; font-weight: 700; margin: 3px; }
+  .threat-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  .threat-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .threat-safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+
+  .screenshot-img { width: 100%; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
+  .map-frame { width: 100%; height: 280px; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
+  .chart-wrap { position: relative; height: 250px; margin-top: 10px; }
   .redirect-step { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-family: var(--mono); font-size: 12px; }
   .redirect-arrow { color: var(--accent); }
-  .cookie-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12px; }
-  .cookie-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: var(--mono); font-weight: 700; }
-  .cookie-secure { background: var(--green-dim); color: var(--green); }
-  .cookie-insecure { background: var(--red-dim); color: var(--red); }
-  .screenshot-img { width: 100%; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
-  .map-frame { width: 100%; height: 250px; border-radius: 10px; border: 1px solid var(--border); }
-  .chart-wrap { max-height: 250px; }
-  .export-btns { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .cookie-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .cookie-secure { color: var(--green); }
+  .cookie-insecure { color: var(--red); }
 
-  @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .recommendations-list { list-style: none; padding: 0; margin: 0; }
+  .recommendations-list li { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+
+  .export-btns { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; justify-content: center; }
+
+  @media (max-width: 768px) { 
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2col { grid-template-columns: 1fr; }
+  }
 </style>
 {% endblock %}
+
 {% block content %}
 <div class="result-wrap">
   <div class="page-head">
     <div>
-      <div class="label">Scan Report · #{{ scan.id }}</div>
+      <div class="label">SCAN REPORT · #{{ scan.id }}</div>
       <h1>Advanced Security Analysis</h1>
-      <div class="url-text">{{ scan.url[:80] }}{% if scan.url|length > 80 %}...{% endif %}</div>
+      <div class="url-text">{{ scan.url[:100] }}{% if scan.url|length > 100 %}...{% endif %}</div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <a href="/" class="btn btn-outline">← New Scan</a>
-      <a href="/report/pdf/{{ scan.id }}" class="btn btn-danger">📄 PDF</a>
+      <a href="/dashboard" class="btn btn-outline">← New Scan</a>
+      <a href="/report/pdf/{{ scan.id }}" class="btn btn-danger">📄 PDF Report</a>
     </div>
   </div>
 
   <div class="status-card">
-    <div style="margin-bottom:20px;">
-      <span style="font-family:var(--mono);color:var(--muted);margin-right:10px;">STATUS</span>
+    <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <span style="font-family:var(--mono);color:var(--muted);">STATUS</span>
       <span id="status-badge" class="badge badge-{{ scan.status }}">{{ scan.status | upper }}</span>
     </div>
     
@@ -121,6 +129,7 @@
   const scanId = '{{ scan.id }}';
   const initStatus = '{{ scan.status }}';
   let allData = null;
+  let pieChart = null, historyChart = null;
 
   function updateBadge(status, verdict) {
     const badge = document.getElementById('status-badge');
@@ -151,107 +160,211 @@
     };
     const v = verdictMeta[scanData.verdict] || verdictMeta.unknown;
 
+    // Local analysis data
+    const localVerdict = analysisData?.verdict || 'unknown';
+    const localScore = analysisData?.security_score || 0;
+    const urlStructure = analysisData?.url_structure || {};
+    const phishingIndicators = analysisData?.phishing_indicators || {};
+    const sslInfo = analysisData?.ssl_info || {};
+    const dnsRecords = analysisData?.dns_records || {};
+    const isShortened = analysisData?.is_shortened || false;
+    const recommendations = analysisData?.recommendations || [];
+
     verdictArea.innerHTML = `
-      <div class="verdict-banner ${v.cls}"><div class="v-icon">${v.icon}</div><div><div class="v-title">${v.title}</div><div class="v-sub">${v.sub}</div></div></div>
-      <div class="risk-score-section"><div class="risk-title">🎯 Risk Score</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-fill" style="width:${riskScore}%;background:${riskColor};"></div></div><div class="risk-num" style="color:${riskColor};">${riskScore}%</div></div></div>
+      <div class="verdict-banner ${v.cls}">
+        <div class="v-icon">${v.icon}</div>
+        <div>
+          <div class="v-title">${v.title}</div>
+          <div class="v-sub">${v.sub}</div>
+        </div>
+      </div>
+      
+      <div class="risk-score-section">
+        <div class="risk-title">🎯 Risk Score</div>
+        <div class="risk-bar-wrap">
+          <div class="risk-bar-bg"><div class="risk-bar-fill" style="width:${riskScore}%;background:${riskColor};"></div></div>
+          <div class="risk-num" style="color:${riskColor};">${riskScore}%</div>
+        </div>
+      </div>
+      
       <div class="stats-grid">
         <div class="stat-card stat-green"><div class="stat-icon">✅</div><div class="stat-label">Harmless</div><div class="stat-value">${h}</div></div>
         <div class="stat-card stat-red"><div class="stat-icon">🚨</div><div class="stat-label">Malicious</div><div class="stat-value">${m}</div></div>
         <div class="stat-card stat-yellow"><div class="stat-icon">⚠️</div><div class="stat-label">Suspicious</div><div class="stat-value">${sus}</div></div>
-        <div class="stat-card"><div class="stat-icon">🕵️</div><div class="stat-label">Undetected</div><div class="stat-value">${u}</div></div>
+        <div class="stat-card stat-blue"><div class="stat-icon">🕵️</div><div class="stat-label">Undetected</div><div class="stat-value">${u}</div></div>
       </div>
     `;
 
     let extraHTML = '';
 
-    // 🧠 AI Risk Analysis
-    extraHTML += `<div class="section-card"><div class="section-title">🧠 AI Risk Analysis</div><div style="font-size:15px;font-weight:700;color:${riskColor};">${aiVerdict}</div><p style="color:var(--muted);font-size:12px;margin-top:8px;">Based on ${total} security engines, ${m} flagged as malicious, ${sus} as suspicious.</p></div>`;
+    // AI Risk Analysis
+    extraHTML += `<div class="section-card">
+      <div class="section-title">🧠 AI Risk Analysis</div>
+      <div style="font-size:16px;font-weight:700;color:${riskColor};">${aiVerdict}</div>
+      <p style="color:var(--muted);font-size:13px;margin-top:12px;">Based on ${total} security engines, ${m} flagged as malicious, ${sus} as suspicious.</p>
+      <div style="margin-top:12px;"><span class="threat-tag threat-safe">${h} engines safe</span></div>
+    </div>`;
 
-    // 📸 Screenshot
+    // Local Security Score
+    extraHTML += `<div class="section-card">
+      <div class="section-title">🔒 Local Security Analysis</div>
+      <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)'}">${localScore}/100</span></div>
+      <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${localVerdict.toUpperCase()}</span></div>
+      ${isShortened ? `<div class="info-row"><span class="info-label">URL Shortener</span><span class="info-value info-warn">⚠️ Detected</span></div>` : ''}
+      ${urlStructure?.is_https ? `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-good">✓ Enabled</span></div>` : `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-bad">✗ Not Secure</span></div>`}
+      ${urlStructure?.contains_ip ? `<div class="info-row"><span class="info-label">IP Address URL</span><span class="info-value info-bad">⚠️ Suspicious</span></div>` : ''}
+    </div>`;
+
+    // URL Structure Analysis
+    if (urlStructure) {
+      extraHTML += `<div class="section-card">
+        <div class="section-title">🔗 URL Structure Analysis</div>
+        <div class="info-row"><span class="info-label">URL Length</span><span class="info-value">${urlStructure.length || 0} characters</span></div>
+        <div class="info-row"><span class="info-label">Trust Level</span><span class="info-value">${urlStructure.trust_level || 'Unknown'}</span></div>
+        <div class="info-row"><span class="info-label">Query Parameters</span><span class="info-value">${urlStructure.query_params || 0}</span></div>
+        <div class="info-row"><span class="info-label">Subdomains</span><span class="info-value">${urlStructure.subdomain_count || 0}</span></div>
+        ${urlStructure.suspicious_chars?.length ? `<div class="info-row"><span class="info-label">Suspicious Chars</span><span class="info-value info-warn">${urlStructure.suspicious_chars.join(', ')}</span></div>` : ''}
+      </div>`;
+    }
+
+    // Phishing Indicators
+    if (phishingIndicators?.is_phishing_suspected) {
+      extraHTML += `<div class="section-card">
+        <div class="section-title">⚠️ Phishing Indicators</div>
+        ${phishingIndicators.issues?.map(issue => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${issue}</span></div>`).join('')}
+      </div>`;
+    }
+
+    // SSL Certificate
+    if (sslInfo) {
+      extraHTML += `<div class="section-card">
+        <div class="section-title">🔐 SSL Certificate</div>
+        <div class="info-row"><span class="info-label">Status</span><span class="info-value ${sslInfo.valid ? 'info-good' : 'info-bad'}">${sslInfo.valid ? 'Valid' : 'Invalid'}</span></div>
+        <div class="info-row"><span class="info-label">Days Remaining</span><span class="info-value">${sslInfo.days_remaining || 0} days</span></div>
+        <div class="info-row"><span class="info-label">Issuer</span><span class="info-value">${sslInfo.issuer || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">TLS Version</span><span class="info-value">${sslInfo.tls_version || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Grade</span><span class="info-value">${sslInfo.grade || 'N/A'}</span></div>
+      </div>`;
+    }
+
+    // Screenshot
     if (analysisData && analysisData.screenshot) {
-      extraHTML += `<div class="section-card"><div class="section-title">📸 Website Screenshot</div><img src="${analysisData.screenshot}" alt="Screenshot" class="screenshot-img" onerror="this.parentElement.style.display='none'"></div>`;
+      extraHTML += `<div class="section-card">
+        <div class="section-title">📸 Website Screenshot</div>
+        <img src="${analysisData.screenshot}" alt="Screenshot" class="screenshot-img" onerror="this.parentElement.style.display='none'">
+      </div>`;
     }
 
-    // 🕸️ WHOIS
-    if (analysisData && analysisData.whois && analysisData.whois.registrar) {
-      extraHTML += `<div class="section-card"><div class="section-title">🕸️ WHOIS Domain Info</div>
-        <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${analysisData.whois.registrar||'N/A'}</span></div>
-        <div class="info-row"><span class="info-label">Created</span><span class="info-value">${analysisData.whois.created||'N/A'}</span></div>
-        <div class="info-row"><span class="info-label">Expires</span><span class="info-value">${analysisData.whois.expires||'N/A'}</span></div></div>`;
-    }
-
-    // 📍 Geo Map
+    // Server Location Map
     if (analysisData && analysisData.geo && analysisData.geo.lat) {
       const g = analysisData.geo;
-      extraHTML += `<div class="section-card"><div class="section-title">📍 Server Location</div><p style="color:var(--muted);font-size:12px;margin-bottom:10px;">${g.city}, ${g.country}</p><iframe class="map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=${g.lon-0.1},${g.lat-0.1},${g.lon+0.1},${g.lat+0.1}&layer=mapnik&marker=${g.lat},${g.lon}"></iframe></div>`;
+      extraHTML += `<div class="section-card">
+        <div class="section-title">📍 Server Location</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:10px;">${g.city}, ${g.country}</p>
+        <iframe class="map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=${g.lon-0.1},${g.lat-0.1},${g.lon+0.1},${g.lat+0.1}&layer=mapnik&marker=${g.lat},${g.lon}"></iframe>
+      </div>`;
     }
 
-    // 🔄 Redirect Chain
+    // Redirect Chain
     if (analysisData && analysisData.redirect_chain && analysisData.redirect_chain.length > 0) {
-      extraHTML += `<div class="section-card"><div class="section-title">🔄 Redirect Chain</div>`;
-      analysisData.redirect_chain.forEach(r => { extraHTML += `<div class="redirect-step"><span>${r.status_code}</span> <span class="redirect-arrow">→</span> <span style="color:var(--accent);">${r.url.substring(0,60)}</span></div>`; });
-      extraHTML += `<div class="redirect-step"><span>200</span> <span class="redirect-arrow">→</span> <span style="color:var(--green);">${(analysisData.final_url||scanData.url).substring(0,60)}</span></div></div>`;
+      extraHTML += `<div class="section-card">
+        <div class="section-title">🔄 Redirect Chain</div>
+        ${analysisData.redirect_chain.map(r => `<div class="redirect-step"><span>${r.status_code}</span> <span class="redirect-arrow">→</span> <span style="color:var(--accent);">${r.url.substring(0,60)}</span></div>`).join('')}
+        <div class="redirect-step"><span>200</span> <span class="redirect-arrow">→</span> <span style="color:var(--green);">${(analysisData.final_url || scanData.url).substring(0,60)}</span></div>
+      </div>`;
     }
 
-    // 🔐 Security Headers
+    // Security Headers
     if (analysisData && analysisData.security_headers) {
-      extraHTML += `<div class="section-card"><div class="section-title">🔐 Security Headers</div>`;
-      Object.entries(analysisData.security_headers).forEach(([k,v]) => {
-        const cls = v.startsWith('Missing') ? 'info-bad' : 'info-good';
-        extraHTML += `<div class="info-row"><span class="info-label">${k}</span><span class="info-value ${cls}">${v.startsWith('Missing') ? v : '✅ '+v}</span></div>`;
-      });
-      extraHTML += `</div>`;
+      extraHTML += `<div class="section-card">
+        <div class="section-title">🛡️ Security Headers</div>
+        ${Object.entries(analysisData.security_headers).map(([k,v]) => {
+          const isMissing = v === 'Missing';
+          const isGood = !isMissing && v !== 'Missing ❌';
+          return `<div class="info-row"><span class="info-label">${k.toUpperCase()}</span><span class="info-value ${isGood ? 'info-good' : 'info-bad'}">${isMissing ? 'Missing ❌' : v.substring(0, 50)}</span></div>`;
+        }).join('')}
+      </div>`;
     }
 
-    // 🍪 Cookies
+    // Cookies
     if (analysisData && analysisData.cookies && analysisData.cookies.length > 0) {
-      extraHTML += `<div class="section-card"><div class="section-title">🍪 Cookies</div>`;
-      analysisData.cookies.forEach(c => { extraHTML += `<div class="cookie-item"><span>🍪 ${c.name}</span><span class="cookie-badge ${c.secure?'cookie-secure':'cookie-insecure'}">${c.secure?'Secure':'Insecure'}</span></div>`; });
-      extraHTML += `</div>`;
+      extraHTML += `<div class="section-card">
+        <div class="section-title">🍪 Cookies</div>
+        ${analysisData.cookies.map(c => `<div class="cookie-item"><span>🍪 ${c.name}</span><span class="${c.secure ? 'cookie-secure' : 'cookie-insecure'}">${c.secure ? 'Secure ✓' : 'Insecure ⚠️'}</span></div>`).join('')}
+      </div>`;
     }
 
-    // 🔍 Technology Stack
-    if (analysisData && analysisData.tech_stack && analysisData.tech_stack.length > 0) {
-      extraHTML += `<div class="section-card"><div class="section-title">🔍 Technology Stack</div><div style="display:flex;flex-wrap:wrap;gap:6px;">`;
-      analysisData.tech_stack.forEach(t => { extraHTML += `<span class="tech-tag">${t}</span>`; });
-      extraHTML += `</div></div>`;
+    // DNS Records
+    if (dnsRecords) {
+      extraHTML += `<div class="section-card">
+        <div class="section-title">🌐 DNS Records</div>
+        <div class="info-row"><span class="info-label">A Records</span><span class="info-value">${(dnsRecords.a_records || []).join(', ') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">MX Records</span><span class="info-value">${(dnsRecords.mx_records || []).map(m => `${m.exchange} (${m.preference})`).join(', ') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">SPF Record</span><span class="info-value ${dnsRecords.has_spf ? 'info-good' : 'info-bad'}">${dnsRecords.has_spf ? '✓ Configured' : '✗ Missing'}</span></div>
+        <div class="info-row"><span class="info-label">DMARC Record</span><span class="info-value ${dnsRecords.has_dmarc ? 'info-good' : 'info-bad'}">${dnsRecords.has_dmarc ? '✓ Configured' : '✗ Missing'}</span></div>
+      </div>`;
     }
 
-    // 🔗 Similar Sites
-    if (analysisData && analysisData.similar_sites && analysisData.similar_sites.length > 0) {
-      extraHTML += `<div class="section-card"><div class="section-title">🔗 Similar Sites</div>`;
-      analysisData.similar_sites.forEach(s => { extraHTML += `<div class="info-row"><span class="info-label">${s.Country||'N/A'}</span><span class="info-value">Rank: ${s.Rank||'N/A'}</span></div>`; });
-      extraHTML += `</div>`;
+    // Recommendations
+    if (recommendations.length > 0) {
+      extraHTML += `<div class="section-card">
+        <div class="section-title">📋 Security Recommendations</div>
+        <ul class="recommendations-list">
+          ${recommendations.map(r => `<li>${r}</li>`).join('')}
+        </ul>
+      </div>`;
     }
 
-    // 📊 History Graph
+    // Scan History Chart
     if (analysisData && analysisData.history_scans && analysisData.history_scans.length > 1) {
-      extraHTML += `<div class="section-card"><div class="section-title">📊 Scan History</div><div class="chart-wrap"><canvas id="history-chart"></canvas></div></div>`;
+      extraHTML += `<div class="section-card">
+        <div class="section-title">📊 Scan History</div>
+        <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
+      </div>`;
     }
 
-    // 🗺️ Threat Map
-    extraHTML += `<div class="section-card"><div class="section-title">🗺️ Threat Map</div><div>${m>0?'<span class="threat-tag threat-critical">🚨 MALICIOUS</span>':''}${sus>0?'<span class="threat-tag threat-warning">⚠️ SUSPICIOUS</span>':''}<span class="threat-tag threat-info">✅ ${h} engines safe</span></div></div>`;
+    // Threat Map (Verdict Tags)
+    extraHTML += `<div class="section-card">
+      <div class="section-title">🗺️ Threat Map</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${m > 0 ? `<span class="threat-tag threat-malicious">🚨 MALICIOUS (${m})</span>` : ''}
+        ${sus > 0 ? `<span class="threat-tag threat-suspicious">⚠️ SUSPICIOUS (${sus})</span>` : ''}
+        <span class="threat-tag threat-safe">✅ ${h} engines safe</span>
+      </div>
+    </div>`;
 
     document.getElementById('extra-sections').innerHTML = extraHTML;
 
-    // Chart
+    // Render History Chart
     if (analysisData && analysisData.history_scans && analysisData.history_scans.length > 1) {
       setTimeout(() => {
         const ctx = document.getElementById('history-chart');
         if (ctx) {
-          new Chart(ctx, {
+          const historyData = analysisData.history_scans;
+          const labels = historyData.map(s => s.date).reverse();
+          if (historyChart) historyChart.destroy();
+          historyChart = new Chart(ctx, {
             type: 'line',
             data: {
-              labels: analysisData.history_scans.map(s => s.date).reverse(),
+              labels: labels,
               datasets: [{
-                label: 'Scans',
-                data: analysisData.history_scans.map((s,i) => i+1).reverse(),
+                label: 'Scan Count',
+                data: historyData.map((_, i) => i + 1).reverse(),
                 borderColor: '#00c8ff',
                 backgroundColor: 'rgba(0,200,255,0.1)',
-                tension: 0.3
+                tension: 0.3,
+                fill: true
               }]
             },
-            options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6a6a90' } }, y: { ticks: { color: '#6a6a90' } } } }
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: true,
+              plugins: { legend: { display: false } },
+              scales: { 
+                x: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } },
+                y: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } }
+              }
+            }
           });
         }
       }, 500);
@@ -266,11 +379,13 @@
   }
 
   function exportJSON() {
+    if (!allData) return;
     const blob = new Blob([JSON.stringify(allData, null, 2)], {type: 'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'scan-result.json'; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `scan-${scanId}-report.json`; a.click();
   }
 
   function exportCSV() {
+    if (!allData) return;
     const s = allData.scan.raw_report?.data?.attributes?.stats || {};
     let csv = 'Category,Count\n';
     csv += 'Harmless,'+(s.harmless||0)+'\n';
@@ -278,7 +393,7 @@
     csv += 'Suspicious,'+(s.suspicious||0)+'\n';
     csv += 'Undetected,'+(s.undetected||0)+'\n';
     const blob = new Blob([csv], {type: 'text/csv'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'scan-result.csv'; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `scan-${scanId}-report.csv`; a.click();
   }
 
   function loadResult() {
@@ -301,5 +416,16 @@
 
   if (initStatus === 'completed' || initStatus === 'error') { loadResult(); }
   else { pollStatus(); }
+    // Get URL from query parameter and auto-fill
+  window.addEventListener('load', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlFromQR = urlParams.get('url');
+    if (urlFromQR) {
+      // تخزين الرابط في localStorage
+      localStorage.setItem('pending_scan_url', urlFromQR);
+      // التوجيه إلى صفحة URL Scanner الرئيسية
+      window.location.href = '/dashboard';
+    }
+  });
 </script>
 {% endblock %}

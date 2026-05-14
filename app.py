@@ -32,6 +32,8 @@ from typing import Any
 from file_analyzer import FileAnalyzer
 from werkzeug.utils import secure_filename
 from site_analyzer import SiteAnalyzer
+from url_analyzer import URLAnalyzer
+from subdomain_finder import SubdomainFinder
 
 load_dotenv()
 
@@ -1309,7 +1311,7 @@ def api_site_scan():
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Analysis error: {str(e)}"}), 500
-    # ================================================================
+# ================================================================
 # Password Checker
 # ================================================================
 
@@ -1350,6 +1352,90 @@ def api_check_password():
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+
+# ================================================================
+# Subdomain Finder
+# ================================================================
+
+@app.route('/subdomain-finder')
+@login_required
+def subdomain_finder():
+    return render_template('subdomain_finder.html')
+
+
+@app.route('/api/subdomain-finder', methods=['POST'])
+@login_required
+def api_subdomain_finder():
+    """API لاكتشاف النطاقات الفرعية"""
+    data = request.get_json()
+    domain = data.get('domain', '').strip()
+    
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+    
+    try:
+        finder = SubdomainFinder()
+        result = finder.find_subdomains(domain)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+
+
+@app.route('/api/scan-subdomain', methods=['POST'])
+@login_required
+def api_scan_subdomain():
+    """فحص نطاق فرعي عبر VirusTotal"""
+    data = request.get_json()
+    domain = data.get('domain', '').strip()
+    
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+    
+    try:
+        headers = {"x-apikey": API_KEY}
+        resp = requests.post(
+            "https://www.virustotal.com/api/v3/urls",
+            headers=headers,
+            data={"url": f"https://{domain}"},
+            timeout=30
+        )
+        
+        if resp.status_code not in (200, 201):
+            return jsonify({"verdict": "unknown", "error": f"Submit failed: {resp.status_code}"})
+        
+        url_id = resp.json()["data"]["id"]
+        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
+        
+        for _ in range(10):
+            time.sleep(2)
+            r = requests.get(analysis_url, headers=headers, timeout=30)
+            if r.status_code == 200:
+                result = r.json()
+                status = result.get("data", {}).get("attributes", {}).get("status", "")
+                if status == "completed":
+                    break
+        else:
+            return jsonify({"verdict": "unknown", "error": "Timeout"})
+        
+        stats = result.get("data", {}).get("attributes", {}).get("stats", {})
+        malicious = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+        
+        if malicious > 0:
+            verdict = "malicious"
+        elif suspicious > 0:
+            verdict = "suspicious"
+        else:
+            verdict = "clean"
+        
+        return jsonify({"verdict": verdict})
+        
+    except Exception as e:
+        return jsonify({"verdict": "unknown", "error": str(e)})
     
 # ================================================================
 # File Scanner  👈 👈 👈 أضف هنا
@@ -1385,24 +1471,7 @@ def about():
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
-@app.route('/subdomain-finder')
-@login_required
-def subdomain_finder():
-    return render_template('subdomain_finder.html')
 
-
-@app.route('/api/subdomain-finder', methods=['POST'])
-@login_required
-def api_subdomain_finder():
-    data   = request.get_json()
-    domain = data.get('domain', '').strip()
-
-    if not domain:
-        return jsonify({"error": "No domain provided"}), 400
-
-    domain = domain.replace('https://', '').replace('http://', '').strip('/')
-
-    subdomains = set()
 
     # قائمة subdomains شائعة + المجال
     common_subs = ['www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk', 'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test', 'ns', 'blog', 'shop', 'api', 'dev', 'admin', 'portal', 'cdn', 'remote', 'vpn', 'support', 'status', 'web', 'app', 'cloud', 'mail2', 'owa', 'exchange', 'demo', 'staging', 'beta']
@@ -1414,56 +1483,6 @@ def api_subdomain_finder():
     results = [{"domain": sub, "verdict": "found"} for sub in subdomains]
 
     return jsonify({"total": len(results), "subdomains": results})
-
-@app.route('/api/scan-subdomain', methods=['POST'])
-@login_required
-def api_scan_subdomain():
-    import traceback
-    data   = request.get_json()
-    domain = data.get('domain', '').strip()
-
-    if not domain:
-        return jsonify({"error": "No domain provided"}), 400
-
-    try:
-        resp = requests.post(
-            "https://www.virustotal.com/api/v3/urls",
-            headers={"x-apikey": API_KEY},
-            data={"url": f"https://{domain}"}
-        )
-        if resp.status_code not in (200, 201):
-            return jsonify({"verdict": "unknown", "error": f"Submit failed: {resp.status_code}"})
-
-        url_id = resp.json()["data"]["id"]
-        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
-
-        for _ in range(10):
-            time.sleep(2)
-            r = requests.get(analysis_url, headers={"x-apikey": API_KEY})
-            if r.status_code == 200:
-                result = r.json()
-                status = result.get("data", {}).get("attributes", {}).get("status", "")
-                if status == "completed":
-                    break
-        else:
-            return jsonify({"verdict": "unknown", "error": "Timeout"})
-
-        stats = result.get("data", {}).get("attributes", {}).get("stats", {})
-        malicious  = stats.get("malicious", 0)
-        suspicious = stats.get("suspicious", 0)
-
-        if malicious > 0:
-            verdict = "malicious"
-        elif suspicious > 0:
-            verdict = "suspicious"
-        else:
-            verdict = "clean"
-
-        return jsonify({"verdict": verdict})
-
-    except Exception as e:
-        print(traceback.format_exc())
-        return jsonify({"verdict": "unknown", "error": str(e)})
 
 
 @app.route('/domain-lookup')
@@ -1677,46 +1696,53 @@ def api_url_analysis(scan_id):
     scan = db.session.get(Scan, scan_id)
     if not scan or (scan.user_id != current_user.id and not current_user.is_admin):
         return jsonify({"error": "Not found"}), 404
-
+    
     url = scan.url
     domain = urlparse(url).netloc
-
+    
+    # تحليل محلي متقدم
+    analyzer = URLAnalyzer()
+    local_analysis = analyzer.comprehensive_analysis(url)
+    
+    # تحليلات إضافية
     analysis = {
         "redirect_chain": [],
         "final_url": url,
         "cookies": [],
-        "security_headers": {},
+        "security_headers": local_analysis["security_headers"]["headers"],
         "tech_stack": [],
         "screenshot": f"https://image.thum.io/get/1024x768/crop/{url}",
         "whois": {},
         "geo": {},
         "similar_sites": [],
-        "history_scans": []
+        "history_scans": [],
+        # ميزات جديدة
+        "url_structure": local_analysis["structure"],
+        "phishing_indicators": local_analysis["phishing"],
+        "ssl_info": local_analysis["ssl"],
+        "dns_records": local_analysis["dns"],
+        "is_shortened": local_analysis["is_shortened"],
+        "security_score": local_analysis["security_score"],
+        "verdict": local_analysis["verdict"],
+        "recommendations": local_analysis["recommendations"]
     }
-
+    
+    # جمع الـ cookies
     try:
         resp = requests.get(url, timeout=15, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
         for r in resp.history:
             analysis["redirect_chain"].append({"url": r.url, "status_code": r.status_code})
         analysis["final_url"] = resp.url
-
+        
         for cookie in resp.cookies:
             analysis["cookies"].append({
                 "name": cookie.name,
                 "secure": bool(cookie.secure),
                 "domain": cookie.domain or 'N/A'
             })
-
-        headers = resp.headers
-        analysis["security_headers"] = {
-            "HSTS": headers.get("Strict-Transport-Security", "Missing ❌"),
-            "CSP": headers.get("Content-Security-Policy", "Missing ❌"),
-            "X-Frame": headers.get("X-Frame-Options", "Missing ❌"),
-            "X-Content": headers.get("X-Content-Type-Options", "Missing ❌"),
-        }
     except:
         pass
-
+    
     # WHOIS
     try:
         whois_resp = requests.get(f"https://www.whoisxmlapi.com/whoisserver/WhoisService?domainName={domain}&apiKey=at_free_demo_key&outputFormat=JSON", timeout=10)
@@ -1729,7 +1755,7 @@ def api_url_analysis(scan_id):
             }
     except:
         pass
-
+    
     # Geo
     try:
         geo_resp = requests.get(f"http://ip-api.com/json/{domain}", timeout=10)
@@ -1739,26 +1765,15 @@ def api_url_analysis(scan_id):
                 analysis["geo"] = {"lat": g.get("lat"), "lon": g.get("lon"), "city": g.get("city", ""), "country": g.get("country", "")}
     except:
         pass
-
-    # Similar Sites (via similarweb)
-    try:
-        sim_resp = requests.get(f"https://data.similarweb.com/api/v1/data?domain={domain}", timeout=10)
-        if sim_resp.status_code == 200:
-            sim_data = sim_resp.json()
-            similar = sim_data.get("GlobalRank", {}).get("TopCountries", [])[:5]
-            analysis["similar_sites"] = similar
-    except:
-        pass
-
+    
     # History Scans
     try:
         history = Scan.query.filter(Scan.url.contains(domain)).order_by(Scan.date_posted.desc()).limit(10).all()
         analysis["history_scans"] = [{"id": s.id, "verdict": s.verdict, "date": s.date_posted.strftime("%Y-%m-%d")} for s in history]
     except:
         pass
-
+    
     return jsonify(analysis)
-
 
 
 

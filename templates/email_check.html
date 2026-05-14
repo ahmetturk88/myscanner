@@ -87,6 +87,17 @@
   .export-btn:hover { border-color: var(--accent); color: var(--accent); }
   
   @media (max-width: 580px) { .search-box { flex-direction: column; } .stats-grid { grid-template-columns: repeat(2,1fr); } }
+    .toast-notification {
+    position: fixed; bottom: 30px; right: 30px;
+    background: var(--surface); border-left: 3px solid var(--green);
+    padding: 14px 20px; border-radius: 10px;
+    display: flex; gap: 12px; align-items: center;
+    transform: translateX(400px); transition: 0.3s ease;
+    z-index: 1000;
+  }
+  .toast-notification.show { transform: translateX(0); }
+  .toast-message { font-size: 13px; color: var(--text); }
+  .toast-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; }
 </style>
 {% endblock %}
 
@@ -224,6 +235,15 @@
 
   function yn(v) { return v ? '<span style="color:var(--green);font-weight:700;">✓ Yes</span>' : '<span style="color:var(--red);font-weight:700;">✗ No</span>'; }
   function statusBadge(v) { return v ? '<span style="color:var(--green);">✓</span>' : '<span style="color:var(--red);">✗</span>'; }
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-message').textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 4000);
+  }
+  function hideToast() {
+    document.getElementById('toast').classList.remove('show');
+  }
 
   function renderMain(d) {
     const vc = VC[d.verdict] || VC.moderate_risk;
@@ -341,9 +361,12 @@
 ╚══════════════════════════════════════════════════════════════╝
     `;
     navigator.clipboard.writeText(report);
-    alert('✅ Report copied to clipboard!');
-  }
+     showToast('✅ Report copied to clipboard!');  }
 
   document.getElementById('email-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkEmail(); });
 </script>
+<div id="toast" class="toast-notification">
+  <span class="toast-message" id="toast-message"></span>
+  <button class="toast-close" onclick="hideToast()">×</button>
+</div>
 {% endblock %}

@@ -51,6 +51,17 @@
   .error-message { background: var(--red-dim); border: 1px solid var(--red); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px; }
   
   @media (max-width: 580px) { .search-box { flex-direction: column; } }
+    .toast-notification {
+    position: fixed; bottom: 30px; right: 30px;
+    background: var(--surface); border-left: 3px solid var(--green);
+    padding: 14px 20px; border-radius: 10px;
+    display: flex; gap: 12px; align-items: center;
+    transform: translateX(400px); transition: 0.3s ease;
+    z-index: 1000;
+  }
+  .toast-notification.show { transform: translateX(0); }
+  .toast-message { font-size: 13px; color: var(--text); }
+  .toast-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; }
 </style>
 {% endblock %}
 
@@ -277,11 +288,24 @@ function copyReport() {
 ╚══════════════════════════════════════════════════════════════╝
   `;
   navigator.clipboard.writeText(report);
-  alert('✅ Report copied to clipboard!');
+  showToast('✅ Site report copied to clipboard!');
 }
 
 document.getElementById('domain-input').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') scanSite();
 });
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-message').textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 4000);
+  }
+  function hideToast() {
+    document.getElementById('toast').classList.remove('show');
+  }
 </script>
+<div id="toast" class="toast-notification">
+  <span class="toast-message" id="toast-message"></span>
+  <button class="toast-close" onclick="hideToast()">×</button>
+</div>
 {% endblock %}

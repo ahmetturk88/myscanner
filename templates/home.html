@@ -316,6 +316,36 @@
     .hero { padding: 40px 16px; }
     .section-title { font-size: 24px; }
   }
+  @media (max-width: 768px) {
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+}
+@media (max-width: 768px) {
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    justify-items: center !important;
+    text-align: center !important;
+  }
+  
+  .stat-card {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 16px 8px !important;
+  }
+  
+  .stat-number {
+    font-size: 20px !important;
+  }
+  
+  .stat-label {
+    font-size: 10px !important;
+  }
+}
 </style>
 {% endblock %}
 

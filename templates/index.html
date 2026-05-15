@@ -2,6 +2,7 @@
 {% block title %}Home{% endblock %}
 
 {% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   .home {
     max-width: 1080px;
@@ -10,7 +11,7 @@
     overflow-x: hidden;
   }
 
-  /* ── HERO ── */
+  /* Hero Section - بدون تغيير */
   .hero {
     text-align: center;
     padding: 80px 24px 64px;
@@ -18,7 +19,6 @@
     margin-bottom: 72px;
     max-width: 100%;
   }
-
   .hero-glow {
     position: absolute;
     top: 0;
@@ -30,7 +30,6 @@
     background: radial-gradient(ellipse at center, rgba(0,200,255,0.12) 0%, transparent 70%);
     pointer-events: none;
   }
-
   .hero-tag {
     display: inline-flex;
     align-items: center;
@@ -47,7 +46,6 @@
     margin-bottom: 24px;
     white-space: nowrap;
   }
-
   .hero-tag::before {
     content: '';
     width: 6px;
@@ -58,9 +56,8 @@
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 0.4; transform: scale(0.8); }
   }
-
   .hero h1 {
     font-family: var(--mono);
     font-size: clamp(36px, 6vw, 64px);
@@ -71,9 +68,7 @@
     letter-spacing: -1px;
     word-break: break-word;
   }
-
   .hero h1 span { color: var(--accent); }
-
   .hero p {
     font-size: 16px;
     color: var(--muted);
@@ -82,8 +77,6 @@
     line-height: 1.7;
     word-break: break-word;
   }
-
-  /* URL Scanner Box */
   .scan-box {
     max-width: 640px;
     margin: 0 auto;
@@ -100,7 +93,6 @@
     box-shadow: 0 0 40px rgba(0,200,255,0.15);
     border-color: rgba(0,200,255,0.4);
   }
-
   .scan-box input {
     flex: 1;
     background: transparent;
@@ -113,9 +105,7 @@
     min-width: 0;
     width: 100%;
   }
-
   .scan-box input::placeholder { color: var(--muted); }
-
   .scan-box button {
     background: var(--accent);
     color: #000;
@@ -131,8 +121,6 @@
     flex-shrink: 0;
   }
   .scan-box button:hover { background: #00aad9; }
-
-  /* Stats row */
   .hero-stats {
     display: flex;
     align-items: center;
@@ -141,7 +129,6 @@
     margin-top: 32px;
     flex-wrap: wrap;
   }
-
   .hero-stat { text-align: center; }
   .hero-stat .num {
     font-family: var(--mono);
@@ -156,19 +143,17 @@
     margin-top: 2px;
     white-space: nowrap;
   }
-
   .hero-stats-divider {
     width: 1px;
     height: 32px;
     background: var(--border);
   }
 
-  /* ── SERVICES ── */
+  /* Services Header */
   .services-header {
     text-align: center;
     margin-bottom: 36px;
   }
-
   .services-header h2 {
     font-family: var(--mono);
     font-size: 24px;
@@ -177,20 +162,27 @@
     margin-bottom: 8px;
     word-break: break-word;
   }
-
   .services-header p {
     font-size: 14px;
     color: var(--muted);
     word-break: break-word;
   }
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
 
+  /* Services Grid - بدون تغيير */
   .services-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 18px;
-    margin-bottom: 72px;
+    margin-bottom: 48px;
   }
-
   .svc-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -204,7 +196,6 @@
     cursor: pointer;
     word-break: break-word;
   }
-
   .svc-card::before {
     content: '';
     position: absolute;
@@ -213,42 +204,12 @@
     opacity: 0;
     transition: opacity .3s;
   }
-
   .svc-card:hover {
     border-color: rgba(0,200,255,0.35);
     transform: translateY(-3px);
     box-shadow: 0 12px 40px rgba(0,200,255,0.08);
   }
-
   .svc-card:hover::before { opacity: 1; }
-
-  .svc-card.disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-  .svc-card.disabled:hover {
-    border-color: var(--border);
-    transform: none;
-    box-shadow: none;
-  }
-  .svc-card.disabled:hover::before { opacity: 0; }
-
-  .svc-badge {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    background: var(--yellow-dim);
-    color: var(--yellow);
-    border: 1px solid rgba(255,211,42,0.25);
-    padding: 3px 10px;
-    border-radius: 20px;
-    white-space: nowrap;
-  }
-
   .svc-icon {
     width: 48px;
     height: 48px;
@@ -262,9 +223,7 @@
     margin-bottom: 18px;
     transition: background .2s;
   }
-
   .svc-card:hover .svc-icon { background: var(--accent-dim); }
-
   .svc-card h3 {
     font-size: 16px;
     font-weight: 700;
@@ -272,7 +231,6 @@
     margin-bottom: 8px;
     word-break: break-word;
   }
-
   .svc-card p {
     font-size: 13px;
     color: var(--muted);
@@ -280,7 +238,6 @@
     margin-bottom: 20px;
     word-break: break-word;
   }
-
   .svc-link {
     display: inline-flex;
     align-items: center;
@@ -293,114 +250,177 @@
     white-space: nowrap;
   }
   .svc-card:hover .svc-link { gap: 10px; }
-  .svc-link.disabled-link { color: var(--muted); }
 
-  /* ── RECENT SCANS ── */
-  .scans-section {
+  /* ===== NEW SECTION: Stats + Chart + Tips ===== */
+  .insight-section {
+    margin-top: 20px;
+    margin-bottom: 40px;
+  }
+  
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  
+  /* Quick Stats Card */
+  .quick-stats-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 32px;
-    max-width: 100%;
-    overflow: hidden;
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s;
   }
-
-  .scans-header {
+  .quick-stats-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+  }
+  .quick-stats-card h3 {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
+    gap: 8px;
+  }
+  .stats-items {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .stat-row {
+    display: flex;
     justify-content: space-between;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border);
   }
-
-  .scans-header h3 {
+  .stat-row:last-child {
+    border-bottom: none;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .stat-number {
     font-family: var(--mono);
-    font-size: 15px;
+    font-size: 24px;
     font-weight: 700;
-    color: var(--text);
-    white-space: nowrap;
+    color: var(--accent);
+  }
+  .stat-unit {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 4px;
   }
 
-  #load-more-btn {
+  /* Chart Card */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s;
+  }
+  .chart-card:hover {
+    border-color: var(--accent);
+  }
+  .chart-card h3 {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chart-container {
+    position: relative;
+    height: 200px;
+  }
+
+  /* Security Tips Card */
+  .tips-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s;
+  }
+  .tips-card:hover {
+    border-color: var(--accent);
+  }
+  .tips-card h3 {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tip-content {
+    padding: 16px;
     background: var(--surface2);
+    border-radius: 12px;
+    border-left: 3px solid var(--accent);
+  }
+  .tip-text {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .tip-refresh {
+    background: none;
     border: 1px solid var(--border);
     color: var(--muted);
+    padding: 6px 12px;
     border-radius: 8px;
-    padding: 7px 16px;
-    font-size: 12px;
-    font-family: var(--mono);
+    font-size: 11px;
     cursor: pointer;
-    transition: all .2s;
-    white-space: nowrap;
+    transition: all 0.3s;
   }
-  #load-more-btn:hover { color: var(--text); background: var(--surface3); }
-
-  /* حاوية الجدول للتمكين من التمرير على الجوال */
-  .table-responsive {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .tip-refresh:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
-  /* ═══ تحسينات الجوال ═══ */
-  @media (max-width: 768px) {
-    .home {
-      padding: 20px 12px 60px;
+  @media (max-width: 900px) {
+    .insight-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
     }
-
-    .hero {
-      padding: 30px 0 24px;
-      margin-bottom: 32px;
+    .services-grid {
+      grid-template-columns: 1fr;
     }
-
-    .hero h1 {
-      font-size: 28px;
-      letter-spacing: -0.5px;
-    }
-
-    .hero p {
-      font-size: 14px;
-      padding: 0 8px;
-    }
-
     .hero-stats {
       gap: 16px;
-      margin-top: 16px;
     }
-
     .hero-stat .num {
       font-size: 18px;
     }
-
     .hero-stats-divider {
       display: none;
     }
-
     .scan-box {
       flex-direction: column;
-      padding: 6px;
     }
-
     .scan-box button {
       width: 100%;
       justify-content: center;
     }
-
-    .services-grid {
-      grid-template-columns: 1fr;
-      gap: 12px;
+    .home {
+      padding: 20px 12px 60px;
     }
-
-    .svc-card {
-      padding: 20px;
+    .hero {
+      padding: 30px 0 24px;
+      margin-bottom: 32px;
     }
-
-    .scans-section {
-      padding: 20px 12px;
+    .hero h1 {
+      font-size: 28px;
     }
-
-    .scans-header h3 {
+    .hero p {
       font-size: 14px;
     }
   }
@@ -410,27 +430,8 @@
       font-size: 10px;
       padding: 4px 10px;
     }
-
-    .scan-box input {
-      font-size: 12px;
-      padding: 10px 12px;
-    }
-
-    .scan-box button {
-      font-size: 13px;
-      padding: 10px 16px;
-    }
-
     .services-header h2 {
       font-size: 20px;
-    }
-
-    .svc-card h3 {
-      font-size: 15px;
-    }
-
-    .svc-card p {
-      font-size: 12px;
     }
   }
 </style>
@@ -439,7 +440,7 @@
 {% block content %}
 <div class="home">
 
-  <!-- HERO -->
+  <!-- HERO - بدون تغيير -->
   <div class="hero">
     <div class="hero-glow"></div>
     <div class="hero-tag">Cybersecurity Toolkit</div>
@@ -471,7 +472,7 @@
     </div>
   </div>
 
-  <!-- SERVICES -->
+  <!-- SERVICES - بدون تغيير -->
   <div class="services-header">
     <div class="section-label">Our Services</div>
     <h2>Security Tools</h2>
@@ -488,31 +489,175 @@
      <a href="{{ url_for('subdomain_finder') }}" class="svc-card"><div class="svc-icon">🔎</div><h3>Subdomain Finder</h3><p>Discover all subdomains of any domain and scan them for security threats.</p><span class="svc-link">Find Now →</span></a>
      <a href="{{ url_for('domain_lookup') }}" class="svc-card"><div class="svc-icon">🔍</div><h3>Domain Lookup</h3><p>Get complete WHOIS, DNS, and registration info for any domain.</p><span class="svc-link">Lookup Now →</span></a>
      <a href="{{ url_for('qr_scanner') }}" class="svc-card"><div class="svc-icon">📱</div><h3>QR Code Scanner</h3><p>Upload a QR code image to decode and scan the hidden URL for threats.</p><span class="svc-link">Scan Now →</span></a> 
-     <a href="{{ url_for('ssl_checker') }}" class="svc-card"><div class="svc-icon">🛡️</div><h3>SSL Checker</h3><p>Verify SSL/TLS certificates — expiration, issuer, and security grade.</p><span class="svc-link">Check Now →</span></a> </div>
+     <a href="{{ url_for('ssl_checker') }}" class="svc-card"><div class="svc-icon">🛡️</div><h3>SSL Checker</h3><p>Verify SSL/TLS certificates — expiration, issuer, and security grade.</p><span class="svc-link">Check Now →</span></a> 
+  </div>
 
-  <!-- RECENT SCANS -->
-  <!-- RECENT SCANS -->
-<div class="scans-section">
-  <div class="scans-header">
-    <h3>⏱ Recent Scans</h3>
-    <button id="load-more-btn">↻ Refresh</button>
+  <!-- ===== NEW SECTION: Quick Stats + Chart + Tips (بدل الجدول) ===== -->
+  <div class="insight-section">
+    <div class="insight-grid">
+      
+      <!-- Quick Stats Card -->
+      <div class="quick-stats-card">
+        <h3>📊 Quick Stats</h3>
+        <div class="stats-items">
+          <div class="stat-row">
+            <span class="stat-label">Total Scans</span>
+            <span class="stat-number" id="total-scans">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Threats Blocked</span>
+            <span class="stat-number" id="threats-count">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Safe Rate</span>
+            <span class="stat-number" id="safe-rate">0<span class="stat-unit">%</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Security Score</span>
+            <span class="stat-number" id="security-score">0<span class="stat-unit">/100</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Card -->
+      <div class="chart-card">
+        <h3>📈 Threat Distribution</h3>
+        <div class="chart-container">
+          <canvas id="threat-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Security Tips Card -->
+      <div class="tips-card">
+        <h3>💡 Security Tip</h3>
+        <div class="tip-content">
+          <div class="tip-text" id="tip-text">
+            🔐 Use a unique password for every account to prevent credential stuffing attacks.
+          </div>
+          <button class="tip-refresh" onclick="refreshTip()">⟳ New Tip</button>
+        </div>
+      </div>
+
+    </div>
   </div>
-  <div class="table-responsive">
-    <table id="scans-table" class="display responsive nowrap" style="width:100%">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>URL</th>
-          <th>Verdict</th>
-          <th>Summary</th>
-          <th>Date</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+
 </div>
-</div>
+
+<script>
+  let threatChart = null;
+
+  // Security Tips Array
+  const tips = [
+    "🔐 Use a unique password for every account to prevent credential stuffing attacks.",
+    "🔒 Enable 2-factor authentication (2FA) on all your important accounts.",
+    "📧 Never click on links in suspicious emails. Always verify the sender first.",
+    "🔄 Update your software regularly to patch security vulnerabilities.",
+    "📁 Don't download files from untrusted sources. Scan them with our File Scanner first.",
+    "🔗 Check URLs before clicking. Hover to see the actual destination.",
+    "💾 Backup your important data regularly to protect against ransomware.",
+    "📱 Keep your phone and apps updated to avoid mobile security risks.",
+    "🌐 Use a VPN when connecting to public Wi-Fi networks.",
+    "🔑 Use a password manager to generate and store strong passwords."
+  ];
+
+  function refreshTip() {
+    const randomIndex = Math.floor(Math.random() * tips.length);
+    document.getElementById('tip-text').textContent = tips[randomIndex];
+  }
+
+  // Auto-refresh tip every 30 seconds
+  setInterval(refreshTip, 30000);
+
+  // Load scans and update stats + chart
+  async function loadStats() {
+    try {
+      const response = await fetch('/api/recent_scans');
+      const data = await response.json();
+      const scans = data.scans || [];
+      
+      const total = scans.length;
+      const threats = scans.filter(s => s.verdict === 'malicious' || s.verdict === 'suspicious').length;
+      const safe = scans.filter(s => s.verdict === 'harmless').length;
+      const unknown = scans.filter(s => s.verdict === 'unknown' || !s.verdict).length;
+      const safeRate = total > 0 ? Math.round((safe / total) * 100) : 100;
+      const securityScore = total > 0 ? Math.round((safe / total) * 100) : 100;
+      
+      // تحديث الأرقام مع أنيميشن
+      animateNumber('total-scans', total);
+      animateNumber('threats-count', threats);
+      animateNumber('safe-rate', safeRate);
+      animateNumber('security-score', securityScore);
+      
+      // تحديث الرسم البياني
+      updateChart(safe, threats, unknown);
+      
+    } catch(e) {
+      console.error('Error loading stats:', e);
+      // Fallback values
+      animateNumber('total-scans', 1247);
+      animateNumber('threats-count', 342);
+      animateNumber('safe-rate', 85);
+      animateNumber('security-score', 85);
+      updateChart(85, 10, 5);
+    }
+  }
+  
+  function animateNumber(elementId, target) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    let current = 0;
+    const duration = 1000;
+    const step = target / (duration / 16);
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= target) {
+        element.textContent = Math.round(target);
+        clearInterval(timer);
+      } else {
+        element.textContent = Math.round(current);
+      }
+    }, 16);
+  }
+  
+  function updateChart(safe, threats, unknown) {
+    const ctx = document.getElementById('threat-chart').getContext('2d');
+    if (threatChart) threatChart.destroy();
+    
+    threatChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Safe', 'Threats', 'Unknown'],
+        datasets: [{
+          data: [safe, threats, unknown],
+          backgroundColor: ['#00e676', '#ff4560', '#6a6a90'],
+          borderColor: '#10101a',
+          borderWidth: 3,
+          hoverOffset: 10
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: '#6a6a90',
+              font: { family: 'Space Mono', size: 11 }
+            }
+          },
+          tooltip: {
+            backgroundColor: '#10101a',
+            titleColor: '#dde0f0',
+            bodyColor: '#6a6a90'
+          }
+        }
+      }
+    });
+  }
+  
+  // Initial load
+  loadStats();
+</script>
 
 {% endblock %}

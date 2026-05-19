@@ -214,9 +214,9 @@ async function analyzeFile(file) {
   const formData = new FormData();
   formData.append('file', file);
   
-  
    try {
-    const response = await fetch('/api/file-deep-analysis', { 
+    // استخدام API الموحد الجديد
+    const response = await fetch('/api/scan-file', { 
       method: 'POST',
       body: formData
     });
@@ -230,7 +230,9 @@ async function analyzeFile(file) {
     
     lastResult = data;
     renderResult(data);
+    renderDeepAnalysis(data); // إظهار التحليل العميق تلقائياً
     document.getElementById('file-info').style.display = 'block';
+    document.getElementById('deep-analysis-results').style.display = 'block';
     
   } catch (error) {
     document.getElementById('loading-div').style.display = 'none';
@@ -242,8 +244,8 @@ function renderResult(d) {
   const verdicts = {
     safe: { icon: '✅', title: 'SAFE - Clean File', subtitle: 'No threats detected.', cls: 'banner-safe' },
     suspicious: { icon: '⚠️', title: 'SUSPICIOUS', subtitle: 'Suspicious elements detected.', cls: 'banner-suspicious' },
-    high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Do not execute!', cls: 'banner-high_risk' },
-    malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Delete immediately!', cls: 'banner-malicious' }
+    high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Multiple suspicious indicators detected. Do not execute!', cls: 'banner-high_risk' },
+    malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Confirmed malware detected! Delete immediately.', cls: 'banner-malicious' }
   };
   const v = verdicts[d.verdict] || verdicts.suspicious;
   
@@ -257,11 +259,10 @@ function renderResult(d) {
   document.getElementById('score-fill').style.background = color;
   document.getElementById('score-num').textContent = score + ' / 100';
   
-  // استخدام البيانات من التحليل العميق مباشرة
   const yara = d.yara || {};
   const metadata = d.metadata || {};
   const iocs = d.iocs || {};
-  const hashes = d.hashes || {};
+  const vt = d.virustotal || {};
   
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-box"><div class="num">${yara.matched_rules?.length || 0}</div><div class="label">YARA RULES</div></div>
@@ -272,15 +273,29 @@ function renderResult(d) {
     <div class="stat-box"><div class="num">${d.file_size_mb} MB</div><div class="label">SIZE</div></div>
   `;
   
-  // عرض التهديدات من YARA
+  // دمج تهديدات YARA و VirusTotal
+  let threatHtml = '';
   if (yara.matched_rules && yara.matched_rules.length > 0) {
-    document.getElementById('detection-list').style.display = 'block';
-    document.getElementById('threats').innerHTML = yara.matched_rules.map(rule => `
+    threatHtml += yara.matched_rules.map(rule => `
       <div class="detection-item">
         <span class="detection-engine">YARA Rule</span>
         <span class="detection-result">${rule}</span>
       </div>
     `).join('');
+  }
+  
+  if (vt.threats && vt.threats.length > 0) {
+    threatHtml += vt.threats.map(t => `
+      <div class="detection-item">
+        <span class="detection-engine">${t.engine}</span>
+        <span class="detection-result">${t.result}</span>
+      </div>
+    `).join('');
+  }
+  
+  if (threatHtml) {
+    document.getElementById('detection-list').style.display = 'block';
+    document.getElementById('threats').innerHTML = threatHtml;
   } else {
     document.getElementById('detection-list').style.display = 'none';
   }
@@ -296,31 +311,7 @@ function renderResult(d) {
   document.getElementById('result-card').style.display = 'block';
 }
 
-async function performDeepFileAnalysis(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  try {
-    const response = await fetch('/api/scan-file', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
-    
-    lastDeepResult = data;
-    renderDeepAnalysis(data);
-    document.getElementById('deep-analysis-results').style.display = 'block';
-    
-  } catch (error) {
-    console.error("Deep analysis error:", error);
-  }
-}
+// Deep analysis is now integrated into the main analyzeFile function
 
 function renderDeepAnalysis(d) {
   const hashes = d.hashes || {};

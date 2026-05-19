@@ -554,7 +554,7 @@ def api_bulk_email_check():
 @app.route('/api/scan-file', methods=['POST'])
 @login_required
 def api_scan_file():
-    """API لفحص الملفات"""
+    """API الموحد لفحص الملفات (VirusTotal + التحليل العميق)"""
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
     
@@ -574,67 +574,47 @@ def api_scan_file():
         
         filename = secure_filename(file.filename)
         
-        # ============================================================
-        # 1. تحليل VirusTotal
-        # ============================================================
-        vt_result = {"verdict": "unknown", "stats": {}, "threats": []}
+        # 1. التحليل العميق المحلي
+        analyzer = FileDeepAnalyzer(use_exiftool=True)
+        deep_result = analyzer.comprehensive_analysis(file_content, filename)
         
+        # 2. تحليل VirusTotal
+        vt_result = {"verdict": "unknown", "stats": {}, "threats": []}
         if API_KEY:
             try:
                 headers = {"x-apikey": API_KEY}
                 files = {'file': (filename, file_content)}
-                
-                upload_resp = requests.post(
-                    "https://www.virustotal.com/api/v3/files",
-                    headers=headers,
-                    files=files,
-                    timeout=30
-                )
+                upload_resp = requests.post("https://www.virustotal.com/api/v3/files", headers=headers, files=files, timeout=30)
                 
                 if upload_resp.status_code in (200, 201):
-                    upload_data = upload_resp.json()
-                    analysis_id = upload_data.get("data", {}).get("id", "")
+                    analysis_id = upload_resp.json().get("data", {}).get("id", "")
                     analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
                     
-                    for _ in range(30):
+                    for _ in range(20): # تقليل عدد المحاولات لتسريع الاستجابة
                         time.sleep(2)
                         analysis_resp = requests.get(analysis_url, headers=headers, timeout=30)
                         if analysis_resp.status_code == 200:
                             analysis_data = analysis_resp.json()
-                            status = analysis_data.get("data", {}).get("attributes", {}).get("status", "")
-                            if status == "completed":
-                                stats = analysis_data.get("data", {}).get("attributes", {}).get("stats", {})
-                                results = analysis_data.get("data", {}).get("attributes", {}).get("results", {})
+                            if analysis_data.get("data", {}).get("attributes", {}).get("status") == "completed":
+                                attr = analysis_data["data"]["attributes"]
+                                stats = attr.get("stats", {})
+                                results = attr.get("results", {})
                                 
                                 malicious = stats.get("malicious", 0)
                                 suspicious = stats.get("suspicious", 0)
-                                harmless = stats.get("harmless", 0)
-                                undetected = stats.get("undetected", 0)
-                                total_engines = malicious + suspicious + harmless + undetected
-                                
-                                if malicious > 0:
-                                    verdict = "malicious"
-                                elif suspicious > 0:
-                                    verdict = "suspicious"
-                                else:
-                                    verdict = "clean"
+                                total_engines = sum(stats.values())
                                 
                                 threats = []
-                                for engine_name, engine_data in results.items():
-                                    category = engine_data.get("category", "undetected")
-                                    if category in ("malicious", "suspicious"):
-                                        threats.append({
-                                            "engine": engine_name,
-                                            "result": engine_data.get("result", category),
-                                            "category": category
-                                        })
+                                for engine, data in results.items():
+                                    if data.get("category") in ("malicious", "suspicious"):
+                                        threats.append({"engine": engine, "result": data.get("result"), "category": data.get("category")})
                                 
                                 vt_result = {
-                                    "verdict": verdict,
+                                    "verdict": "malicious" if malicious > 0 else "suspicious" if suspicious > 0 else "clean",
                                     "malicious": malicious,
                                     "suspicious": suspicious,
-                                    "harmless": harmless,
-                                    "undetected": undetected,
+                                    "harmless": stats.get("harmless", 0),
+                                    "undetected": stats.get("undetected", 0),
                                     "total_engines": total_engines,
                                     "detection_rate": round((malicious + suspicious) / total_engines * 100, 2) if total_engines > 0 else 0,
                                     "threats": threats[:20]
@@ -643,63 +623,23 @@ def api_scan_file():
             except Exception as e:
                 vt_result["error"] = str(e)
         
-        # ============================================================
-        # 2. حساب درجة الأمان
-        # ============================================================
-        security_score = 100
+        # دمج النتائج
+        deep_result["virustotal"] = vt_result
         
+        # تحديث درجة الأمان بناءً على VT
         if vt_result.get("verdict") == "malicious":
-            security_score -= 60
+            deep_result["security_score"] = max(0, deep_result["security_score"] - 50)
         elif vt_result.get("verdict") == "suspicious":
-            security_score -= 40
-        elif vt_result.get("detection_rate", 0) > 10:
-            security_score -= min(30, vt_result.get("detection_rate", 0))
+            deep_result["security_score"] = max(0, deep_result["security_score"] - 25)
+            
+        # تحديث الحكم النهائي بناءً على النتيجة الجديدة
+        score = deep_result["security_score"]
+        if score >= 80: deep_result["verdict"] = "safe"
+        elif score >= 60: deep_result["verdict"] = "suspicious"
+        elif score >= 30: deep_result["verdict"] = "high_risk"
+        else: deep_result["verdict"] = "malicious"
         
-        security_score = max(0, min(100, security_score))
-        
-        # ============================================================
-        # 3. الحكم النهائي
-        # ============================================================
-        if security_score >= 80:
-            final_verdict = "safe"
-        elif security_score >= 50:
-            final_verdict = "suspicious"
-        elif security_score >= 20:
-            final_verdict = "high_risk"
-        else:
-            final_verdict = "malicious"
-        
-        # ============================================================
-        # 4. التوصيات
-        # ============================================================
-        recommendations = []
-        
-        if final_verdict == "malicious":
-            recommendations.append("⚠️ DO NOT OPEN or EXECUTE this file!")
-            recommendations.append("🗑️ Delete the file immediately")
-            recommendations.append("📧 Report to your security team")
-        elif final_verdict == "high_risk":
-            recommendations.append("⚠️ High risk detected - proceed with extreme caution")
-            recommendations.append("🔒 Scan in a sandbox environment first")
-        elif final_verdict == "suspicious":
-            recommendations.append("⚠️ Suspicious elements found - verify file source")
-        
-        if vt_result.get("verdict") == "malicious" and vt_result.get("threats"):
-            recommendations.append(f"🦠 Detected threats: {vt_result['threats'][0]['result']}")
-        
-        # ============================================================
-        # 5. إرجاع النتيجة
-        # ============================================================
-        return jsonify({
-            "filename": filename,
-            "file_size": file_size,
-            "file_size_mb": round(file_size / 1024 / 1024, 2),
-            "verdict": final_verdict,
-            "security_score": security_score,
-            "virustotal": vt_result,
-            "recommendations": recommendations,
-            "checked_at": datetime.now().isoformat()
-        })
+        return jsonify(deep_result)
         
     except Exception as e:
         import traceback
@@ -736,20 +676,7 @@ def api_file_deep_analysis():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     
-@app.route('/api/scan-file', methods=['POST'])
-def scan_file():
-    file = request.files.get('file')
-
-    if not file:
-        return jsonify({"error": "no file"})
-
-    filepath = os.path.join("temp_uploads", file.filename)
-    file.save(filepath)
-
-    analyzer = FileDeepAnalyzer(filepath)
-    result = analyzer.analyze()
-
-    return jsonify(result)
+# Removed redundant and broken scan-file route
 
 # ================================================================
 # Admin

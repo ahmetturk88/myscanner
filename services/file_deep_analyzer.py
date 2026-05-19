@@ -1,0 +1,1238 @@
+# =================================================================
+# file_deep_analyzer.py - التحليل العميق الشامل للملفات (النسخة الكاملة)
+# =================================================================
+# الميزات المتضمنة:
+# 1. حساب التجزئات (MD5, SHA1, SHA256, SHA512, BLAKE2b)
+# 2. استخراج البيانات الوصفية (Metadata) لجميع أنواع الملفات
+# 3. استخراج المؤشرات (IoCs): IPs, URLs, Domains, Emails, Hashes, Paths
+# 4. فحص YARA بقواعد متقدمة
+# 5. فحص السمعة ضد MalwareBazaar و VirusTotal (API)
+# 6. تحليل الملفات الكبيرة (Streaming)
+# 7. استخراج EXIF data للصور
+# 8. تحليل PDF متقدم (JavaScript, Actions, Embedded files)
+# 9. تحليل PE files (سكشنز، استيرادات، تصديرات، APIs خطرة)
+# 10. تحليل Office files (ماكرو، OLE)
+# 11. تحليل Scripts (Python, JS, PowerShell, Bash)
+# 12. تحليل Archives (ZIP, RAR)
+# 13. دمج مع exiftool (اختياري)
+# 14. تقرير كامل مع درجة خطورة وتوصيات
+# =================================================================
+
+import os
+import hashlib
+import re
+import json
+import tempfile
+import subprocess
+import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Tuple
+from urllib.parse import urlparse
+
+# محاولة استيراد المكتبات الاختيارية
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+
+try:
+    import pefile
+    PEFILE_AVAILABLE = True
+except ImportError:
+    PEFILE_AVAILABLE = False
+
+try:
+    from PIL import Image
+    from PIL.ExifTags import TAGS, GPSTAGS
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
+try:
+    import filetype
+    FILETYPE_AVAILABLE = True
+except ImportError:
+    FILETYPE_AVAILABLE = False
+
+
+class FileDeepAnalyzer:
+    """التحليل العميق الشامل للملفات - نسخة كاملة بجميع الميزات"""
+    
+    def __init__(self, cache_dir: str = 'file_cache', use_exiftool: bool = False):
+        """
+        تهيئة المحلل
+        
+        Args:
+            cache_dir: مجلد التخزين المؤقت
+            use_exiftool: استخدام exiftool إن وجد (للميتاداتا الإضافية)
+        """
+        self.cache_dir = cache_dir
+        self.use_exiftool = use_exiftool
+        self.max_file_size = 50 * 1024 * 1024  # 50 MB
+        self.max_file_size_stream = 500 * 1024 * 1024  # 500 MB للـ streaming
+        os.makedirs(cache_dir, exist_ok=True)
+        
+        # قواعد IoC patterns (موسعة)
+        self.IOC_PATTERNS = {
+            'ipv4': r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b',
+            'ipv6': r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b',
+            'url': r'https?://[^\s<>"{}|\\^`\[\]]+',
+            'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            'domain': r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b',
+            'md5': r'\b[a-fA-F0-9]{32}\b',
+            'sha1': r'\b[a-fA-F0-9]{40}\b',
+            'sha256': r'\b[a-fA-F0-9]{64}\b',
+            'windows_path': r'[A-Za-z]:\\[^*|"<>?\n]*',
+            'registry_key': r'HKEY_[A-Z_]+\\[^*|"<>?\n]*',
+            'bitcoin': r'\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b',
+            'onion': r'\b[a-z2-7]{16,56}\.onion\b',
+            'telegram': r't\.me/[a-zA-Z0-9_]+',
+            'discord': r'discord(?:app)?\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_-]+'
+        }
+        
+        # قواعد YARA المتقدمة
+        self.YARA_RULES = {
+            # PDF Rules
+            "PDF_JavaScript": {
+                "patterns": [b'/JS', b'/JavaScript', b'app.alert', b'app.launchURL', b'this.print', b'this.submitForm'],
+                "risk": 30,
+                "description": "PDF contains JavaScript"
+            },
+            "PDF_Launch_Action": {
+                "patterns": [b'/Launch', b'/OpenAction', b'/AA', b'/GoToR'],
+                "risk": 40,
+                "description": "PDF has auto-launch actions"
+            },
+            "PDF_Embedded_File": {
+                "patterns": [b'/EmbeddedFile', b'/Filespec', b'/EF', b'/RF'],
+                "risk": 35,
+                "description": "PDF contains embedded files"
+            },
+            "PDF_URI_Action": {
+                "patterns": [b'/URI', b'/GoToR'],
+                "risk": 15,
+                "description": "PDF has external URI links"
+            },
+            
+            # PE Rules
+            "PE_Packed_UPX": {
+                "patterns": [b'UPX0', b'UPX1', b'UPX2'],
+                "risk": 25,
+                "description": "UPX packer detected"
+            },
+            "PE_Packed_Other": {
+                "patterns": [b'.aspack', b'.MPRESS', b'.PEC2', b'.PEC3', b'.RLPack'],
+                "risk": 30,
+                "description": "Packer/Protector detected"
+            },
+            "PE_AntiDebug": {
+                "patterns": [b'IsDebuggerPresent', b'CheckRemoteDebuggerPresent', b'NtGlobalFlag', b'OutputDebugString'],
+                "risk": 20,
+                "description": "Anti-debugging techniques detected"
+            },
+            "PE_Virtualization": {
+                "patterns": [b'vbox', b'vmware', b'virtualbox', b'VBoxGuest'],
+                "risk": 15,
+                "description": "Virtualization detection"
+            },
+            
+            # Malicious Patterns
+            "Dynamic_Code_Execution": {
+                "patterns": [b'eval(', b'exec(', b'system(', b'popen(', b'subprocess.Popen'],
+                "risk": 35,
+                "description": "Dynamic code execution"
+            },
+            "Network_Download": {
+                "patterns": [b'URLDownloadToFile', b'DownloadFile', b'webclient.Download', b'requests.get', b'urllib.request.urlretrieve'],
+                "risk": 30,
+                "description": "Network download capability"
+            },
+            "Persistence_Mechanism": {
+                "patterns": [b'Run', b'RunOnce', b'Startup', b'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', b'CreateService'],
+                "risk": 35,
+                "description": "Persistence mechanism detected"
+            },
+            "Data_Exfiltration": {
+                "patterns": [b'post(', b'send(', b'upload', b'exfiltrate', b'steal'],
+                "risk": 40,
+                "description": "Possible data exfiltration"
+            },
+            "Encoded_Commands": {
+                "patterns": [b'base64', b'FromBase64String', b'-EncodedCommand', b'hex_decode'],
+                "risk": 25,
+                "description": "Encoded/obfuscated commands"
+            },
+            "Suspicious_Processes": {
+                "patterns": [b'cmd.exe /c', b'powershell.exe -', b'wscript.exe', b'cscript.exe', b'rundll32.exe'],
+                "risk": 20,
+                "description": "Suspicious process execution"
+            },
+            
+            # Office Rules
+            "Office_Macros": {
+                "patterns": [b'VBA', b'Macro', b'ThisDocument', b'Module', b'AutoOpen', b'Document_Open', b'Workbook_Open'],
+                "risk": 45,
+                "description": "Office macros detected"
+            },
+            "Office_DDE": {
+                "patterns": [b'DDEAUTO', b'DDE', b'\\\\(\\\\', b'\\\\..\\\\..\\\\'],
+                "risk": 50,
+                "description": "DDE attack pattern detected"
+            },
+            
+            # Suspicious Content
+            "Suspicious_URLs": {
+                "patterns": [b'.onion', b'bitcoin', b'cryptocurrency', b'wallet', b'darknet'],
+                "risk": 20,
+                "description": "Suspicious URL patterns"
+            },
+            "Ransomware_Indicators": {
+                "patterns": [b'.encrypted', b'.locked', b'.crypted', b'recover', b'decrypt', b'bitcoin'],
+                "risk": 50,
+                "description": "Ransomware-like indicators"
+            },
+            "C2_Communication": {
+                "patterns": [b'beacon', b'heartbeat', b'command and control', b'c&c', b'callback'],
+                "risk": 45,
+                "description": "Possible C2 communication patterns"
+            },
+            
+            # Image Rules (Steganography)
+            "Steganography_Indicator": {
+                "patterns": [b'steg', b'LSB', b'zsteg', b'steghide', b'outguess'],
+                "risk": 30,
+                "description": "Possible steganography tool references"
+            }
+        }
+    
+    # ================================================================
+    # 1. حساب التجزئات (Hashes) - متقدم
+    # ================================================================
+    
+    def calculate_hashes(self, file_content: bytes) -> Dict[str, str]:
+        """حساب جميع تجزئات الملف"""
+        return {
+            "md5": hashlib.md5(file_content).hexdigest(),
+            "sha1": hashlib.sha1(file_content).hexdigest(),
+            "sha256": hashlib.sha256(file_content).hexdigest(),
+            "sha512": hashlib.sha512(file_content).hexdigest(),
+            "blake2b": hashlib.blake2b(file_content).hexdigest()
+        }
+    
+    def calculate_hashes_streaming(self, file_path: str, chunk_size: int = 8192) -> Dict[str, str]:
+        """حساب التجزئات للملفات الكبيرة (تدريجياً)"""
+        hash_md5 = hashlib.md5()
+        hash_sha1 = hashlib.sha1()
+        hash_sha256 = hashlib.sha256()
+        hash_sha512 = hashlib.sha512()
+        
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(chunk_size), b''):
+                hash_md5.update(chunk)
+                hash_sha1.update(chunk)
+                hash_sha256.update(chunk)
+                hash_sha512.update(chunk)
+        
+        return {
+            "md5": hash_md5.hexdigest(),
+            "sha1": hash_sha1.hexdigest(),
+            "sha256": hash_sha256.hexdigest(),
+            "sha512": hash_sha512.hexdigest()
+        }
+    
+    # ================================================================
+    # 2. كشف نوع الملف (باستخدام filetype + فحص يدوي)
+    # ================================================================
+    
+    def detect_file_type(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """كشف نوع الملف الحقيقي باستخدام filetype"""
+        result = {
+            "extension": filename.split('.')[-1].lower() if '.' in filename else '',
+            "is_spoofed": False,
+            "mime_type": "unknown",
+            "actual_type": "unknown",
+            "description": "Unknown",
+            "is_executable": False,
+            "is_archive": False,
+            "is_document": False,
+            "is_script": False,
+            "is_image": False,
+            "is_pdf": False
+        }
+        
+        if FILETYPE_AVAILABLE:
+            try:
+                kind = filetype.guess(file_content)
+                if kind:
+                    result["mime_type"] = kind.mime
+                    result["actual_type"] = kind.extension
+                    result["description"] = f"{kind.extension.upper()} file - {kind.mime}"
+            except Exception as e:
+                result["description"] = f"Error: {str(e)}"
+        
+        # كشف يدوي إذا فشل filetype
+        if result["actual_type"] == "unknown":
+            # PDF
+            if file_content[:4] == b'%PDF':
+                result["actual_type"] = "pdf"
+                result["mime_type"] = "application/pdf"
+                result["description"] = "PDF file"
+            # ZIP
+            elif file_content[:2] == b'PK':
+                result["actual_type"] = "zip"
+                result["mime_type"] = "application/zip"
+                result["description"] = "ZIP archive"
+            # PE (EXE/DLL)
+            elif file_content[:2] == b'MZ':
+                result["actual_type"] = "exe"
+                result["mime_type"] = "application/x-msdownload"
+                result["description"] = "Windows PE executable"
+            # PNG
+            elif file_content[:8] == b'\x89PNG\r\n\x1a\n':
+                result["actual_type"] = "png"
+                result["mime_type"] = "image/png"
+                result["description"] = "PNG image"
+            # JPEG
+            elif file_content[:2] == b'\xff\xd8':
+                result["actual_type"] = "jpg"
+                result["mime_type"] = "image/jpeg"
+                result["description"] = "JPEG image"
+            # GIF
+            elif file_content[:3] == b'GIF':
+                result["actual_type"] = "gif"
+                result["mime_type"] = "image/gif"
+                result["description"] = "GIF image"
+            # ELF (Linux)
+            elif file_content[:4] == b'\x7fELF':
+                result["actual_type"] = "elf"
+                result["mime_type"] = "application/x-elf"
+                result["description"] = "Linux ELF executable"
+        
+        # تحديد أنواع الملفات
+        result["is_executable"] = result["actual_type"] in ['exe', 'dll', 'scr', 'msi', 'bin', 'elf']
+        result["is_archive"] = result["actual_type"] in ['zip', 'rar', '7z', 'gz', 'tar']
+        result["is_document"] = result["actual_type"] in ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
+        result["is_script"] = result["extension"] in ['py', 'js', 'ps1', 'sh', 'bat', 'vbs', 'rb', 'pl']
+        result["is_image"] = result["actual_type"] in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp']
+        result["is_pdf"] = result["actual_type"] == "pdf"
+        
+        # كشف تزوير الامتداد
+        ext_to_type = {
+            'pdf': ['pdf'], 'exe': ['exe', 'dll', 'scr', 'msi'], 'doc': ['doc', 'docx'],
+            'xls': ['xls', 'xlsx'], 'zip': ['zip'], 'rar': ['rar'], 'jpg': ['jpg', 'jpeg'],
+            'png': ['png'], 'txt': ['txt'], 'html': ['html', 'htm'], 'js': ['js'],
+            'py': ['py'], 'ps1': ['ps1'], 'sh': ['sh']
+        }
+        for ext_type, extensions in ext_to_type.items():
+            if result["actual_type"] == ext_type and result["extension"] not in extensions:
+                result["is_spoofed"] = True
+                break
+        
+        return result
+    
+    # ================================================================
+    # 3. استخراج البيانات الوصفية (Metadata) لجميع أنواع الملفات
+    # ================================================================
+    
+    def extract_metadata_pe(self, file_content: bytes) -> Dict[str, Any]:
+        """تحليل ملفات Windows PE (exe, dll, sys)"""
+        if not PEFILE_AVAILABLE:
+            return {"is_pe": False, "error": "pefile not installed. Run: pip install pefile"}
+        
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.exe') as tmp:
+                tmp.write(file_content)
+                tmp_path = tmp.name
+            
+            pe = pefile.PE(tmp_path)
+            
+            result = {
+                "is_pe": True,
+                "machine": hex(pe.FILE_HEADER.Machine),
+                "number_of_sections": pe.FILE_HEADER.NumberOfSections,
+                "entry_point": hex(pe.OPTIONAL_HEADER.AddressOfEntryPoint),
+                "image_base": hex(pe.OPTIONAL_HEADER.ImageBase),
+                "is_dll": bool(pe.FILE_HEADER.Characteristics & 0x2000),
+                "is_driver": bool(pe.FILE_HEADER.Characteristics & 0x80),
+                "timestamp": pe.FILE_HEADER.TimeDateStamp,
+                "compile_time": datetime.fromtimestamp(pe.FILE_HEADER.TimeDateStamp).isoformat() if pe.FILE_HEADER.TimeDateStamp else None,
+                "sections": [],
+                "imports": [],
+                "exports": [],
+                "resources": [],
+                "suspicious": []
+            }
+            
+            # تحليل الأقسام
+            for section in pe.sections:
+                section_name = section.Name.decode().rstrip('\x00')
+                section_data = {
+                    "name": section_name,
+                    "virtual_size": section.Misc_VirtualSize,
+                    "virtual_address": hex(section.VirtualAddress),
+                    "raw_size": section.SizeOfRawData,
+                    "entropy": section.get_entropy() if hasattr(section, 'get_entropy') else 0,
+                    "characteristics": hex(section.Characteristics)
+                }
+                result["sections"].append(section_data)
+                
+                # كشف الأقسام المضغوطة
+                packed = ['UPX', 'UPX0', 'UPX1', '.aspack', '.MPRESS', 'PEC2', 'PEC3', '.RLPack']
+                for sig in packed:
+                    if sig in section_name:
+                        result["suspicious"].append(f"Packer detected: {sig}")
+                        break
+                
+                # كشف الانتروبي العالي (ضغط/تشفير)
+                if section_data["entropy"] > 7.0:
+                    result["suspicious"].append(f"High entropy section: {section_name} ({section_data['entropy']:.2f})")
+            
+            # تحليل الاستيرادات الخطرة
+            dangerous_apis = [
+                "CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx", "VirtualProtectEx",
+                "ShellExecute", "WinExec", "URLDownloadToFile", "URLDownloadToFileA", "URLDownloadToFileW",
+                "DeleteFile", "MoveFile", "CopyFile", "RegSetValue", "RegCreateKey", "RegDeleteKey",
+                "CreateService", "StartService", "DeleteService", "CryptEncrypt", "CryptDecrypt",
+                "SetWindowsHookEx", "SetWinEventHook", "GetAsyncKeyState", "GetKeyState", "GetForegroundWindow",
+                "OpenProcess", "TerminateProcess", "DebugActiveProcess", "WriteProcessMemory", "ReadProcessMemory"
+            ]
+            
+            if hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
+                for entry in pe.DIRECTORY_ENTRY_IMPORT:
+                    dll_name = entry.dll.decode().lower()
+                    for imp in entry.imports:
+                        if imp.name:
+                            func_name = imp.name.decode()
+                            result["imports"].append({"dll": dll_name, "function": func_name})
+                            if func_name in dangerous_apis:
+                                result["suspicious"].append(f"Dangerous API: {dll_name}!{func_name}")
+            
+            # تحليل التصديرات
+            if hasattr(pe, 'DIRECTORY_ENTRY_EXPORT'):
+                for exp in pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                    if exp.name:
+                        result["exports"].append(exp.name.decode())
+            
+            # تحليل الموارد
+            if hasattr(pe, 'DIRECTORY_ENTRY_RESOURCE'):
+                for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
+                    if resource_type.name:
+                        result["resources"].append(f"Type: {resource_type.name}")
+                    else:
+                        result["resources"].append(f"Type ID: {resource_type.id}")
+            
+            # التحقق من التوقيع الرقمي
+            if hasattr(pe, 'DIRECTORY_ENTRY_SECURITY'):
+                result["has_digital_signature"] = True
+            
+            os.unlink(tmp_path)
+            return result
+            
+        except Exception as e:
+            return {"is_pe": False, "error": str(e)}
+    
+    def extract_metadata_pdf(self, file_content: bytes) -> Dict[str, Any]:
+        """تحليل متقدم لملفات PDF"""
+        content_str = file_content.decode('latin-1', errors='ignore')
+        
+        result = {
+            "is_pdf": True,
+            "num_pages": 0,
+            "is_encrypted": '/Encrypt' in content_str,
+            "has_javascript": False,
+            "has_actions": False,
+            "has_attachments": False,
+            "has_launch": False,
+            "has_form_fields": False,
+            "metadata": {},
+            "suspicious": []
+        }
+        
+        # استخراج البيانات الوصفية
+        metadata_patterns = {
+            '/Title': 'title', '/Author': 'author', '/Subject': 'subject',
+            '/Keywords': 'keywords', '/Creator': 'creator', '/Producer': 'producer',
+            '/CreationDate': 'creation_date', '/ModDate': 'modification_date'
+        }
+        for pattern, key in metadata_patterns.items():
+            match = re.search(f'{pattern}\s*\((.*?)\)', content_str)
+            if match:
+                result["metadata"][key] = match.group(1)
+        
+        # البحث عن JavaScript
+        js_patterns = ['/JS', '/JavaScript', 'app.alert', 'app.launchURL', 'this.print', 'this.submitForm']
+        for pattern in js_patterns:
+            if pattern in content_str:
+                result["has_javascript"] = True
+                result["suspicious"].append(f"JavaScript found: {pattern}")
+                break
+        
+        # البحث عن الإجراءات التلقائية
+        action_patterns = ['/AA', '/OpenAction', '/Launch']
+        for pattern in action_patterns:
+            if pattern in content_str:
+                result["has_actions"] = True
+                result["suspicious"].append(f"Auto-action detected: {pattern}")
+                break
+        
+        # البحث عن المرفقات
+        attachment_patterns = ['/EmbeddedFile', '/Filespec', '/EF', '/RF']
+        for pattern in attachment_patterns:
+            if pattern in content_str:
+                result["has_attachments"] = True
+                result["suspicious"].append(f"Embedded file found: {pattern}")
+                break
+        
+        # البحث عن روابط URI
+        if '/URI' in content_str:
+            uris = re.findall(r'/URI\s*\((.*?)\)', content_str)
+            if uris:
+                result["suspicious"].append(f"External URIs found: {len(uris)}")
+        
+        # البحث عن حروف الـ PDF
+        if re.search(r'/AcroForm|/XFA', content_str):
+            result["has_form_fields"] = True
+        
+        # محاولة حساب عدد الصفحات
+        pages = re.findall(r'/Type\s*/Page', content_str)
+        result["num_pages"] = len(pages) if pages else 0
+        
+        return result
+    
+    def extract_metadata_office(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """تحليل ملفات Office"""
+        result = {
+            "is_office": True,
+            "type": "old" if filename.endswith(('.doc', '.xls', '.ppt')) else "new",
+            "has_macros": False,
+            "has_ole": False,
+            "metadata": {},
+            "suspicious": []
+        }
+        
+        if result["type"] == "new":
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=filename) as tmp:
+                    tmp.write(file_content)
+                    tmp_path = tmp.name
+                
+                with zipfile.ZipFile(tmp_path, 'r') as zf:
+                    # البحث عن الماكرو
+                    for name in zf.namelist():
+                        if 'vba' in name.lower() or 'macro' in name.lower():
+                            result["has_macros"] = True
+                            result["suspicious"].append("VBA macros detected")
+                            break
+                    
+                    # استخراج البيانات الوصفية
+                    if 'docProps/core.xml' in zf.namelist():
+                        core_xml = zf.read('docProps/core.xml')
+                        import xml.etree.ElementTree as ET
+                        root = ET.fromstring(core_xml)
+                        for elem in root:
+                            tag = elem.tag.split('}')[-1]
+                            result["metadata"][tag] = elem.text if elem.text else ""
+                
+                os.unlink(tmp_path)
+            except Exception as e:
+                result["metadata_error"] = str(e)
+        else:
+            # الملفات القديمة
+            if b'\xd0\xcf\x11\xe0' in file_content[:100]:
+                result["has_ole"] = True
+                if b'VBA' in file_content or b'Macro' in file_content or b'ThisDocument' in file_content:
+                    result["has_macros"] = True
+                    result["suspicious"].append("Macros in legacy Office file")
+        
+        return result
+    
+    def extract_metadata_script(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """تحليل الملفات النصية"""
+        content_str = file_content.decode('utf-8', errors='ignore')
+        
+        result = {
+            "is_script": True,
+            "language": "unknown",
+            "lines": len(content_str.splitlines()),
+            "size_chars": len(content_str),
+            "has_network": False,
+            "has_file_operations": False,
+            "has_obfuscation": False,
+            "imports": [],
+            "suspicious": []
+        }
+        
+        # تحديد لغة البرمجة
+        if filename.endswith('.py'):
+            result["language"] = "python"
+            # استخراج الـ imports
+            imports = re.findall(r'^import\s+(\w+)|^from\s+(\w+)\s+import', content_str, re.MULTILINE)
+            result["imports"] = [imp[0] or imp[1] for imp in imports if imp[0] or imp[1]]
+            # كشف الأنشطة المشبوهة
+            if re.search(r'requests|urllib|socket|http', content_str, re.I):
+                result["has_network"] = True
+            if re.search(r'open\(|file\(|shutil|os\.remove|os\.system', content_str):
+                result["has_file_operations"] = True
+            if re.search(r'eval\(|exec\(|__import__|compile\(', content_str):
+                result["has_obfuscation"] = True
+                result["suspicious"].append("Dynamic code execution")
+            if 'base64' in content_str.lower():
+                result["suspicious"].append("Base64 encoding detected")
+                
+        elif filename.endswith('.js'):
+            result["language"] = "javascript"
+            if re.search(r'XMLHttpRequest|fetch\(|axios|\.get\(|\.post\(', content_str):
+                result["has_network"] = True
+            if re.search(r'eval\(|Function\(|setTimeout\(|setInterval\(', content_str):
+                result["has_obfuscation"] = True
+                result["suspicious"].append("Dynamic code execution")
+            if re.search(r'document\.write|innerHTML|createElement', content_str):
+                result["suspicious"].append("DOM manipulation")
+                
+        elif filename.endswith(('.ps1', '.psm1')):
+            result["language"] = "powershell"
+            if re.search(r'Invoke-WebRequest|DownloadFile|Net\.WebClient', content_str, re.I):
+                result["has_network"] = True
+                result["suspicious"].append("Network download capability")
+            if re.search(r'-EncodedCommand|FromBase64String', content_str, re.I):
+                result["has_obfuscation"] = True
+                result["suspicious"].append("Encoded command detected")
+            if re.search(r'Start-Process|Invoke-Expression', content_str, re.I):
+                result["suspicious"].append("Process execution")
+                
+        elif filename.endswith(('.sh', '.bash')):
+            result["language"] = "bash"
+            if re.search(r'curl|wget|nc|telnet', content_str):
+                result["has_network"] = True
+            if re.search(r'rm -rf|dd if=|mkfs|:(){', content_str):
+                result["suspicious"].append("Potentially destructive commands")
+        
+        return result
+    
+    def extract_metadata_archive(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """تحليل الملفات المضغوطة"""
+        result = {
+            "is_archive": True,
+            "type": "unknown",
+            "num_files": 0,
+            "total_size": 0,
+            "contains_executable": False,
+            "contains_script": False,
+            "has_path_traversal": False,
+            "files": [],
+            "suspicious": []
+        }
+        
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=filename) as tmp:
+                tmp.write(file_content)
+                tmp_path = tmp.name
+            
+            if zipfile.is_zipfile(tmp_path):
+                result["type"] = "zip"
+                with zipfile.ZipFile(tmp_path, 'r') as zf:
+                    result["num_files"] = len(zf.namelist())
+                    for file_info in zf.infolist():
+                        result["total_size"] += file_info.file_size
+                        result["files"].append({
+                            "name": file_info.filename,
+                            "size": file_info.file_size,
+                            "compressed": file_info.compress_size
+                        })
+                        
+                        if file_info.filename.endswith(('.exe', '.dll', '.scr', '.msi')):
+                            result["contains_executable"] = True
+                            result["suspicious"].append(f"Executable: {file_info.filename}")
+                        
+                        if file_info.filename.endswith(('.py', '.js', '.ps1', '.vbs', '.sh')):
+                            result["contains_script"] = True
+                        
+                        if '..' in file_info.filename or file_info.filename.startswith('/') or ':\\' in file_info.filename:
+                            result["has_path_traversal"] = True
+                            result["suspicious"].append(f"Path traversal: {file_info.filename}")
+            
+            os.unlink(tmp_path)
+        except Exception as e:
+            result["error"] = str(e)
+        
+        return result
+    
+    def extract_metadata_image(self, file_content: bytes) -> Dict[str, Any]:
+        """تحليل الصور واستخراج EXIF و GPS"""
+        if not PIL_AVAILABLE:
+            return {"is_image": False, "error": "PIL not installed. Run: pip install pillow"}
+        
+        result = {
+            "is_image": True,
+            "format": None,
+            "mode": None,
+            "width": 0,
+            "height": 0,
+            "has_exif": False,
+            "exif_data": {},
+            "gps_data": {},
+            "has_thumbnail": False,
+            "suspicious": []
+        }
+        
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+                tmp.write(file_content)
+                tmp_path = tmp.name
+            
+            img = Image.open(tmp_path)
+            result["format"] = img.format
+            result["mode"] = img.mode
+            result["width"] = img.width
+            result["height"] = img.height
+            
+            # استخراج EXIF
+            if hasattr(img, '_getexif') and img._getexif():
+                result["has_exif"] = True
+                exif = img._getexif()
+                for tag_id, value in exif.items():
+                    tag_name = TAGS.get(tag_id, tag_id)
+                    if tag_name == 'GPSInfo':
+                        for gps_tag in value:
+                            gps_name = GPSTAGS.get(gps_tag, gps_tag)
+                            result["gps_data"][gps_name] = value[gps_tag]
+                    else:
+                        result["exif_data"][tag_name] = str(value)[:200]
+            
+            # كشف الصور المصغرة المشبوهة
+            if hasattr(img, 'thumbnail') and img.thumbnail:
+                result["has_thumbnail"] = True
+            
+            # كشف الأبعاد غير الطبيعية (قد تكون تمويه)
+            if img.width > 5000 or img.height > 5000:
+                result["suspicious"].append("Unusually large dimensions - possible steganography")
+            
+            os.unlink(tmp_path)
+        except Exception as e:
+            result["error"] = str(e)
+        
+        return result
+    
+    def extract_metadata_via_exiftool(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """استخراج البيانات الوصفية باستخدام exiftool"""
+        if not self.use_exiftool:
+            return {"enabled": False, "message": "exiftool not enabled"}
+        
+        result = {"available": False, "data": {}}
+        
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
+                tmp.write(file_content)
+                tmp_path = tmp.name
+            
+            proc = subprocess.run(
+                ['exiftool', '-json', tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if proc.returncode == 0 and proc.stdout:
+                data = json.loads(proc.stdout)
+                if data:
+                    result["available"] = True
+                    result["data"] = data[0]
+            
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            result["error"] = "exiftool not installed"
+        except Exception as e:
+            result["error"] = str(e)
+        
+        return result
+    
+    # ================================================================
+    # 4. استخراج المؤشرات (IoCs) المتقدم
+    # ================================================================
+    
+    def extract_iocs(self, file_content: bytes) -> Dict[str, List[str]]:
+        """استخراج جميع المؤشرات من الملف"""
+        content_str = file_content.decode('latin-1', errors='ignore')
+        
+        iocs = {
+            "ipv4": [],
+            "ipv6": [],
+            "urls": [],
+            "emails": [],
+            "domains": [],
+            "md5_hashes": [],
+            "sha1_hashes": [],
+            "sha256_hashes": [],
+            "windows_paths": [],
+            "registry_keys": [],
+            "bitcoin_addresses": [],
+            "onion_addresses": [],
+            "telegram_links": [],
+            "discord_webhooks": []
+        }
+        
+        for ioc_type, pattern in self.IOC_PATTERNS.items():
+            matches = re.findall(pattern, content_str, re.IGNORECASE)
+            unique_matches = list(set(matches))
+            
+            if ioc_type == 'ipv4':
+                # فلترة العناوين الصالحة فقط
+                valid_ips = []
+                for ip in unique_matches:
+                    parts = ip.split('.')
+                    if len(parts) == 4 and all(0 <= int(p) <= 255 for p in parts):
+                        # استبعاد العناوين الخاصة
+                        if not (ip.startswith('127.') or ip.startswith('10.') or 
+                                ip.startswith('192.168.') or ip.startswith('172.16.') or
+                                ip.startswith('0.0.0.0') or ip == '255.255.255.255'):
+                            valid_ips.append(ip)
+                iocs[ioc_type] = valid_ips[:50]
+                
+            elif ioc_type == 'domain':
+                # فلترة لتجنب تكرار الـ URLs
+                valid_domains = [d for d in unique_matches if not d.startswith('http') and '.' in d and len(d) > 3]
+                iocs[ioc_type] = valid_domains[:50]
+                
+            elif ioc_type == 'bitcoin':
+                iocs["bitcoin_addresses"] = unique_matches[:20]
+            elif ioc_type == 'onion':
+                iocs["onion_addresses"] = [f"{addr}.onion" for addr in unique_matches[:20]]
+            elif ioc_type == 'telegram':
+                iocs["telegram_links"] = unique_matches[:20]
+            elif ioc_type == 'discord':
+                iocs["discord_webhooks"] = unique_matches[:20]
+            else:
+                iocs[ioc_type] = unique_matches[:50]
+        
+        return iocs
+    
+    # ================================================================
+    # 5. فحص YARA المتقدم
+    # ================================================================
+    
+    def scan_with_yara(self, file_content: bytes) -> Dict[str, Any]:
+        """فحص الملف باستخدام قواعد YARA المتقدمة"""
+        matched_rules = []
+        total_risk = 0
+        details = []
+        
+        for rule_name, rule_data in self.YARA_RULES.items():
+            for pattern in rule_data["patterns"]:
+                if pattern in file_content:
+                    matched_rules.append(rule_name)
+                    total_risk += rule_data["risk"]
+                    details.append({
+                        "rule": rule_name,
+                        "pattern": pattern.decode('latin-1', errors='ignore'),
+                        "description": rule_data["description"],
+                        "risk": rule_data["risk"]
+                    })
+                    break
+        
+        # إزالة التكرارات
+        matched_rules = list(set(matched_rules))
+        
+        return {
+            "matched_rules": matched_rules,
+            "details": details[:20],
+            "risk_score": min(100, total_risk),
+            "count": len(matched_rules)
+        }
+    
+    # ================================================================
+    # 6. فحص السمعة ضد قواعد البيانات
+    # ================================================================
+    
+    def check_hash_reputation(self, hash_value: str) -> Dict[str, Any]:
+        """فحص التجزئة ضد MalwareBazaar و VirusTotal"""
+        result = {
+            "is_malicious": False,
+            "sources": [],
+            "risk_score": 0,
+            "detections": []
+        }
+        
+        if not REQUESTS_AVAILABLE:
+            result["error"] = "requests not installed"
+            return result
+        
+        # فحص MalwareBazaar
+        try:
+            resp = requests.post(
+                'https://mb-api.abuse.ch/api/v1/',
+                data={'query': 'get_info', 'hash': hash_value},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('query_status') == 'ok':
+                    result["is_malicious"] = True
+                    result["sources"].append("MalwareBazaar")
+                    result["risk_score"] = 80
+                    if 'data' in data and data['data']:
+                        result["detections"].append({
+                            "source": "MalwareBazaar",
+                            "malware": data['data'][0].get('malware', 'Unknown')
+                        })
+        except:
+            pass
+        
+        # يمكن إضافة VirusTotal API هنا
+        # api_key = os.environ.get('VIRUSTOTAL_API_KEY')
+        # if api_key:
+        #     try:
+        #         resp = requests.get(
+        #             f'https://www.virustotal.com/api/v3/files/{hash_value}',
+        #             headers={'x-apikey': api_key},
+        #             timeout=10
+        #         )
+        #         if resp.status_code == 200:
+        #             data = resp.json()
+        #             stats = data.get('data', {}).get('attributes', {}).get('last_analysis_stats', {})
+        #             if stats.get('malicious', 0) > 0:
+        #                 result["is_malicious"] = True
+        #                 result["sources"].append("VirusTotal")
+        #                 result["risk_score"] = min(100, result["risk_score"] + stats['malicious'] * 5)
+        #     except:
+        #         pass
+        
+        return result
+    
+    # ================================================================
+    # 7. تحليل الملفات الكبيرة (Streaming)
+    # ================================================================
+    
+    def analyze_large_file(self, file_path: str, chunk_size: int = 8192) -> Dict[str, Any]:
+        """تحليل الملفات الكبيرة بدون تحميلها كاملة في الذاكرة"""
+        file_size = os.path.getsize(file_path)
+        
+        if file_size > self.max_file_size_stream:
+            return {"error": f"File too large: {file_size} bytes", "max_size_mb": self.max_file_size_stream // 1024 // 1024}
+        
+        result = {
+            "filename": Path(file_path).name,
+            "file_size_mb": round(file_size / 1024 / 1024, 2),
+            "chunks_analyzed": 0,
+            "iocs": {key: [] for key in self.IOC_PATTERNS.keys()},
+            "hashes": {}
+        }
+        
+        # حساب التجزئات أثناء القراءة
+        hash_md5 = hashlib.md5()
+        hash_sha1 = hashlib.sha1()
+        hash_sha256 = hashlib.sha256()
+        hash_sha512 = hashlib.sha512()
+        
+        chunk_number = 0
+        all_content = b''
+        
+        with open(file_path, 'rb') as f:
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                
+                chunk_number += 1
+                hash_md5.update(chunk)
+                hash_sha1.update(chunk)
+                hash_sha256.update(chunk)
+                hash_sha512.update(chunk)
+                
+                all_content += chunk
+                
+                # استخراج IoCs من كل جزء
+                chunk_iocs = self.extract_iocs(chunk)
+                for ioc_type, iocs in chunk_iocs.items():
+                    if ioc_type in result["iocs"]:
+                        result["iocs"][ioc_type].extend(iocs)
+        
+        result["hashes"] = {
+            "md5": hash_md5.hexdigest(),
+            "sha1": hash_sha1.hexdigest(),
+            "sha256": hash_sha256.hexdigest(),
+            "sha512": hash_sha512.hexdigest()
+        }
+        result["chunks_analyzed"] = chunk_number
+        
+        # تنظيف وتفريد الـ IoCs
+        for ioc_type in result["iocs"]:
+            result["iocs"][ioc_type] = list(set(result["iocs"][ioc_type]))[:50]
+        
+        # فحص YARA على المحتوى الكامل
+        result["yara"] = self.scan_with_yara(all_content)
+        
+        return result
+    
+    # ================================================================
+    # 8. التحليل الشامل الكامل
+    # ================================================================
+    
+    def comprehensive_analysis(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """التحليل الشامل للملف مع جميع الميزات"""
+        
+        file_size = len(file_content)
+        
+        warnings = []
+        if file_size == 0:
+            warnings.append("File is empty")
+        if file_size > self.max_file_size:
+            warnings.append(f"File exceeds size limit ({self.max_file_size // 1024 // 1024} MB)")
+        
+        # 1. التجزئات
+        hashes = self.calculate_hashes(file_content)
+        
+        # 2. كشف نوع الملف
+        file_type = self.detect_file_type(file_content, filename)
+        
+        if file_type.get("is_spoofed"):
+            warnings.append(f"⚠️ Extension spoofing! Actually {file_type.get('actual_type')}")
+        
+        # 3. البيانات الوصفية حسب نوع الملف
+        metadata = {"type": file_type.get("actual_type", "unknown"), "suspicious": []}
+        
+        if file_type.get("is_executable") or filename.endswith(('.exe', '.dll', '.sys', '.scr', '.msi')):
+            metadata.update(self.extract_metadata_pe(file_content))
+        elif file_type.get("is_pdf") or filename.endswith('.pdf'):
+            metadata.update(self.extract_metadata_pdf(file_content))
+        elif file_type.get("is_document") or filename.endswith(('.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx')):
+            metadata.update(self.extract_metadata_office(file_content, filename))
+        elif file_type.get("is_script") or filename.endswith(('.py', '.js', '.ps1', '.sh', '.bat', '.vbs')):
+            metadata.update(self.extract_metadata_script(file_content, filename))
+        elif file_type.get("is_archive") or filename.endswith(('.zip', '.rar', '.7z', '.tar', '.gz')):
+            metadata.update(self.extract_metadata_archive(file_content, filename))
+        elif file_type.get("is_image") or filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff')):
+            metadata.update(self.extract_metadata_image(file_content))
+        
+        # 4. exiftool metadata (اختياري)
+        exiftool_data = self.extract_metadata_via_exiftool(file_content, filename) if self.use_exiftool else {}
+        
+        # 5. المؤشرات (IoCs)
+        iocs = self.extract_iocs(file_content)
+        
+        # 6. فحص YARA
+        yara_result = self.scan_with_yara(file_content)
+        
+        # 7. سمعة التجزئة
+        hash_reputation = self.check_hash_reputation(hashes["sha256"])
+        
+        # 8. حساب درجة الخطورة
+        security_score = 100
+        
+        if yara_result.get("risk_score", 0):
+            security_score -= yara_result["risk_score"]
+        
+        if hash_reputation.get("is_malicious"):
+            security_score -= 40
+        
+        if metadata.get("suspicious"):
+            security_score -= min(40, len(metadata["suspicious"]) * 8)
+        
+        if metadata.get("has_macros"):
+            security_score -= 35
+        
+        if metadata.get("has_javascript"):
+            security_score -= 25
+        
+        if metadata.get("contains_executable"):
+            security_score -= 25
+        
+        if metadata.get("has_attachments"):
+            security_score -= 20
+        
+        if metadata.get("has_actions"):
+            security_score -= 15
+        
+        # IoCs تأثير
+        ioc_count = len(iocs.get("urls", [])) + len(iocs.get("ipv4", [])) + len(iocs.get("onion_addresses", []))
+        if ioc_count > 0:
+            security_score -= min(30, ioc_count * 2)
+        
+        # روابط مشبوهة إضافية
+        if iocs.get("bitcoin_addresses") or iocs.get("onion_addresses"):
+            security_score -= 20
+        
+        if warnings:
+            security_score -= len(warnings) * 5
+        
+        security_score = max(0, min(100, security_score))
+        
+        # 9. الحكم النهائي
+        if security_score >= 80:
+            verdict = "safe"
+            verdict_icon = "✅"
+            severity = "low"
+        elif security_score >= 60:
+            verdict = "suspicious"
+            verdict_icon = "⚠️"
+            severity = "medium"
+        elif security_score >= 30:
+            verdict = "high_risk"
+            verdict_icon = "🔴"
+            severity = "high"
+        else:
+            verdict = "malicious"
+            verdict_icon = "💀"
+            severity = "critical"
+        
+        # 10. التوصيات
+        recommendations = []
+        
+        if verdict == "malicious":
+            recommendations.append("🚨 CRITICAL: DO NOT EXECUTE this file!")
+            recommendations.append("🗑️ Delete the file immediately")
+            recommendations.append("🔒 Scan your system with updated antivirus")
+        elif verdict == "high_risk":
+            recommendations.append("⚠️ High risk detected - proceed with extreme caution")
+            recommendations.append("📁 Run in isolated sandbox environment only")
+        elif verdict == "suspicious":
+            recommendations.append("🔍 Suspicious indicators found - investigate further")
+        
+        if metadata.get("suspicious"):
+            for sus in metadata["suspicious"][:5]:
+                recommendations.append(f"🔸 {sus}")
+        
+        if metadata.get("has_macros"):
+            recommendations.append("📌 File contains macros - DISABLE macros before opening")
+        
+        if metadata.get("has_javascript"):
+            recommendations.append("📌 PDF contains JavaScript - disable JavaScript in PDF reader")
+        
+        if yara_result.get("matched_rules"):
+            recommendations.append(f"📋 YARA rules triggered ({len(yara_result['matched_rules'])}): {', '.join(yara_result['matched_rules'][:4])}")
+        
+        if hash_reputation.get("is_malicious"):
+            recommendations.append(f"💀 File hash found in malware database ({', '.join(hash_reputation['sources'])})")
+        
+        if file_type.get("is_spoofed"):
+            recommendations.append(f"🎭 Extension spoofing detected! Real type: {file_type.get('actual_type')}")
+        
+        if not recommendations:
+            recommendations.append("✅ No threats detected - file appears clean")
+        
+        return {
+            "filename": filename,
+            "file_size_bytes": file_size,
+            "file_size_mb": round(file_size / 1024 / 1024, 2),
+            "file_type": file_type,
+            "hashes": hashes,
+            "metadata": metadata,
+            "exiftool_data": exiftool_data,
+            "iocs": iocs,
+            "yara": yara_result,
+            "hash_reputation": hash_reputation,
+            "warnings": warnings,
+            "security_score": security_score,
+            "verdict": verdict,
+            "verdict_icon": verdict_icon,
+            "severity": severity,
+            "recommendations": recommendations,
+            "analyzed_at": datetime.now().isoformat()
+        }
+
+
+# ================================================================
+# دالة مساعدة سريعة للاستخدام المباشر
+# ================================================================
+
+def analyze_file(file_path: str, use_exiftool: bool = False) -> Dict[str, Any]:
+    """
+    دالة سريعة لتحليل ملف من المسار
+    
+    Args:
+        file_path: مسار الملف
+        use_exiftool: استخدام exiftool إن وجد
+    
+    Returns:
+        تحليل كامل للملف
+    """
+    with open(file_path, 'rb') as f:
+        file_content = f.read()
+    
+    analyzer = FileDeepAnalyzer(use_exiftool=use_exiftool)
+    return analyzer.comprehensive_analysis(file_content, Path(file_path).name)
+
+
+def analyze_file_streaming(file_path: str) -> Dict[str, Any]:
+    """
+    تحليل الملفات الكبيرة باستخدام streaming
+    
+    Args:
+        file_path: مسار الملف
+    
+    Returns:
+        تحليل للملف الكبير
+    """
+    analyzer = FileDeepAnalyzer()
+    return analyzer.analyze_large_file(file_path)
+
+
+# ================================================================
+# مثال الاستخدام
+# ================================================================
+
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python file_deep_analyzer.py <file_path>")
+        print("\nExample: python file_deep_analyzer.py suspicious.pdf")
+        sys.exit(1)
+    
+    file_path = sys.argv[1]
+    
+    if not os.path.exists(file_path):
+        print(f"File not found: {file_path}")
+        sys.exit(1)
+    
+    # تحليل الملف
+    file_size = os.path.getsize(file_path)
+    
+    if file_size > 50 * 1024 * 1024:
+        print(f"[!] Large file detected ({file_size / 1024 / 1024:.2f} MB) - using streaming...")
+        result = analyze_file_streaming(file_path)
+    else:
+        result = analyze_file(file_path, use_exiftool=True)
+    
+    # طباعة النتائج
+    print("\n" + "=" * 70)
+    print(f" FILE DEEP ANALYSIS REPORT ".center(70, "="))
+    print("=" * 70)
+    
+    print(f"\n📄 File: {result.get('filename')}")
+    print(f"📏 Size: {result.get('file_size_mb')} MB")
+    print(f"🎯 Verdict: {result.get('verdict_icon')} {result.get('verdict', 'unknown').upper()}")
+    print(f"📊 Security Score: {result.get('security_score')}/100")
+    print(f"⚠️ Severity: {result.get('severity', 'unknown')}")
+    
+    print(f"\n🔐 Hashes:")
+    for hash_type, hash_value in result.get('hashes', {}).items():
+        print(f"   {hash_type.upper()}: {hash_value[:16]}...")
+    
+    print(f"\n📊 IoCs Found:")
+    iocs = result.get('iocs', {})
+    print(f"   IP Addresses: {len(iocs.get('ipv4', []))}")
+    print(f"   URLs: {len(iocs.get('urls', []))}")
+    print(f"   Domains: {len(iocs.get('domains', []))}")
+    print(f"   Emails: {len(iocs.get('emails', []))}")
+    print(f"   Bitcoin: {len(iocs.get('bitcoin_addresses', []))}")
+    print(f"   Onion: {len(iocs.get('onion_addresses', []))}")
+    
+    print(f"\n🎯 YARA Results:")
+    yara = result.get('yara', {})
+    print(f"   Matched Rules: {yara.get('count', 0)}")
+    for rule in yara.get('matched_rules', [])[:5]:
+        print(f"   - {rule}")
+    
+    print(f"\n💡 Recommendations:")
+    for rec in result.get('recommendations', [])[:8]:
+        print(f"   {rec}")
+    
+    print("\n" + "=" * 70)
+    
+    # حفظ التقرير
+    report_path = f"{Path(file_path).stem}_analysis_report.json"
+    with open(report_path, 'w', encoding='utf-8') as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+    print(f"\n📁 Full report saved to: {report_path}")

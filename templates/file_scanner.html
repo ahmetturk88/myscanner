@@ -3,64 +3,98 @@
 
 {% block head_extra %}
 <style>
-  .scanner-wrap { max-width: 1000px; margin: 0 auto; padding: 56px 24px 100px; }
-  .page-head { text-align: center; margin-bottom: 44px; }
-  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
-  .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .scanner-wrap { max-width: 1000px; margin: 0 auto; padding: 40px 20px 80px; }
+  .page-head { text-align: center; margin-bottom: 32px; }
+  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 12px; margin-bottom: 12px; }
+  .page-head h1 { font-family: var(--mono); font-size: clamp(24px, 6vw, 36px); font-weight: 700; color: var(--text); margin-bottom: 8px; }
   .page-head h1 span { color: var(--accent); }
-  .page-head p { font-size: 15px; color: var(--muted); max-width: 540px; margin: 0 auto; line-height: 1.7; }
+  .page-head p { font-size: 13px; color: var(--muted); max-width: 540px; margin: 0 auto; line-height: 1.6; }
   
-  .upload-area { background: var(--surface); border: 2px dashed var(--border); border-radius: 20px; padding: 48px; text-align: center; cursor: pointer; transition: all .3s; margin-bottom: 24px; }
+  .upload-area { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all .3s; margin-bottom: 20px; }
   .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: var(--accent-dim); }
-  .upload-icon { font-size: 48px; margin-bottom: 16px; }
-  .upload-area h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-  .upload-area p { font-size: 13px; color: var(--muted); }
-  .file-info { background: var(--surface2); border-radius: 14px; padding: 20px; margin-bottom: 24px; display: none; border: 1px solid var(--border); }
-  .file-info h4 { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 16px; letter-spacing: 1px; }
-  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
-  .info-label { color: var(--muted); font-family: var(--mono); font-size: 11px; }
-  .info-value { font-weight: 600; word-break: break-all; }
-  .warning-badge { background: var(--yellow-dim); color: var(--yellow); padding: 4px 12px; border-radius: 20px; font-size: 11px; margin-top: 12px; display: inline-block; }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-area h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .upload-area p { font-size: 12px; color: var(--muted); }
+  
+  .file-info { background: var(--surface2); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: none; border: 1px solid var(--border); }
+  .file-info h4 { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 12px; letter-spacing: 1px; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .info-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 12px; }
+  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .info-value { font-weight: 600; word-break: break-all; text-align: right; }
   
   #loading-div { text-align: center; padding: 40px; color: var(--muted); display: none; }
   .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
   @keyframes rot { to { transform: rotate(360deg); } }
   
-  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; display: none; animation: fadeInUp 0.5s ease; }
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: none; animation: fadeInUp 0.5s ease; }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   
-  .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
-  .verdict-banner .v-icon { font-size: 42px; flex-shrink: 0; }
+  .verdict-banner { border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .verdict-banner .v-icon { font-size: 36px; flex-shrink: 0; }
+  .verdict-banner h3 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .verdict-banner p { font-size: 12px; opacity: 0.8; }
   .banner-safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .banner-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
   .banner-high_risk { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,100,0,.3); }
   .banner-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   
-  .score-bar { margin-bottom: 28px; }
-  .score-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-family: var(--mono); }
-  .score-bg { background: var(--surface2); border-radius: 10px; height: 12px; overflow: hidden; border: 1px solid var(--border); }
-  .score-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+  .score-bar { margin-bottom: 20px; }
+  .score-label { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; font-family: var(--mono); }
+  .score-bg { background: var(--surface2); border-radius: 8px; height: 10px; overflow: hidden; border: 1px solid var(--border); }
+  .score-fill { height: 100%; border-radius: 8px; transition: width 1s ease; }
   
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 28px; }
-  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
-  .stat-box .num { font-size: 24px; font-weight: 700; color: var(--text); }
-  .stat-box .label { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 4px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+  .stat-box .num { font-size: 18px; font-weight: 700; color: var(--text); }
+  .stat-box .label { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 2px; text-transform: uppercase; }
   
-  .detection-list { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
-  .detection-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .detection-list { background: var(--surface2); border-radius: 10px; padding: 12px; margin-bottom: 16px; max-height: 200px; overflow-y: auto; }
+  .detection-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
   .detection-engine { font-family: var(--mono); font-weight: 600; }
   .detection-result { color: var(--red); font-weight: 600; }
   
-  .recommendations { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 20px; border-left: 3px solid var(--accent); }
-  .recommendations h4 { font-size: 12px; font-family: var(--mono); margin-bottom: 12px; }
-  .recommendations li { padding: 6px 0; font-size: 12px; }
+  .recommendations { background: var(--surface2); border-radius: 10px; padding: 12px; margin-bottom: 16px; border-left: 3px solid var(--accent); }
+  .recommendations h4 { font-size: 11px; font-family: var(--mono); margin-bottom: 8px; }
+  .recommendations li { padding: 4px 0; font-size: 11px; margin-left: 16px; }
   
-  .export-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
-  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 12px; cursor: pointer; transition: all .2s; }
+  .export-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 11px; cursor: pointer; transition: all .2s; }
   .export-btn:hover { border-color: var(--accent); color: var(--accent); }
   
-  @media (max-width: 580px) { .upload-area { padding: 32px; } .info-grid { grid-template-columns: 1fr; } }
+  /* Deep Analysis Sections */
+  .deep-subsection { margin-bottom: 16px; background: var(--surface2); border-radius: 10px; padding: 12px; border: 1px solid var(--border); }
+  .deep-subsection h4 { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 10px; }
+  .info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(42,42,69,0.3); font-size: 11px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .info-value { color: var(--text); font-weight: 600; text-align: right; word-break: break-all; }
+  .info-good { color: var(--green); }
+  .info-warn { color: var(--yellow); }
+  .hash-value { font-family: var(--mono); font-size: 9px; }
+  
+  .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .scanner-wrap { padding: 30px 16px 60px; }
+    .upload-area { padding: 30px 16px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2col { grid-template-columns: 1fr; gap: 12px; }
+    .result-card { padding: 16px; }
+    .verdict-banner { padding: 12px 16px; }
+    .verdict-banner .v-icon { font-size: 28px; }
+    .info-value { font-size: 10px; }
+    .hash-value { font-size: 8px; }
+  }
+  
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .info-grid { grid-template-columns: 1fr; }
+    .file-info h4 { font-size: 10px; }
+    .info-item { font-size: 11px; flex-direction: column; gap: 4px; }
+    .info-value { text-align: left; }
+  }
 </style>
 {% endblock %}
 
@@ -80,9 +114,8 @@
   </div>
   
   <div class="file-info" id="file-info">
-    <h4>📋 FILE INFORMATION (PRE-SCAN)</h4>
+    <h4>📋 FILE INFORMATION</h4>
     <div class="info-grid" id="file-info-grid"></div>
-    <div id="file-warnings"></div>
   </div>
   
   <div id="loading-div"><span class="spin"></span>Analyzing file with 70+ antivirus engines...</div>
@@ -104,6 +137,35 @@
     
     <div class="recommendations" id="recommendations"></div>
     
+    <!-- Deep Analysis Results - Integrated -->
+    <div id="deep-analysis-results" style="display:none;">
+      <div class="grid-2col">
+        <div class="deep-subsection">
+          <h4>🔐 File Hashes</h4>
+          <div id="df-hashes"></div>
+        </div>
+        <div class="deep-subsection">
+          <h4>📋 Metadata</h4>
+          <div id="df-metadata"></div>
+        </div>
+      </div>
+      
+      <div class="deep-subsection">
+        <h4>🎯 Indicators of Compromise</h4>
+        <div id="df-iocs"></div>
+      </div>
+      
+      <div class="deep-subsection">
+        <h4>📜 YARA Rules</h4>
+        <div id="df-yara"></div>
+      </div>
+      
+      <div class="deep-subsection">
+        <h4>🛡️ Hash Reputation</h4>
+        <div id="df-reputation"></div>
+      </div>
+    </div>
+    
     <div class="export-buttons">
       <button class="export-btn" id="export-json">📄 Export JSON</button>
       <button class="export-btn" id="copy-report">📋 Copy Report</button>
@@ -113,7 +175,9 @@
 
 <script>
 let lastResult = null;
+let lastDeepResult = null;
 
+// Drag & Drop
 document.getElementById('upload-area').addEventListener('dragover', (e) => {
   e.preventDefault();
   document.getElementById('upload-area').classList.add('drag-over');
@@ -135,9 +199,10 @@ async function analyzeFile(file) {
   
   document.getElementById('file-info').style.display = 'none';
   document.getElementById('result-card').style.display = 'none';
+  document.getElementById('deep-analysis-results').style.display = 'none';
   document.getElementById('loading-div').style.display = 'block';
   
-  // عرض معلومات الملف المحلية
+  // Pre-scan info
   const fileInfoGrid = document.getElementById('file-info-grid');
   fileInfoGrid.innerHTML = `
     <div class="info-item"><span class="info-label">📄 Name</span><span class="info-value">${file.name}</span></div>
@@ -149,8 +214,9 @@ async function analyzeFile(file) {
   const formData = new FormData();
   formData.append('file', file);
   
-  try {
-    const response = await fetch('/api/scan-file', {
+  
+   try {
+    const response = await fetch('/api/file-deep-analysis', { 
       method: 'POST',
       body: formData
     });
@@ -173,63 +239,135 @@ async function analyzeFile(file) {
 }
 
 function renderResult(d) {
-  // Verdict Banner
-  const banner = document.getElementById('verdict-banner');
   const verdicts = {
-    safe: { icon: '✅', title: 'SAFE - Clean File', subtitle: 'No threats detected. File appears legitimate.', cls: 'banner-safe' },
-    suspicious: { icon: '⚠️', title: 'SUSPICIOUS', subtitle: 'Suspicious elements detected. Proceed with caution.', cls: 'banner-suspicious' },
-    high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Multiple suspicious indicators detected. Do not execute!', cls: 'banner-high_risk' },
-    malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Confirmed malware detected! Delete this file immediately.', cls: 'banner-malicious' }
+    safe: { icon: '✅', title: 'SAFE - Clean File', subtitle: 'No threats detected.', cls: 'banner-safe' },
+    suspicious: { icon: '⚠️', title: 'SUSPICIOUS', subtitle: 'Suspicious elements detected.', cls: 'banner-suspicious' },
+    high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Do not execute!', cls: 'banner-high_risk' },
+    malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Delete immediately!', cls: 'banner-malicious' }
   };
   const v = verdicts[d.verdict] || verdicts.suspicious;
+  
+  const banner = document.getElementById('verdict-banner');
   banner.className = `verdict-banner ${v.cls}`;
   banner.innerHTML = `<div class="v-icon">${v.icon}</div><div><h3>${v.title}</h3><p>${v.subtitle}</p></div>`;
   
-  // Score Bar
-  const score = d.security_score;
+  const score = d.security_score || 0;
   const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : score >= 20 ? 'var(--orange)' : 'var(--red)';
   document.getElementById('score-fill').style.width = score + '%';
   document.getElementById('score-fill').style.background = color;
   document.getElementById('score-num').textContent = score + ' / 100';
   
-  // Stats Grid
-  const vt = d.virustotal;
+  // استخدام البيانات من التحليل العميق مباشرة
+  const yara = d.yara || {};
+  const metadata = d.metadata || {};
+  const iocs = d.iocs || {};
+  const hashes = d.hashes || {};
+  
   document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-box"><div class="num">${vt.malicious || 0}</div><div class="label">MALICIOUS</div></div>
-    <div class="stat-box"><div class="num">${vt.suspicious || 0}</div><div class="label">SUSPICIOUS</div></div>
-    <div class="stat-box"><div class="num">${vt.harmless || 0}</div><div class="label">HARMLESS</div></div>
-    <div class="stat-box"><div class="num">${vt.undetected || 0}</div><div class="label">UNDETECTED</div></div>
-    <div class="stat-box"><div class="num">${vt.detection_rate || 0}%</div><div class="label">DETECTION RATE</div></div>
-    <div class="stat-box"><div class="num">${d.file_size_mb} MB</div><div class="label">FILE SIZE</div></div>
+    <div class="stat-box"><div class="num">${yara.matched_rules?.length || 0}</div><div class="label">YARA RULES</div></div>
+    <div class="stat-box"><div class="num">${iocs.urls?.length || 0}</div><div class="label">URLs FOUND</div></div>
+    <div class="stat-box"><div class="num">${iocs.ipv4?.length || 0}</div><div class="label">IPs FOUND</div></div>
+    <div class="stat-box"><div class="num">${metadata.has_macros ? 'Yes' : 'No'}</div><div class="label">MACROS</div></div>
+    <div class="stat-box"><div class="num">${metadata.has_javascript ? 'Yes' : 'No'}</div><div class="label">JAVASCRIPT</div></div>
+    <div class="stat-box"><div class="num">${d.file_size_mb} MB</div><div class="label">SIZE</div></div>
   `;
   
-  // Threats List
-  if (vt.threats && vt.threats.length > 0) {
+  // عرض التهديدات من YARA
+  if (yara.matched_rules && yara.matched_rules.length > 0) {
     document.getElementById('detection-list').style.display = 'block';
-    document.getElementById('threats').innerHTML = vt.threats.slice(0, 10).map(t => `
+    document.getElementById('threats').innerHTML = yara.matched_rules.map(rule => `
       <div class="detection-item">
-        <span class="detection-engine">${t.engine}</span>
-        <span class="detection-result">${t.result}</span>
+        <span class="detection-engine">YARA Rule</span>
+        <span class="detection-result">${rule}</span>
       </div>
     `).join('');
   } else {
     document.getElementById('detection-list').style.display = 'none';
   }
   
-  // Recommendations
+  // التوصيات
   if (d.recommendations && d.recommendations.length > 0) {
     document.getElementById('recommendations').innerHTML = `
       <h4>📋 Recommendations</h4>
-      <ul style="margin:0; padding-left:20px">${d.recommendations.map(r => `<li>${r}</li>`).join('')}</ul>
+      <ul>${d.recommendations.map(r => `<li>${r}</li>`).join('')}</ul>
     `;
   }
   
   document.getElementById('result-card').style.display = 'block';
 }
 
+async function performDeepFileAnalysis(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  try {
+    const response = await fetch('/api/scan-file', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    
+    lastDeepResult = data;
+    renderDeepAnalysis(data);
+    document.getElementById('deep-analysis-results').style.display = 'block';
+    
+  } catch (error) {
+    console.error("Deep analysis error:", error);
+  }
+}
+
+function renderDeepAnalysis(d) {
+  const hashes = d.hashes || {};
+  document.getElementById('df-hashes').innerHTML = `
+    <div class="info-row"><span class="info-label">MD5</span><span class="info-value hash-value">${hashes.md5 || 'N/A'}</span></div>
+    <div class="info-row"><span class="info-label">SHA256</span><span class="info-value hash-value">${hashes.sha256 || 'N/A'}</span></div>
+  `;
+  
+  let metadataHtml = '';
+  if (d.metadata) {
+    if (d.metadata.type) {
+      metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${d.metadata.type}</span></div>`;
+    }
+    if (d.metadata.suspicious?.length) {
+      metadataHtml += `<div class="info-row"><span class="info-label">⚠️ Warnings</span><span class="info-value info-warn">${d.metadata.suspicious.join(', ')}</span></div>`;
+    }
+    if (d.metadata.has_macros) {
+      metadataHtml += `<div class="info-row"><span class="info-label">Macros</span><span class="info-value info-warn">Detected</span></div>`;
+    }
+    if (d.metadata.has_javascript) {
+      metadataHtml += `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value info-warn">Detected</span></div>`;
+    }
+  }
+  document.getElementById('df-metadata').innerHTML = metadataHtml || '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No issues</span></div>';
+  
+  const iocs = d.iocs || {};
+  let iocsHtml = '';
+  if (iocs.ipv4?.length) iocsHtml += `<div class="info-row"><span class="info-label">IPs</span><span class="info-value">${iocs.ipv4.slice(0,5).join(', ')}</span></div>`;
+  if (iocs.urls?.length) iocsHtml += `<div class="info-row"><span class="info-label">URLs</span><span class="info-value">${iocs.urls.slice(0,3).join(', ')}</span></div>`;
+  if (iocs.domains?.length) iocsHtml += `<div class="info-row"><span class="info-label">Domains</span><span class="info-value">${iocs.domains.slice(0,5).join(', ')}</span></div>`;
+  document.getElementById('df-iocs').innerHTML = iocsHtml || '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No IoCs</span></div>';
+  
+  const yara = d.yara || {};
+  document.getElementById('df-yara').innerHTML = yara.matched_rules?.length 
+    ? `<div class="info-row"><span class="info-label">Matched Rules</span><span class="info-value info-warn">${yara.matched_rules.join(', ')}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">Clean</span></div>';
+  
+  const rep = d.hash_reputation || {};
+  document.getElementById('df-reputation').innerHTML = `
+    <div class="info-row"><span class="info-label">Status</span><span class="info-value ${rep.is_malicious ? 'info-warn' : 'info-good'}">${rep.is_malicious ? '⚠️ Found' : '✅ Clean'}</span></div>
+  `;
+}
+
+// Export functions
 document.getElementById('export-json').onclick = () => {
   if (!lastResult) return;
-  const dataStr = JSON.stringify(lastResult, null, 2);
+  const dataStr = JSON.stringify({ ...lastResult, deep_analysis: lastDeepResult }, null, 2);
   const blob = new Blob([dataStr], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -250,10 +388,8 @@ document.getElementById('copy-report').onclick = () => {
 ║ Verdict: ${lastResult.verdict.toUpperCase()}
 ║ Security Score: ${lastResult.security_score}/100
 ╠══════════════════════════════════════════════════════════════╣
-║ VirusTotal Results:
-║   Malicious: ${lastResult.virustotal.malicious || 0}
-║   Suspicious: ${lastResult.virustotal.suspicious || 0}
-║   Detection Rate: ${lastResult.virustotal.detection_rate || 0}%
+║ VirusTotal: Malicious:${lastResult.virustotal.malicious || 0}
+║ Detection Rate: ${lastResult.virustotal.detection_rate || 0}%
 ╠══════════════════════════════════════════════════════════════╣
 ║ Generated by MyScanner File Security Tool
 ╚══════════════════════════════════════════════════════════════╝

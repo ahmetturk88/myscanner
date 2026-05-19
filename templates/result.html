@@ -89,6 +89,45 @@
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .grid-2col { grid-template-columns: 1fr; }
   }
+  .deep-subsection {
+  margin-bottom: 24px;
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+
+.deep-subsection h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deep-subsection .info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(42,42,69,0.3);
+  font-size: 12px;
+}
+
+.deep-subsection .info-label {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.deep-subsection .info-value {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+  
 </style>
 {% endblock %}
 
@@ -121,7 +160,18 @@
     <div id="extra-sections"></div>
     <div id="export-buttons" class="export-btns" style="display:none;"></div>
   </div>
+  <!-- Deep Analysis Section -->
+<div id="deep-analysis-section" class="section-card" style="display:none; margin-top:20px;">
+  <div class="section-title">🔍 Deep Content Analysis</div>
+  <div id="page-content-analysis"></div>
+  <div id="behavior-analysis"></div>
+  <div id="whois-deep-analysis"></div>
+  <div id="osint-analysis"></div>
+  <div id="deep-recommendations"></div>
 </div>
+</div>
+
+
 {% endblock %}
 
 {% block body_extra %}
@@ -160,7 +210,6 @@
     };
     const v = verdictMeta[scanData.verdict] || verdictMeta.unknown;
 
-    // Local analysis data
     const localVerdict = analysisData?.verdict || 'unknown';
     const localScore = analysisData?.security_score || 0;
     const urlStructure = analysisData?.url_structure || {};
@@ -197,7 +246,6 @@
 
     let extraHTML = '';
 
-    // AI Risk Analysis
     extraHTML += `<div class="section-card">
       <div class="section-title">🧠 AI Risk Analysis</div>
       <div style="font-size:16px;font-weight:700;color:${riskColor};">${aiVerdict}</div>
@@ -205,7 +253,6 @@
       <div style="margin-top:12px;"><span class="threat-tag threat-safe">${h} engines safe</span></div>
     </div>`;
 
-    // Local Security Score
     extraHTML += `<div class="section-card">
       <div class="section-title">🔒 Local Security Analysis</div>
       <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)'}">${localScore}/100</span></div>
@@ -215,7 +262,6 @@
       ${urlStructure?.contains_ip ? `<div class="info-row"><span class="info-label">IP Address URL</span><span class="info-value info-bad">⚠️ Suspicious</span></div>` : ''}
     </div>`;
 
-    // URL Structure Analysis
     if (urlStructure) {
       extraHTML += `<div class="section-card">
         <div class="section-title">🔗 URL Structure Analysis</div>
@@ -227,7 +273,6 @@
       </div>`;
     }
 
-    // Phishing Indicators
     if (phishingIndicators?.is_phishing_suspected) {
       extraHTML += `<div class="section-card">
         <div class="section-title">⚠️ Phishing Indicators</div>
@@ -235,7 +280,6 @@
       </div>`;
     }
 
-    // SSL Certificate
     if (sslInfo) {
       extraHTML += `<div class="section-card">
         <div class="section-title">🔐 SSL Certificate</div>
@@ -247,7 +291,6 @@
       </div>`;
     }
 
-    // Screenshot
     if (analysisData && analysisData.screenshot) {
       extraHTML += `<div class="section-card">
         <div class="section-title">📸 Website Screenshot</div>
@@ -255,7 +298,6 @@
       </div>`;
     }
 
-    // Server Location Map
     if (analysisData && analysisData.geo && analysisData.geo.lat) {
       const g = analysisData.geo;
       extraHTML += `<div class="section-card">
@@ -265,7 +307,6 @@
       </div>`;
     }
 
-    // Redirect Chain
     if (analysisData && analysisData.redirect_chain && analysisData.redirect_chain.length > 0) {
       extraHTML += `<div class="section-card">
         <div class="section-title">🔄 Redirect Chain</div>
@@ -274,7 +315,6 @@
       </div>`;
     }
 
-    // Security Headers
     if (analysisData && analysisData.security_headers) {
       extraHTML += `<div class="section-card">
         <div class="section-title">🛡️ Security Headers</div>
@@ -286,7 +326,6 @@
       </div>`;
     }
 
-    // Cookies
     if (analysisData && analysisData.cookies && analysisData.cookies.length > 0) {
       extraHTML += `<div class="section-card">
         <div class="section-title">🍪 Cookies</div>
@@ -294,7 +333,6 @@
       </div>`;
     }
 
-    // DNS Records
     if (dnsRecords) {
       extraHTML += `<div class="section-card">
         <div class="section-title">🌐 DNS Records</div>
@@ -305,7 +343,6 @@
       </div>`;
     }
 
-    // Recommendations
     if (recommendations.length > 0) {
       extraHTML += `<div class="section-card">
         <div class="section-title">📋 Security Recommendations</div>
@@ -315,7 +352,122 @@
       </div>`;
     }
 
-    // Scan History Chart
+    // Deep Analysis Rendering
+    console.log("Deep Analysis Data:", analysisData?.deep_analysis); // للتصحيح
+
+   if (analysisData && analysisData.deep_analysis) {      const deep = analysisData.deep_analysis;
+      const deepSection = document.getElementById('deep-analysis-section');
+      deepSection.style.display = 'block';
+      
+      const content = deep.page_content || {};
+      document.getElementById('page-content-analysis').innerHTML = `
+        <div style="margin-bottom: 20px;">
+          <h4 style="color:var(--accent); margin-bottom:10px;">📄 Page Content Analysis</h4>
+          <div class="info-row"><span class="info-label">Title</span><span class="info-value">${content.title || 'N/A'}</span></div>
+          <div class="info-row"><span class="info-label">Meta Description</span><span class="info-value">${(content.meta_description || 'N/A').substring(0, 100)}</span></div>
+          <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${content.has_login_form ? 'info-bad' : 'info-good'}">${content.has_login_form ? '⚠️ Yes' : 'No'}</span></div>
+          <div class="info-row"><span class="info-label">Has Password Field</span><span class="info-value ${content.has_password_field ? 'info-bad' : 'info-good'}">${content.has_password_field ? '⚠️ Yes' : 'No'}</span></div>
+          ${content.suspicious_keywords_found && content.suspicious_keywords_found.length > 0 ? `
+          <div class="info-row"><span class="info-label">Suspicious Keywords</span><span class="info-value info-warn">${content.suspicious_keywords_found.join(', ')}</span></div>
+          ` : ''}
+          <div class="info-row"><span class="info-label">Internal Links</span><span class="info-value">${(content.internal_links || []).length}</span></div>
+          <div class="info-row"><span class="info-label">External Links</span><span class="info-value">${(content.external_links || []).length}</span></div>
+          <div class="info-row"><span class="info-label">Content Risk Score</span><span class="info-value" style="color:${content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${content.content_risk_score || 0}%</span></div>
+        </div>
+      `;
+      
+      const behavior = deep.behavior || {};
+      document.getElementById('behavior-analysis').innerHTML = `
+        <div style="margin-bottom: 20px;">
+          <h4 style="color:var(--accent); margin-bottom:10px;">🔄 Behavioral Analysis</h4>
+          <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${behavior.is_shortened ? 'info-warn' : 'info-good'}">${behavior.is_shortened ? '⚠️ Yes' : 'No'}</span></div>
+          <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${behavior.redirect_count || 0}</span></div>
+          <div class="info-row"><span class="info-label">Final URL</span><span class="info-value" style="font-size:11px;">${behavior.final_url || 'N/A'}</span></div>
+          <div class="info-row"><span class="info-label">Behavior Risk Score</span><span class="info-value" style="color:${behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${behavior.behavior_risk_score || 0}%</span></div>
+        </div>
+      `;
+      
+      const whoisDeep = deep.whois_deep || {};
+      document.getElementById('whois-deep-analysis').innerHTML = `
+        <div style="margin-bottom: 20px;">
+          <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
+          <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A'} ${whoisDeep.is_new ? '<span class="info-warn"> (⚠️ New domain)</span>' : ''}</span></div>
+          <div class="info-row"><span class="info-label">Creation Date</span><span class="info-value">${whoisDeep.creation_date || 'N/A'}</span></div>
+          <div class="info-row"><span class="info-label">Expiration Date</span><span class="info-value">${whoisDeep.expiration_date || 'N/A'}</span></div>
+          <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${whoisDeep.registrar || 'N/A'}</span></div>
+          ${whoisDeep.red_flags && whoisDeep.red_flags.length > 0 ? `
+          <div class="info-row"><span class="info-label">Red Flags</span><span class="info-value info-warn">${whoisDeep.red_flags.join('; ')}</span></div>
+          ` : ''}
+          <div class="info-row"><span class="info-label">WHOIS Risk Score</span><span class="info-value" style="color:${whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${whoisDeep.whois_risk_score || 0}%</span></div>
+        </div>
+      `;
+      
+      // OSINT Results with URLhaus
+const osint = deep.osint || {};
+const urlhaus = osint.urlhaus_details || {};
+
+let osintHTML = `
+  <div style="margin-bottom: 20px;">
+    <h4 style="color:var(--accent); margin-bottom:10px;">🛡️ OSINT Threat Intelligence</h4>
+    <div class="info-row">
+      <span class="info-label">URLhaus Detection</span>
+      <span class="info-value ${osint.urlhaus ? 'info-bad' : 'info-good'}">
+        ${osint.urlhaus ? '⚠️ Found in URLhaus' : '✅ Clean'}
+      </span>
+    </div>
+`;
+
+if (osint.urlhaus) {
+  osintHTML += `
+    <div class="info-row">
+      <span class="info-label">Threat Type</span>
+      <span class="info-value info-bad">${urlhaus.threat || 'Malicious'}</span>
+    </div>
+    ${urlhaus.tags && urlhaus.tags.length > 0 ? `
+    <div class="info-row">
+      <span class="info-label">Tags</span>
+      <span class="info-value">${urlhaus.tags.join(', ')}</span>
+    </div>
+    ` : ''}
+    ${urlhaus.first_seen ? `
+    <div class="info-row">
+      <span class="info-label">First Seen</span>
+      <span class="info-value">${urlhaus.first_seen}</span>
+    </div>
+    ` : ''}
+    ${urlhaus.id ? `
+    <div class="info-row">
+      <span class="info-label">URLhaus ID</span>
+      <span class="info-value">#${urlhaus.id}</span>
+    </div>
+    ` : ''}
+  `;
+}
+
+   osintHTML += `
+       <div class="info-row">
+         <span class="info-label">OSINT Risk Score</span>
+         <span class="info-value" style="color:${osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">
+           ${osint.osint_risk_score || 0}%
+         </span>
+       </div>
+     </div>
+   `;
+
+  document.getElementById('osint-analysis').innerHTML = osintHTML;
+      
+      if (deep.deep_recommendations && deep.deep_recommendations.length > 0) {
+        document.getElementById('deep-recommendations').innerHTML = `
+          <div>
+            <h4 style="color:var(--accent); margin-bottom:10px;">📋 Deep Analysis Recommendations</h4>
+            <ul class="recommendations-list">
+              ${deep.deep_recommendations.map(r => `<li>${r}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+    }
+
     if (analysisData && analysisData.history_scans && analysisData.history_scans.length > 1) {
       extraHTML += `<div class="section-card">
         <div class="section-title">📊 Scan History</div>
@@ -323,7 +475,6 @@
       </div>`;
     }
 
-    // Threat Map (Verdict Tags)
     extraHTML += `<div class="section-card">
       <div class="section-title">🗺️ Threat Map</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;">
@@ -335,7 +486,6 @@
 
     document.getElementById('extra-sections').innerHTML = extraHTML;
 
-    // Render History Chart
     if (analysisData && analysisData.history_scans && analysisData.history_scans.length > 1) {
       setTimeout(() => {
         const ctx = document.getElementById('history-chart');
@@ -370,7 +520,6 @@
       }, 500);
     }
 
-    // Export Buttons
     document.getElementById('export-buttons').style.display = 'flex';
     document.getElementById('export-buttons').innerHTML = `
       <button class="btn btn-success" onclick="exportJSON()">💾 Export JSON</button>
@@ -416,14 +565,13 @@
 
   if (initStatus === 'completed' || initStatus === 'error') { loadResult(); }
   else { pollStatus(); }
-    // Get URL from query parameter and auto-fill
+
+  // Get URL from query parameter and auto-fill
   window.addEventListener('load', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlFromQR = urlParams.get('url');
     if (urlFromQR) {
-      // تخزين الرابط في localStorage
       localStorage.setItem('pending_scan_url', urlFromQR);
-      // التوجيه إلى صفحة URL Scanner الرئيسية
       window.location.href = '/dashboard';
     }
   });

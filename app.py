@@ -30,7 +30,6 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from email_validator import validate_email, EmailNotValidError
 from typing import Any
 from services.domain_analyzer import DomainAnalyzer
-from services.file_analyzer import FileAnalyzer
 from services.site_analyzer import SiteAnalyzer
 from services.url_analyzer import URLAnalyzer
 from services.subdomain_finder import SubdomainFinder
@@ -41,6 +40,10 @@ from services.ip_analyzer import IPAnalyzer
 from services.domain_analyzer import DomainAnalyzer
 from services.ssl_analyzer import SSLAnalyzer
 from services.qr_analyzer import QRAnalyzer
+from services.url_deep_analyzer import URLDeepAnalyzer
+from services.file_deep_analyzer import FileDeepAnalyzer  # ✅ صحيح
+from services.url_deep_analyzer import URLDeepAnalyzer    # ✅ صحيحfrom werkzeug.utils import secure_filename
+
 load_dotenv()
 
 # ================================================================
@@ -543,6 +546,210 @@ def api_bulk_email_check():
         "stats": stats,
         "results": results
     })
+
+# ================================================================
+# File Scanner API
+# ================================================================
+
+@app.route('/api/scan-file', methods=['POST'])
+@login_required
+def api_scan_file():
+    """API لفحص الملفات"""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({"error": f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
+    
+    try:
+        file_content = file.read()
+        file_size = len(file_content)
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({"error": f"File too large. Max: {MAX_FILE_SIZE // 1024 // 1024} MB"}), 400
+        
+        filename = secure_filename(file.filename)
+        
+        # ============================================================
+        # 1. تحليل VirusTotal
+        # ============================================================
+        vt_result = {"verdict": "unknown", "stats": {}, "threats": []}
+        
+        if API_KEY:
+            try:
+                headers = {"x-apikey": API_KEY}
+                files = {'file': (filename, file_content)}
+                
+                upload_resp = requests.post(
+                    "https://www.virustotal.com/api/v3/files",
+                    headers=headers,
+                    files=files,
+                    timeout=30
+                )
+                
+                if upload_resp.status_code in (200, 201):
+                    upload_data = upload_resp.json()
+                    analysis_id = upload_data.get("data", {}).get("id", "")
+                    analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
+                    
+                    for _ in range(30):
+                        time.sleep(2)
+                        analysis_resp = requests.get(analysis_url, headers=headers, timeout=30)
+                        if analysis_resp.status_code == 200:
+                            analysis_data = analysis_resp.json()
+                            status = analysis_data.get("data", {}).get("attributes", {}).get("status", "")
+                            if status == "completed":
+                                stats = analysis_data.get("data", {}).get("attributes", {}).get("stats", {})
+                                results = analysis_data.get("data", {}).get("attributes", {}).get("results", {})
+                                
+                                malicious = stats.get("malicious", 0)
+                                suspicious = stats.get("suspicious", 0)
+                                harmless = stats.get("harmless", 0)
+                                undetected = stats.get("undetected", 0)
+                                total_engines = malicious + suspicious + harmless + undetected
+                                
+                                if malicious > 0:
+                                    verdict = "malicious"
+                                elif suspicious > 0:
+                                    verdict = "suspicious"
+                                else:
+                                    verdict = "clean"
+                                
+                                threats = []
+                                for engine_name, engine_data in results.items():
+                                    category = engine_data.get("category", "undetected")
+                                    if category in ("malicious", "suspicious"):
+                                        threats.append({
+                                            "engine": engine_name,
+                                            "result": engine_data.get("result", category),
+                                            "category": category
+                                        })
+                                
+                                vt_result = {
+                                    "verdict": verdict,
+                                    "malicious": malicious,
+                                    "suspicious": suspicious,
+                                    "harmless": harmless,
+                                    "undetected": undetected,
+                                    "total_engines": total_engines,
+                                    "detection_rate": round((malicious + suspicious) / total_engines * 100, 2) if total_engines > 0 else 0,
+                                    "threats": threats[:20]
+                                }
+                                break
+            except Exception as e:
+                vt_result["error"] = str(e)
+        
+        # ============================================================
+        # 2. حساب درجة الأمان
+        # ============================================================
+        security_score = 100
+        
+        if vt_result.get("verdict") == "malicious":
+            security_score -= 60
+        elif vt_result.get("verdict") == "suspicious":
+            security_score -= 40
+        elif vt_result.get("detection_rate", 0) > 10:
+            security_score -= min(30, vt_result.get("detection_rate", 0))
+        
+        security_score = max(0, min(100, security_score))
+        
+        # ============================================================
+        # 3. الحكم النهائي
+        # ============================================================
+        if security_score >= 80:
+            final_verdict = "safe"
+        elif security_score >= 50:
+            final_verdict = "suspicious"
+        elif security_score >= 20:
+            final_verdict = "high_risk"
+        else:
+            final_verdict = "malicious"
+        
+        # ============================================================
+        # 4. التوصيات
+        # ============================================================
+        recommendations = []
+        
+        if final_verdict == "malicious":
+            recommendations.append("⚠️ DO NOT OPEN or EXECUTE this file!")
+            recommendations.append("🗑️ Delete the file immediately")
+            recommendations.append("📧 Report to your security team")
+        elif final_verdict == "high_risk":
+            recommendations.append("⚠️ High risk detected - proceed with extreme caution")
+            recommendations.append("🔒 Scan in a sandbox environment first")
+        elif final_verdict == "suspicious":
+            recommendations.append("⚠️ Suspicious elements found - verify file source")
+        
+        if vt_result.get("verdict") == "malicious" and vt_result.get("threats"):
+            recommendations.append(f"🦠 Detected threats: {vt_result['threats'][0]['result']}")
+        
+        # ============================================================
+        # 5. إرجاع النتيجة
+        # ============================================================
+        return jsonify({
+            "filename": filename,
+            "file_size": file_size,
+            "file_size_mb": round(file_size / 1024 / 1024, 2),
+            "verdict": final_verdict,
+            "security_score": security_score,
+            "virustotal": vt_result,
+            "recommendations": recommendations,
+            "checked_at": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Scan error: {str(e)}"}), 500
+        
+# ================================================================
+# File Deep Analysis API
+# ================================================================
+
+@app.route('/api/file-deep-analysis', methods=['POST'])
+@login_required
+def api_file_deep_analysis():
+    """API للتحليل العميق للملفات مع exiftool"""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    
+    try:
+        file_content = file.read()
+        filename = file.filename
+        
+        # ✅ التعديل هنا: إضافة use_exiftool=True
+        analyzer = FileDeepAnalyzer(use_exiftool=True)
+        result = analyzer.comprehensive_analysis(file_content, filename)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/scan-file', methods=['POST'])
+def scan_file():
+    file = request.files.get('file')
+
+    if not file:
+        return jsonify({"error": "no file"})
+
+    filepath = os.path.join("temp_uploads", file.filename)
+    file.save(filepath)
+
+    analyzer = FileDeepAnalyzer(filepath)
+    result = analyzer.analyze()
+
+    return jsonify(result)
 
 # ================================================================
 # Admin
@@ -1082,6 +1289,11 @@ def api_url_analysis(scan_id):
     # تحليل محلي متقدم
     analyzer = URLAnalyzer()
     local_analysis = analyzer.comprehensive_analysis(url)
+
+    # ========== التحليل العميق الجديد ==========
+    deep_analyzer = URLDeepAnalyzer()
+    deep_analysis = deep_analyzer.comprehensive_deep_analysis(url)
+    # ==========================================
     
     # تحليلات إضافية
     analysis = {
@@ -1095,7 +1307,7 @@ def api_url_analysis(scan_id):
         "geo": {},
         "similar_sites": [],
         "history_scans": [],
-        # ميزات جديدة
+        # ميزات قديمة
         "url_structure": local_analysis["structure"],
         "phishing_indicators": local_analysis["phishing"],
         "ssl_info": local_analysis["ssl"],
@@ -1103,7 +1315,17 @@ def api_url_analysis(scan_id):
         "is_shortened": local_analysis["is_shortened"],
         "security_score": local_analysis["security_score"],
         "verdict": local_analysis["verdict"],
-        "recommendations": local_analysis["recommendations"]
+        "recommendations": local_analysis["recommendations"],
+        # ========== ميزات التحليل العميق الجديدة ==========
+        "deep_analysis": {
+            "page_content": deep_analysis.get("page_content", {}),
+            "behavior": deep_analysis.get("behavior", {}),
+            "whois_deep": deep_analysis.get("whois", {}),
+            "osint": deep_analysis.get("osint", {}),
+            "overall_risk_score": deep_analysis.get("overall_risk_score", 0),
+            "deep_verdict": deep_analysis.get("verdict", "unknown"),
+            "deep_recommendations": deep_analysis.get("recommendations", [])
+        }
     }
     
     # جمع الـ cookies
@@ -1153,9 +1375,7 @@ def api_url_analysis(scan_id):
         pass
     
     return jsonify(analysis)
-
-
-
+    
 
 # ================================================================
 # Run

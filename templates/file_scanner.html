@@ -3,98 +3,165 @@
 
 {% block head_extra %}
 <style>
-  .scanner-wrap { max-width: 1000px; margin: 0 auto; padding: 40px 20px 80px; }
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131f;
+    --surface2: #1a1a2a;
+    --accent: #00c8ff;
+    --accent-dim: rgba(0, 200, 255, 0.08);
+    --text: #eef2ff;
+    --muted: #6a6a8a;
+    --border: #2a2a3f;
+    --green: #00e676;
+    --green-dim: rgba(0, 230, 118, 0.1);
+    --yellow: #ffd32a;
+    --yellow-dim: rgba(255, 211, 42, 0.08);
+    --orange: #ff6a00;
+    --orange-dim: rgba(255, 100, 0, 0.08);
+    --red: #ff4560;
+    --red-dim: rgba(255, 69, 96, 0.1);
+    --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  .scanner-wrap { max-width: 1400px; margin: 0 auto; padding: 30px 20px 60px; }
+  
   .page-head { text-align: center; margin-bottom: 32px; }
   .page-head .label { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 12px; margin-bottom: 12px; }
   .page-head h1 { font-family: var(--mono); font-size: clamp(24px, 6vw, 36px); font-weight: 700; color: var(--text); margin-bottom: 8px; }
   .page-head h1 span { color: var(--accent); }
   .page-head p { font-size: 13px; color: var(--muted); max-width: 540px; margin: 0 auto; line-height: 1.6; }
   
-  .upload-area { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all .3s; margin-bottom: 20px; }
-  .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: var(--accent-dim); }
-  .upload-icon { font-size: 40px; margin-bottom: 12px; }
-  .upload-area h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .upload-area { background: var(--surface); border: 2px dashed var(--border); border-radius: 20px; padding: 50px 20px; text-align: center; cursor: pointer; transition: all .3s; margin-bottom: 20px; }
+  .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: var(--accent-dim); transform: scale(0.98); }
+  .upload-icon { font-size: 48px; margin-bottom: 12px; }
+  .upload-area h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
   .upload-area p { font-size: 12px; color: var(--muted); }
   
-  .file-info { background: var(--surface2); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: none; border: 1px solid var(--border); }
-  .file-info h4 { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 12px; letter-spacing: 1px; }
-  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-  .info-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 12px; }
-  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; }
-  .info-value { font-weight: 600; word-break: break-all; text-align: right; }
+  .file-info { background: var(--surface2); border-radius: 16px; padding: 20px; margin-bottom: 24px; display: none; border: 1px solid var(--border); }
+  .file-info h4 { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 16px; letter-spacing: 1px; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 12px; flex-wrap: wrap; gap: 8px; }
+  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; font-weight: 500; }
+  .info-value { font-weight: 600; word-break: break-all; text-align: right; color: var(--text); }
   
-  #loading-div { text-align: center; padding: 40px; color: var(--muted); display: none; }
-  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
+  #loading-div { text-align: center; padding: 60px; color: var(--muted); display: none; }
+  .spin { display: inline-block; width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 12px; }
   @keyframes rot { to { transform: rotate(360deg); } }
   
-  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: none; animation: fadeInUp 0.5s ease; }
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 28px; display: none; animation: fadeInUp 0.5s ease; }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   
-  .verdict-banner { border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .verdict-banner .v-icon { font-size: 36px; flex-shrink: 0; }
-  .verdict-banner h3 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
-  .verdict-banner p { font-size: 12px; opacity: 0.8; }
+  .verdict-banner { border-radius: 16px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .verdict-banner .v-icon { font-size: 44px; flex-shrink: 0; }
+  .verdict-banner h3 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .verdict-banner p { font-size: 13px; opacity: 0.8; }
   .banner-safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .banner-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
   .banner-high_risk { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,100,0,.3); }
   .banner-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   
-  .score-bar { margin-bottom: 20px; }
-  .score-label { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; font-family: var(--mono); }
-  .score-bg { background: var(--surface2); border-radius: 8px; height: 10px; overflow: hidden; border: 1px solid var(--border); }
-  .score-fill { height: 100%; border-radius: 8px; transition: width 1s ease; }
+  .score-bar { margin-bottom: 24px; }
+  .score-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-family: var(--mono); }
+  .score-bg { background: var(--surface2); border-radius: 12px; height: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .score-fill { height: 100%; border-radius: 12px; transition: width 1s ease; }
   
-  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
-  .stat-box .num { font-size: 18px; font-weight: 700; color: var(--text); }
-  .stat-box .label { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 2px; text-transform: uppercase; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px; text-align: center; transition: all .2s; }
+  .stat-box:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat-box .num { font-size: 22px; font-weight: 800; color: var(--text); }
+  .stat-box .label { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   
-  .detection-list { background: var(--surface2); border-radius: 10px; padding: 12px; margin-bottom: 16px; max-height: 200px; overflow-y: auto; }
-  .detection-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
-  .detection-engine { font-family: var(--mono); font-weight: 600; }
-  .detection-result { color: var(--red); font-weight: 600; }
+  .detection-list { background: var(--surface2); border-radius: 14px; padding: 16px; margin-bottom: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--border); }
+  .detection-list h4 { font-size: 12px; font-family: var(--mono); margin-bottom: 12px; color: var(--accent); }
+  .detection-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 11px; flex-wrap: wrap; gap: 8px; }
+  .detection-engine { font-family: var(--mono); font-weight: 600; color: var(--muted); }
+  .detection-result { color: var(--red); font-weight: 700; font-size: 10px; word-break: break-all; text-align: right; }
   
-  .recommendations { background: var(--surface2); border-radius: 10px; padding: 12px; margin-bottom: 16px; border-left: 3px solid var(--accent); }
-  .recommendations h4 { font-size: 11px; font-family: var(--mono); margin-bottom: 8px; }
-  .recommendations li { padding: 4px 0; font-size: 11px; margin-left: 16px; }
+  .recommendations { background: var(--surface2); border-radius: 14px; padding: 16px; margin-bottom: 24px; border-left: 4px solid var(--accent); }
+  .recommendations h4 { font-size: 11px; font-family: var(--mono); margin-bottom: 10px; color: var(--accent); }
+  .recommendations ul { margin: 0; padding-left: 20px; }
+  .recommendations li { padding: 6px 0; font-size: 12px; line-height: 1.5; color: var(--text); }
   
-  .export-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
-  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 11px; cursor: pointer; transition: all .2s; }
-  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  /* Deep Analysis Sections - FULL VERSION */
+  .deep-section-title { font-family: var(--mono); font-size: 13px; color: var(--accent); margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .deep-section-title:first-of-type { margin-top: 0; }
   
-  /* Deep Analysis Sections */
-  .deep-subsection { margin-bottom: 16px; background: var(--surface2); border-radius: 10px; padding: 12px; border: 1px solid var(--border); }
-  .deep-subsection h4 { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 10px; }
-  .info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(42,42,69,0.3); font-size: 11px; }
+  .grid-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px; }
+  .grid-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  .grid-4col { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  
+  .deep-card { background: var(--surface2); border-radius: 14px; padding: 16px; border: 1px solid var(--border); transition: all .2s; }
+  .deep-card:hover { border-color: var(--accent); }
+  .deep-card h4 { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 14px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+  .deep-card h4 .icon { font-size: 14px; }
+  
+  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(42,42,69,0.4); font-size: 11px; gap: 8px; flex-wrap: wrap; }
   .info-row:last-child { border-bottom: none; }
-  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; }
-  .info-value { color: var(--text); font-weight: 600; text-align: right; word-break: break-all; }
+  .info-label { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+  .info-value { color: var(--text); font-weight: 500; text-align: right; word-break: break-all; font-size: 10px; }
   .info-good { color: var(--green); }
   .info-warn { color: var(--yellow); }
-  .hash-value { font-family: var(--mono); font-size: 9px; }
+  .info-danger { color: var(--red); }
+  .hash-value { font-family: var(--mono); font-size: 8px; letter-spacing: -0.2px; }
   
-  .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .ioc-badge { display: inline-block; background: var(--surface); padding: 2px 8px; border-radius: 12px; font-size: 9px; font-family: var(--mono); margin: 2px; border: 1px solid var(--border); }
+  .ioc-badge.ip { border-color: rgba(0,200,255,0.3); }
+  .ioc-badge.url { border-color: rgba(255,211,42,0.3); }
+  .ioc-badge.hash { border-color: rgba(0,230,118,0.3); }
+  
+  .yara-detail { background: var(--surface); border-radius: 10px; padding: 10px; margin-bottom: 8px; border-left: 3px solid var(--accent); }
+  .yara-rule-name { font-weight: 700; font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+  .yara-desc { font-size: 9px; color: var(--muted); }
+  .yara-risk { font-size: 8px; color: var(--orange); margin-top: 4px; }
+  
+  .export-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
+  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 30px; padding: 10px 24px; font-size: 12px; font-family: var(--mono); cursor: pointer; transition: all .2s; color: var(--text); }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+  
+  .warning-list { max-height: 150px; overflow-y: auto; }
   
   /* Mobile Responsive */
   @media (max-width: 768px) {
-    .scanner-wrap { padding: 30px 16px 60px; }
-    .upload-area { padding: 30px 16px; }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .grid-2col { grid-template-columns: 1fr; gap: 12px; }
+    .scanner-wrap { padding: 20px 12px 40px; }
+    .upload-area { padding: 30px 12px; }
+    .upload-icon { font-size: 36px; }
+    .upload-area h3 { font-size: 14px; }
     .result-card { padding: 16px; }
-    .verdict-banner { padding: 12px 16px; }
-    .verdict-banner .v-icon { font-size: 28px; }
-    .info-value { font-size: 10px; }
-    .hash-value { font-size: 8px; }
+    .verdict-banner { padding: 14px 16px; }
+    .verdict-banner .v-icon { font-size: 32px; }
+    .verdict-banner h3 { font-size: 16px; }
+    .grid-2col, .grid-3col { grid-template-columns: 1fr; gap: 12px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .info-grid { grid-template-columns: 1fr; }
+    .info-item { flex-direction: column; text-align: left; }
+    .info-value { text-align: left; }
+    .detection-item { flex-direction: column; align-items: flex-start; }
+    .detection-result { text-align: left; }
+    .deep-card { padding: 12px; }
   }
   
   @media (max-width: 480px) {
     .stats-grid { grid-template-columns: 1fr 1fr; }
-    .info-grid { grid-template-columns: 1fr; }
-    .file-info h4 { font-size: 10px; }
-    .info-item { font-size: 11px; flex-direction: column; gap: 4px; }
+    .deep-card h4 { font-size: 10px; }
+    .info-row { flex-direction: column; align-items: flex-start; }
     .info-value { text-align: left; }
+    .export-btn { padding: 8px 16px; font-size: 10px; }
+    .hash-value { font-size: 7px; }
   }
+  
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface2); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  
+  .collapsible { cursor: pointer; user-select: none; }
+  .collapsible:after { content: ' ▼'; font-size: 8px; color: var(--muted); }
+  .collapsible.collapsed:after { content: ' ▶'; }
+  .collapsible-content { max-height: 1000px; overflow: hidden; transition: max-height 0.3s ease; }
+  .collapsible-content.collapsed { max-height: 0; }
 </style>
 {% endblock %}
 
@@ -109,7 +176,7 @@
   <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
     <div class="upload-icon">📁</div>
     <h3>Drop file here or click to upload</h3>
-    <p>Max size: 10 MB | Supported: exe, dll, pdf, doc, docx, xls, xlsx, zip, js, py, ps1, sh</p>
+    <p>Max size: 10 MB | Supported: exe, dll, pdf, doc, docx, xls, xlsx, zip, js, py, ps1, sh, bat, vbs, scr, msi</p>
     <input type="file" id="file-input" style="display:none" onchange="analyzeFile(this.files[0])">
   </div>
   
@@ -118,7 +185,7 @@
     <div class="info-grid" id="file-info-grid"></div>
   </div>
   
-  <div id="loading-div"><span class="spin"></span>Analyzing file with 70+ antivirus engines...</div>
+  <div id="loading-div"><span class="spin"></span>Analyzing file with 70+ antivirus engines & deep inspection...</div>
   
   <div class="result-card" id="result-card">
     <div id="verdict-banner" class="verdict-banner"></div>
@@ -137,45 +204,165 @@
     
     <div class="recommendations" id="recommendations"></div>
     
-    <!-- Deep Analysis Results - Integrated -->
-    <div id="deep-analysis-results" style="display:none;">
-      <div class="grid-2col">
-        <div class="deep-subsection">
-          <h4>🔐 File Hashes</h4>
-          <div id="df-hashes"></div>
-        </div>
-        <div class="deep-subsection">
-          <h4>📋 Metadata</h4>
-          <div id="df-metadata"></div>
-        </div>
+    <!-- ================================================================ -->
+    <!-- DEEP ANALYSIS - ALL FEATURES (FULL VERSION)                    -->
+    <!-- ================================================================ -->
+    <div id="deep-analysis-container">
+      
+      <!-- Section 1: Hashes (5 types) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🔐</span> FILE HASHES
+      </div>
+      <div class="collapsible-content" id="df-hashes-section">
+        <div class="grid-4col" id="df-hashes"></div>
       </div>
       
-      <div class="deep-subsection">
-        <h4>🎯 Indicators of Compromise</h4>
-        <div id="df-iocs"></div>
+      <!-- Section 2: File Type Details -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📄</span> FILE TYPE & DETECTION
+      </div>
+      <div class="collapsible-content" id="df-filetype-section">
+        <div class="deep-card" id="df-filetype"></div>
       </div>
       
-      <div class="deep-subsection">
-        <h4>📜 YARA Rules</h4>
-        <div id="df-yara"></div>
+      <!-- Section 3: Metadata (Full) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📋</span> METADATA ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-metadata-section">
+        <div class="grid-2col" id="df-metadata"></div>
       </div>
       
-      <div class="deep-subsection">
-        <h4>🛡️ Hash Reputation</h4>
-        <div id="df-reputation"></div>
+      <!-- Section 4: Indicators of Compromise (All 11 types) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🎯</span> INDICATORS OF COMPROMISE (IoCs)
       </div>
+      <div class="collapsible-content" id="df-iocs-section">
+        <div class="grid-3col" id="df-iocs"></div>
+      </div>
+      
+      <!-- Section 5: YARA Rules (Full details) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📜</span> YARA RULES
+      </div>
+      <div class="collapsible-content" id="df-yara-section">
+        <div class="deep-card" id="df-yara"></div>
+      </div>
+      
+      <!-- Section 6: Hash Reputation -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🛡️</span> HASH REPUTATION
+      </div>
+      <div class="collapsible-content" id="df-reputation-section">
+        <div class="deep-card" id="df-reputation"></div>
+      </div>
+      
+      <!-- Section 7: VirusTotal Results -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🦠</span> VIRUSTOTAL ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-vt-section">
+        <div class="deep-card" id="df-virustotal"></div>
+      </div>
+      
+      <!-- Section 8: Warnings -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">⚠️</span> WARNINGS
+      </div>
+      <div class="collapsible-content" id="df-warnings-section">
+        <div class="deep-card warning-list" id="df-warnings"></div>
+      </div>
+      
+      <!-- Section 9: ExifTool Data (if available) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📸</span> EXIFTOOL METADATA
+      </div>
+      <div class="collapsible-content" id="df-exiftool-section">
+        <div class="deep-card" id="df-exiftool"></div>
+      </div>
+      
+      <!-- Section 10: PE Analysis (if applicable) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🔧</span> PE EXECUTABLE ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-pe-section">
+        <div class="deep-card" id="df-pe"></div>
+      </div>
+      
+      <!-- Section 11: PDF Analysis (if applicable) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📑</span> PDF ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-pdf-section">
+        <div class="deep-card" id="df-pdf"></div>
+      </div>
+      
+      <!-- Section 12: Office Analysis (if applicable) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📊</span> OFFICE DOCUMENT ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-office-section">
+        <div class="deep-card" id="df-office"></div>
+      </div>
+      
+      <!-- Section 13: Script Analysis (if applicable) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">📜</span> SCRIPT ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-script-section">
+        <div class="deep-card" id="df-script"></div>
+      </div>
+      
+      <!-- Section 14: Archive Analysis (if applicable) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🗜️</span> ARCHIVE ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-archive-section">
+        <div class="deep-card" id="df-archive"></div>
+      </div>
+      
+      <!-- Section 15: Image Analysis (if applicable) -->
+      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+        <span class="icon">🖼️</span> IMAGE ANALYSIS
+      </div>
+      <div class="collapsible-content" id="df-image-section">
+        <div class="deep-card" id="df-image"></div>
+      </div>
+      
     </div>
     
     <div class="export-buttons">
       <button class="export-btn" id="export-json">📄 Export JSON</button>
       <button class="export-btn" id="copy-report">📋 Copy Report</button>
+      <button class="export-btn" onclick="expandAll()">📂 Expand All</button>
+      <button class="export-btn" onclick="collapseAll()">📁 Collapse All</button>
     </div>
   </div>
 </div>
 
 <script>
 let lastResult = null;
-let lastDeepResult = null;
+
+// Collapse/Expand functions
+function toggleCollapse(el) {
+  el.classList.toggle('collapsed');
+  const content = el.nextElementSibling;
+  content.classList.toggle('collapsed');
+}
+
+function expandAll() {
+  document.querySelectorAll('.collapsible').forEach(el => {
+    el.classList.remove('collapsed');
+    el.nextElementSibling.classList.remove('collapsed');
+  });
+}
+
+function collapseAll() {
+  document.querySelectorAll('.collapsible').forEach(el => {
+    el.classList.add('collapsed');
+    el.nextElementSibling.classList.add('collapsed');
+  });
+}
 
 // Drag & Drop
 document.getElementById('upload-area').addEventListener('dragover', (e) => {
@@ -199,13 +386,12 @@ async function analyzeFile(file) {
   
   document.getElementById('file-info').style.display = 'none';
   document.getElementById('result-card').style.display = 'none';
-  document.getElementById('deep-analysis-results').style.display = 'none';
   document.getElementById('loading-div').style.display = 'block';
   
   // Pre-scan info
   const fileInfoGrid = document.getElementById('file-info-grid');
   fileInfoGrid.innerHTML = `
-    <div class="info-item"><span class="info-label">📄 Name</span><span class="info-value">${file.name}</span></div>
+    <div class="info-item"><span class="info-label">📄 Name</span><span class="info-value">${escapeHtml(file.name)}</span></div>
     <div class="info-item"><span class="info-label">📦 Size</span><span class="info-value">${(file.size / 1024 / 1024).toFixed(2)} MB</span></div>
     <div class="info-item"><span class="info-label">📅 Modified</span><span class="info-value">${new Date(file.lastModified).toLocaleString()}</span></div>
     <div class="info-item"><span class="info-label">🔖 Type</span><span class="info-value">${file.type || 'Unknown'}</span></div>
@@ -214,9 +400,8 @@ async function analyzeFile(file) {
   const formData = new FormData();
   formData.append('file', file);
   
-  
-   try {
-    const response = await fetch('/api/file-deep-analysis', { 
+  try {
+    const response = await fetch('/api/scan-file', { 
       method: 'POST',
       body: formData
     });
@@ -230,7 +415,9 @@ async function analyzeFile(file) {
     
     lastResult = data;
     renderResult(data);
+    renderFullDeepAnalysis(data);
     document.getElementById('file-info').style.display = 'block';
+    document.getElementById('result-card').style.display = 'block';
     
   } catch (error) {
     document.getElementById('loading-div').style.display = 'none';
@@ -238,12 +425,22 @@ async function analyzeFile(file) {
   }
 }
 
+function escapeHtml(str) {
+  if (!str) return 'N/A';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
 function renderResult(d) {
   const verdicts = {
     safe: { icon: '✅', title: 'SAFE - Clean File', subtitle: 'No threats detected.', cls: 'banner-safe' },
     suspicious: { icon: '⚠️', title: 'SUSPICIOUS', subtitle: 'Suspicious elements detected.', cls: 'banner-suspicious' },
-    high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Do not execute!', cls: 'banner-high_risk' },
-    malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Delete immediately!', cls: 'banner-malicious' }
+    high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Multiple suspicious indicators detected. Do not execute!', cls: 'banner-high_risk' },
+    malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Confirmed malware detected! Delete immediately.', cls: 'banner-malicious' }
   };
   const v = verdicts[d.verdict] || verdicts.suspicious;
   
@@ -255,13 +452,12 @@ function renderResult(d) {
   const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : score >= 20 ? 'var(--orange)' : 'var(--red)';
   document.getElementById('score-fill').style.width = score + '%';
   document.getElementById('score-fill').style.background = color;
-  document.getElementById('score-num').textContent = score + ' / 100';
+  document.getElementById('score-num').innerHTML = `<span style="color:${color}">${score}</span> / 100`;
   
-  // استخدام البيانات من التحليل العميق مباشرة
   const yara = d.yara || {};
   const metadata = d.metadata || {};
   const iocs = d.iocs || {};
-  const hashes = d.hashes || {};
+  const vt = d.virustotal || {};
   
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-box"><div class="num">${yara.matched_rules?.length || 0}</div><div class="label">YARA RULES</div></div>
@@ -269,130 +465,302 @@ function renderResult(d) {
     <div class="stat-box"><div class="num">${iocs.ipv4?.length || 0}</div><div class="label">IPs FOUND</div></div>
     <div class="stat-box"><div class="num">${metadata.has_macros ? 'Yes' : 'No'}</div><div class="label">MACROS</div></div>
     <div class="stat-box"><div class="num">${metadata.has_javascript ? 'Yes' : 'No'}</div><div class="label">JAVASCRIPT</div></div>
-    <div class="stat-box"><div class="num">${d.file_size_mb} MB</div><div class="label">SIZE</div></div>
+    <div class="stat-box"><div class="num">${d.file_size_mb || 0} MB</div><div class="label">SIZE</div></div>
+    <div class="stat-box"><div class="num">${vt.malicious || 0}</div><div class="label">VT MALICIOUS</div></div>
+    <div class="stat-box"><div class="num">${vt.suspicious || 0}</div><div class="label">VT SUSPICIOUS</div></div>
   `;
   
-  // عرض التهديدات من YARA
+  // Threat Detections
+  let threatHtml = '';
   if (yara.matched_rules && yara.matched_rules.length > 0) {
-    document.getElementById('detection-list').style.display = 'block';
-    document.getElementById('threats').innerHTML = yara.matched_rules.map(rule => `
+    threatHtml += yara.matched_rules.map(rule => `
       <div class="detection-item">
         <span class="detection-engine">YARA Rule</span>
-        <span class="detection-result">${rule}</span>
+        <span class="detection-result">${escapeHtml(rule)}</span>
       </div>
     `).join('');
+  }
+  
+  if (vt.threats && vt.threats.length > 0) {
+    threatHtml += vt.threats.slice(0, 15).map(t => `
+      <div class="detection-item">
+        <span class="detection-engine">${escapeHtml(t.engine)}</span>
+        <span class="detection-result">${escapeHtml(t.result)}</span>
+      </div>
+    `).join('');
+  }
+  
+  if (threatHtml) {
+    document.getElementById('detection-list').style.display = 'block';
+    document.getElementById('threats').innerHTML = threatHtml;
   } else {
     document.getElementById('detection-list').style.display = 'none';
   }
   
-  // التوصيات
+  // Recommendations
   if (d.recommendations && d.recommendations.length > 0) {
     document.getElementById('recommendations').innerHTML = `
       <h4>📋 Recommendations</h4>
-      <ul>${d.recommendations.map(r => `<li>${r}</li>`).join('')}</ul>
+      <ul>${d.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>
     `;
   }
-  
-  document.getElementById('result-card').style.display = 'block';
 }
 
-async function performDeepFileAnalysis(file) {
-  const formData = new FormData();
-  formData.append('file', file);
+// ================================================================
+// FULL DEEP ANALYSIS - ALL FEATURES
+// ================================================================
+function renderFullDeepAnalysis(d) {
   
-  try {
-    const response = await fetch('/api/scan-file', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
-    
-    lastDeepResult = data;
-    renderDeepAnalysis(data);
-    document.getElementById('deep-analysis-results').style.display = 'block';
-    
-  } catch (error) {
-    console.error("Deep analysis error:", error);
-  }
-}
-
-function renderDeepAnalysis(d) {
+  // 1. HASHES - 5 types
   const hashes = d.hashes || {};
   document.getElementById('df-hashes').innerHTML = `
-    <div class="info-row"><span class="info-label">MD5</span><span class="info-value hash-value">${hashes.md5 || 'N/A'}</span></div>
-    <div class="info-row"><span class="info-label">SHA256</span><span class="info-value hash-value">${hashes.sha256 || 'N/A'}</span></div>
+    <div class="deep-card"><h4><span class="icon">🔐</span> MD5</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.md5 || 'N/A'}</div></div>
+    <div class="deep-card"><h4><span class="icon">🔐</span> SHA1</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.sha1 || 'N/A'}</div></div>
+    <div class="deep-card"><h4><span class="icon">🔐</span> SHA256</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.sha256 || 'N/A'}</div></div>
+    <div class="deep-card"><h4><span class="icon">🔐</span> SHA512</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.sha512 || 'N/A'}</div></div>
+    <div class="deep-card"><h4><span class="icon">🔐</span> BLAKE2b</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.blake2b || 'N/A'}</div></div>
   `;
   
+  // 2. FILE TYPE
+  const ft = d.file_type || {};
+  document.getElementById('df-filetype').innerHTML = `
+    <div class="info-row"><span class="info-label">Actual Type</span><span class="info-value">${ft.actual_type || 'Unknown'}</span></div>
+    <div class="info-row"><span class="info-label">MIME Type</span><span class="info-value">${ft.mime_type || 'Unknown'}</span></div>
+    <div class="info-row"><span class="info-label">Extension</span><span class="info-value">${ft.extension || 'Unknown'}</span></div>
+    <div class="info-row"><span class="info-label">Spoofed</span><span class="info-value ${ft.is_spoofed ? 'info-warn' : 'info-good'}">${ft.is_spoofed ? '⚠️ Yes' : '✅ No'}</span></div>
+    <div class="info-row"><span class="info-label">Executable</span><span class="info-value">${ft.is_executable ? 'Yes' : 'No'}</span></div>
+    <div class="info-row"><span class="info-label">Archive</span><span class="info-value">${ft.is_archive ? 'Yes' : 'No'}</span></div>
+    <div class="info-row"><span class="info-label">Document</span><span class="info-value">${ft.is_document ? 'Yes' : 'No'}</span></div>
+    <div class="info-row"><span class="info-label">Script</span><span class="info-value">${ft.is_script ? 'Yes' : 'No'}</span></div>
+    <div class="info-row"><span class="info-label">Image</span><span class="info-value">${ft.is_image ? 'Yes' : 'No'}</span></div>
+  `;
+  
+  // 3. METADATA - Full
+  const meta = d.metadata || {};
   let metadataHtml = '';
-  if (d.metadata) {
-    if (d.metadata.type) {
-      metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${d.metadata.type}</span></div>`;
-    }
-    if (d.metadata.suspicious?.length) {
-      metadataHtml += `<div class="info-row"><span class="info-label">⚠️ Warnings</span><span class="info-value info-warn">${d.metadata.suspicious.join(', ')}</span></div>`;
-    }
-    if (d.metadata.has_macros) {
-      metadataHtml += `<div class="info-row"><span class="info-label">Macros</span><span class="info-value info-warn">Detected</span></div>`;
-    }
-    if (d.metadata.has_javascript) {
-      metadataHtml += `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value info-warn">Detected</span></div>`;
-    }
+  
+  // General metadata
+  metadataHtml += `<div class="deep-card"><h4><span class="icon">ℹ️</span> General</h4>`;
+  if (meta.type) metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${escapeHtml(meta.type)}</span></div>`;
+  if (meta.suspicious && meta.suspicious.length > 0) {
+    metadataHtml += `<div class="info-row"><span class="info-label">⚠️ Suspicious</span><span class="info-value info-warn">${meta.suspicious.slice(0,5).join(', ')}</span></div>`;
   }
-  document.getElementById('df-metadata').innerHTML = metadataHtml || '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No issues</span></div>';
+  metadataHtml += `</div>`;
   
+  // PDF specific
+  if (meta.is_pdf !== undefined) {
+    metadataHtml += `<div class="deep-card"><h4><span class="icon">📑</span> PDF Details</h4>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Pages</span><span class="info-value">${meta.num_pages || 0}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Encrypted</span><span class="info-value ${meta.is_encrypted ? 'info-warn' : 'info-good'}">${meta.is_encrypted ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${meta.has_javascript ? 'info-danger' : 'info-good'}">${meta.has_javascript ? '⚠️ Detected' : 'Clean'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Auto Actions</span><span class="info-value ${meta.has_actions ? 'info-danger' : 'info-good'}">${meta.has_actions ? '⚠️ Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Embedded Files</span><span class="info-value ${meta.has_attachments ? 'info-warn' : 'info-good'}">${meta.has_attachments ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Launch Actions</span><span class="info-value ${meta.has_launch ? 'info-danger' : 'info-good'}">${meta.has_launch ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Form Fields</span><span class="info-value">${meta.has_form_fields ? 'Yes' : 'No'}</span></div>`;
+    if (meta.metadata && Object.keys(meta.metadata).length > 0) {
+      metadataHtml += `<div class="info-row"><span class="info-label">Title</span><span class="info-value">${escapeHtml(meta.metadata.title || 'N/A')}</span></div>`;
+      metadataHtml += `<div class="info-row"><span class="info-label">Author</span><span class="info-value">${escapeHtml(meta.metadata.author || 'N/A')}</span></div>`;
+    }
+    metadataHtml += `</div>`;
+  }
+  
+  // Office specific
+  if (meta.is_office !== undefined) {
+    metadataHtml += `<div class="deep-card"><h4><span class="icon">📊</span> Office Details</h4>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Has Macros</span><span class="info-value ${meta.has_macros ? 'info-danger' : 'info-good'}">${meta.has_macros ? '⚠️ Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Has OLE</span><span class="info-value">${meta.has_ole ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${meta.type || 'Unknown'}</span></div>`;
+    metadataHtml += `</div>`;
+  }
+  
+  // Script specific
+  if (meta.is_script !== undefined) {
+    metadataHtml += `<div class="deep-card"><h4><span class="icon">📜</span> Script Details</h4>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Language</span><span class="info-value">${meta.language || 'Unknown'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Lines</span><span class="info-value">${meta.lines || 0}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Network Ops</span><span class="info-value ${meta.has_network ? 'info-warn' : 'info-good'}">${meta.has_network ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">File Ops</span><span class="info-value ${meta.has_file_operations ? 'info-warn' : 'info-good'}">${meta.has_file_operations ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Obfuscation</span><span class="info-value ${meta.has_obfuscation ? 'info-danger' : 'info-good'}">${meta.has_obfuscation ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `</div>`;
+  }
+  
+  // Archive specific
+  if (meta.is_archive !== undefined) {
+    metadataHtml += `<div class="deep-card"><h4><span class="icon">🗜️</span> Archive Details</h4>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${meta.type || 'Unknown'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Files</span><span class="info-value">${meta.num_files || 0}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Contains EXE</span><span class="info-value ${meta.contains_executable ? 'info-danger' : 'info-good'}">${meta.contains_executable ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Path Traversal</span><span class="info-value ${meta.has_path_traversal ? 'info-danger' : 'info-good'}">${meta.has_path_traversal ? 'Yes' : 'No'}</span></div>`;
+    metadataHtml += `</div>`;
+  }
+  
+  document.getElementById('df-metadata').innerHTML = metadataHtml || '<div class="deep-card"><div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No metadata available</span></div></div>';
+  
+  // 4. IoCs - ALL 11 TYPES
   const iocs = d.iocs || {};
-  let iocsHtml = '';
-  if (iocs.ipv4?.length) iocsHtml += `<div class="info-row"><span class="info-label">IPs</span><span class="info-value">${iocs.ipv4.slice(0,5).join(', ')}</span></div>`;
-  if (iocs.urls?.length) iocsHtml += `<div class="info-row"><span class="info-label">URLs</span><span class="info-value">${iocs.urls.slice(0,3).join(', ')}</span></div>`;
-  if (iocs.domains?.length) iocsHtml += `<div class="info-row"><span class="info-label">Domains</span><span class="info-value">${iocs.domains.slice(0,5).join(', ')}</span></div>`;
-  document.getElementById('df-iocs').innerHTML = iocsHtml || '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No IoCs</span></div>';
+  document.getElementById('df-iocs').innerHTML = `
+    <div class="deep-card"><h4><span class="icon">🌐</span> Network</h4>
+      <div class="info-row"><span class="info-label">IPv4</span><span class="info-value">${(iocs.ipv4 || []).map(ip => `<span class="ioc-badge ip">${escapeHtml(ip)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">IPv6</span><span class="info-value">${(iocs.ipv6 || []).map(ip => `<span class="ioc-badge">${escapeHtml(ip)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">URLs</span><span class="info-value">${(iocs.urls || []).slice(0,10).map(url => `<span class="ioc-badge url">${escapeHtml(url)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">Domains</span><span class="info-value">${(iocs.domains || []).map(dm => `<span class="ioc-badge">${escapeHtml(dm)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">Emails</span><span class="info-value">${(iocs.emails || []).map(em => `<span class="ioc-badge">${escapeHtml(em)}</span>`).join('') || 'None'}</span></div>
+    </div>
+    <div class="deep-card"><h4><span class="icon">🔐</span> Hashes</h4>
+      <div class="info-row"><span class="info-label">MD5</span><span class="info-value">${(iocs.md5_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">SHA1</span><span class="info-value">${(iocs.sha1_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">SHA256</span><span class="info-value">${(iocs.sha256_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
+    </div>
+    <div class="deep-card"><h4><span class="icon">💰</span> Crypto & Dark Web</h4>
+      <div class="info-row"><span class="info-label">Bitcoin</span><span class="info-value">${(iocs.bitcoin_addresses || []).map(b => `<span class="ioc-badge">${escapeHtml(b)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">Onion</span><span class="info-value">${(iocs.onion_addresses || []).map(o => `<span class="ioc-badge">${escapeHtml(o)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">Telegram</span><span class="info-value">${(iocs.telegram_links || []).map(t => `<span class="ioc-badge">${escapeHtml(t)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">Discord Webhooks</span><span class="info-value">${(iocs.discord_webhooks || []).slice(0,5).map(dw => `<span class="ioc-badge">${escapeHtml(dw)}</span>`).join('') || 'None'}</span></div>
+    </div>
+  `;
   
+  // 5. YARA - Full details
   const yara = d.yara || {};
-  document.getElementById('df-yara').innerHTML = yara.matched_rules?.length 
-    ? `<div class="info-row"><span class="info-label">Matched Rules</span><span class="info-value info-warn">${yara.matched_rules.join(', ')}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">Clean</span></div>';
+  let yaraHtml = `<h4><span class="icon">📜</span> Matched Rules (${yara.matched_rules?.length || 0})</h4>`;
+  if (yara.details && yara.details.length > 0) {
+    yaraHtml += `<div class="info-row"><span class="info-label">Risk Score</span><span class="info-value ${yara.risk_score > 50 ? 'info-danger' : 'info-warn'}">${yara.risk_score || 0} / 100</span></div>`;
+    yara.details.forEach(rule => {
+      yaraHtml += `<div class="yara-detail">
+        <div class="yara-rule-name">${escapeHtml(rule.rule || rule.name || 'Unknown')}</div>
+        <div class="yara-desc">${escapeHtml(rule.description || 'No description')}</div>
+        <div class="yara-risk">Risk: ${rule.risk || 0} | Pattern: ${escapeHtml((rule.pattern || '').substring(0, 50))}</div>
+      </div>`;
+    });
+  } else if (yara.matched_rules && yara.matched_rules.length > 0) {
+    yaraHtml += yara.matched_rules.map(rule => `<div class="info-row"><span class="info-label">Rule</span><span class="info-value info-warn">${escapeHtml(rule)}</span></div>`).join('');
+  } else {
+    yaraHtml += `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">✅ No YARA rules matched</span></div>`;
+  }
+  document.getElementById('df-yara').innerHTML = yaraHtml;
   
+  // 6. Hash Reputation
   const rep = d.hash_reputation || {};
   document.getElementById('df-reputation').innerHTML = `
-    <div class="info-row"><span class="info-label">Status</span><span class="info-value ${rep.is_malicious ? 'info-warn' : 'info-good'}">${rep.is_malicious ? '⚠️ Found' : '✅ Clean'}</span></div>
+    <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${rep.is_malicious ? 'info-danger' : 'info-good'}">${rep.is_malicious ? '⚠️ Found in database' : '✅ Clean'}</span></div>
+    <div class="info-row"><span class="info-label">Sources</span><span class="info-value">${(rep.sources || []).join(', ') || 'None'}</span></div>
+    <div class="info-row"><span class="info-label">Risk Score</span><span class="info-value ${rep.risk_score > 50 ? 'info-danger' : ''}">${rep.risk_score || 0}</span></div>
+    <div class="info-row"><span class="info-label">Detections</span><span class="info-value">${rep.detections?.length || 0}</span></div>
   `;
+  
+  // 7. VirusTotal
+  const vt = d.virustotal || {};
+  document.getElementById('df-virustotal').innerHTML = `
+    <div class="info-row"><span class="info-label">Verdict</span><span class="info-value ${vt.verdict === 'malicious' ? 'info-danger' : vt.verdict === 'suspicious' ? 'info-warn' : 'info-good'}">${vt.verdict || 'Unknown'}</span></div>
+    <div class="info-row"><span class="info-label">Malicious</span><span class="info-value info-danger">${vt.malicious || 0}</span></div>
+    <div class="info-row"><span class="info-label">Suspicious</span><span class="info-value info-warn">${vt.suspicious || 0}</span></div>
+    <div class="info-row"><span class="info-label">Harmless</span><span class="info-value info-good">${vt.harmless || 0}</span></div>
+    <div class="info-row"><span class="info-label">Undetected</span><span class="info-value">${vt.undetected || 0}</span></div>
+    <div class="info-row"><span class="info-label">Detection Rate</span><span class="info-value ${(vt.detection_rate || 0) > 10 ? 'info-warn' : 'info-good'}">${vt.detection_rate || 0}%</span></div>
+    <div class="info-row"><span class="info-label">Total Engines</span><span class="info-value">${vt.total_engines || 0}</span></div>
+  `;
+  
+  // 8. Warnings
+  const warnings = d.warnings || [];
+  document.getElementById('df-warnings').innerHTML = warnings.length > 0 
+    ? warnings.map(w => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${escapeHtml(w)}</span></div>`).join('')
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No warnings</span></div>';
+  
+  // 9. ExifTool Data
+  const exif = d.exiftool_data || {};
+  document.getElementById('df-exiftool').innerHTML = exif.available 
+    ? `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">Available</span></div>
+       <div class="info-row"><span class="info-label">Data</span><span class="info-value hash-value">${JSON.stringify(exif.data, null, 2).substring(0, 500)}...</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not available</span></div>';
+  
+  // 10. PE Analysis
+  const pe = d.metadata?.is_pe ? d.metadata : {};
+  document.getElementById('df-pe').innerHTML = pe.is_pe
+    ? `<div class="info-row"><span class="info-label">Machine</span><span class="info-value">${pe.machine || 'N/A'}</span></div>
+       <div class="info-row"><span class="info-label">Sections</span><span class="info-value">${pe.number_of_sections || 0}</span></div>
+       <div class="info-row"><span class="info-label">Entry Point</span><span class="info-value">${pe.entry_point || 'N/A'}</span></div>
+       <div class="info-row"><span class="info-label">Is DLL</span><span class="info-value">${pe.is_dll ? 'Yes' : 'No'}</span></div>
+       <div class="info-row"><span class="info-label">Imports</span><span class="info-value">${pe.imports?.length || 0}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PE file</span></div>';
+  
+  // 11. PDF Analysis
+  document.getElementById('df-pdf').innerHTML = d.metadata?.is_pdf
+    ? `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${d.metadata.has_javascript ? 'info-danger' : 'info-good'}">${d.metadata.has_javascript ? '⚠️ Detected' : 'Clean'}</span></div>
+       <div class="info-row"><span class="info-label">Launch Actions</span><span class="info-value ${d.metadata.has_launch ? 'info-danger' : 'info-good'}">${d.metadata.has_launch ? 'Yes' : 'No'}</span></div>
+       <div class="info-row"><span class="info-label">Embedded Files</span><span class="info-value">${d.metadata.has_attachments ? 'Yes' : 'No'}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PDF file</span></div>';
+  
+  // 12. Office Analysis
+  document.getElementById('df-office').innerHTML = d.metadata?.is_office
+    ? `<div class="info-row"><span class="info-label">Macros</span><span class="info-value ${d.metadata.has_macros ? 'info-danger' : 'info-good'}">${d.metadata.has_macros ? '⚠️ Detected' : 'Clean'}</span></div>
+       <div class="info-row"><span class="info-label">OLE Objects</span><span class="info-value">${d.metadata.has_ole ? 'Yes' : 'No'}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an Office file</span></div>';
+  
+  // 13. Script Analysis
+  document.getElementById('df-script').innerHTML = d.metadata?.is_script
+    ? `<div class="info-row"><span class="info-label">Language</span><span class="info-value">${d.metadata.language || 'Unknown'}</span></div>
+       <div class="info-row"><span class="info-label">Network Ops</span><span class="info-value ${d.metadata.has_network ? 'info-warn' : 'info-good'}">${d.metadata.has_network ? 'Yes' : 'No'}</span></div>
+       <div class="info-row"><span class="info-label">Obfuscation</span><span class="info-value ${d.metadata.has_obfuscation ? 'info-warn' : 'info-good'}">${d.metadata.has_obfuscation ? 'Yes' : 'No'}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a script file</span></div>';
+  
+  // 14. Archive Analysis
+  document.getElementById('df-archive').innerHTML = d.metadata?.is_archive
+    ? `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${d.metadata.type || 'Unknown'}</span></div>
+       <div class="info-row"><span class="info-label">Files</span><span class="info-value">${d.metadata.num_files || 0}</span></div>
+       <div class="info-row"><span class="info-label">Contains EXE</span><span class="info-value ${d.metadata.contains_executable ? 'info-danger' : 'info-good'}">${d.metadata.contains_executable ? '⚠️ Yes' : 'No'}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an archive</span></div>';
+  
+  // 15. Image Analysis
+  document.getElementById('df-image').innerHTML = d.metadata?.is_image
+    ? `<div class="info-row"><span class="info-label">Format</span><span class="info-value">${d.metadata.format || 'Unknown'}</span></div>
+       <div class="info-row"><span class="info-label">Dimensions</span><span class="info-value">${d.metadata.width || 0} x ${d.metadata.height || 0}</span></div>
+       <div class="info-row"><span class="info-label">Has EXIF</span><span class="info-value">${d.metadata.has_exif ? 'Yes' : 'No'}</span></div>`
+    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an image file</span></div>';
 }
 
 // Export functions
 document.getElementById('export-json').onclick = () => {
   if (!lastResult) return;
-  const dataStr = JSON.stringify({ ...lastResult, deep_analysis: lastDeepResult }, null, 2);
+  const dataStr = JSON.stringify(lastResult, null, 2);
   const blob = new Blob([dataStr], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `file-scan-${lastResult.filename}.json`;
+  a.download = `file-scan-${lastResult.filename || 'report'}.json`;
   a.click();
   URL.revokeObjectURL(url);
 };
 
 document.getElementById('copy-report').onclick = () => {
   if (!lastResult) return;
+  const d = lastResult;
   const report = `
-╔══════════════════════════════════════════════════════════════╗
-║                    File Security Report                      ║
-╠══════════════════════════════════════════════════════════════╣
-║ Filename: ${lastResult.filename}
-║ Size: ${lastResult.file_size_mb} MB
-║ Verdict: ${lastResult.verdict.toUpperCase()}
-║ Security Score: ${lastResult.security_score}/100
-╠══════════════════════════════════════════════════════════════╣
-║ VirusTotal: Malicious:${lastResult.virustotal.malicious || 0}
-║ Detection Rate: ${lastResult.virustotal.detection_rate || 0}%
-╠══════════════════════════════════════════════════════════════╣
+╔══════════════════════════════════════════════════════════════════╗
+║                    MyScanner - File Security Report              ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Filename: ${d.filename || 'Unknown'}
+║ Size: ${d.file_size_mb || 0} MB
+║ Verdict: ${(d.verdict || 'unknown').toUpperCase()}
+║ Security Score: ${d.security_score || 0}/100
+╠══════════════════════════════════════════════════════════════════╣
+║ HASES:
+║   MD5: ${d.hashes?.md5 || 'N/A'}
+║   SHA256: ${d.hashes?.sha256 || 'N/A'}
+╠══════════════════════════════════════════════════════════════════╣
+║ YARA Rules Matched: ${d.yara?.matched_rules?.length || 0}
+║   ${(d.yara?.matched_rules || []).join(', ')}
+╠══════════════════════════════════════════════════════════════════╣
+║ IoCs:
+║   IPs: ${d.iocs?.ipv4?.length || 0}
+║   URLs: ${d.iocs?.urls?.length || 0}
+║   Domains: ${d.iocs?.domains?.length || 0}
+╠══════════════════════════════════════════════════════════════════╣
+║ VirusTotal: ${d.virustotal?.verdict || 'Unknown'}
+║   Malicious: ${d.virustotal?.malicious || 0}
+║   Detection Rate: ${d.virustotal?.detection_rate || 0}%
+╠══════════════════════════════════════════════════════════════════╣
 ║ Generated by MyScanner File Security Tool
-╚══════════════════════════════════════════════════════════════╝
+║ Date: ${new Date().toLocaleString()}
+╚══════════════════════════════════════════════════════════════════╝
   `;
   navigator.clipboard.writeText(report);
   alert('✅ Report copied to clipboard!');

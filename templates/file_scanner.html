@@ -400,7 +400,12 @@ async function analyzeFile(file) {
   const formData = new FormData();
   formData.append('file', file);
   
+<<<<<<< HEAD
   try {
+=======
+   try {
+    // استخدام API الموحد الجديد
+>>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
     const response = await fetch('/api/scan-file', { 
       method: 'POST',
       body: formData
@@ -415,9 +420,15 @@ async function analyzeFile(file) {
     
     lastResult = data;
     renderResult(data);
+<<<<<<< HEAD
     renderFullDeepAnalysis(data);
     document.getElementById('file-info').style.display = 'block';
     document.getElementById('result-card').style.display = 'block';
+=======
+    renderDeepAnalysis(data); // إظهار التحليل العميق تلقائياً
+    document.getElementById('file-info').style.display = 'block';
+    document.getElementById('deep-analysis-results').style.display = 'block';
+>>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
     
   } catch (error) {
     document.getElementById('loading-div').style.display = 'none';
@@ -470,7 +481,11 @@ function renderResult(d) {
     <div class="stat-box"><div class="num">${vt.suspicious || 0}</div><div class="label">VT SUSPICIOUS</div></div>
   `;
   
+<<<<<<< HEAD
   // Threat Detections
+=======
+  // دمج تهديدات YARA و VirusTotal
+>>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
   let threatHtml = '';
   if (yara.matched_rules && yara.matched_rules.length > 0) {
     threatHtml += yara.matched_rules.map(rule => `
@@ -482,10 +497,17 @@ function renderResult(d) {
   }
   
   if (vt.threats && vt.threats.length > 0) {
+<<<<<<< HEAD
     threatHtml += vt.threats.slice(0, 15).map(t => `
       <div class="detection-item">
         <span class="detection-engine">${escapeHtml(t.engine)}</span>
         <span class="detection-result">${escapeHtml(t.result)}</span>
+=======
+    threatHtml += vt.threats.map(t => `
+      <div class="detection-item">
+        <span class="detection-engine">${t.engine}</span>
+        <span class="detection-result">${t.result}</span>
+>>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
       </div>
     `).join('');
   }
@@ -506,12 +528,18 @@ function renderResult(d) {
   }
 }
 
+<<<<<<< HEAD
 // ================================================================
 // FULL DEEP ANALYSIS - ALL FEATURES
 // ================================================================
 function renderFullDeepAnalysis(d) {
   
   // 1. HASHES - 5 types
+=======
+// Deep analysis is now integrated into the main analyzeFile function
+
+function renderDeepAnalysis(d) {
+>>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
   const hashes = d.hashes || {};
   document.getElementById('df-hashes').innerHTML = `
     <div class="deep-card"><h4><span class="icon">🔐</span> MD5</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.md5 || 'N/A'}</div></div>

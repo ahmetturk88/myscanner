@@ -31,7 +31,7 @@ from email_validator import validate_email, EmailNotValidError
 from typing import Any
 from services.domain_analyzer import DomainAnalyzer
 from services.site_analyzer import SiteAnalyzer
-from services.url_analyzer import URLAnalyzer
+from services.url_analyzer import URLDeepAnalyzer
 from services.subdomain_finder import SubdomainFinder
 from services.password_analyzer import PasswordAnalyzer
 from models import User, Scan
@@ -40,11 +40,13 @@ from services.ip_analyzer import IPAnalyzer
 from services.domain_analyzer import DomainAnalyzer
 from services.ssl_analyzer import SSLAnalyzer
 from services.qr_analyzer import QRAnalyzer
-from services.url_deep_analyzer import URLDeepAnalyzer
 from services.file_deep_analyzer import FileDeepAnalyzer  # ✅ صحيح
-from services.url_deep_analyzer import URLDeepAnalyzer 
 from werkzeug.utils import secure_filename
-  
+from celery.result import AsyncResult
+from celery_config import celery
+from tasks import scan_file_task, scan_site_task, batch_scan_task, scan_large_file_task
+import uuid
+
 
 load_dotenv()
 
@@ -94,6 +96,7 @@ print("[REDIS] Disabled - running without cache")
 # ================================================================
 
 db.init_app(app)
+from tasks import celery
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
@@ -677,6 +680,155 @@ def api_file_deep_analysis():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    # ================================================================
+# API: بدء فحص ملف غير متزامن
+# ================================================================
+
+@app.route('/api/async-scan-file', methods=['POST'])
+@login_required
+def async_scan_file():
+    """
+    بدء فحص ملف في الخلفية (غير متزامن)
+    يعود فوراً بـ task_id لتتبع التقدم
+    """
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    
+    # حفظ الملف مؤقتاً
+    task_id = str(uuid.uuid4())
+    temp_path = os.path.join(UPLOAD_FOLDER, f"{task_id}_{file.filename}")
+    file.save(temp_path)
+    
+    # بدء المهمة في الخلفية
+    task = scan_file_task.delay(temp_path, file.filename, current_user.id)
+    
+    return jsonify({
+        "task_id": task.id,
+        "status": "started",
+        "message": "File scan started in background"
+    })
+
+
+# ================================================================
+# API: التحقق من حالة مهمة
+# ================================================================
+
+@app.route('/api/task-status/<task_id>')
+@login_required
+def task_status(task_id):
+    """
+    التحقق من حالة مهمة غير متزامنة
+    """
+    task = AsyncResult(task_id, app=celery)
+    
+    if task.state == 'PENDING':
+        response = {
+            'state': 'PENDING',
+            'status': 'Task is waiting to start...',
+            'progress': 0
+        }
+    elif task.state == 'STARTED':
+        response = {
+            'state': 'STARTED',
+            'status': 'Task is running...',
+            'progress': task.info.get('progress', 0) if task.info else 0
+        }
+    elif task.state == 'RUNNING':
+        response = {
+            'state': 'RUNNING',
+            'status': task.info.get('status', 'Processing...'),
+            'progress': task.info.get('progress', 0)
+        }
+    elif task.state == 'SUCCESS':
+        response = {
+            'state': 'SUCCESS',
+            'status': 'Task completed successfully',
+            'result': task.result,
+            'progress': 100
+        }
+    elif task.state == 'FAILURE':
+        response = {
+            'state': 'FAILURE',
+            'status': 'Task failed',
+            'error': str(task.info),
+            'progress': 0
+        }
+    else:
+        response = {
+            'state': task.state,
+            'status': 'Unknown state',
+            'progress': 0
+        }
+    
+    return jsonify(response)
+
+
+# ================================================================
+# API: بدء فحص موقع غير متزامن
+# ================================================================
+
+@app.route('/api/async-scan-site', methods=['POST'])
+@login_required
+def async_scan_site():
+    """
+    بدء فحص موقع في الخلفية
+    """
+    data = request.get_json()
+    domain = data.get('domain', '').strip()
+    
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+    
+    # إنشاء سجل فحص جديد
+    new_scan = Scan(
+        url=f"https://{domain}", 
+        verdict='pending', 
+        result='pending', 
+        user_id=current_user.id,
+        status='queued'
+    )
+    db.session.add(new_scan)
+    db.session.commit()
+    
+    # بدء المهمة في الخلفية
+    task = scan_site_task.delay(domain, current_user.id, new_scan.id)
+    
+    return jsonify({
+        "task_id": task.id,
+        "scan_id": new_scan.id,
+        "status": "started",
+        "message": "Site scan started in background"
+    })
+
+
+# ================================================================
+# API: فحص عدة روابط دفعة واحدة
+# ================================================================
+
+@app.route('/api/batch-scan', methods=['POST'])
+@login_required
+def batch_scan():
+    """
+    فحص مجموعة من الروابط دفعة واحدة
+    """
+    data = request.get_json()
+    urls = data.get('urls', [])
+    
+    if not urls or len(urls) > 20:
+        return jsonify({"error": "Provide 1-20 URLs"}), 400
+    
+    task = batch_scan_task.delay(urls, current_user.id)
+    
+    return jsonify({
+        "task_id": task.id,
+        "total_urls": len(urls),
+        "status": "started",
+        "message": f"Batch scan of {len(urls)} URLs started"
+    })
     
 # Removed redundant and broken scan-file route
 
@@ -1215,37 +1367,37 @@ def api_url_analysis(scan_id):
     url = scan.url
     domain = urlparse(url).netloc
     
-    # تحليل محلي متقدم
-    analyzer = URLAnalyzer()
+    # استخدام المحلل المدمج (يحل محل URLAnalyzer و URLDeepAnalyzer)
+    analyzer = URLDeepAnalyzer()
+    
+    # تحليل سريع (بدون جلب محتوى الصفحة)
     local_analysis = analyzer.comprehensive_analysis(url)
 
-    # ========== التحليل العميق الجديد ==========
-    deep_analyzer = URLDeepAnalyzer()
-    deep_analysis = deep_analyzer.comprehensive_deep_analysis(url)
-    # ==========================================
+    # تحليل عميق (مع جلب محتوى الصفحة)
+    deep_analysis = analyzer.comprehensive_deep_analysis(url)
     
     # تحليلات إضافية
     analysis = {
         "redirect_chain": [],
         "final_url": url,
         "cookies": [],
-        "security_headers": local_analysis["security_headers"]["headers"],
+        "security_headers": local_analysis.get("security_headers", {}).get("headers", {}),
         "tech_stack": [],
         "screenshot": f"https://image.thum.io/get/1024x768/crop/{url}",
         "whois": {},
         "geo": {},
         "similar_sites": [],
         "history_scans": [],
-        # ميزات قديمة
-        "url_structure": local_analysis["structure"],
-        "phishing_indicators": local_analysis["phishing"],
-        "ssl_info": local_analysis["ssl"],
-        "dns_records": local_analysis["dns"],
-        "is_shortened": local_analysis["is_shortened"],
-        "security_score": local_analysis["security_score"],
-        "verdict": local_analysis["verdict"],
-        "recommendations": local_analysis["recommendations"],
-        # ========== ميزات التحليل العميق الجديدة ==========
+        # ميزات التحليل السريع
+        "url_structure": local_analysis.get("structure", {}),
+        "phishing_indicators": local_analysis.get("phishing", {}),
+        "ssl_info": local_analysis.get("ssl", {}),
+        "dns_records": local_analysis.get("dns", {}),
+        "is_shortened": local_analysis.get("is_shortened", False),
+        "security_score": local_analysis.get("security_score", 0),
+        "verdict": local_analysis.get("verdict", "unknown"),
+        "recommendations": local_analysis.get("recommendations", []),
+        # ميزات التحليل العميق
         "deep_analysis": {
             "page_content": deep_analysis.get("page_content", {}),
             "behavior": deep_analysis.get("behavior", {}),
@@ -1273,7 +1425,7 @@ def api_url_analysis(scan_id):
     except:
         pass
     
-    # WHOIS
+    # WHOIS (إضافي)
     try:
         whois_resp = requests.get(f"https://www.whoisxmlapi.com/whoisserver/WhoisService?domainName={domain}&apiKey=at_free_demo_key&outputFormat=JSON", timeout=10)
         if whois_resp.status_code == 200:

@@ -1,4 +1,13 @@
+# ================================================================
+# render.yaml - MyScanner Full Deployment Configuration
+# تاريخ التحديث: 20/05/2026
+# يتضمن: Flask Web, Celery Worker, Redis, PostgreSQL
+# ================================================================
+
 services:
+  # ================================================================
+  # 1. خدمة الويب الرئيسية (Flask Application)
+  # ================================================================
   - type: web
     name: myscanner
     runtime: python
@@ -6,12 +15,111 @@ services:
     startCommand: gunicorn app:app
     envVars:
       - key: SECRET_KEY
-        value: your-secret-key
+        value: your-secret-key-here-change-it
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: VIRUSTOTAL_API_KEY
-        value: your-key
+        value: your-virustotal-api-key
       - key: ABSTRACT_API_KEY
-        value: your-key
+        value: your-abstract-api-key
+      - key: ABUSEIPDB_API_KEY
+        value: your-abuseipdb-api-key
+      - key: RESEND_API_KEY
+        value: your-resend-api-key
       - key: MAIL_USERNAME
-        value: your-email
+        value: your-email@gmail.com
       - key: MAIL_PASSWORD
         value: your-app-password
+      - key: DATABASE_URL
+        fromDatabase:
+          name: myscanner-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: redis
+          type: redis
+          property: connectionString
+
+  # ================================================================
+  # 2. خدمة Celery Worker (المهام غير المتزامنة)
+  # ================================================================
+  - type: worker
+    name: celery-worker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A tasks worker --loglevel=info --pool=solo
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: redis
+          type: redis
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: myscanner-db
+          property: connectionString
+      - key: SECRET_KEY
+        value: your-secret-key-here-change-it
+      - key: VIRUSTOTAL_API_KEY
+        value: your-virustotal-api-key
+      - key: ABSTRACT_API_KEY
+        value: your-abstract-api-key
+      - key: ABUSEIPDB_API_KEY
+        value: your-abuseipdb-api-key
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  # ================================================================
+  # 3. خدمة Celery Beat (للمهام المجدولة - اختياري)
+  # ================================================================
+  - type: worker
+    name: celery-beat
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A tasks beat --loglevel=info
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: redis
+          type: redis
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: myscanner-db
+          property: connectionString
+      - key: SECRET_KEY
+        value: your-secret-key-here-change-it
+
+  # ================================================================
+  # 4. خدمة Flower (مراقبة Celery - اختياري)
+  # ================================================================
+  - type: web
+    name: flower
+    runtime: python
+    buildCommand: pip install flower
+    startCommand: flower --broker=$REDIS_URL --port=5555
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: redis
+          type: redis
+          property: connectionString
+      - key: FLOWER_BASIC_AUTH
+        value: admin:password
+
+  # ================================================================
+  # 5. خدمة Redis (ذاكرة تخزين مؤقت وتنسيق المهام)
+  # ================================================================
+  - type: redis
+    name: redis
+    plan: free
+    ipAllowList: []
+
+  # ================================================================
+  # 6. خدمة PostgreSQL (قاعدة البيانات الرئيسية)
+  # ================================================================
+  - type: postgresql
+    name: myscanner-db
+    plan: free
+    postgresqlMajorVersion: 15
+    ipAllowList: []

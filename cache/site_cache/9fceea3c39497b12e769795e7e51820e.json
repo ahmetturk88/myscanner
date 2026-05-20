@@ -1,0 +1,230 @@
+{
+  "domain": "www.klu.edu.tr",
+  "cached_at": "2026-05-20T11:06:54.565583",
+  "result": {
+    "domain": "www.klu.edu.tr",
+    "url": "https://www.klu.edu.tr/Resimler/1409-ogrenci-bilgi-sistemi.klu",
+    "status": "success",
+    "from_cache": false,
+    "timestamp": "2026-05-20T11:06:54.560813",
+    "vulnerabilities": {
+      "static": {
+        "sql_injection": [],
+        "xss": [
+          {
+            "pattern": "<script[^>]*>.*?</script>",
+            "description": "Script tag detected in response",
+            "matches": 21
+          },
+          {
+            "pattern": "javascript:",
+            "description": "JavaScript pseudo-protocol detected",
+            "matches": 2
+          }
+        ],
+        "other_vulnerabilities": [],
+        "risk_score": 30,
+        "total_findings": 2
+      },
+      "dynamic": {
+        "tested_endpoints": [],
+        "sql_injection_suspected": false,
+        "xss_suspected": false,
+        "risk_score": 0,
+        "details": []
+      },
+      "overall_risk": 30
+    },
+    "security_headers": {
+      "headers": {
+        "strict_transport_security": "Missing",
+        "content_security_policy": "Missing",
+        "x_frame_options": "Missing",
+        "x_content_type_options": "Missing",
+        "x_xss_protection": "Missing",
+        "referrer_policy": "Missing",
+        "permissions_policy": "Missing",
+        "cross_origin_opener_policy": "Missing",
+        "cross_origin_embedder_policy": "Missing",
+        "cache_control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      },
+      "analysis": {
+        "hsts": {
+          "status": "missing",
+          "recommendation": "Enable HSTS with max-age=31536000"
+        },
+        "csp": {
+          "status": "missing",
+          "recommendation": "Implement Content Security Policy (CSP)"
+        },
+        "xfo": {
+          "status": "missing",
+          "recommendation": "Set X-Frame-Options: DENY"
+        },
+        "xcto": {
+          "status": "missing",
+          "recommendation": "Set X-Content-Type-Options: nosniff"
+        },
+        "xxp": {
+          "status": "missing",
+          "recommendation": "Set X-XSS-Protection: 1; mode=block"
+        },
+        "referrer": {
+          "status": "missing",
+          "recommendation": "Set Referrer-Policy: strict-origin-when-cross-origin"
+        },
+        "permissions": {
+          "status": "missing",
+          "recommendation": "Consider implementing Permissions-Policy"
+        }
+      },
+      "score": 0,
+      "grade": "F",
+      "recommendations": [
+        "Enable HSTS with max-age=31536000",
+        "Implement Content Security Policy (CSP)",
+        "Set X-Frame-Options: DENY",
+        "Set X-Content-Type-Options: nosniff",
+        "Set X-XSS-Protection: 1; mode=block",
+        "Set Referrer-Policy: strict-origin-when-cross-origin",
+        "Consider implementing Permissions-Policy"
+      ]
+    },
+    "ssl": {
+      "valid": true,
+      "domain": "www.klu.edu.tr",
+      "issuer": "RapidSSL TLS RSA CA G1",
+      "subject": "*.klu.edu.tr",
+      "version": 2,
+      "serial_number": "0xa94fcc8b50de8bda3599fe55dd3e58e",
+      "valid_from": "2025-06-03",
+      "valid_until": "2026-06-02",
+      "days_remaining": 13,
+      "days_since_issue": 351,
+      "signature_algorithm": "sha256WithRSAEncryption",
+      "tls_version": "TLSv1.2",
+      "cipher_strength": "ECDHE-RSA-AES256-GCM-SHA384 (TLSv1.2 bits)",
+      "certificate_chain": [],
+      "vulnerabilities": [],
+      "grade": "F",
+      "risk_score": 50,
+      "error": "'X509' object has no attribute 'get_extension'"
+    },
+    "robots_txt": {
+      "exists": true,
+      "content": "<!DOCTYPE html>\r\n<html lang=\"tr\">\r\n<head>\r\n    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\r\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n    <!--[if gt IE 8]> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" /> <![endif]-->\r\n    <base href=\"https://www.klu.edu.tr/\" /><title>KLU - Rektörlük</title><meta name=\"description\" content=\"KLU - Rektörlük\"><meta name=\"keywords\" content=\"Kırklareli Üniversitesi, KLU,Rektörlük\"><meta name=\"author\" content=\"Kırklareli Üniversitesi Bilgi İşlem Daire Başkanlığı\"><meta name=\"copyright\" content=\"Kırklareli Üniversitesi Bilgi İşlem Daire Başkanlığı\"><meta name=\"robots\" content=\"index, follow\"><meta name=\"googlebot\" content=\"index, follow\"><meta name=\"google\" content=\"notranslate\"><meta name=\"revisit-after\" content=\"2 days\">    <link rel=\"icon\" type=\"image/ico\" href=\"../icerikler/favicon.ico\"/>\r\n    <link href=\"anadizin/icerikler/css/style_test.css\" rel=\"stylesheet\" type=\"text/css\"/>\r\n    <style type=\"text/css\">\r\n    .font{ font-family: \"Trebuchet MS\"; }\r\n\r\n    .bayrak{text-align: center;}\r\n    .sosyal{text-align: center;}\r\n\r\n    .logo,.yazi,.detay{float: left;}\r\n    .dikey-cizgi-footer{\r\n        padding-left: 3px;\r\n    }\r\n    .araclar\r\n    {\r\n        padding: 10px 10px; \r\n        margin-top: 0;\r\n\r\n    }\r\n    .ahoverimg{\r\n        background-color: white;\r\n        width: 35px;\r\n        border-radius: 3px;\r\n    }\r\n    .ahoverimg:hover{\r\n        animation-duration: 1s;\r\n        position: relative;\r\n        left:0px; bottom:2px;\r\n    }\r\n    .istatistik-info-content{\r\n        display: flex;\r\n        flex-direction: row;\r\n        flex-wrap: wrap;\r\n        width: 100%;\r\n        justify-content: center;\r\n    }\r\n\r\n    .istatistik-info-content span{\r\n        min-width: 120px;\r\n        margin-bottom: 2px;\r\n    }\r\n    .istatistik-info-content span:hover ul li{\r\n        color: #1386c2 !important;\r\n    }\r\n    .istatistik-info-content span ul{\r\n        display: inline;\r\n        list-style: n",
+      "disallowed_paths": [],
+      "allowed_paths": [],
+      "sitemaps": [],
+      "user_agents": [],
+      "sensitive_paths_found": [],
+      "risk_score": 0,
+      "recommendations": []
+    },
+    "sitemap": {
+      "exists": true,
+      "urls": [],
+      "total_urls": 0,
+      "sensitive_urls_found": [],
+      "risk_score": 0,
+      "recommendations": []
+    },
+    "dns": {
+      "a_records": [
+        "79.123.216.37"
+      ],
+      "aaaa_records": [],
+      "mx_records": [],
+      "ns_records": [],
+      "txt_records": [],
+      "cname_records": [],
+      "soa_record": null,
+      "has_spf": false,
+      "has_dmarc": false,
+      "spf_record": null,
+      "dmarc_record": null,
+      "risk_score": 65,
+      "warnings": [
+        "No MX records - email may not work",
+        "No NS records found",
+        "No SPF record - email spoofing possible",
+        "No DMARC record - email authentication weak"
+      ]
+    },
+    "phishing": {
+      "is_phishing_suspected": false,
+      "issues": [],
+      "risk_score": 0,
+      "severity": "low"
+    },
+    "reputation": {
+      "is_blacklisted": false,
+      "blacklist_sources": [],
+      "risk_score": 0,
+      "details": []
+    },
+    "performance": {
+      "load_time_ms": 352.57,
+      "page_size_kb": 47.68,
+      "resource_count": 40,
+      "resources_breakdown": {
+        "images": 18,
+        "scripts": 21,
+        "stylesheets": 1,
+        "total": 40
+      },
+      "grade": "A+",
+      "score": 100,
+      "risk_score": 0
+    },
+    "seo": {
+      "title": "Öğrenci Bilgi Sistemi - KLU - Rektörlük",
+      "description": "",
+      "keywords": "",
+      "h1_tags": [],
+      "h2_tags": [],
+      "has_meta_description": true,
+      "has_meta_keywords": true,
+      "images_without_alt": 4,
+      "total_images": 18,
+      "seo_score": 100
+    },
+    "mobile": {
+      "has_viewport": true,
+      "is_mobile_friendly": true,
+      "viewport_content": "width=device-width, initial-scale=1"
+    },
+    "stats": {
+      "internal_links": 31,
+      "external_links": 62,
+      "scripts": 21,
+      "external_scripts": 19,
+      "images": 18,
+      "forms": 0,
+      "iframes": 0
+    },
+    "security_score": 54,
+    "risk_score": 46,
+    "verdict": "risky",
+    "verdict_icon": "🔴",
+    "severity": "high",
+    "severity_color": "orange",
+    "risk_factors": [],
+    "recommendations": [
+      "⚠️ SSL certificate expires in 13 days - renew soon",
+      "🛡️ Enable HSTS with max-age=31536000",
+      "🛡️ Implement Content Security Policy (CSP)",
+      "🛡️ Set X-Frame-Options: DENY",
+      "🔍 2 potential vulnerabilities found - review code",
+      "📧 Add SPF record to prevent email spoofing",
+      "📧 Add DMARC record for email authentication"
+    ],
+    "summary": {
+      "has_ssl": true,
+      "has_hsts": false,
+      "has_csp": false,
+      "vulnerabilities_found": 2,
+      "phishing_suspected": false
+    }
+  }
+}

@@ -85,8 +85,13 @@
   .recommendations li { padding: 6px 0; font-size: 12px; line-height: 1.5; color: var(--text); }
   
   /* Deep Analysis Sections - FULL VERSION */
-  .deep-section-title { font-family: var(--mono); font-size: 13px; color: var(--accent); margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .deep-section-title { font-family: var(--mono); font-size: 13px; color: var(--accent); margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
   .deep-section-title:first-of-type { margin-top: 0; }
+  .deep-section-title:after { content: ' ▼'; font-size: 8px; color: var(--muted); }
+  .deep-section-title.collapsed:after { content: ' ▶'; }
+  
+  .collapsible-content { max-height: 2000px; overflow: hidden; transition: max-height 0.3s ease; }
+  .collapsible-content.collapsed { max-height: 0; }
   
   .grid-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px; }
   .grid-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -156,12 +161,6 @@
   ::-webkit-scrollbar-track { background: var(--surface2); border-radius: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-  
-  .collapsible { cursor: pointer; user-select: none; }
-  .collapsible:after { content: ' ▼'; font-size: 8px; color: var(--muted); }
-  .collapsible.collapsed:after { content: ' ▶'; }
-  .collapsible-content { max-height: 1000px; overflow: hidden; transition: max-height 0.3s ease; }
-  .collapsible-content.collapsed { max-height: 0; }
 </style>
 {% endblock %}
 
@@ -176,7 +175,7 @@
   <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
     <div class="upload-icon">📁</div>
     <h3>Drop file here or click to upload</h3>
-    <p>Max size: 10 MB | Supported: exe, dll, pdf, doc, docx, xls, xlsx, zip, js, py, ps1, sh, bat, vbs, scr, msi</p>
+    <p>Max size: 10 MB | Supported: exe, dll, pdf, doc, docx, xls, xlsx, ppt, pptx, zip, rar, 7z, js, py, ps1, sh, bat, vbs, scr, msi</p>
     <input type="file" id="file-input" style="display:none" onchange="analyzeFile(this.files[0])">
   </div>
   
@@ -210,122 +209,122 @@
     <div id="deep-analysis-container">
       
       <!-- Section 1: Hashes (5 types) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🔐</span> FILE HASHES
       </div>
-      <div class="collapsible-content" id="df-hashes-section">
+      <div class="collapsible-content">
         <div class="grid-4col" id="df-hashes"></div>
       </div>
       
       <!-- Section 2: File Type Details -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📄</span> FILE TYPE & DETECTION
       </div>
-      <div class="collapsible-content" id="df-filetype-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-filetype"></div>
       </div>
       
       <!-- Section 3: Metadata (Full) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📋</span> METADATA ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-metadata-section">
+      <div class="collapsible-content">
         <div class="grid-2col" id="df-metadata"></div>
       </div>
       
       <!-- Section 4: Indicators of Compromise (All 11 types) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🎯</span> INDICATORS OF COMPROMISE (IoCs)
       </div>
-      <div class="collapsible-content" id="df-iocs-section">
+      <div class="collapsible-content">
         <div class="grid-3col" id="df-iocs"></div>
       </div>
       
       <!-- Section 5: YARA Rules (Full details) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📜</span> YARA RULES
       </div>
-      <div class="collapsible-content" id="df-yara-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-yara"></div>
       </div>
       
       <!-- Section 6: Hash Reputation -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🛡️</span> HASH REPUTATION
       </div>
-      <div class="collapsible-content" id="df-reputation-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-reputation"></div>
       </div>
       
       <!-- Section 7: VirusTotal Results -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🦠</span> VIRUSTOTAL ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-vt-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-virustotal"></div>
       </div>
       
       <!-- Section 8: Warnings -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">⚠️</span> WARNINGS
       </div>
-      <div class="collapsible-content" id="df-warnings-section">
+      <div class="collapsible-content">
         <div class="deep-card warning-list" id="df-warnings"></div>
       </div>
       
       <!-- Section 9: ExifTool Data (if available) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📸</span> EXIFTOOL METADATA
       </div>
-      <div class="collapsible-content" id="df-exiftool-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-exiftool"></div>
       </div>
       
       <!-- Section 10: PE Analysis (if applicable) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🔧</span> PE EXECUTABLE ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-pe-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-pe"></div>
       </div>
       
       <!-- Section 11: PDF Analysis (if applicable) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📑</span> PDF ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-pdf-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-pdf"></div>
       </div>
       
       <!-- Section 12: Office Analysis (if applicable) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📊</span> OFFICE DOCUMENT ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-office-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-office"></div>
       </div>
       
       <!-- Section 13: Script Analysis (if applicable) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">📜</span> SCRIPT ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-script-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-script"></div>
       </div>
       
       <!-- Section 14: Archive Analysis (if applicable) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🗜️</span> ARCHIVE ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-archive-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-archive"></div>
       </div>
       
       <!-- Section 15: Image Analysis (if applicable) -->
-      <div class="deep-section-title collapsible" onclick="toggleCollapse(this)">
+      <div class="deep-section-title" onclick="toggleCollapse(this)">
         <span class="icon">🖼️</span> IMAGE ANALYSIS
       </div>
-      <div class="collapsible-content" id="df-image-section">
+      <div class="collapsible-content">
         <div class="deep-card" id="df-image"></div>
       </div>
       
@@ -347,71 +346,91 @@ let lastResult = null;
 function toggleCollapse(el) {
   el.classList.toggle('collapsed');
   const content = el.nextElementSibling;
-  content.classList.toggle('collapsed');
+  if (content) {
+    content.classList.toggle('collapsed');
+  }
 }
 
 function expandAll() {
-  document.querySelectorAll('.collapsible').forEach(el => {
+  document.querySelectorAll('.deep-section-title').forEach(el => {
     el.classList.remove('collapsed');
-    el.nextElementSibling.classList.remove('collapsed');
+    const content = el.nextElementSibling;
+    if (content) content.classList.remove('collapsed');
   });
 }
 
 function collapseAll() {
-  document.querySelectorAll('.collapsible').forEach(el => {
+  document.querySelectorAll('.deep-section-title').forEach(el => {
     el.classList.add('collapsed');
-    el.nextElementSibling.classList.add('collapsed');
+    const content = el.nextElementSibling;
+    if (content) content.classList.add('collapsed');
+  });
+}
+
+// Escape HTML function
+function escapeHtml(str) {
+  if (!str) return 'N/A';
+  return String(str).replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
   });
 }
 
 // Drag & Drop
-document.getElementById('upload-area').addEventListener('dragover', (e) => {
-  e.preventDefault();
-  document.getElementById('upload-area').classList.add('drag-over');
-});
+const uploadArea = document.getElementById('upload-area');
+if (uploadArea) {
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('drag-over');
+  });
 
-document.getElementById('upload-area').addEventListener('dragleave', () => {
-  document.getElementById('upload-area').classList.remove('drag-over');
-});
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('drag-over');
+  });
 
-document.getElementById('upload-area').addEventListener('drop', (e) => {
-  e.preventDefault();
-  document.getElementById('upload-area').classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) analyzeFile(file);
-});
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) analyzeFile(file);
+  });
+}
 
 async function analyzeFile(file) {
   if (!file) return;
   
-  document.getElementById('file-info').style.display = 'none';
-  document.getElementById('result-card').style.display = 'none';
-  document.getElementById('loading-div').style.display = 'block';
+  const fileInfoDiv = document.getElementById('file-info');
+  const resultCard = document.getElementById('result-card');
+  const loadingDiv = document.getElementById('loading-div');
+  
+  if (fileInfoDiv) fileInfoDiv.style.display = 'none';
+  if (resultCard) resultCard.style.display = 'none';
+  if (loadingDiv) loadingDiv.style.display = 'block';
   
   // Pre-scan info
   const fileInfoGrid = document.getElementById('file-info-grid');
-  fileInfoGrid.innerHTML = `
-    <div class="info-item"><span class="info-label">📄 Name</span><span class="info-value">${escapeHtml(file.name)}</span></div>
-    <div class="info-item"><span class="info-label">📦 Size</span><span class="info-value">${(file.size / 1024 / 1024).toFixed(2)} MB</span></div>
-    <div class="info-item"><span class="info-label">📅 Modified</span><span class="info-value">${new Date(file.lastModified).toLocaleString()}</span></div>
-    <div class="info-item"><span class="info-label">🔖 Type</span><span class="info-value">${file.type || 'Unknown'}</span></div>
-  `;
+  if (fileInfoGrid) {
+    fileInfoGrid.innerHTML = `
+      <div class="info-item"><span class="info-label">📄 Name</span><span class="info-value">${escapeHtml(file.name)}</span></div>
+      <div class="info-item"><span class="info-label">📦 Size</span><span class="info-value">${(file.size / 1024 / 1024).toFixed(2)} MB</span></div>
+      <div class="info-item"><span class="info-label">📅 Modified</span><span class="info-value">${new Date(file.lastModified).toLocaleString()}</span></div>
+      <div class="info-item"><span class="info-label">🔖 Type</span><span class="info-value">${file.type || 'Unknown'}</span></div>
+    `;
+  }
   
   const formData = new FormData();
   formData.append('file', file);
   
-<<<<<<< HEAD
   try {
-=======
-   try {
-    // استخدام API الموحد الجديد
->>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
     const response = await fetch('/api/scan-file', { 
       method: 'POST',
       body: formData
     });
     const data = await response.json();
-    document.getElementById('loading-div').style.display = 'none';
+    
+    if (loadingDiv) loadingDiv.style.display = 'none';
     
     if (data.error) {
       alert('Error: ' + data.error);
@@ -420,30 +439,15 @@ async function analyzeFile(file) {
     
     lastResult = data;
     renderResult(data);
-<<<<<<< HEAD
     renderFullDeepAnalysis(data);
-    document.getElementById('file-info').style.display = 'block';
-    document.getElementById('result-card').style.display = 'block';
-=======
-    renderDeepAnalysis(data); // إظهار التحليل العميق تلقائياً
-    document.getElementById('file-info').style.display = 'block';
-    document.getElementById('deep-analysis-results').style.display = 'block';
->>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
+    
+    if (fileInfoDiv) fileInfoDiv.style.display = 'block';
+    if (resultCard) resultCard.style.display = 'block';
     
   } catch (error) {
-    document.getElementById('loading-div').style.display = 'none';
+    if (loadingDiv) loadingDiv.style.display = 'none';
     alert('Network error: ' + error.message);
   }
-}
-
-function escapeHtml(str) {
-  if (!str) return 'N/A';
-  return str.replace(/[&<>]/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    return m;
-  });
 }
 
 function renderResult(d) {
@@ -456,36 +460,43 @@ function renderResult(d) {
   const v = verdicts[d.verdict] || verdicts.suspicious;
   
   const banner = document.getElementById('verdict-banner');
-  banner.className = `verdict-banner ${v.cls}`;
-  banner.innerHTML = `<div class="v-icon">${v.icon}</div><div><h3>${v.title}</h3><p>${v.subtitle}</p></div>`;
+  if (banner) {
+    banner.className = `verdict-banner ${v.cls}`;
+    banner.innerHTML = `<div class="v-icon">${v.icon}</div><div><h3>${v.title}</h3><p>${v.subtitle}</p></div>`;
+  }
   
   const score = d.security_score || 0;
   const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : score >= 20 ? 'var(--orange)' : 'var(--red)';
-  document.getElementById('score-fill').style.width = score + '%';
-  document.getElementById('score-fill').style.background = color;
-  document.getElementById('score-num').innerHTML = `<span style="color:${color}">${score}</span> / 100`;
+  
+  const scoreFill = document.getElementById('score-fill');
+  if (scoreFill) {
+    scoreFill.style.width = score + '%';
+    scoreFill.style.background = color;
+  }
+  
+  const scoreNum = document.getElementById('score-num');
+  if (scoreNum) scoreNum.innerHTML = `<span style="color:${color}">${score}</span> / 100`;
   
   const yara = d.yara || {};
   const metadata = d.metadata || {};
   const iocs = d.iocs || {};
   const vt = d.virustotal || {};
   
-  document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-box"><div class="num">${yara.matched_rules?.length || 0}</div><div class="label">YARA RULES</div></div>
-    <div class="stat-box"><div class="num">${iocs.urls?.length || 0}</div><div class="label">URLs FOUND</div></div>
-    <div class="stat-box"><div class="num">${iocs.ipv4?.length || 0}</div><div class="label">IPs FOUND</div></div>
-    <div class="stat-box"><div class="num">${metadata.has_macros ? 'Yes' : 'No'}</div><div class="label">MACROS</div></div>
-    <div class="stat-box"><div class="num">${metadata.has_javascript ? 'Yes' : 'No'}</div><div class="label">JAVASCRIPT</div></div>
-    <div class="stat-box"><div class="num">${d.file_size_mb || 0} MB</div><div class="label">SIZE</div></div>
-    <div class="stat-box"><div class="num">${vt.malicious || 0}</div><div class="label">VT MALICIOUS</div></div>
-    <div class="stat-box"><div class="num">${vt.suspicious || 0}</div><div class="label">VT SUSPICIOUS</div></div>
-  `;
+  const statsGrid = document.getElementById('stats-grid');
+  if (statsGrid) {
+    statsGrid.innerHTML = `
+      <div class="stat-box"><div class="num">${yara.matched_rules?.length || 0}</div><div class="label">YARA RULES</div></div>
+      <div class="stat-box"><div class="num">${iocs.urls?.length || 0}</div><div class="label">URLs FOUND</div></div>
+      <div class="stat-box"><div class="num">${iocs.ipv4?.length || 0}</div><div class="label">IPs FOUND</div></div>
+      <div class="stat-box"><div class="num">${metadata.has_macros ? 'Yes' : 'No'}</div><div class="label">MACROS</div></div>
+      <div class="stat-box"><div class="num">${metadata.has_javascript ? 'Yes' : 'No'}</div><div class="label">JAVASCRIPT</div></div>
+      <div class="stat-box"><div class="num">${d.file_size_mb || 0} MB</div><div class="label">SIZE</div></div>
+      <div class="stat-box"><div class="num">${vt.malicious || 0}</div><div class="label">VT MALICIOUS</div></div>
+      <div class="stat-box"><div class="num">${vt.suspicious || 0}</div><div class="label">VT SUSPICIOUS</div></div>
+    `;
+  }
   
-<<<<<<< HEAD
   // Threat Detections
-=======
-  // دمج تهديدات YARA و VirusTotal
->>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
   let threatHtml = '';
   if (yara.matched_rules && yara.matched_rules.length > 0) {
     threatHtml += yara.matched_rules.map(rule => `
@@ -497,81 +508,77 @@ function renderResult(d) {
   }
   
   if (vt.threats && vt.threats.length > 0) {
-<<<<<<< HEAD
     threatHtml += vt.threats.slice(0, 15).map(t => `
       <div class="detection-item">
         <span class="detection-engine">${escapeHtml(t.engine)}</span>
         <span class="detection-result">${escapeHtml(t.result)}</span>
-=======
-    threatHtml += vt.threats.map(t => `
-      <div class="detection-item">
-        <span class="detection-engine">${t.engine}</span>
-        <span class="detection-result">${t.result}</span>
->>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
       </div>
     `).join('');
   }
   
-  if (threatHtml) {
-    document.getElementById('detection-list').style.display = 'block';
-    document.getElementById('threats').innerHTML = threatHtml;
-  } else {
-    document.getElementById('detection-list').style.display = 'none';
+  const detectionList = document.getElementById('detection-list');
+  const threatsDiv = document.getElementById('threats');
+  
+  if (threatHtml && detectionList && threatsDiv) {
+    detectionList.style.display = 'block';
+    threatsDiv.innerHTML = threatHtml;
+  } else if (detectionList) {
+    detectionList.style.display = 'none';
   }
   
   // Recommendations
-  if (d.recommendations && d.recommendations.length > 0) {
-    document.getElementById('recommendations').innerHTML = `
+  const recommendationsDiv = document.getElementById('recommendations');
+  if (recommendationsDiv && d.recommendations && d.recommendations.length > 0) {
+    recommendationsDiv.innerHTML = `
       <h4>📋 Recommendations</h4>
       <ul>${d.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>
     `;
   }
 }
 
-<<<<<<< HEAD
 // ================================================================
 // FULL DEEP ANALYSIS - ALL FEATURES
 // ================================================================
 function renderFullDeepAnalysis(d) {
   
   // 1. HASHES - 5 types
-=======
-// Deep analysis is now integrated into the main analyzeFile function
-
-function renderDeepAnalysis(d) {
->>>>>>> 84e7e28c5e35422214ff10a92125191a0da357ae
   const hashes = d.hashes || {};
-  document.getElementById('df-hashes').innerHTML = `
-    <div class="deep-card"><h4><span class="icon">🔐</span> MD5</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.md5 || 'N/A'}</div></div>
-    <div class="deep-card"><h4><span class="icon">🔐</span> SHA1</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.sha1 || 'N/A'}</div></div>
-    <div class="deep-card"><h4><span class="icon">🔐</span> SHA256</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.sha256 || 'N/A'}</div></div>
-    <div class="deep-card"><h4><span class="icon">🔐</span> SHA512</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.sha512 || 'N/A'}</div></div>
-    <div class="deep-card"><h4><span class="icon">🔐</span> BLAKE2b</h4><div class="info-value hash-value" style="word-break:break-all">${hashes.blake2b || 'N/A'}</div></div>
-  `;
+  const hashesDiv = document.getElementById('df-hashes');
+  if (hashesDiv) {
+    hashesDiv.innerHTML = `
+      <div class="deep-card"><h4><span class="icon">🔐</span> MD5</h4><div class="info-value hash-value" style="word-break:break-all">${escapeHtml(hashes.md5 || 'N/A')}</div></div>
+      <div class="deep-card"><h4><span class="icon">🔐</span> SHA1</h4><div class="info-value hash-value" style="word-break:break-all">${escapeHtml(hashes.sha1 || 'N/A')}</div></div>
+      <div class="deep-card"><h4><span class="icon">🔐</span> SHA256</h4><div class="info-value hash-value" style="word-break:break-all">${escapeHtml(hashes.sha256 || 'N/A')}</div></div>
+      <div class="deep-card"><h4><span class="icon">🔐</span> SHA512</h4><div class="info-value hash-value" style="word-break:break-all">${escapeHtml(hashes.sha512 || 'N/A')}</div></div>
+      <div class="deep-card"><h4><span class="icon">🔐</span> BLAKE2b</h4><div class="info-value hash-value" style="word-break:break-all">${escapeHtml(hashes.blake2b || 'N/A')}</div></div>
+    `;
+  }
   
   // 2. FILE TYPE
   const ft = d.file_type || {};
-  document.getElementById('df-filetype').innerHTML = `
-    <div class="info-row"><span class="info-label">Actual Type</span><span class="info-value">${ft.actual_type || 'Unknown'}</span></div>
-    <div class="info-row"><span class="info-label">MIME Type</span><span class="info-value">${ft.mime_type || 'Unknown'}</span></div>
-    <div class="info-row"><span class="info-label">Extension</span><span class="info-value">${ft.extension || 'Unknown'}</span></div>
-    <div class="info-row"><span class="info-label">Spoofed</span><span class="info-value ${ft.is_spoofed ? 'info-warn' : 'info-good'}">${ft.is_spoofed ? '⚠️ Yes' : '✅ No'}</span></div>
-    <div class="info-row"><span class="info-label">Executable</span><span class="info-value">${ft.is_executable ? 'Yes' : 'No'}</span></div>
-    <div class="info-row"><span class="info-label">Archive</span><span class="info-value">${ft.is_archive ? 'Yes' : 'No'}</span></div>
-    <div class="info-row"><span class="info-label">Document</span><span class="info-value">${ft.is_document ? 'Yes' : 'No'}</span></div>
-    <div class="info-row"><span class="info-label">Script</span><span class="info-value">${ft.is_script ? 'Yes' : 'No'}</span></div>
-    <div class="info-row"><span class="info-label">Image</span><span class="info-value">${ft.is_image ? 'Yes' : 'No'}</span></div>
-  `;
+  const filetypeDiv = document.getElementById('df-filetype');
+  if (filetypeDiv) {
+    filetypeDiv.innerHTML = `
+      <div class="info-row"><span class="info-label">Actual Type</span><span class="info-value">${escapeHtml(ft.actual_type || 'Unknown')}</span></div>
+      <div class="info-row"><span class="info-label">MIME Type</span><span class="info-value">${escapeHtml(ft.mime_type || 'Unknown')}</span></div>
+      <div class="info-row"><span class="info-label">Extension</span><span class="info-value">${escapeHtml(ft.extension || 'Unknown')}</span></div>
+      <div class="info-row"><span class="info-label">Spoofed</span><span class="info-value ${ft.is_spoofed ? 'info-warn' : 'info-good'}">${ft.is_spoofed ? '⚠️ Yes' : '✅ No'}</span></div>
+      <div class="info-row"><span class="info-label">Executable</span><span class="info-value">${ft.is_executable ? 'Yes' : 'No'}</span></div>
+      <div class="info-row"><span class="info-label">Archive</span><span class="info-value">${ft.is_archive ? 'Yes' : 'No'}</span></div>
+      <div class="info-row"><span class="info-label">Document</span><span class="info-value">${ft.is_document ? 'Yes' : 'No'}</span></div>
+      <div class="info-row"><span class="info-label">Script</span><span class="info-value">${ft.is_script ? 'Yes' : 'No'}</span></div>
+      <div class="info-row"><span class="info-label">Image</span><span class="info-value">${ft.is_image ? 'Yes' : 'No'}</span></div>
+    `;
+  }
   
   // 3. METADATA - Full
   const meta = d.metadata || {};
   let metadataHtml = '';
   
-  // General metadata
   metadataHtml += `<div class="deep-card"><h4><span class="icon">ℹ️</span> General</h4>`;
   if (meta.type) metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${escapeHtml(meta.type)}</span></div>`;
   if (meta.suspicious && meta.suspicious.length > 0) {
-    metadataHtml += `<div class="info-row"><span class="info-label">⚠️ Suspicious</span><span class="info-value info-warn">${meta.suspicious.slice(0,5).join(', ')}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">⚠️ Suspicious</span><span class="info-value info-warn">${escapeHtml(meta.suspicious.slice(0,5).join(', '))}</span></div>`;
   }
   metadataHtml += `</div>`;
   
@@ -597,14 +604,14 @@ function renderDeepAnalysis(d) {
     metadataHtml += `<div class="deep-card"><h4><span class="icon">📊</span> Office Details</h4>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Has Macros</span><span class="info-value ${meta.has_macros ? 'info-danger' : 'info-good'}">${meta.has_macros ? '⚠️ Yes' : 'No'}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Has OLE</span><span class="info-value">${meta.has_ole ? 'Yes' : 'No'}</span></div>`;
-    metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${meta.type || 'Unknown'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${escapeHtml(meta.type || 'Unknown')}</span></div>`;
     metadataHtml += `</div>`;
   }
   
   // Script specific
   if (meta.is_script !== undefined) {
     metadataHtml += `<div class="deep-card"><h4><span class="icon">📜</span> Script Details</h4>`;
-    metadataHtml += `<div class="info-row"><span class="info-label">Language</span><span class="info-value">${meta.language || 'Unknown'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Language</span><span class="info-value">${escapeHtml(meta.language || 'Unknown')}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Lines</span><span class="info-value">${meta.lines || 0}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Network Ops</span><span class="info-value ${meta.has_network ? 'info-warn' : 'info-good'}">${meta.has_network ? 'Yes' : 'No'}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">File Ops</span><span class="info-value ${meta.has_file_operations ? 'info-warn' : 'info-good'}">${meta.has_file_operations ? 'Yes' : 'No'}</span></div>`;
@@ -615,37 +622,43 @@ function renderDeepAnalysis(d) {
   // Archive specific
   if (meta.is_archive !== undefined) {
     metadataHtml += `<div class="deep-card"><h4><span class="icon">🗜️</span> Archive Details</h4>`;
-    metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${meta.type || 'Unknown'}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${escapeHtml(meta.type || 'Unknown')}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Files</span><span class="info-value">${meta.num_files || 0}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Contains EXE</span><span class="info-value ${meta.contains_executable ? 'info-danger' : 'info-good'}">${meta.contains_executable ? 'Yes' : 'No'}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Path Traversal</span><span class="info-value ${meta.has_path_traversal ? 'info-danger' : 'info-good'}">${meta.has_path_traversal ? 'Yes' : 'No'}</span></div>`;
     metadataHtml += `</div>`;
   }
   
-  document.getElementById('df-metadata').innerHTML = metadataHtml || '<div class="deep-card"><div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No metadata available</span></div></div>';
+  const metadataDiv = document.getElementById('df-metadata');
+  if (metadataDiv) {
+    metadataDiv.innerHTML = metadataHtml || '<div class="deep-card"><div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No metadata available</span></div></div>';
+  }
   
   // 4. IoCs - ALL 11 TYPES
   const iocs = d.iocs || {};
-  document.getElementById('df-iocs').innerHTML = `
-    <div class="deep-card"><h4><span class="icon">🌐</span> Network</h4>
-      <div class="info-row"><span class="info-label">IPv4</span><span class="info-value">${(iocs.ipv4 || []).map(ip => `<span class="ioc-badge ip">${escapeHtml(ip)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">IPv6</span><span class="info-value">${(iocs.ipv6 || []).map(ip => `<span class="ioc-badge">${escapeHtml(ip)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">URLs</span><span class="info-value">${(iocs.urls || []).slice(0,10).map(url => `<span class="ioc-badge url">${escapeHtml(url)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">Domains</span><span class="info-value">${(iocs.domains || []).map(dm => `<span class="ioc-badge">${escapeHtml(dm)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">Emails</span><span class="info-value">${(iocs.emails || []).map(em => `<span class="ioc-badge">${escapeHtml(em)}</span>`).join('') || 'None'}</span></div>
-    </div>
-    <div class="deep-card"><h4><span class="icon">🔐</span> Hashes</h4>
-      <div class="info-row"><span class="info-label">MD5</span><span class="info-value">${(iocs.md5_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">SHA1</span><span class="info-value">${(iocs.sha1_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">SHA256</span><span class="info-value">${(iocs.sha256_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
-    </div>
-    <div class="deep-card"><h4><span class="icon">💰</span> Crypto & Dark Web</h4>
-      <div class="info-row"><span class="info-label">Bitcoin</span><span class="info-value">${(iocs.bitcoin_addresses || []).map(b => `<span class="ioc-badge">${escapeHtml(b)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">Onion</span><span class="info-value">${(iocs.onion_addresses || []).map(o => `<span class="ioc-badge">${escapeHtml(o)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">Telegram</span><span class="info-value">${(iocs.telegram_links || []).map(t => `<span class="ioc-badge">${escapeHtml(t)}</span>`).join('') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">Discord Webhooks</span><span class="info-value">${(iocs.discord_webhooks || []).slice(0,5).map(dw => `<span class="ioc-badge">${escapeHtml(dw)}</span>`).join('') || 'None'}</span></div>
-    </div>
-  `;
+  const iocsDiv = document.getElementById('df-iocs');
+  if (iocsDiv) {
+    iocsDiv.innerHTML = `
+      <div class="deep-card"><h4><span class="icon">🌐</span> Network</h4>
+        <div class="info-row"><span class="info-label">IPv4</span><span class="info-value">${(iocs.ipv4 || []).map(ip => `<span class="ioc-badge ip">${escapeHtml(ip)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">IPv6</span><span class="info-value">${(iocs.ipv6 || []).map(ip => `<span class="ioc-badge">${escapeHtml(ip)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">URLs</span><span class="info-value">${(iocs.urls || []).slice(0,10).map(url => `<span class="ioc-badge url">${escapeHtml(url)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">Domains</span><span class="info-value">${(iocs.domains || []).map(dm => `<span class="ioc-badge">${escapeHtml(dm)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">Emails</span><span class="info-value">${(iocs.emails || []).map(em => `<span class="ioc-badge">${escapeHtml(em)}</span>`).join('') || 'None'}</span></div>
+      </div>
+      <div class="deep-card"><h4><span class="icon">🔐</span> Hashes</h4>
+        <div class="info-row"><span class="info-label">MD5</span><span class="info-value">${(iocs.md5_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">SHA1</span><span class="info-value">${(iocs.sha1_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">SHA256</span><span class="info-value">${(iocs.sha256_hashes || []).slice(0,5).map(h => `<span class="ioc-badge hash">${escapeHtml(h)}</span>`).join('') || 'None'}</span></div>
+      </div>
+      <div class="deep-card"><h4><span class="icon">💰</span> Crypto & Dark Web</h4>
+        <div class="info-row"><span class="info-label">Bitcoin</span><span class="info-value">${(iocs.bitcoin_addresses || []).map(b => `<span class="ioc-badge">${escapeHtml(b)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">Onion</span><span class="info-value">${(iocs.onion_addresses || []).map(o => `<span class="ioc-badge">${escapeHtml(o)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">Telegram</span><span class="info-value">${(iocs.telegram_links || []).map(t => `<span class="ioc-badge">${escapeHtml(t)}</span>`).join('') || 'None'}</span></div>
+        <div class="info-row"><span class="info-label">Discord Webhooks</span><span class="info-value">${(iocs.discord_webhooks || []).slice(0,5).map(dw => `<span class="ioc-badge">${escapeHtml(dw)}</span>`).join('') || 'None'}</span></div>
+      </div>
+    `;
+  }
   
   // 5. YARA - Full details
   const yara = d.yara || {};
@@ -664,104 +677,140 @@ function renderDeepAnalysis(d) {
   } else {
     yaraHtml += `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">✅ No YARA rules matched</span></div>`;
   }
-  document.getElementById('df-yara').innerHTML = yaraHtml;
+  const yaraDiv = document.getElementById('df-yara');
+  if (yaraDiv) yaraDiv.innerHTML = yaraHtml;
   
   // 6. Hash Reputation
   const rep = d.hash_reputation || {};
-  document.getElementById('df-reputation').innerHTML = `
-    <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${rep.is_malicious ? 'info-danger' : 'info-good'}">${rep.is_malicious ? '⚠️ Found in database' : '✅ Clean'}</span></div>
-    <div class="info-row"><span class="info-label">Sources</span><span class="info-value">${(rep.sources || []).join(', ') || 'None'}</span></div>
-    <div class="info-row"><span class="info-label">Risk Score</span><span class="info-value ${rep.risk_score > 50 ? 'info-danger' : ''}">${rep.risk_score || 0}</span></div>
-    <div class="info-row"><span class="info-label">Detections</span><span class="info-value">${rep.detections?.length || 0}</span></div>
-  `;
+  const repDiv = document.getElementById('df-reputation');
+  if (repDiv) {
+    repDiv.innerHTML = `
+      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${rep.is_malicious ? 'info-danger' : 'info-good'}">${rep.is_malicious ? '⚠️ Found in database' : '✅ Clean'}</span></div>
+      <div class="info-row"><span class="info-label">Sources</span><span class="info-value">${(rep.sources || []).join(', ') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">Risk Score</span><span class="info-value ${rep.risk_score > 50 ? 'info-danger' : ''}">${rep.risk_score || 0}</span></div>
+      <div class="info-row"><span class="info-label">Detections</span><span class="info-value">${rep.detections?.length || 0}</span></div>
+    `;
+  }
   
   // 7. VirusTotal
   const vt = d.virustotal || {};
-  document.getElementById('df-virustotal').innerHTML = `
-    <div class="info-row"><span class="info-label">Verdict</span><span class="info-value ${vt.verdict === 'malicious' ? 'info-danger' : vt.verdict === 'suspicious' ? 'info-warn' : 'info-good'}">${vt.verdict || 'Unknown'}</span></div>
-    <div class="info-row"><span class="info-label">Malicious</span><span class="info-value info-danger">${vt.malicious || 0}</span></div>
-    <div class="info-row"><span class="info-label">Suspicious</span><span class="info-value info-warn">${vt.suspicious || 0}</span></div>
-    <div class="info-row"><span class="info-label">Harmless</span><span class="info-value info-good">${vt.harmless || 0}</span></div>
-    <div class="info-row"><span class="info-label">Undetected</span><span class="info-value">${vt.undetected || 0}</span></div>
-    <div class="info-row"><span class="info-label">Detection Rate</span><span class="info-value ${(vt.detection_rate || 0) > 10 ? 'info-warn' : 'info-good'}">${vt.detection_rate || 0}%</span></div>
-    <div class="info-row"><span class="info-label">Total Engines</span><span class="info-value">${vt.total_engines || 0}</span></div>
-  `;
+  const vtDiv = document.getElementById('df-virustotal');
+  if (vtDiv) {
+    vtDiv.innerHTML = `
+      <div class="info-row"><span class="info-label">Verdict</span><span class="info-value ${vt.verdict === 'malicious' ? 'info-danger' : vt.verdict === 'suspicious' ? 'info-warn' : 'info-good'}">${escapeHtml(vt.verdict || 'Unknown')}</span></div>
+      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value info-danger">${vt.malicious || 0}</span></div>
+      <div class="info-row"><span class="info-label">Suspicious</span><span class="info-value info-warn">${vt.suspicious || 0}</span></div>
+      <div class="info-row"><span class="info-label">Harmless</span><span class="info-value info-good">${vt.harmless || 0}</span></div>
+      <div class="info-row"><span class="info-label">Undetected</span><span class="info-value">${vt.undetected || 0}</span></div>
+      <div class="info-row"><span class="info-label">Detection Rate</span><span class="info-value ${(vt.detection_rate || 0) > 10 ? 'info-warn' : 'info-good'}">${vt.detection_rate || 0}%</span></div>
+      <div class="info-row"><span class="info-label">Total Engines</span><span class="info-value">${vt.total_engines || 0}</span></div>
+    `;
+  }
   
   // 8. Warnings
   const warnings = d.warnings || [];
-  document.getElementById('df-warnings').innerHTML = warnings.length > 0 
-    ? warnings.map(w => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${escapeHtml(w)}</span></div>`).join('')
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No warnings</span></div>';
+  const warningsDiv = document.getElementById('df-warnings');
+  if (warningsDiv) {
+    warningsDiv.innerHTML = warnings.length > 0 
+      ? warnings.map(w => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${escapeHtml(w)}</span></div>`).join('')
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No warnings</span></div>';
+  }
   
   // 9. ExifTool Data
   const exif = d.exiftool_data || {};
-  document.getElementById('df-exiftool').innerHTML = exif.available 
-    ? `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">Available</span></div>
-       <div class="info-row"><span class="info-label">Data</span><span class="info-value hash-value">${JSON.stringify(exif.data, null, 2).substring(0, 500)}...</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not available</span></div>';
+  const exifDiv = document.getElementById('df-exiftool');
+  if (exifDiv) {
+    exifDiv.innerHTML = exif.available 
+      ? `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">Available</span></div>
+         <div class="info-row"><span class="info-label">Data</span><span class="info-value hash-value">${escapeHtml(JSON.stringify(exif.data, null, 2).substring(0, 500))}...</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not available</span></div>';
+  }
   
   // 10. PE Analysis
   const pe = d.metadata?.is_pe ? d.metadata : {};
-  document.getElementById('df-pe').innerHTML = pe.is_pe
-    ? `<div class="info-row"><span class="info-label">Machine</span><span class="info-value">${pe.machine || 'N/A'}</span></div>
-       <div class="info-row"><span class="info-label">Sections</span><span class="info-value">${pe.number_of_sections || 0}</span></div>
-       <div class="info-row"><span class="info-label">Entry Point</span><span class="info-value">${pe.entry_point || 'N/A'}</span></div>
-       <div class="info-row"><span class="info-label">Is DLL</span><span class="info-value">${pe.is_dll ? 'Yes' : 'No'}</span></div>
-       <div class="info-row"><span class="info-label">Imports</span><span class="info-value">${pe.imports?.length || 0}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PE file</span></div>';
+  const peDiv = document.getElementById('df-pe');
+  if (peDiv) {
+    peDiv.innerHTML = pe.is_pe
+      ? `<div class="info-row"><span class="info-label">Machine</span><span class="info-value">${escapeHtml(pe.machine || 'N/A')}</span></div>
+         <div class="info-row"><span class="info-label">Sections</span><span class="info-value">${pe.number_of_sections || 0}</span></div>
+         <div class="info-row"><span class="info-label">Entry Point</span><span class="info-value">${escapeHtml(pe.entry_point || 'N/A')}</span></div>
+         <div class="info-row"><span class="info-label">Is DLL</span><span class="info-value">${pe.is_dll ? 'Yes' : 'No'}</span></div>
+         <div class="info-row"><span class="info-label">Imports</span><span class="info-value">${pe.imports?.length || 0}</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PE file</span></div>';
+  }
   
   // 11. PDF Analysis
-  document.getElementById('df-pdf').innerHTML = d.metadata?.is_pdf
-    ? `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${d.metadata.has_javascript ? 'info-danger' : 'info-good'}">${d.metadata.has_javascript ? '⚠️ Detected' : 'Clean'}</span></div>
-       <div class="info-row"><span class="info-label">Launch Actions</span><span class="info-value ${d.metadata.has_launch ? 'info-danger' : 'info-good'}">${d.metadata.has_launch ? 'Yes' : 'No'}</span></div>
-       <div class="info-row"><span class="info-label">Embedded Files</span><span class="info-value">${d.metadata.has_attachments ? 'Yes' : 'No'}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PDF file</span></div>';
+  const pdfDiv = document.getElementById('df-pdf');
+  if (pdfDiv) {
+    pdfDiv.innerHTML = d.metadata?.is_pdf
+      ? `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${d.metadata.has_javascript ? 'info-danger' : 'info-good'}">${d.metadata.has_javascript ? '⚠️ Detected' : 'Clean'}</span></div>
+         <div class="info-row"><span class="info-label">Launch Actions</span><span class="info-value ${d.metadata.has_launch ? 'info-danger' : 'info-good'}">${d.metadata.has_launch ? 'Yes' : 'No'}</span></div>
+         <div class="info-row"><span class="info-label">Embedded Files</span><span class="info-value">${d.metadata.has_attachments ? 'Yes' : 'No'}</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PDF file</span></div>';
+  }
   
   // 12. Office Analysis
-  document.getElementById('df-office').innerHTML = d.metadata?.is_office
-    ? `<div class="info-row"><span class="info-label">Macros</span><span class="info-value ${d.metadata.has_macros ? 'info-danger' : 'info-good'}">${d.metadata.has_macros ? '⚠️ Detected' : 'Clean'}</span></div>
-       <div class="info-row"><span class="info-label">OLE Objects</span><span class="info-value">${d.metadata.has_ole ? 'Yes' : 'No'}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an Office file</span></div>';
+  const officeDiv = document.getElementById('df-office');
+  if (officeDiv) {
+    officeDiv.innerHTML = d.metadata?.is_office
+      ? `<div class="info-row"><span class="info-label">Macros</span><span class="info-value ${d.metadata.has_macros ? 'info-danger' : 'info-good'}">${d.metadata.has_macros ? '⚠️ Detected' : 'Clean'}</span></div>
+         <div class="info-row"><span class="info-label">OLE Objects</span><span class="info-value">${d.metadata.has_ole ? 'Yes' : 'No'}</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an Office file</span></div>';
+  }
   
   // 13. Script Analysis
-  document.getElementById('df-script').innerHTML = d.metadata?.is_script
-    ? `<div class="info-row"><span class="info-label">Language</span><span class="info-value">${d.metadata.language || 'Unknown'}</span></div>
-       <div class="info-row"><span class="info-label">Network Ops</span><span class="info-value ${d.metadata.has_network ? 'info-warn' : 'info-good'}">${d.metadata.has_network ? 'Yes' : 'No'}</span></div>
-       <div class="info-row"><span class="info-label">Obfuscation</span><span class="info-value ${d.metadata.has_obfuscation ? 'info-warn' : 'info-good'}">${d.metadata.has_obfuscation ? 'Yes' : 'No'}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a script file</span></div>';
+  const scriptDiv = document.getElementById('df-script');
+  if (scriptDiv) {
+    scriptDiv.innerHTML = d.metadata?.is_script
+      ? `<div class="info-row"><span class="info-label">Language</span><span class="info-value">${escapeHtml(d.metadata.language || 'Unknown')}</span></div>
+         <div class="info-row"><span class="info-label">Network Ops</span><span class="info-value ${d.metadata.has_network ? 'info-warn' : 'info-good'}">${d.metadata.has_network ? 'Yes' : 'No'}</span></div>
+         <div class="info-row"><span class="info-label">Obfuscation</span><span class="info-value ${d.metadata.has_obfuscation ? 'info-warn' : 'info-good'}">${d.metadata.has_obfuscation ? 'Yes' : 'No'}</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a script file</span></div>';
+  }
   
   // 14. Archive Analysis
-  document.getElementById('df-archive').innerHTML = d.metadata?.is_archive
-    ? `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${d.metadata.type || 'Unknown'}</span></div>
-       <div class="info-row"><span class="info-label">Files</span><span class="info-value">${d.metadata.num_files || 0}</span></div>
-       <div class="info-row"><span class="info-label">Contains EXE</span><span class="info-value ${d.metadata.contains_executable ? 'info-danger' : 'info-good'}">${d.metadata.contains_executable ? '⚠️ Yes' : 'No'}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an archive</span></div>';
+  const archiveDiv = document.getElementById('df-archive');
+  if (archiveDiv) {
+    archiveDiv.innerHTML = d.metadata?.is_archive
+      ? `<div class="info-row"><span class="info-label">Type</span><span class="info-value">${escapeHtml(d.metadata.type || 'Unknown')}</span></div>
+         <div class="info-row"><span class="info-label">Files</span><span class="info-value">${d.metadata.num_files || 0}</span></div>
+         <div class="info-row"><span class="info-label">Contains EXE</span><span class="info-value ${d.metadata.contains_executable ? 'info-danger' : 'info-good'}">${d.metadata.contains_executable ? '⚠️ Yes' : 'No'}</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an archive</span></div>';
+  }
   
   // 15. Image Analysis
-  document.getElementById('df-image').innerHTML = d.metadata?.is_image
-    ? `<div class="info-row"><span class="info-label">Format</span><span class="info-value">${d.metadata.format || 'Unknown'}</span></div>
-       <div class="info-row"><span class="info-label">Dimensions</span><span class="info-value">${d.metadata.width || 0} x ${d.metadata.height || 0}</span></div>
-       <div class="info-row"><span class="info-label">Has EXIF</span><span class="info-value">${d.metadata.has_exif ? 'Yes' : 'No'}</span></div>`
-    : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an image file</span></div>';
+  const imageDiv = document.getElementById('df-image');
+  if (imageDiv) {
+    imageDiv.innerHTML = d.metadata?.is_image
+      ? `<div class="info-row"><span class="info-label">Format</span><span class="info-value">${escapeHtml(d.metadata.format || 'Unknown')}</span></div>
+         <div class="info-row"><span class="info-label">Dimensions</span><span class="info-value">${d.metadata.width || 0} x ${d.metadata.height || 0}</span></div>
+         <div class="info-row"><span class="info-label">Has EXIF</span><span class="info-value">${d.metadata.has_exif ? 'Yes' : 'No'}</span></div>`
+      : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an image file</span></div>';
+  }
 }
 
 // Export functions
-document.getElementById('export-json').onclick = () => {
-  if (!lastResult) return;
-  const dataStr = JSON.stringify(lastResult, null, 2);
-  const blob = new Blob([dataStr], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `file-scan-${lastResult.filename || 'report'}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+const exportJsonBtn = document.getElementById('export-json');
+if (exportJsonBtn) {
+  exportJsonBtn.onclick = () => {
+    if (!lastResult) return;
+    const dataStr = JSON.stringify(lastResult, null, 2);
+    const blob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `file-scan-${lastResult.filename || 'report'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+}
 
-document.getElementById('copy-report').onclick = () => {
-  if (!lastResult) return;
-  const d = lastResult;
-  const report = `
+const copyReportBtn = document.getElementById('copy-report');
+if (copyReportBtn) {
+  copyReportBtn.onclick = () => {
+    if (!lastResult) return;
+    const d = lastResult;
+    const report = `
 ╔══════════════════════════════════════════════════════════════════╗
 ║                    MyScanner - File Security Report              ║
 ╠══════════════════════════════════════════════════════════════════╣
@@ -770,7 +819,7 @@ document.getElementById('copy-report').onclick = () => {
 ║ Verdict: ${(d.verdict || 'unknown').toUpperCase()}
 ║ Security Score: ${d.security_score || 0}/100
 ╠══════════════════════════════════════════════════════════════════╣
-║ HASES:
+║ HASHES:
 ║   MD5: ${d.hashes?.md5 || 'N/A'}
 ║   SHA256: ${d.hashes?.sha256 || 'N/A'}
 ╠══════════════════════════════════════════════════════════════════╣
@@ -789,9 +838,10 @@ document.getElementById('copy-report').onclick = () => {
 ║ Generated by MyScanner File Security Tool
 ║ Date: ${new Date().toLocaleString()}
 ╚══════════════════════════════════════════════════════════════════╝
-  `;
-  navigator.clipboard.writeText(report);
-  alert('✅ Report copied to clipboard!');
-};
+    `;
+    navigator.clipboard.writeText(report);
+    alert('✅ Report copied to clipboard!');
+  };
+}
 </script>
 {% endblock %}

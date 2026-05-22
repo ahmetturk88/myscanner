@@ -5,6 +5,8 @@ import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import time
+import logging
+logger = logging.getLogger(__name__)
 
 class SubdomainFinder:
     """مكتشف متقدم للنطاقات الفرعية"""
@@ -70,7 +72,8 @@ class SubdomainFinder:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.timeout = 5
-        self.max_workers = 50  # عدد المتزامنات
+        self.max_workers = 50
+        logger.info("✅ SubdomainFinder initialized successfully")
     
     def check_subdomain(self, subdomain: str, domain: str) -> Dict[str, Any]:
         """فحص نطاق فرعي واحد"""
@@ -116,9 +119,11 @@ class SubdomainFinder:
     
     def find_subdomains(self, domain: str, max_subdomains: int = 200) -> Dict[str, Any]:
         """البحث عن النطاقات الفرعية"""
+        logger.info(f"🔍 Starting subdomain discovery for: {domain}")
         
         # تنظيف النطاق
         domain = domain.replace('https://', '').replace('http://', '').strip('/')
+        logger.debug(f"Cleaned domain: {domain}")
         
         results = []
         found_count = 0
@@ -126,8 +131,10 @@ class SubdomainFinder:
         # قائمة النطاقات الفرعية للفحص
         subdomains_to_check = self.COMMON_SUBDOMAINS[:max_subdomains]
         total = len(subdomains_to_check)
+        logger.info(f"Checking {total} potential subdomains for {domain}")
         
         # فحص متزامن
+        checked = 0
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {
                 executor.submit(self.check_subdomain, sub, domain): sub 
@@ -136,14 +143,26 @@ class SubdomainFinder:
             
             for future in as_completed(futures):
                 result = future.result()
+                checked += 1
                 if result["exists"]:
                     found_count += 1
                     results.append(result)
+                    logger.debug(f"Found subdomain: {result['full_domain']} (IP: {result['ip']})")
+                
+                # Log progress every 50 checks
+                if checked % 50 == 0:
+                    logger.debug(f"Progress: {checked}/{total} subdomains checked, {found_count} found")
         
         # ترتيب النتائج
         active = [r for r in results if r["verdict"] == "active"]
         redirects = [r for r in results if r["verdict"] == "redirect"]
         inactive = [r for r in results if r["verdict"] == "inactive"]
+        
+        logger.info(f"✅ Subdomain discovery completed for {domain}")
+        logger.info(f"Found {found_count} subdomains (Active: {len(active)}, Redirects: {len(redirects)}, Inactive: {len(inactive)})")
+        
+        if active:
+            logger.info(f"Active subdomains: {', '.join([r['full_domain'] for r in active[:10]])}")
         
         return {
             "domain": domain,
@@ -162,6 +181,7 @@ class SubdomainFinder:
     
     def get_subdomain_suggestions(self, domain: str) -> List[str]:
         """اقتراح نطاقات فرعية إضافية بناءً على النطاق"""
+        logger.debug(f"Generating subdomain suggestions for: {domain}")
         suggestions = []
         
         # نطاقات خاصة بالمجال
@@ -174,4 +194,5 @@ class SubdomainFinder:
                 f"shop.{base_name}", f"mail.{base_name}", f"vpn.{base_name}"
             ])
         
+        logger.debug(f"Generated {len(suggestions)} suggestions")
         return suggestions[:10]

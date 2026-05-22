@@ -1,12 +1,12 @@
 {
   "domain": "www.klu.edu.tr",
-  "cached_at": "2026-05-20T11:06:54.565583",
+  "cached_at": "2026-05-20T21:38:04.483690",
   "result": {
     "domain": "www.klu.edu.tr",
     "url": "https://www.klu.edu.tr/Resimler/1409-ogrenci-bilgi-sistemi.klu",
     "status": "success",
     "from_cache": false,
-    "timestamp": "2026-05-20T11:06:54.560813",
+    "timestamp": "2026-05-20T21:38:04.476692",
     "vulnerabilities": {
       "static": {
         "sql_injection": [],
@@ -105,10 +105,11 @@
       "tls_version": "TLSv1.2",
       "cipher_strength": "ECDHE-RSA-AES256-GCM-SHA384 (TLSv1.2 bits)",
       "certificate_chain": [],
-      "vulnerabilities": [],
-      "grade": "F",
-      "risk_score": 50,
-      "error": "'X509' object has no attribute 'get_extension'"
+      "vulnerabilities": [
+        "Certificate expires soon (13 days)"
+      ],
+      "grade": "C",
+      "risk_score": 40
     },
     "robots_txt": {
       "exists": true,
@@ -164,7 +165,7 @@
       "details": []
     },
     "performance": {
-      "load_time_ms": 352.57,
+      "load_time_ms": 320.88,
       "page_size_kb": 47.68,
       "resource_count": 40,
       "resources_breakdown": {
@@ -203,19 +204,18 @@
       "forms": 0,
       "iframes": 0
     },
-    "security_score": 54,
-    "risk_score": 46,
+    "security_score": 56,
+    "risk_score": 44,
     "verdict": "risky",
     "verdict_icon": "🔴",
     "severity": "high",
-    "severity_color": "orange",
     "risk_factors": [],
     "recommendations": [
-      "⚠️ SSL certificate expires in 13 days - renew soon",
+      "⚠️ SSL certificate expires in 13 days",
       "🛡️ Enable HSTS with max-age=31536000",
       "🛡️ Implement Content Security Policy (CSP)",
       "🛡️ Set X-Frame-Options: DENY",
-      "🔍 2 potential vulnerabilities found - review code",
+      "🔍 2 potential vulnerabilities found",
       "📧 Add SPF record to prevent email spoofing",
       "📧 Add DMARC record for email authentication"
     ],

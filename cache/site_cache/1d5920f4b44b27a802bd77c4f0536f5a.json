@@ -1,12 +1,12 @@
 {
   "domain": "google.com",
-  "cached_at": "2026-05-20T12:53:45.336630",
+  "cached_at": "2026-05-21T21:15:44.409546",
   "result": {
     "domain": "google.com",
     "url": "https://www.google.com/",
     "status": "success",
     "from_cache": false,
-    "timestamp": "2026-05-20T12:53:45.333119",
+    "timestamp": "2026-05-21T21:15:44.407530",
     "vulnerabilities": {
       "static": {
         "sql_injection": [],
@@ -64,8 +64,7 @@
         },
         "xfo": {
           "status": "present",
-          "value": "SAMEORIGIN",
-          "quality": "good"
+          "value": "SAMEORIGIN"
         },
         "xcto": {
           "status": "missing",
@@ -73,8 +72,7 @@
         },
         "xxp": {
           "status": "present",
-          "value": "0",
-          "quality": "low"
+          "value": "0"
         },
         "referrer": {
           "status": "missing",
@@ -101,19 +99,18 @@
       "issuer": "WE2",
       "subject": "*.google.com",
       "version": 2,
-      "serial_number": "0xf775c05eae448e000a147a511c6ccf04",
-      "valid_from": "2026-04-20",
-      "valid_until": "2026-07-13",
-      "days_remaining": 53,
-      "days_since_issue": 30,
+      "serial_number": "0x382aeaf5a5d2ac820a59482fb0e5c5cc",
+      "valid_from": "2026-05-07",
+      "valid_until": "2026-07-30",
+      "days_remaining": 69,
+      "days_since_issue": 14,
       "signature_algorithm": "ecdsa-with-SHA256",
       "tls_version": "TLSv1.3",
       "cipher_strength": "TLS_AES_256_GCM_SHA384 (TLSv1.3 bits)",
       "certificate_chain": [],
       "vulnerabilities": [],
-      "grade": "F",
-      "risk_score": 50,
-      "error": "'X509' object has no attribute 'get_extension'"
+      "grade": "B",
+      "risk_score": 20
     },
     "robots_txt": {
       "exists": true,
@@ -378,45 +375,35 @@
       "sensitive_paths_found": [
         {
           "path": "/maps/api/js/",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         },
         {
           "path": "/trends/api",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         },
         {
           "path": "/maps/reserve/api/",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         },
         {
           "path": "/maps/api/js/",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         },
         {
           "path": "/maps/api/place/js/",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         },
         {
           "path": "/maps/api/staticmap",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         },
         {
           "path": "/maps/api/streetview",
-          "pattern": "api",
-          "risk": "medium"
+          "pattern": "api"
         }
       ],
       "risk_score": 70,
-      "recommendations": [
-        "Remove sensitive paths from robots.txt",
-        "Ensure sitemap doesn't expose sensitive URLs"
-      ]
+      "recommendations": []
     },
     "sitemap": {
       "exists": true,
@@ -428,10 +415,10 @@
     },
     "dns": {
       "a_records": [
-        "192.178.24.46"
+        "142.251.38.238"
       ],
       "aaaa_records": [
-        "2a00:1450:4017:81e::200e"
+        "2a00:1450:4017:801::200e"
       ],
       "mx_records": [
         {
@@ -440,31 +427,31 @@
         }
       ],
       "ns_records": [
-        "ns1.google.com",
         "ns3.google.com",
+        "ns1.google.com",
         "ns4.google.com",
         "ns2.google.com"
       ],
       "txt_records": [
-        "apple-domain-verification=30afIBcvSuDV2PLX",
-        "onetrust-domain-verification=6d685f1d41a94696ad7ef771f68993e0",
-        "google-site-verification=TV9-DBe4R80X4v0M4U_bd_J9cpOJM0nikft0jAgjmsQ",
-        "docusign=1b0a6754-49b1-4db5-8540-d2c12664b289",
-        "globalsign-smime-dv=CDYX+XFHUw2wml6/Gb8+59BsH31KzUr6c1l2BPvqKX8=",
-        "google-site-verification=wD8N7i1JTNTkezJ49swvWW48f8_9xveREV4oB-0Hf5o",
         "v=spf1 include:_spf.google.com ~all",
-        "MS=E4A68B9AB2BB9670BCE15412F62916164C0B20BB",
-        "facebook-domain-verification=22rm551cu4k0ab0bxsw536tlds4h95",
+        "docusign=1b0a6754-49b1-4db5-8540-d2c12664b289",
+        "apple-domain-verification=30afIBcvSuDV2PLX",
+        "google-site-verification=TV9-DBe4R80X4v0M4U_bd_J9cpOJM0nikft0jAgjmsQ",
         "docusign=05958488-4752-4ef2-95eb-aa7ba8a3bd0e",
+        "onetrust-domain-verification=6d685f1d41a94696ad7ef771f68993e0",
+        "globalsign-smime-dv=CDYX+XFHUw2wml6/Gb8+59BsH31KzUr6c1l2BPvqKX8=",
+        "facebook-domain-verification=22rm551cu4k0ab0bxsw536tlds4h95",
+        "google-site-verification=wD8N7i1JTNTkezJ49swvWW48f8_9xveREV4oB-0Hf5o",
         "google-site-verification=4ibFUgB-wXLQ_S7vsXVomSTVamuOXBiVAzpR5IZ87D0",
-        "onetrust-domain-verification=0d477fe608074e6f9c12bca7826035cc",
-        "cisco-ci-domain-verification=47c38bc8c4b74b7233e9053220c1bbe76bcc1cd33c7acf7acd36cd6a5332004b"
+        "MS=E4A68B9AB2BB9670BCE15412F62916164C0B20BB",
+        "cisco-ci-domain-verification=47c38bc8c4b74b7233e9053220c1bbe76bcc1cd33c7acf7acd36cd6a5332004b",
+        "onetrust-domain-verification=0d477fe608074e6f9c12bca7826035cc"
       ],
       "cname_records": [],
       "soa_record": {
         "mname": "ns1.google.com",
         "rname": "dns-admin.google.com",
-        "serial": 917729926,
+        "serial": 918343850,
         "refresh": 900,
         "retry": 900,
         "expire": 1800,
@@ -490,8 +477,8 @@
       "details": []
     },
     "performance": {
-      "load_time_ms": 361.23,
-      "page_size_kb": 80.09,
+      "load_time_ms": 542.8,
+      "page_size_kb": 80.22,
       "resource_count": 14,
       "resources_breakdown": {
         "images": 2,
@@ -499,8 +486,8 @@
         "stylesheets": 1,
         "total": 14
       },
-      "grade": "A+",
-      "score": 100,
+      "grade": "A",
+      "score": 85,
       "risk_score": 0
     },
     "seo": {
@@ -529,20 +516,17 @@
       "forms": 1,
       "iframes": 0
     },
-    "security_score": 57,
-    "risk_score": 43,
-    "verdict": "risky",
-    "verdict_icon": "🔴",
-    "severity": "high",
-    "severity_color": "orange",
+    "security_score": 65,
+    "risk_score": 35,
+    "verdict": "moderate",
+    "verdict_icon": "⚠️",
+    "severity": "medium",
     "risk_factors": [],
     "recommendations": [
       "🛡️ Enable HSTS with max-age=31536000",
       "🛡️ Implement Content Security Policy (CSP)",
       "🛡️ Set X-Content-Type-Options: nosniff",
-      "🔍 3 potential vulnerabilities found - review code",
-      "📁 Remove sensitive paths from robots.txt",
-      "📱 Add viewport meta tag for mobile optimization"
+      "🔍 3 potential vulnerabilities found"
     ],
     "summary": {
       "has_ssl": true,

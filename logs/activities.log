@@ -1,0 +1,6 @@
+2026-05-22 00:19:22,814 - Activity: url_analysis | User: ahmedsayrafi | Details: Analyzed URL: https://www.klu.edu.tr/
+2026-05-22 11:15:49,745 - Activity: login | User: ahmedsayrafi | Details: Logged in from 127.0.0.1
+2026-05-22 11:19:07,849 - Activity: ip_check | User: ahmedsayrafi | Details: Checked IP: 37.154.234.193 | Verdict: safe
+2026-05-22 11:21:56,090 - Activity: email_check | User: ahmedsayrafi | Details: Checked email: ahmetsayrafi538213@gmail.com | Verdict: blacklisted
+2026-05-22 11:34:36,780 - Activity: domain_lookup | User: ahmedsayrafi | Details: Looked up domain: google.com | IP: 216.58.198.46
+2026-05-22 11:36:27,845 - Activity: qr_scan | User: ahmedsayrafi | Details: Scanned QR URL: http://en.m.wikipedia.org | Verdict: clean

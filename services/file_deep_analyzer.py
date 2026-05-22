@@ -14,7 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from urllib.parse import urlparse
-
+import logging
+logger = logging.getLogger(__name__)
 # محاولة استيراد المكتبات الاختيارية
 try:
     import requests
@@ -70,7 +71,7 @@ class FileDeepAnalyzer:
         self.max_file_size = 50 * 1024 * 1024  # 50 MB
         self.max_file_size_stream = 500 * 1024 * 1024  # 500 MB للـ streaming
         os.makedirs(cache_dir, exist_ok=True)
-        
+        logger.info("✅ FileDeepAnalyzer initialized successfully")
         # قواعد IoC patterns (موسعة)
         self.IOC_PATTERNS = {
             'ipv4': r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b',
@@ -342,6 +343,7 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def calculate_hashes(self, file_content: bytes) -> Dict[str, str]:
+        logger.debug(f"Calculating hashes for file of size: {len(file_content)} bytes")
         """حساب جميع تجزئات الملف"""
         return {
             "md5": hashlib.md5(file_content).hexdigest(),
@@ -377,6 +379,7 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def detect_file_type(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        logger.debug(f"Detecting file type for: {filename}")
         """كشف نوع الملف الحقيقي باستخدام filetype مع دعم موسع"""
         result = {
             "extension": filename.split('.')[-1].lower() if '.' in filename else '',
@@ -401,6 +404,7 @@ class FileDeepAnalyzer:
                     result["actual_type"] = kind.extension
                     result["description"] = f"{kind.extension.upper()} file - {kind.mime}"
             except Exception as e:
+                logger.error(f"Error in [function_name]: {str(e)}")
                 result["description"] = f"Error: {str(e)}"
         
         # كشف يدوي إذا فشل filetype (موسع)
@@ -408,6 +412,7 @@ class FileDeepAnalyzer:
             # PDF
             if file_content[:4] == b'%PDF':
                 result["actual_type"] = "pdf"
+                logger.info(f"Detected file type: {result['actual_type']} for {filename}")
                 result["mime_type"] = "application/pdf"
                 result["description"] = "PDF file"
             # Office Open XML (docx, xlsx, pptx)
@@ -635,7 +640,7 @@ class FileDeepAnalyzer:
             '/CreationDate': 'creation_date', '/ModDate': 'modification_date'
         }
         for pattern, key in metadata_patterns.items():
-            match = re.search(f'{pattern}\s*\((.*?)\)', content_str)
+            match = re.search(f'{pattern}\\s*\\((.*?)\\)', content_str)
             if match:
                 result["metadata"][key] = match.group(1)
         
@@ -998,6 +1003,7 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def extract_iocs(self, file_content: bytes) -> Dict[str, List[str]]:
+        logger.debug("Extracting IoCs from file content")
         """استخراج جميع المؤشرات من الملف"""
         content_str = file_content.decode('latin-1', errors='ignore')
         
@@ -1060,7 +1066,8 @@ class FileDeepAnalyzer:
                 iocs["discord_webhooks"] = unique_matches[:20]
             else:
                 iocs[ioc_type] = unique_matches[:50]
-        
+                
+        logger.debug(f"Found IoCs - IPs: {len(iocs['ipv4'])}, URLs: {len(iocs['urls'])}, Domains: {len(iocs['domains'])}")
         return iocs
     
     # ================================================================
@@ -1068,6 +1075,7 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def scan_with_yara(self, file_content: bytes, filename: str = "") -> Dict[str, Any]:
+        logger.debug(f"Scanning with YARA rules for: {filename}")
         """فحص الملف باستخدام قواعد YARA المتقدمة مع فلترة النتائج الخاطئة"""
         matched_rules = []
         total_risk = 0
@@ -1081,6 +1089,7 @@ class FileDeepAnalyzer:
                         continue
                     
                     matched_rules.append(rule_name)
+                    logger.warning(f"YARA rule matched: {rule_name} (Risk: {rule_data['risk']})")
                     total_risk += rule_data["risk"]
                     details.append({
                         "rule": rule_name,
@@ -1105,6 +1114,7 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def check_hash_reputation(self, hash_value: str) -> Dict[str, Any]:
+        logger.debug(f"Checking hash reputation: {hash_value[:16]}...")
         """فحص التجزئة ضد MalwareBazaar و VirusTotal"""
         result = {
             "is_malicious": False,
@@ -1128,6 +1138,7 @@ class FileDeepAnalyzer:
                 data = resp.json()
                 if data.get('query_status') == 'ok':
                     result["is_malicious"] = True
+                    logger.warning(f"⚠️ Malicious file detected: {hash_value[:16]}... found in {result['sources']}")
                     result["sources"].append("MalwareBazaar")
                     result["risk_score"] = 80
                     if 'data' in data and data['data']:
@@ -1211,6 +1222,7 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def comprehensive_analysis(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        logger.info(f"🔍 Starting comprehensive analysis for: {filename} (Size: {len(file_content)} bytes)")
         """التحليل الشامل للملف مع جميع الميزات"""
         
         file_size = len(file_content)
@@ -1383,7 +1395,7 @@ class FileDeepAnalyzer:
         
         if not recommendations:
             recommendations.append("✅ No threats detected - file appears clean")
-        
+        logger.info(f"✅ Analysis completed for: {filename} | Score: {security_score} | Verdict: {verdict}")
         return {
             "filename": filename,
             "file_size_bytes": file_size,

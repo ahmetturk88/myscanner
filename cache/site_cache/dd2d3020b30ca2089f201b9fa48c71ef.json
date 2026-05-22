@@ -1,0 +1,269 @@
+{
+  "domain": "a.qfilm.tv",
+  "cached_at": "2026-05-21T21:35:02.368149",
+  "result": {
+    "domain": "a.qfilm.tv",
+    "url": "https://a.qfilm.tv/category.php?cat=english-movies",
+    "status": "success",
+    "from_cache": false,
+    "timestamp": "2026-05-21T21:35:02.367712",
+    "vulnerabilities": {
+      "static": {
+        "sql_injection": [],
+        "xss": [
+          {
+            "pattern": "<script[^>]*>.*?</script>",
+            "description": "Script tag detected in response",
+            "matches": 20
+          }
+        ],
+        "other_vulnerabilities": [],
+        "risk_score": 30,
+        "total_findings": 1
+      },
+      "dynamic": {
+        "tested_endpoints": [],
+        "sql_injection_suspected": false,
+        "xss_suspected": false,
+        "risk_score": 0,
+        "details": []
+      },
+      "overall_risk": 30
+    },
+    "security_headers": {
+      "headers": {
+        "strict_transport_security": "Missing",
+        "content_security_policy": "Missing",
+        "x_frame_options": "Missing",
+        "x_content_type_options": "Missing",
+        "x_xss_protection": "Missing",
+        "referrer_policy": "Missing",
+        "permissions_policy": "Missing",
+        "cross_origin_opener_policy": "Missing",
+        "cross_origin_embedder_policy": "Missing",
+        "cache_control": "no-store, no-cache, must-revalidate"
+      },
+      "analysis": {
+        "hsts": {
+          "status": "missing",
+          "recommendation": "Enable HSTS with max-age=31536000"
+        },
+        "csp": {
+          "status": "missing",
+          "recommendation": "Implement Content Security Policy (CSP)"
+        },
+        "xfo": {
+          "status": "missing",
+          "recommendation": "Set X-Frame-Options: DENY"
+        },
+        "xcto": {
+          "status": "missing",
+          "recommendation": "Set X-Content-Type-Options: nosniff"
+        },
+        "xxp": {
+          "status": "missing",
+          "recommendation": "Set X-XSS-Protection: 1; mode=block"
+        },
+        "referrer": {
+          "status": "missing",
+          "recommendation": "Set Referrer-Policy: strict-origin-when-cross-origin"
+        },
+        "permissions": {
+          "status": "missing",
+          "recommendation": "Consider implementing Permissions-Policy"
+        }
+      },
+      "score": 0,
+      "grade": "F",
+      "recommendations": [
+        "Enable HSTS with max-age=31536000",
+        "Implement Content Security Policy (CSP)",
+        "Set X-Frame-Options: DENY",
+        "Set X-Content-Type-Options: nosniff",
+        "Set X-XSS-Protection: 1; mode=block",
+        "Set Referrer-Policy: strict-origin-when-cross-origin",
+        "Consider implementing Permissions-Policy"
+      ]
+    },
+    "ssl": {
+      "valid": true,
+      "domain": "a.qfilm.tv",
+      "issuer": "WE1",
+      "subject": "qfilm.tv",
+      "version": 2,
+      "serial_number": "0xb63858def3355f6f0e99c1ac963eb31f",
+      "valid_from": "2026-05-02",
+      "valid_until": "2026-07-31",
+      "days_remaining": 71,
+      "days_since_issue": 18,
+      "signature_algorithm": "ecdsa-with-SHA256",
+      "tls_version": "TLSv1.3",
+      "cipher_strength": "TLS_AES_256_GCM_SHA384 (TLSv1.3 bits)",
+      "certificate_chain": [],
+      "vulnerabilities": [],
+      "grade": "B",
+      "risk_score": 20
+    },
+    "robots_txt": {
+      "exists": true,
+      "content": "User-agent: *\r\nDisallow: /lang/\r\nDisallow: /Smarty/\r\nDisallow: /players/\r\nDisallow: /plugins/\r\nDisallow: /email_template/\r\nDisallow: /404.php\r\nDisallow: /user.php\r\nDisallow: /ajax.php\r\nDisallow: /view.php\r\nDisallow: /down.php\r\nDisallow: /login.php\r\nDisallow: /upload.php\r\nDisallow: /config.php\r\nDisallow: /comment.php\r\nDisallow: /fpembed.php\r\nDisallow: /suggest.php\r\nDisallow: /videoads.php\r\nDisallow: /register.php\r\nDisallow: /topvideos.php\r\nDisallow: /randomizer.php\r\nDisallow: /edit-video.php\r\nDisallow: /emoji-help.php\r\nDisallow: /ajax_search.php\r\nDisallow: /edit_profile.php\r\nDisallow: /relatedclips.php\r\nDisallow: /censor_words.txt\r\n\r\nSitemap: https://a.qfilm.tv/sitemap-index.xml\r\nSitemap: https://a.qfilm.tv/sitemap-category.xml\r\nSitemap: https://a.qfilm.tv/video-sitemap-index.xml",
+      "disallowed_paths": [
+        "/lang/",
+        "/smarty/",
+        "/players/",
+        "/plugins/",
+        "/email_template/",
+        "/404.php",
+        "/user.php",
+        "/ajax.php",
+        "/view.php",
+        "/down.php",
+        "/login.php",
+        "/upload.php",
+        "/config.php",
+        "/comment.php",
+        "/fpembed.php",
+        "/suggest.php",
+        "/videoads.php",
+        "/register.php",
+        "/topvideos.php",
+        "/randomizer.php",
+        "/edit-video.php",
+        "/emoji-help.php",
+        "/ajax_search.php",
+        "/edit_profile.php",
+        "/relatedclips.php",
+        "/censor_words.txt"
+      ],
+      "allowed_paths": [],
+      "sitemaps": [
+        "https://a.qfilm.tv/sitemap-index.xml",
+        "https://a.qfilm.tv/sitemap-category.xml",
+        "https://a.qfilm.tv/video-sitemap-index.xml"
+      ],
+      "user_agents": [
+        "*"
+      ],
+      "sensitive_paths_found": [
+        {
+          "path": "/config.php",
+          "pattern": "config"
+        }
+      ],
+      "risk_score": 10,
+      "recommendations": []
+    },
+    "sitemap": {
+      "exists": true,
+      "urls": [],
+      "total_urls": 0,
+      "sensitive_urls_found": [],
+      "risk_score": 0,
+      "recommendations": []
+    },
+    "dns": {
+      "a_records": [
+        "172.67.186.127",
+        "104.21.19.146"
+      ],
+      "aaaa_records": [
+        "2606:4700:3037::ac43:ba7f",
+        "2606:4700:3032::6815:1392"
+      ],
+      "mx_records": [],
+      "ns_records": [],
+      "txt_records": [],
+      "cname_records": [],
+      "soa_record": null,
+      "has_spf": false,
+      "has_dmarc": false,
+      "spf_record": null,
+      "dmarc_record": null,
+      "risk_score": 65,
+      "warnings": [
+        "No MX records - email may not work",
+        "No NS records found",
+        "No SPF record - email spoofing possible",
+        "No DMARC record - email authentication weak"
+      ]
+    },
+    "phishing": {
+      "is_phishing_suspected": true,
+      "issues": [
+        "Login form on non-legitimate domain"
+      ],
+      "risk_score": 20,
+      "severity": "low"
+    },
+    "reputation": {
+      "is_blacklisted": false,
+      "blacklist_sources": [],
+      "risk_score": 0,
+      "details": []
+    },
+    "performance": {
+      "load_time_ms": 168.64,
+      "page_size_kb": 68.93,
+      "resource_count": 91,
+      "resources_breakdown": {
+        "images": 53,
+        "scripts": 28,
+        "stylesheets": 10,
+        "total": 91
+      },
+      "grade": "A+",
+      "score": 100,
+      "risk_score": 0
+    },
+    "seo": {
+      "title": "مشاهدة أفلام أجنبي 2026 مترجمة HD اون لاين - كيو فيلم",
+      "description": "",
+      "keywords": "",
+      "h1_tags": [
+        "أفلام أجنبي"
+      ],
+      "h2_tags": [],
+      "has_meta_description": true,
+      "has_meta_keywords": false,
+      "images_without_alt": 1,
+      "total_images": 53,
+      "seo_score": 100
+    },
+    "mobile": {
+      "has_viewport": true,
+      "is_mobile_friendly": true,
+      "viewport_content": "width=device-width, initial-scale=1, viewport-fit=cover"
+    },
+    "stats": {
+      "internal_links": 135,
+      "external_links": 0,
+      "scripts": 28,
+      "external_scripts": 4,
+      "images": 53,
+      "forms": 2,
+      "iframes": 0
+    },
+    "security_score": 58,
+    "risk_score": 42,
+    "verdict": "risky",
+    "verdict_icon": "🔴",
+    "severity": "high",
+    "risk_factors": [],
+    "recommendations": [
+      "🛡️ Enable HSTS with max-age=31536000",
+      "🛡️ Implement Content Security Policy (CSP)",
+      "🛡️ Set X-Frame-Options: DENY",
+      "🔍 1 potential vulnerabilities found",
+      "🎣 Login form on non-legitimate domain",
+      "📧 Add SPF record to prevent email spoofing",
+      "📧 Add DMARC record for email authentication"
+    ],
+    "summary": {
+      "has_ssl": true,
+      "has_hsts": false,
+      "has_csp": false,
+      "vulnerabilities_found": 1,
+      "phishing_suspected": true
+    }
+  }
+}

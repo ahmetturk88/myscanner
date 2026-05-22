@@ -17,7 +17,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
-
+import logging
+logger = logging.getLogger(__name__)
 
 class URLDeepAnalyzer:
     """
@@ -80,6 +81,8 @@ class URLDeepAnalyzer:
         
         # تحميل قاعدة بيانات التصيد المحلية
         self.PHISHING_DOMAINS = self._load_phishing_cache()
+        logger.info("✅ URLDeepAnalyzer initialized successfully")
+
     
     # ================================================================
     # 1. دوال التخزين المؤقت (Cache)
@@ -100,6 +103,7 @@ class URLDeepAnalyzer:
                     cached = json.load(f)
                 cached_time = datetime.fromisoformat(cached['cached_at'])
                 if datetime.now() - cached_time < timedelta(seconds=self.cache_ttl):
+                    logger.info(f"📦 Returning cached result for URL: {url}")
                     return cached['result']
             except Exception:
                 pass
@@ -142,6 +146,7 @@ class URLDeepAnalyzer:
     # ================================================================
     
     def analyze_url_structure(self, url: str) -> Dict[str, Any]:
+        logger.debug(f"Analyzing URL structure for: {url}")
         """تحليل بنية الرابط"""
         parsed = urlparse(url)
         
@@ -200,6 +205,7 @@ class URLDeepAnalyzer:
     # ================================================================
     
     def check_phishing_indicators(self, url: str) -> Dict[str, Any]:
+        logger.debug(f"Checking phishing indicators for: {url}")
         """كشف مؤشرات التصيد"""
         url_lower = url.lower()
         issues = []
@@ -235,6 +241,7 @@ class URLDeepAnalyzer:
     # ================================================================
     
     def check_ssl_certificate(self, domain: str) -> Dict[str, Any]:
+        logger.debug(f"Checking SSL certificate for: {domain}")
         """فحص شهادة SSL للموقع"""
         try:
             context = ssl.create_default_context()
@@ -274,6 +281,7 @@ class URLDeepAnalyzer:
                 "valid_until": not_after.strftime('%Y-%m-%d')
             }
         except Exception as e:
+            logger.error(f"Error in function_name: {str(e)}")
             return {"valid": False, "error": str(e)}
     
     # ================================================================
@@ -388,6 +396,7 @@ class URLDeepAnalyzer:
                 "recommendations": recommendations
             }
         except Exception as e:
+            logger.error(f"Error in function_name: {str(e)}")
             return {"error": str(e), "score": 0, "grade": "F"}
     
     # ================================================================
@@ -454,6 +463,7 @@ class URLDeepAnalyzer:
             if w.name and 'Private' in str(w.name):
                 result["red_flags"].append("Private registration - may hide identity")
         except Exception as e:
+            logger.error(f"Error in function_name: {str(e)}")
             result["error"] = str(e)
         
         return result
@@ -486,6 +496,7 @@ class URLDeepAnalyzer:
                 data = resp.json()
                 if data.get('query_status') == 'ok':
                     result["is_malicious"] = True
+                    logger.warning(f"🚨 Malicious URL detected in URLhaus: {url} - {result['threat']}")
                     result["urlhaus_id"] = data.get('id')
                     result["first_seen"] = data.get('firstseen')
                     result["last_seen"] = data.get('lastseen')
@@ -504,6 +515,7 @@ class URLDeepAnalyzer:
             else:
                 result["details"] = f"API Error: {resp.status_code}"
         except Exception as e:
+            logger.error(f"Error in function_name: {str(e)}")
             result["details"] = f"Error: {str(e)}"
         
         return result
@@ -550,6 +562,7 @@ class URLDeepAnalyzer:
                 response = self.session.get(url, timeout=self.timeout)
                 html = response.text
             except Exception as e:
+                logger.error(f"Error in function_name: {str(e)}")
                 return {"error": f"Could not fetch page content: {str(e)}"}
         
         soup = BeautifulSoup(html, 'html.parser')
@@ -682,6 +695,7 @@ class URLDeepAnalyzer:
             if final_domain in self.PHISHING_DOMAINS:
                 result["behavior_risk_score"] += 40
         except Exception as e:
+            logger.error(f"Error in function_name: {str(e)}")
             result["error"] = str(e)
         
         return result
@@ -691,6 +705,7 @@ class URLDeepAnalyzer:
     # ================================================================
     
     def comprehensive_analysis(self, url: str) -> Dict[str, Any]:
+        logger.info(f"🔍 Starting quick URL analysis for: {url}")
         """
         التحليل الشامل للرابط (بدون تخزين مؤقت - سريع)
         يستخدم للفحص السريع قبل إرسال إلى VirusTotal
@@ -762,7 +777,7 @@ class URLDeepAnalyzer:
             recommendations.append("🔗 URL shortener used - destination unknown until clicked")
         
         results["recommendations"] = recommendations
-        
+        logger.info(f"✅ Quick analysis completed for {url} | Score: {security_score} | Verdict: {verdict}")
         return results
     
     # ================================================================
@@ -770,6 +785,7 @@ class URLDeepAnalyzer:
     # ================================================================
     
     def comprehensive_deep_analysis(self, url: str, fetch_content: bool = True) -> Dict[str, Any]:
+        logger.info(f"🚀 Starting deep URL analysis for: {url}")
         """
         التحليل العميق الشامل للرابط (مع تخزين مؤقت وتحليل محتوى)
         
@@ -928,7 +944,7 @@ class URLDeepAnalyzer:
         
         # حفظ في cache
         self._save_cached_result(url, result)
-        
+        logger.info(f"✅ Deep analysis completed for {url} | Risk Score: {result['overall_risk_score']} | Verdict: {result['verdict']}")
         return result
 
 

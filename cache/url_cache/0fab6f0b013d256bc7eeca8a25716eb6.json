@@ -1,0 +1,162 @@
+{
+  "url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+  "cached_at": "2026-05-22T00:05:38.468288",
+  "result": {
+    "url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+    "domain": "www.youtube.com",
+    "timestamp": "2026-05-22T00:05:32.178738",
+    "from_cache": false,
+    "page_content": {
+      "title": "Nassif Zeytoun x Mortadha Ftiti - Ya Sidi Ensa (2024) / ناصيف زيتون ومرتضى فتيتي - يا سيدي انسى - YouTube",
+      "meta_description": "Directed By: Richa SarkisWritten By: Mazen DaherComposed By: Mortadha FtitiMusic Producer By: Omar SabbaghMusical Composition: Fourat BoukadidaProduced By: T...",
+      "meta_keywords": "nassif, nassif zeytoun, nassif zaiton, nassif zeiton, nassif zayton, nassif zeyton, ناصيف زيتون, nassif zeytoun music, اغاني نصيف زيتون, nassif zeytoun & mortadha ftiti, nassif zeytoun and mortadha ft",
+      "text_content": "Nassif Zeytoun x Mortadha Ftiti - Ya Sidi Ensa (2024) / ناصيف زيتون ومرتضى فتيتي - يا سيدي انسى - YouTubeHakkındaBasınTelif hakkıBize ulaşınİçerik ÜreticilerReklam vermeGeliştiricilerŞartlarGizlilikPolitika ve GüvenlikYouTube Nasıl Çalışıyor?Yeni özellikleri deneyin© 2026 Google LLC",
+      "forms": [],
+      "external_links": [
+        "https://developers.google.com/youtube"
+      ],
+      "internal_links": [
+        "https://www.youtube.com/",
+        "https://www.youtube.com/",
+        "https://www.youtube.com/about/",
+        "https://www.youtube.com/about/press/",
+        "https://www.youtube.com/about/copyright/",
+        "https://www.youtube.com/t/contact_us/",
+        "https://www.youtube.com/creators/",
+        "https://www.youtube.com/ads/",
+        "https://www.youtube.com/t/terms",
+        "https://www.youtube.com/t/privacy",
+        "https://www.youtube.com/about/policies/",
+        "https://www.youtube.com/howyoutubeworks?utm_campaign=ytgen&utm_source=ythp&utm_medium=LeftNav&utm_co",
+        "https://www.youtube.com/new"
+      ],
+      "scripts": [
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/web-animations-next-lite.min.vflset/web-animations-next-lite.min.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/webcomponents-all-noPatch.vflset/webcomponents-all-noPatch.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/fetch-polyfill.vflset/fetch-polyfill.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/intersection-observer.min.vflset/intersection-observer.min.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/scheduler.vflset/scheduler.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/www-i18n-constants-tr_TR.vflset/www-i18n-constants.js",
+        "/s/player/c2f7551f/player_ias.vflset/tr_TR/base.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/spf.vflset/spf.js",
+        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/network.vflset/network.js",
+        "https://www.youtube.com/s/_/ytmainappweb/_/js/k=ytmainappweb.kevlar_base.en_US.V8hdYT03Ezk.es5.O/am=AAAAACAAEAAk/d=1/rs=AGKMywERhN8DDN_zEvLZH9qtSE6j5hE8uQ/m=kevlar_base_module,kevlar_main_module,kevlar_base_sync_mod_chunk"
+      ],
+      "suspicious_keywords_found": [],
+      "has_login_form": false,
+      "has_password_field": false,
+      "content_risk_score": 0
+    },
+    "behavior": {
+      "original_url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+      "final_url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+      "redirect_count": 0,
+      "redirect_chain": [],
+      "is_shortened": false,
+      "status_code": 200,
+      "behavior_risk_score": 0,
+      "error": null
+    },
+    "whois": {
+      "domain": "www.youtube.com",
+      "age_days": 7765,
+      "creation_date": "2005-02-15",
+      "expiration_date": "2027-02-15",
+      "registrar": "MarkMonitor, Inc.",
+      "is_new": false,
+      "is_expiring_soon": false,
+      "whois_risk_score": 0,
+      "red_flags": []
+    },
+    "osint": {
+      "urlhaus": false,
+      "urlhaus_details": {},
+      "osint_risk_score": 0,
+      "details": []
+    },
+    "structure": {
+      "scheme": "https",
+      "domain": "www.youtube.com",
+      "path": "/watch",
+      "has_query": true,
+      "query_params": 3,
+      "has_fragment": false,
+      "length": 72,
+      "is_https": true,
+      "contains_ip": false,
+      "subdomain_count": 1,
+      "suspicious_chars": [],
+      "trust_score": 100,
+      "trust_level": "High"
+    },
+    "phishing": {
+      "is_phishing_suspected": false,
+      "issues": [],
+      "risk_score": 0
+    },
+    "ssl": {
+      "valid": true,
+      "days_remaining": 69,
+      "issuer": "Google Trust Services",
+      "tls_version": "TLSv1.3",
+      "grade": "B",
+      "valid_from": "2026-05-07",
+      "valid_until": "2026-07-30"
+    },
+    "dns": {
+      "a_records": [
+        "172.217.22.238",
+        "172.217.21.206",
+        "172.217.21.238",
+        "172.217.20.78",
+        "172.217.18.174",
+        "142.251.142.110",
+        "172.217.171.78",
+        "172.217.20.206",
+        "172.217.16.142",
+        "192.178.24.78",
+        "172.217.23.142",
+        "192.178.25.238",
+        "216.58.204.110",
+        "192.178.24.46",
+        "142.251.208.110",
+        "142.251.38.238"
+      ],
+      "aaaa_records": [
+        "2a00:1450:4017:81a::200e",
+        "2a00:1450:4017:812::200e",
+        "2a00:1450:4017:822::200e",
+        "2a00:1450:4017:81d::200e"
+      ],
+      "mx_records": [],
+      "ns_records": [],
+      "txt_records": [],
+      "has_spf": false,
+      "has_dmarc": false
+    },
+    "security_headers": {
+      "headers": {
+        "strict_transport_security": "max-age=31536000",
+        "content_security_policy": "base-uri 'self';object-src 'none';script-src 'unsafe-inline' https: http: 'unsafe-eval';report-uri https://csp.withgoogle.com/csp/youtube_main/strict, require-trusted-types-for 'script'",
+        "x_frame_options": "SAMEORIGIN",
+        "x_content_type_options": "nosniff",
+        "x_xss_protection": "0",
+        "referrer_policy": "Missing"
+      },
+      "score": 80,
+      "grade": "A",
+      "recommendations": []
+    },
+    "overall_risk_score": 0,
+    "verdict": "safe",
+    "verdict_icon": "✅",
+    "summary": {
+      "level": "Low Risk",
+      "color": "green",
+      "message": "No significant threats detected. URL appears safe."
+    },
+    "recommendations": [
+      "✅ No threats detected - URL appears safe to visit"
+    ]
+  }
+}

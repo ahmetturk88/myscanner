@@ -1,0 +1,273 @@
+{
+  "domain": "elcinema.com",
+  "cached_at": "2026-05-21T21:49:35.329556",
+  "result": {
+    "domain": "elcinema.com",
+    "url": "https://elcinema.com/tvsummary/1/en",
+    "status": "success",
+    "from_cache": false,
+    "timestamp": "2026-05-21T21:49:35.329062",
+    "vulnerabilities": {
+      "static": {
+        "sql_injection": [],
+        "xss": [
+          {
+            "pattern": "<script[^>]*>.*?</script>",
+            "description": "Script tag detected in response",
+            "matches": 6
+          },
+          {
+            "pattern": "onload=|onclick=|onmouseover=|onerror=",
+            "description": "Event handler attribute detected",
+            "matches": 1
+          }
+        ],
+        "other_vulnerabilities": [],
+        "risk_score": 30,
+        "total_findings": 2
+      },
+      "dynamic": {
+        "tested_endpoints": [],
+        "sql_injection_suspected": false,
+        "xss_suspected": false,
+        "risk_score": 0,
+        "details": []
+      },
+      "overall_risk": 30
+    },
+    "security_headers": {
+      "headers": {
+        "strict_transport_security": "Missing",
+        "content_security_policy": "Missing",
+        "x_frame_options": "SAMEORIGIN",
+        "x_content_type_options": "nosniff",
+        "x_xss_protection": "1; mode=block",
+        "referrer_policy": "Missing",
+        "permissions_policy": "Missing",
+        "cross_origin_opener_policy": "Missing",
+        "cross_origin_embedder_policy": "Missing",
+        "cache_control": "max-age=0, private, must-revalidate"
+      },
+      "analysis": {
+        "hsts": {
+          "status": "missing",
+          "recommendation": "Enable HSTS with max-age=31536000"
+        },
+        "csp": {
+          "status": "missing",
+          "recommendation": "Implement Content Security Policy (CSP)"
+        },
+        "xfo": {
+          "status": "present",
+          "value": "SAMEORIGIN"
+        },
+        "xcto": {
+          "status": "present",
+          "value": "nosniff",
+          "quality": "good"
+        },
+        "xxp": {
+          "status": "present",
+          "value": "1; mode=block"
+        },
+        "referrer": {
+          "status": "missing",
+          "recommendation": "Set Referrer-Policy: strict-origin-when-cross-origin"
+        },
+        "permissions": {
+          "status": "missing",
+          "recommendation": "Consider implementing Permissions-Policy"
+        }
+      },
+      "score": 16,
+      "grade": "F",
+      "recommendations": [
+        "Enable HSTS with max-age=31536000",
+        "Implement Content Security Policy (CSP)",
+        "Set Referrer-Policy: strict-origin-when-cross-origin",
+        "Consider implementing Permissions-Policy"
+      ]
+    },
+    "ssl": {
+      "valid": true,
+      "domain": "elcinema.com",
+      "issuer": "Sectigo RSA Domain Validation Secure Server CA",
+      "subject": "*.elcinema.com",
+      "version": 2,
+      "serial_number": "0x6518e6882874e6aa8421c5a7372180e1",
+      "valid_from": "2025-05-29",
+      "valid_until": "2026-06-07",
+      "days_remaining": 17,
+      "days_since_issue": 357,
+      "signature_algorithm": "sha256WithRSAEncryption",
+      "tls_version": "TLSv1.3",
+      "cipher_strength": "TLS_AES_256_GCM_SHA384 (TLSv1.3 bits)",
+      "certificate_chain": [],
+      "vulnerabilities": [
+        "Certificate expires soon (17 days)"
+      ],
+      "grade": "C",
+      "risk_score": 40
+    },
+    "robots_txt": {
+      "exists": true,
+      "content": "# See http://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file\n#\n# To ban all spiders from the entire site uncomment the next two lines:\n\nUser-agent: ImagesiftBot\nDisallow: /\n\nUser-agent: PetalBot\nDisallow: /\n\nUser-agent: bingbot\nUser-agent: bing\nAllow: /\nCrawl-delay: 10\n\nUser-agent: *\nAllow: /\n",
+      "disallowed_paths": [],
+      "allowed_paths": [
+        "/",
+        "/"
+      ],
+      "sitemaps": [],
+      "user_agents": [
+        "imagesiftbot",
+        "petalbot",
+        "bingbot",
+        "bing",
+        "*"
+      ],
+      "sensitive_paths_found": [],
+      "risk_score": 0,
+      "recommendations": []
+    },
+    "sitemap": {
+      "exists": false,
+      "urls": [],
+      "total_urls": 0,
+      "sensitive_urls_found": [],
+      "risk_score": 0,
+      "recommendations": []
+    },
+    "dns": {
+      "a_records": [
+        "157.90.201.215"
+      ],
+      "aaaa_records": [],
+      "mx_records": [
+        {
+          "preference": 5,
+          "exchange": "alt1.aspmx.l.google.com"
+        },
+        {
+          "preference": 1,
+          "exchange": "aspmx.l.google.com"
+        },
+        {
+          "preference": 10,
+          "exchange": "alt3.aspmx.l.google.com"
+        },
+        {
+          "preference": 10,
+          "exchange": "alt4.aspmx.l.google.com"
+        },
+        {
+          "preference": 5,
+          "exchange": "alt2.aspmx.l.google.com"
+        }
+      ],
+      "ns_records": [
+        "ns-814.awsdns-37.net",
+        "ns-1602.awsdns-08.co.uk",
+        "ns-1441.awsdns-52.org",
+        "ns-155.awsdns-19.com"
+      ],
+      "txt_records": [
+        "google-site-verification=PpHtDpVkVktg-0EIaY_0NowXDtB2kYa3ONHQGRs6qxw",
+        "dailymotion-domain-verification=dm9j3whqo241jd3in",
+        "v=spf1 include:_spf.google.com include:spf.mandrillapp.com include:servers.mcsv.net ~all",
+        "google-site-verification=DZDN3i15hwbDQjSu-nj7ec0MI48CM4QyFrvb8zzmB6U",
+        "google-site-verification=R2N15P0L86o1Qb_93zJLNM5JsmRCNKa4TPT3PP9FlPU"
+      ],
+      "cname_records": [],
+      "soa_record": {
+        "mname": "ns-1441.awsdns-52.org",
+        "rname": "awsdns-hostmaster.amazon.com",
+        "serial": 1,
+        "refresh": 7200,
+        "retry": 900,
+        "expire": 1209600,
+        "minimum": 86400
+      },
+      "has_spf": true,
+      "has_dmarc": true,
+      "spf_record": "v=spf1 include:_spf.google.com include:spf.mandrillapp.com include:servers.mcsv.net ~all",
+      "dmarc_record": "v=DMARC1; p=quarantine; rua=mailto:sysadmin@damlag.com; pct=100; adkim=s; aspf=s",
+      "risk_score": 0,
+      "warnings": []
+    },
+    "phishing": {
+      "is_phishing_suspected": true,
+      "issues": [
+        "Login form on non-legitimate domain"
+      ],
+      "risk_score": 20,
+      "severity": "low"
+    },
+    "reputation": {
+      "is_blacklisted": false,
+      "blacklist_sources": [],
+      "risk_score": 0,
+      "details": []
+    },
+    "performance": {
+      "load_time_ms": 138.23,
+      "page_size_kb": 36.89,
+      "resource_count": 36,
+      "resources_breakdown": {
+        "images": 28,
+        "scripts": 7,
+        "stylesheets": 1,
+        "total": 36
+      },
+      "grade": "A+",
+      "score": 100,
+      "risk_score": 0
+    },
+    "seo": {
+      "title": "دليل مشاهدة أفلام ومسلسلات التلفزيون",
+      "description": "",
+      "keywords": "",
+      "h1_tags": [],
+      "h2_tags": [],
+      "has_meta_description": false,
+      "has_meta_keywords": false,
+      "images_without_alt": 28,
+      "total_images": 28,
+      "seo_score": 55
+    },
+    "mobile": {
+      "has_viewport": true,
+      "is_mobile_friendly": true,
+      "viewport_content": "width=device-width, initial-scale=1.0"
+    },
+    "stats": {
+      "internal_links": 124,
+      "external_links": 6,
+      "scripts": 7,
+      "external_scripts": 1,
+      "images": 28,
+      "forms": 1,
+      "iframes": 1
+    },
+    "security_score": 63,
+    "risk_score": 37,
+    "verdict": "moderate",
+    "verdict_icon": "⚠️",
+    "severity": "medium",
+    "risk_factors": [],
+    "recommendations": [
+      "⚠️ SSL certificate expires in 17 days",
+      "🛡️ Enable HSTS with max-age=31536000",
+      "🛡️ Implement Content Security Policy (CSP)",
+      "🛡️ Set Referrer-Policy: strict-origin-when-cross-origin",
+      "🔍 2 potential vulnerabilities found",
+      "🎣 Login form on non-legitimate domain"
+    ],
+    "summary": {
+      "has_ssl": true,
+      "has_hsts": false,
+      "has_csp": false,
+      "vulnerabilities_found": 2,
+      "phishing_suspected": true
+    }
+  }
+}

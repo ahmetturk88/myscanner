@@ -223,17 +223,17 @@ function renderResult(d) {
       <div class="info-row"><span>Title</span><span>${seo.title || 'Missing'}</span></div>
       <div class="info-row"><span>Description</span><span>${(seo.description || 'Missing').substring(0, 100)}</span></div>
       <div class="info-row"><span>H1 Tags</span><span>${(seo.h1_tags || []).length} found</span></div>
-      <div class="info-row"><span>Images with Alt</span><span>${seo.images_alt?.with_alt || 0}/${seo.images_alt?.total || 0}</span></div>
+      <div class="info-row"><span>Images with Alt</span><span>${seo.images_without_alt ? (seo.total_images - seo.images_without_alt) + '/' + seo.total_images : 'N/A'}</span></div>
       <div class="info-row"><span>Internal Links</span><span>${seo.internal_links || 0}</span></div>
       <div class="info-row"><span>External Links</span><span>${seo.external_links || 0}</span></div>
     </div>
     
     <!-- Mobile Friendly -->
     <div class="section-card">
-      <div class="section-title">📱 Mobile Friendly</div>
-      <div class="info-row"><span>Status</span><span class="${mobile.is_mobile_friendly ? 'badge-good' : 'badge-bad'}">${mobile.is_mobile_friendly ? '✓ Mobile Friendly' : '✗ Not Mobile Friendly'}</span></div>
-      <div class="info-row"><span>Viewport</span><span class="${mobile.viewport ? 'badge-good' : 'badge-bad'}">${mobile.viewport ? '✓ Configured' : '✗ Missing'}</span></div>
-    </div>
+  <div class="section-title">📱 Mobile Friendly</div>
+  <div class="info-row"><span>Status</span><span class="${mobile.has_viewport ? 'badge-good' : 'badge-bad'}">${mobile.has_viewport ? '✓ Mobile Friendly' : '✗ Not Mobile Friendly'}</span></div>
+  <div class="info-row"><span>Viewport</span><span class="${mobile.has_viewport ? 'badge-good' : 'badge-bad'}">${mobile.has_viewport ? '✓ Configured' : '✗ Missing'}</span></div>
+   </div>
     
     <!-- Recommendations -->
     ${recommendations.length > 0 ? `

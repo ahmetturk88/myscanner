@@ -1,0 +1,125 @@
+{
+  "url": "https://web.telegram.org/a/#-1001591805265",
+  "cached_at": "2026-05-22T00:09:23.395039",
+  "result": {
+    "url": "https://web.telegram.org/a/#-1001591805265",
+    "domain": "web.telegram.org",
+    "timestamp": "2026-05-22T00:09:20.205722",
+    "from_cache": false,
+    "page_content": {
+      "title": "Telegram",
+      "meta_description": "Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.",
+      "meta_keywords": "",
+      "text_content": "TelegramTelegram WebPlease, enable JavaScript to open the app.",
+      "forms": [],
+      "external_links": [],
+      "internal_links": [],
+      "scripts": [
+        "./redirect.js",
+        "main.bfd2fef4e88dcd99c957.js",
+        "./compatTest.js"
+      ],
+      "suspicious_keywords_found": [],
+      "has_login_form": false,
+      "has_password_field": false,
+      "content_risk_score": 0
+    },
+    "behavior": {
+      "original_url": "https://web.telegram.org/a/#-1001591805265",
+      "final_url": "https://web.telegram.org/a/#-1001591805265",
+      "redirect_count": 0,
+      "redirect_chain": [],
+      "is_shortened": false,
+      "status_code": 200,
+      "behavior_risk_score": 0,
+      "error": null
+    },
+    "whois": {
+      "domain": "web.telegram.org",
+      "age_days": 8193,
+      "creation_date": "2003-12-15",
+      "expiration_date": "2031-12-15",
+      "registrar": "GoDaddy.com, LLC",
+      "is_new": false,
+      "is_expiring_soon": false,
+      "whois_risk_score": 0,
+      "red_flags": []
+    },
+    "osint": {
+      "urlhaus": false,
+      "urlhaus_details": {},
+      "osint_risk_score": 0,
+      "details": []
+    },
+    "structure": {
+      "scheme": "https",
+      "domain": "web.telegram.org",
+      "path": "/a/",
+      "has_query": false,
+      "query_params": 0,
+      "has_fragment": true,
+      "length": 42,
+      "is_https": true,
+      "contains_ip": false,
+      "subdomain_count": 1,
+      "suspicious_chars": [],
+      "trust_score": 100,
+      "trust_level": "High"
+    },
+    "phishing": {
+      "is_phishing_suspected": false,
+      "issues": [],
+      "risk_score": 0
+    },
+    "ssl": {
+      "valid": true,
+      "days_remaining": 131,
+      "issuer": "GoDaddy.com, Inc.",
+      "tls_version": "TLSv1.3",
+      "grade": "A",
+      "valid_from": "2025-08-29",
+      "valid_until": "2026-09-30"
+    },
+    "dns": {
+      "a_records": [
+        "149.154.167.99"
+      ],
+      "aaaa_records": [
+        "2001:67c:4e8:f004::9"
+      ],
+      "mx_records": [],
+      "ns_records": [],
+      "txt_records": [],
+      "has_spf": false,
+      "has_dmarc": false
+    },
+    "security_headers": {
+      "headers": {
+        "strict_transport_security": "Missing",
+        "content_security_policy": "Missing",
+        "x_frame_options": "deny",
+        "x_content_type_options": "Missing",
+        "x_xss_protection": "Missing",
+        "referrer_policy": "Missing"
+      },
+      "score": 15,
+      "grade": "D",
+      "recommendations": [
+        "Enable HSTS",
+        "Implement CSP",
+        "Set X-Content-Type-Options: nosniff"
+      ]
+    },
+    "overall_risk_score": 10,
+    "verdict": "safe",
+    "verdict_icon": "✅",
+    "summary": {
+      "level": "Low Risk",
+      "color": "green",
+      "message": "No significant threats detected. URL appears safe."
+    },
+    "recommendations": [
+      "✅ No threats detected - URL appears safe to visit"
+    ]
+  }
+}

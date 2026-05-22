@@ -44,9 +44,8 @@ from services.file_deep_analyzer import FileDeepAnalyzer  # ✅ صحيح
 from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
 from celery_config import celery
-from tasks import scan_file_task, scan_site_task, batch_scan_task, scan_large_file_task
 import uuid
-
+from tasks import scan_file_task, scan_site_task, batch_scan_task
 
 load_dotenv()
 
@@ -54,6 +53,7 @@ load_dotenv()
 # Initialization
 # ================================================================
 app = Flask(__name__)
+from logging_config import setup_logging
 
 # ================================================================
 # Config
@@ -90,7 +90,8 @@ from services.email_checker import AdvancedEmailChecker
 # ================================================================
 redis_client = None
 print("[REDIS] Disabled - running without cache")
-
+from logging_config import setup_logging, log_activity, log_performance, log_error
+setup_logging(app)
 # ================================================================
 # Extensions
 # ================================================================
@@ -333,19 +334,24 @@ def login():
 
         if not user or not user.check_password(password):
             flash('Invalid email or password.', 'danger')
+            # ❌ لا تسجل هنا (محاولة فاشلة)
             return redirect(url_for('login'))
 
         if not user.is_verified:
             flash('Please verify your email before logging in.', 'warning')
             return redirect(url_for('login'))
 
+        # ✅ تسجيل الدخول ناجح
         login_user(user, remember=remember)
+        
+        # ✅ هنا ضع سجل النشاط (بعد login_user وقبل الـ flash)
+        log_activity(user.username, 'login', f'Logged in from {request.remote_addr}')
+        
         flash(f'Welcome back, {user.username}!', 'success')
         next_page = request.args.get('next')
         return redirect(next_page or url_for('dashboard'))
 
     return render_template('login.html')
-
 
 @app.route('/logout')
 @login_required
@@ -560,14 +566,20 @@ def api_bulk_email_check():
 @login_required
 def api_scan_file():
     """API الموحد لفحص الملفات (VirusTotal + التحليل العميق)"""
+    
+    app.logger.info(f'[INFO] File scan requested by {current_user.username}')
+    
     if 'file' not in request.files:
+        app.logger.warning(f'[WARNING] No file provided by {current_user.username}')
         return jsonify({"error": "No file provided"}), 400
     
     file = request.files['file']
     if file.filename == '':
+        app.logger.warning(f'[WARNING] Empty filename from {current_user.username}')
         return jsonify({"error": "No file selected"}), 400
     
     if not allowed_file(file.filename):
+        app.logger.warning(f'[WARNING] Unallowed file type: {file.filename} by {current_user.username}')
         return jsonify({"error": f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
     
     try:
@@ -575,9 +587,11 @@ def api_scan_file():
         file_size = len(file_content)
         
         if file_size > MAX_FILE_SIZE:
+            app.logger.warning(f'[WARNING] File too large: {file_size} bytes by {current_user.username}')
             return jsonify({"error": f"File too large. Max: {MAX_FILE_SIZE // 1024 // 1024} MB"}), 400
         
         filename = secure_filename(file.filename)
+        app.logger.info(f'[INFO] Processing file: {filename} ({file_size} bytes) by {current_user.username}')
         
         # 1. التحليل العميق المحلي
         analyzer = FileDeepAnalyzer(use_exiftool=True)
@@ -595,7 +609,7 @@ def api_scan_file():
                     analysis_id = upload_resp.json().get("data", {}).get("id", "")
                     analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
                     
-                    for _ in range(20): # تقليل عدد المحاولات لتسريع الاستجابة
+                    for _ in range(20):
                         time.sleep(2)
                         analysis_resp = requests.get(analysis_url, headers=headers, timeout=30)
                         if analysis_resp.status_code == 200:
@@ -639,14 +653,21 @@ def api_scan_file():
             
         # تحديث الحكم النهائي بناءً على النتيجة الجديدة
         score = deep_result["security_score"]
-        if score >= 80: deep_result["verdict"] = "safe"
-        elif score >= 60: deep_result["verdict"] = "suspicious"
-        elif score >= 30: deep_result["verdict"] = "high_risk"
-        else: deep_result["verdict"] = "malicious"
+        if score >= 80:
+            deep_result["verdict"] = "safe"
+        elif score >= 60:
+            deep_result["verdict"] = "suspicious"
+        elif score >= 30:
+            deep_result["verdict"] = "high_risk"
+        else:
+            deep_result["verdict"] = "malicious"
+        
+        app.logger.info(f'[SUCCESS] File scan completed for {filename} | Score: {deep_result["security_score"]} | Verdict: {deep_result["verdict"]}')
         
         return jsonify(deep_result)
         
     except Exception as e:
+        app.logger.error(f'[ERROR] File scan failed for {current_user.username}: {str(e)}')
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Scan error: {str(e)}"}), 500
@@ -687,6 +708,7 @@ def api_file_deep_analysis():
 @app.route('/api/async-scan-file', methods=['POST'])
 @login_required
 def async_scan_file():
+    app.logger.info(f'📁 File scan started by {current_user.username}')
     """
     بدء فحص ملف في الخلفية (غير متزامن)
     يعود فوراً بـ task_id لتتبع التقدم
@@ -720,6 +742,7 @@ def async_scan_file():
 @app.route('/api/task-status/<task_id>')
 @login_required
 def task_status(task_id):
+    app.logger.info(f'📊 Task status check: User={current_user.username}, Task={task_id}')
     """
     التحقق من حالة مهمة غير متزامنة
     """
@@ -774,14 +797,16 @@ def task_status(task_id):
 @app.route('/api/async-scan-site', methods=['POST'])
 @login_required
 def async_scan_site():
-    """
-    بدء فحص موقع في الخلفية
-    """
+    app.logger.info(f'[INFO] Site scan requested by {current_user.username}')
+    
     data = request.get_json()
     domain = data.get('domain', '').strip()
     
     if not domain:
+        app.logger.warning(f'⚠️ No domain provided by {current_user.username}')
         return jsonify({"error": "No domain provided"}), 400
+    
+    app.logger.info(f'[INFO] Starting async scan for domain: {domain}')
     
     # إنشاء سجل فحص جديد
     new_scan = Scan(
@@ -796,6 +821,8 @@ def async_scan_site():
     
     # بدء المهمة في الخلفية
     task = scan_site_task.delay(domain, current_user.id, new_scan.id)
+    
+    app.logger.info(f'[SUCCESS] Async scan started for {domain} | Task ID: {task.id}')
     
     return jsonify({
         "task_id": task.id,
@@ -860,61 +887,82 @@ def email_check():
 @app.route('/api/check-email', methods=['POST'])
 @login_required
 def api_check_email():
-    """API متطور لفحص الإيميلات مع جميع الميزات الجديدة"""
+    app.logger.info(f'[INFO] Email check requested by {current_user.username}')
+
     data = request.get_json()
     email = data.get('email', '').strip()
-    
+
     if not email:
+        app.logger.warning(f'[WARNING] No email provided by {current_user.username}')
         return jsonify({"error": "No email provided"}), 400
-    
-    # استخدام الفاحص المتقدم
-    checker = AdvancedEmailChecker(redis_client)
-    result = checker.check_all(email)
-    
-    if not result.get("valid"):
+
+    app.logger.info(f'[INFO] Checking email: {email} | User: {current_user.username}')
+
+    try:
+        checker = AdvancedEmailChecker(redis_client)
+        result = checker.check_all(email)
+
+        if not result.get("valid"):
+            app.logger.warning(f'[WARNING] Invalid email format: {email}')
+            return jsonify({
+                "error": result.get("error", "Invalid email format"),
+                "suggestions": result.get("suggestions", [])
+            }), 400
+
+        app.logger.info(
+            f'[SUCCESS] Email check completed for {email} '
+            f'| Verdict: {result.get("verdict")} '
+            f'| Score: {result.get("quality_score")}'
+        )
+        log_activity(
+            current_user.username,
+            'email_check',
+            f'Checked email: {email} | Verdict: {result.get("verdict")}'
+        )
+
         return jsonify({
-            "error": result.get("error", "Invalid email format"),
-            "suggestions": result.get("suggestions", [])
-        }), 400
-    
-    # إعادة النتائج بصيغة متوافقة مع الواجهة الحالية مع ميزات إضافية
-    return jsonify({
-        "email": result["email"],
-        "domain": result["domain"],
-        "verdict": result["verdict"],
-        "is_valid": result["valid"],
-        "is_disposable": result["is_disposable"],
-        "is_free": result["is_free"],
-        "is_mx": result["dns"]["mx"]["exists"],
-        "is_smtp": result["smtp"]["valid"],
-        "deliverability": result["deliverability"],
-        "quality_score": result["quality_score"] / 100,
-        "address_risk": result["verdict"],
-        "total_breaches": 0,  # API خارجي للـ breaches
-        "last_breached": None,
-        "breached_domains": [],
-        "domain_age": result["domain_info"].get("age_days", 0),
-        "registrar": result["domain_info"].get("registrar", "Unknown"),
-        "spf_record": result["dns"]["spf"]["record"],
-        "spf_valid": result["dns"]["spf"]["exists"],
-        "dkim_record": None,
-        "dkim_valid": False,
-        "dmarc_record": result["dns"]["dmarc"]["record"],
-        "dmarc_valid": result["dns"]["dmarc"]["exists"],
-        "blacklisted": result["blacklist"]["is_blacklisted"],
-        "blacklist_count": len(result["blacklist"].get("blacklisted_on", [])),
-        "blacklist_results": result["blacklist"].get("blacklisted_on", []),
-        "smtp_details": result["smtp"],
-        "quality_breakdown": {
-            "score": result["quality_score"],
-            "smtp_valid": result["smtp"]["valid"],
-            "no_disposable": not result["is_disposable"],
-            "not_blacklisted": not result["blacklist"]["is_blacklisted"],
-            "spf_exists": result["dns"]["spf"]["exists"],
-            "dmarc_exists": result["dns"]["dmarc"]["exists"]
-        },
-        "format_suggestions": result.get("format_suggestions", [])
-    })
+            "email": result["email"],
+            "domain": result["domain"],
+            "verdict": result["verdict"],
+            "is_valid": result["valid"],
+            "is_disposable": result["is_disposable"],
+            "is_free": result["is_free"],
+            "is_mx": result["dns"]["mx"]["exists"],
+            "is_smtp": result["smtp"]["valid"],
+            "deliverability": result["deliverability"],
+            "quality_score": result["quality_score"] / 100,
+            "address_risk": result["verdict"],
+            "total_breaches": 0,
+            "last_breached": None,
+            "breached_domains": [],
+            "domain_age": result["domain_info"].get("age_days", 0),
+            "registrar": result["domain_info"].get("registrar", "Unknown"),
+            "spf_record": result["dns"]["spf"]["record"],
+            "spf_valid": result["dns"]["spf"]["exists"],
+            "dkim_record": None,
+            "dkim_valid": False,
+            "dmarc_record": result["dns"]["dmarc"]["record"],
+            "dmarc_valid": result["dns"]["dmarc"]["exists"],
+            "blacklisted": result["blacklist"]["is_blacklisted"],
+            "blacklist_count": len(result["blacklist"].get("blacklisted_on", [])),
+            "blacklist_results": result["blacklist"].get("blacklisted_on", []),
+            "smtp_details": result["smtp"],
+            "quality_breakdown": {
+                "score": result["quality_score"],
+                "smtp_valid": result["smtp"]["valid"],
+                "no_disposable": not result["is_disposable"],
+                "not_blacklisted": not result["blacklist"]["is_blacklisted"],
+                "spf_exists": result["dns"]["spf"]["exists"],
+                "dmarc_exists": result["dns"]["dmarc"]["exists"]
+            },
+            "format_suggestions": result.get("format_suggestions", [])
+        })
+
+    except Exception as e:
+        app.logger.error(f'[ERROR] Email check failed for {email}: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Check error: {str(e)}"}), 500
 
 
 # ================================================================
@@ -930,19 +978,33 @@ def ip_check():
 @app.route('/api/check-ip', methods=['POST'])
 @login_required
 def api_check_ip():
+    app.logger.info(f'[INFO] IP check requested by {current_user.username}')
+    
     data = request.get_json()
     ip = data.get('ip', '').strip()
     
     if not ip:
+        app.logger.warning(f'[WARNING] No IP provided by {current_user.username}')
         return jsonify({"error": "No IP provided"}), 400
     
-    analyzer = IPAnalyzer()
-    result = analyzer.analyze_ip(ip, ABUSEIPDB_API_KEY)
+    app.logger.info(f'[INFO] Analyzing IP: {ip} | User: {current_user.username}')
     
-    if "error" in result:
-        return jsonify({"error": result["error"]}), 400
-    
-    return jsonify(result)
+    try:
+        analyzer = IPAnalyzer()
+        result = analyzer.analyze_ip(ip, ABUSEIPDB_API_KEY)
+        
+        if "error" in result:
+            app.logger.warning(f'[WARNING] IP analysis error for {ip}: {result["error"]}')
+            return jsonify({"error": result["error"]}), 400
+        
+        app.logger.info(f'[SUCCESS] IP analysis completed for {ip} | Verdict: {result.get("verdict")}')
+        log_activity(current_user.username, 'ip_check', f'Checked IP: {ip} | Verdict: {result.get("verdict")}')
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f'[ERROR] IP check failed for {ip}: {str(e)}')
+        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
 
 
 # ================================================================
@@ -1101,12 +1163,23 @@ def site_scanner():
 @app.route('/api/site-scan', methods=['POST'])
 @login_required
 def api_site_scan():
+    # ✅ أضف هاد مؤقتاً للتشخيص
+    import logging
+    print("=== ALL LOGGERS ===")
+    for name, logger in logging.Logger.manager.loggerDict.items():
+        if hasattr(logger, 'handlers'):
+            print(f"Logger: {name} | Handlers: {logger.handlers}")
+    print("=== APP LOGGER ===")
+    print(f"app.logger handlers: {app.logger.handlers}")
     """API متطور لفحص المواقع الإلكترونية"""
     data = request.get_json()
     domain = data.get('domain', '').strip()
     
     if not domain:
         return jsonify({"error": "No domain provided"}), 400
+    
+    app.logger.info(f'[INFO] Site scan requested by {current_user.username}')
+
     
     try:
         analyzer = SiteAnalyzer()
@@ -1115,9 +1188,15 @@ def api_site_scan():
         if "error" in result:
             return jsonify({"error": result["error"]}), 400
         
+        app.logger.info(f'[SUCCESS] Site scan completed for {domain} | Score: {result.get("security_score")}')
+
+        log_activity(current_user.username, 'site_scan', f'Scanned domain: {domain}')
+
+        
         return jsonify(result)
         
     except Exception as e:
+        app.logger.error(f'[ERROR] Site scan failed for {domain}: {str(e)}')
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Analysis error: {str(e)}"}), 500
@@ -1302,16 +1381,39 @@ def domain_lookup():
 @app.route('/api/domain-lookup', methods=['POST'])
 @login_required
 def api_domain_lookup():
+    app.logger.info(f'[INFO] Domain lookup requested by {current_user.username}')
+
     data = request.get_json()
     domain = data.get('domain', '').strip()
-    
+
     if not domain:
+        app.logger.warning(f'[WARNING] No domain provided by {current_user.username}')
         return jsonify({"error": "No domain provided"}), 400
-    
-    analyzer = DomainAnalyzer()
-    result = analyzer.analyze_domain(domain)
-    
-    return jsonify(result)
+
+    app.logger.info(f'[INFO] Analyzing domain: {domain} | User: {current_user.username}')
+
+    try:
+        analyzer = DomainAnalyzer()
+        result = analyzer.analyze_domain(domain)
+
+        if "error" in result:
+            app.logger.warning(f'[WARNING] Domain analysis error for {domain}: {result["error"]}')
+            return jsonify({"error": result["error"]}), 400
+
+        app.logger.info(f'[SUCCESS] Domain lookup completed for {domain} | IP: {result.get("ip")} | Registrar: {result.get("registrar")}')
+        log_activity(
+            current_user.username,
+            'domain_lookup',
+            f'Looked up domain: {domain} | IP: {result.get("ip")}'
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        app.logger.error(f'[ERROR] Domain lookup failed for {domain}: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
 
 @app.route('/qr-scanner')
 @login_required
@@ -1320,16 +1422,35 @@ def qr_scanner():
 @app.route('/api/scan-qr-url', methods=['POST'])
 @login_required
 def api_scan_qr_url():
+    app.logger.info(f'[INFO] QR scan requested by {current_user.username}')
+
     data = request.get_json()
     url = data.get('url', '').strip()
-    
+
     if not url:
+        app.logger.warning(f'[WARNING] No URL provided by {current_user.username}')
         return jsonify({"error": "No URL provided"}), 400
-    
-    analyzer = QRAnalyzer()
-    result = analyzer.scan_url(url, API_KEY)
-    
-    return jsonify(result)
+
+    app.logger.info(f'[INFO] Scanning QR URL: {url[:100]} | User: {current_user.username}')
+
+    try:
+        analyzer = QRAnalyzer()
+        result = analyzer.scan_url(url, API_KEY)
+
+        app.logger.info(f'[SUCCESS] QR scan completed for {url[:100]} | Verdict: {result.get("verdict")}')
+        log_activity(
+            current_user.username,
+            'qr_scan',
+            f'Scanned QR URL: {url[:100]} | Verdict: {result.get("verdict")}'
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        app.logger.error(f'[ERROR] QR scan failed for {url[:100]}: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Scan error: {str(e)}"}), 500
     
 @app.route('/ssl-checker')
 @login_required
@@ -1360,12 +1481,14 @@ def dashboard_v2():
 @app.route('/api/url-analysis/<int:scan_id>')
 @login_required
 def api_url_analysis(scan_id):
+    app.logger.info(f'[INFO] URL analysis requested for scan #{scan_id} by {current_user.username}')
     scan = db.session.get(Scan, scan_id)
     if not scan or (scan.user_id != current_user.id and not current_user.is_admin):
         return jsonify({"error": "Not found"}), 404
     
     url = scan.url
     domain = urlparse(url).netloc
+    app.logger.info(f'[INFO] Starting URL deep analysis for: {url}')
     
     # استخدام المحلل المدمج (يحل محل URLAnalyzer و URLDeepAnalyzer)
     analyzer = URLDeepAnalyzer()
@@ -1375,7 +1498,8 @@ def api_url_analysis(scan_id):
 
     # تحليل عميق (مع جلب محتوى الصفحة)
     deep_analysis = analyzer.comprehensive_deep_analysis(url)
-    
+    app.logger.info(f'[SUCCESS] URL analysis completed for {url} | Score: {local_analysis.get("security_score")} | Verdict: {local_analysis.get("verdict")}')
+    log_activity(current_user.username, 'url_analysis', f'Analyzed URL: {url}')
     # تحليلات إضافية
     analysis = {
         "redirect_chain": [],

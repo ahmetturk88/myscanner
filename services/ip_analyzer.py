@@ -1,5 +1,7 @@
 # services/ip_analyzer.py
 import requests
+import logging
+logger = logging.getLogger(__name__)
 
 class IPAnalyzer:
     """تحليل متقدم لعناوين IP"""
@@ -10,25 +12,33 @@ class IPAnalyzer:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.timeout = 15
+        logger.info("✅ IPAnalyzer initialized successfully")
     
     def analyze_ip(self, ip: str, abuseipdb_api_key: str = None) -> dict:
+        logger.info(f"🔍 Starting IP analysis for: {ip}")
         """تحليل IP شامل"""
         
         # معلومات أساسية من ip-api
         result = self._get_ip_info(ip)
         
         if not result:
+            logger.error(f"Invalid IP address: {ip}")
             return {"error": "Invalid IP address"}
         
         # فحص AbuseIPDB إذا توفر API Key
         if abuseipdb_api_key:
+            logger.debug(f"Checking AbuseIPDB for IP: {ip}")
             abuse_result = self._check_abuseipdb(ip, abuseipdb_api_key)
             if abuse_result:
                 result.update(abuse_result)
+                if abuse_result.get("verdict") == "blacklisted":
+                    logger.warning(f"⚠️ IP {ip} found in AbuseIPDB blacklist")
         
+        logger.info(f"✅ IP analysis completed for: {ip} | Verdict: {result.get('verdict', 'unknown')}")
         return result
     
     def _get_ip_info(self, ip: str) -> dict:
+        logger.debug(f"Fetching IP info for: {ip}")
         """الحصول على معلومات IP من ip-api"""
         try:
             resp = self.session.get(
@@ -39,6 +49,7 @@ class IPAnalyzer:
             data = resp.json()
             
             if data.get('status') == 'fail':
+                logger.warning(f"IP-API returned fail for: {ip}")
                 return None
             
             # تحديد verdict
@@ -47,6 +58,7 @@ class IPAnalyzer:
             
             if is_proxy or is_hosting:
                 verdict = "suspicious"
+                logger.warning(f"IP {ip} is proxy/hosting: Proxy={is_proxy}, Hosting={is_hosting}")
             else:
                 verdict = "safe"
             
@@ -69,9 +81,11 @@ class IPAnalyzer:
                 "blacklist_results": []
             }
         except Exception as e:
+            logger.error(f"Error fetching IP info for {ip}: {str(e)}")
             return {"error": str(e)}
     
     def _check_abuseipdb(self, ip: str, api_key: str) -> dict:
+        logger.debug(f"Checking AbuseIPDB for: {ip}")
         """فحص IP في AbuseIPDB"""
         try:
             headers = {"Key": api_key, "Accept": "application/json"}
@@ -88,6 +102,7 @@ class IPAnalyzer:
                 total_reports = data.get("data", {}).get("totalReports", 0)
                 
                 if abuse_score > 0:
+                    logger.warning(f"AbuseIPDB score for {ip}: {abuse_score}% ({total_reports} reports)")
                     return {
                         "blacklist_count": 1,
                         "blacklist_results": [{
@@ -97,7 +112,9 @@ class IPAnalyzer:
                         }],
                         "verdict": "blacklisted" if abuse_score >= 50 else "suspicious"
                     }
-        except:
-            pass
+            else:
+                logger.warning(f"AbuseIPDB API returned status {resp.status_code} for {ip}")
+        except Exception as e:
+            logger.error(f"Error checking AbuseIPDB for {ip}: {str(e)}")
         
         return {}

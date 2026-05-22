@@ -1,0 +1,366 @@
+{
+  "domain": "cimanow.cc",
+  "cached_at": "2026-05-21T21:22:02.876492",
+  "result": {
+    "domain": "cimanow.cc",
+    "url": "https://cimanow.cc/category/%D8%A7%D9%81%D9%84%D8%A7%D9%85-%D8%A7%D8%AC%D9%86%D8%A8%D9%8A%D8%A9/",
+    "status": "success",
+    "from_cache": false,
+    "timestamp": "2026-05-21T21:22:02.875390",
+    "vulnerabilities": {
+      "static": {
+        "sql_injection": [],
+        "xss": [
+          {
+            "pattern": "<script[^>]*>.*?</script>",
+            "description": "Script tag detected in response",
+            "matches": 8
+          },
+          {
+            "pattern": "onload=|onclick=|onmouseover=|onerror=",
+            "description": "Event handler attribute detected",
+            "matches": 9
+          }
+        ],
+        "other_vulnerabilities": [],
+        "risk_score": 30,
+        "total_findings": 2
+      },
+      "dynamic": {
+        "tested_endpoints": [],
+        "sql_injection_suspected": false,
+        "xss_suspected": false,
+        "risk_score": 0,
+        "details": []
+      },
+      "overall_risk": 30
+    },
+    "security_headers": {
+      "headers": {
+        "strict_transport_security": "max-age=31536000; includeSubDomains; preload",
+        "content_security_policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https: data:; frame-src 'self' https:; media-src 'self' https:; connect-src 'self' https:;",
+        "x_frame_options": "SAMEORIGIN",
+        "x_content_type_options": "nosniff",
+        "x_xss_protection": "Missing",
+        "referrer_policy": "strict-origin-when-cross-origin",
+        "permissions_policy": "Missing",
+        "cross_origin_opener_policy": "Missing",
+        "cross_origin_embedder_policy": "Missing",
+        "cache_control": "Missing"
+      },
+      "analysis": {
+        "hsts": {
+          "status": "present",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        "csp": {
+          "status": "present",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe"
+        },
+        "xfo": {
+          "status": "present",
+          "value": "SAMEORIGIN"
+        },
+        "xcto": {
+          "status": "present",
+          "value": "nosniff",
+          "quality": "good"
+        },
+        "xxp": {
+          "status": "missing",
+          "recommendation": "Set X-XSS-Protection: 1; mode=block"
+        },
+        "referrer": {
+          "status": "present",
+          "value": "strict-origin-when-cross-origin"
+        },
+        "permissions": {
+          "status": "missing",
+          "recommendation": "Consider implementing Permissions-Policy"
+        }
+      },
+      "score": 56,
+      "grade": "C",
+      "recommendations": [
+        "Set X-XSS-Protection: 1; mode=block",
+        "Consider implementing Permissions-Policy"
+      ]
+    },
+    "ssl": {
+      "valid": true,
+      "domain": "cimanow.cc",
+      "issuer": "WE1",
+      "subject": "cimanow.cc",
+      "version": 2,
+      "serial_number": "0xb568dd3a0921ad2e0ec9585b3d474da6",
+      "valid_from": "2026-04-17",
+      "valid_until": "2026-07-16",
+      "days_remaining": 56,
+      "days_since_issue": 33,
+      "signature_algorithm": "ecdsa-with-SHA256",
+      "tls_version": "TLSv1.2",
+      "cipher_strength": "ECDHE-ECDSA-AES128-GCM-SHA256 (TLSv1.2 bits)",
+      "certificate_chain": [],
+      "vulnerabilities": [],
+      "grade": "B",
+      "risk_score": 20
+    },
+    "robots_txt": {
+      "exists": true,
+      "content": "Sitemap: https://cimanow.cc/sitemap.xml\n\n# Google Image\nUser-agent: Googlebot-Image\nDisallow:\nAllow: /*\n\n# Google AdSense\nUser-agent: Mediapartners-Google\nDisallow:\n\n# digg mirror\nUser-agent: duggmirror\nDisallow: /\n\n# global\nUser-agent: *\nDisallow: /cgi-bin/\nDisallow: /wp-admin/\nDisallow: /wp-includes/\nDisallow: /xmlrpc.php\nDisallow: /wp-content/plugins/\nDisallow: /wp-content/cache/\nDisallow: /trackback/\nDisallow: /comments/\nDisallow: */trackback/\nDisallow: */comments/\nDisallow: /index.php\nDisallow: /*.php$\nAllow: /\nAllow: /tag/\nAllow: /category/\nAllow: /sitemap.xml\nAllow: /sitemap.html\nAllow: /sitemap-tax-category.html\nAllow: /sitemap-tax-category.xml\nAllow: /wp-content/themes/Cima%20Now%20New/style.css\nAllow: /wp-content/themes/Cima%20Now%20New/styleMob.css",
+      "disallowed_paths": [
+        "/cgi-bin/",
+        "/wp-admin/",
+        "/wp-includes/",
+        "/xmlrpc.php",
+        "/wp-content/plugins/",
+        "/wp-content/cache/",
+        "/trackback/",
+        "/comments/",
+        "*/trackback/",
+        "*/comments/",
+        "/index.php",
+        "/*.php$"
+      ],
+      "allowed_paths": [
+        "/*",
+        "/",
+        "/tag/",
+        "/category/",
+        "/sitemap.xml",
+        "/sitemap.html",
+        "/sitemap-tax-category.html",
+        "/sitemap-tax-category.xml",
+        "/wp-content/themes/cima%20now%20new/style.css",
+        "/wp-content/themes/cima%20now%20new/stylemob.css"
+      ],
+      "sitemaps": [
+        "https://cimanow.cc/sitemap.xml"
+      ],
+      "user_agents": [
+        "googlebot-image",
+        "mediapartners-google",
+        "duggmirror",
+        "*"
+      ],
+      "sensitive_paths_found": [
+        {
+          "path": "/wp-admin/",
+          "pattern": "admin"
+        },
+        {
+          "path": "/wp-admin/",
+          "pattern": "wp-admin"
+        }
+      ],
+      "risk_score": 20,
+      "recommendations": []
+    },
+    "sitemap": {
+      "exists": true,
+      "urls": [
+        "https://cimanow.cc/sitemap-misc.xml",
+        "https://cimanow.cc/assemblies-sitemap.xml",
+        "https://cimanow.cc/selary-sitemap.xml",
+        "https://cimanow.cc/selary-sitemap2.xml",
+        "https://cimanow.cc/selary-sitemap3.xml",
+        "https://cimanow.cc/director-sitemap.xml",
+        "https://cimanow.cc/director-sitemap2.xml",
+        "https://cimanow.cc/escritor-sitemap.xml",
+        "https://cimanow.cc/escritor-sitemap2.xml",
+        "https://cimanow.cc/escritor-sitemap3.xml",
+        "https://cimanow.cc/actor-sitemap.xml",
+        "https://cimanow.cc/actor-sitemap2.xml",
+        "https://cimanow.cc/actor-sitemap3.xml",
+        "https://cimanow.cc/actor-sitemap4.xml",
+        "https://cimanow.cc/actor-sitemap5.xml",
+        "https://cimanow.cc/actor-sitemap6.xml",
+        "https://cimanow.cc/actor-sitemap7.xml",
+        "https://cimanow.cc/Quality-sitemap.xml",
+        "https://cimanow.cc/release-year-sitemap.xml",
+        "https://cimanow.cc/post_tag-sitemap.xml",
+        "https://cimanow.cc/post_tag-sitemap2.xml",
+        "https://cimanow.cc/category-sitemap.xml",
+        "https://cimanow.cc/news-sitemap.xml",
+        "https://cimanow.cc/news-sitemap2.xml",
+        "https://cimanow.cc/post-sitemap.xml",
+        "https://cimanow.cc/post-sitemap2.xml",
+        "https://cimanow.cc/post-sitemap3.xml",
+        "https://cimanow.cc/post-sitemap4.xml",
+        "https://cimanow.cc/post-sitemap5.xml",
+        "https://cimanow.cc/post-sitemap6.xml",
+        "https://cimanow.cc/post-sitemap7.xml",
+        "https://cimanow.cc/post-sitemap8.xml",
+        "https://cimanow.cc/post-sitemap9.xml",
+        "https://cimanow.cc/post-sitemap10.xml",
+        "https://cimanow.cc/post-sitemap11.xml",
+        "https://cimanow.cc/post-sitemap12.xml",
+        "https://cimanow.cc/post-sitemap13.xml",
+        "https://cimanow.cc/post-sitemap14.xml",
+        "https://cimanow.cc/post-sitemap15.xml",
+        "https://cimanow.cc/post-sitemap16.xml",
+        "https://cimanow.cc/post-sitemap17.xml",
+        "https://cimanow.cc/post-sitemap18.xml",
+        "https://cimanow.cc/post-sitemap19.xml",
+        "https://cimanow.cc/post-sitemap20.xml",
+        "https://cimanow.cc/post-sitemap21.xml",
+        "https://cimanow.cc/post-sitemap22.xml",
+        "https://cimanow.cc/post-sitemap23.xml",
+        "https://cimanow.cc/post-sitemap24.xml",
+        "https://cimanow.cc/post-sitemap25.xml",
+        "https://cimanow.cc/post-sitemap26.xml",
+        "https://cimanow.cc/post-sitemap27.xml",
+        "https://cimanow.cc/post-sitemap28.xml",
+        "https://cimanow.cc/post-sitemap29.xml",
+        "https://cimanow.cc/post-sitemap30.xml",
+        "https://cimanow.cc/post-sitemap31.xml",
+        "https://cimanow.cc/post-sitemap32.xml",
+        "https://cimanow.cc/post-sitemap33.xml",
+        "https://cimanow.cc/post-sitemap34.xml",
+        "https://cimanow.cc/post-sitemap35.xml",
+        "https://cimanow.cc/post-sitemap36.xml",
+        "https://cimanow.cc/post-sitemap37.xml",
+        "https://cimanow.cc/post-sitemap38.xml",
+        "https://cimanow.cc/post-sitemap39.xml",
+        "https://cimanow.cc/post-sitemap40.xml",
+        "https://cimanow.cc/post-sitemap41.xml",
+        "https://cimanow.cc/post-sitemap42.xml",
+        "https://cimanow.cc/post-sitemap43.xml",
+        "https://cimanow.cc/post-sitemap44.xml",
+        "https://cimanow.cc/post-sitemap45.xml",
+        "https://cimanow.cc/post-sitemap46.xml",
+        "https://cimanow.cc/post-sitemap47.xml",
+        "https://cimanow.cc/post-sitemap48.xml",
+        "https://cimanow.cc/page-sitemap.xml",
+        "https://cimanow.cc/authors-sitemap.xml",
+        "https://cimanow.cc/archives-sitemap.xml"
+      ],
+      "total_urls": 75,
+      "sensitive_urls_found": [],
+      "risk_score": 0,
+      "recommendations": []
+    },
+    "dns": {
+      "a_records": [
+        "104.26.10.137",
+        "172.67.73.241",
+        "104.26.11.137"
+      ],
+      "aaaa_records": [
+        "2606:4700:20::681a:a89",
+        "2606:4700:20::681a:b89",
+        "2606:4700:20::ac43:49f1"
+      ],
+      "mx_records": [
+        {
+          "preference": 1,
+          "exchange": "route3.mx.cloudflare.net"
+        },
+        {
+          "preference": 100,
+          "exchange": "route1.mx.cloudflare.net"
+        },
+        {
+          "preference": 20,
+          "exchange": "route2.mx.cloudflare.net"
+        }
+      ],
+      "ns_records": [
+        "tori.ns.cloudflare.com",
+        "hank.ns.cloudflare.com"
+      ],
+      "txt_records": [
+        "google-site-verification=BfAwzCsYm7Qw2-qWKXfhdEMmqN8459BXj0MMwEPaXC4",
+        "v=spf1 include:_spf.mx.cloudflare.net -all",
+        "brevo-code:274ab5abfb313ffc9d94ab5c91527274",
+        "google-site-verification=NHTQ2ptQJ35KHKBtcS5zzZXAAGI-6RGwDwSFCiq9Bgc"
+      ],
+      "cname_records": [],
+      "soa_record": {
+        "mname": "hank.ns.cloudflare.com",
+        "rname": "dns.cloudflare.com",
+        "serial": 2401958366,
+        "refresh": 10000,
+        "retry": 2400,
+        "expire": 604800,
+        "minimum": 1800
+      },
+      "has_spf": true,
+      "has_dmarc": true,
+      "spf_record": "v=spf1 include:_spf.mx.cloudflare.net -all",
+      "dmarc_record": "v=DMARC1; p=reject; rua=mailto:rua@dmarc.brevo.com; ruf=mailto:rua@dmarc.brevo.com; pct=100",
+      "risk_score": 0,
+      "warnings": []
+    },
+    "phishing": {
+      "is_phishing_suspected": false,
+      "issues": [],
+      "risk_score": 0,
+      "severity": "low"
+    },
+    "reputation": {
+      "is_blacklisted": false,
+      "blacklist_sources": [],
+      "risk_score": 0,
+      "details": []
+    },
+    "performance": {
+      "load_time_ms": 900.69,
+      "page_size_kb": 249.01,
+      "resource_count": 50,
+      "resources_breakdown": {
+        "images": 38,
+        "scripts": 10,
+        "stylesheets": 2,
+        "total": 50
+      },
+      "grade": "A",
+      "score": 85,
+      "risk_score": 0
+    },
+    "seo": {
+      "title": "افلام اجنبية",
+      "description": "",
+      "keywords": "",
+      "h1_tags": [],
+      "h2_tags": [],
+      "has_meta_description": true,
+      "has_meta_keywords": false,
+      "images_without_alt": 19,
+      "total_images": 38,
+      "seo_score": 90
+    },
+    "mobile": {
+      "has_viewport": true,
+      "is_mobile_friendly": true,
+      "viewport_content": "width=device-width, initial-scale=1"
+    },
+    "stats": {
+      "internal_links": 103,
+      "external_links": 0,
+      "scripts": 10,
+      "external_scripts": 3,
+      "images": 38,
+      "forms": 1,
+      "iframes": 0
+    },
+    "security_score": 78,
+    "risk_score": 22,
+    "verdict": "moderate",
+    "verdict_icon": "⚠️",
+    "severity": "medium",
+    "risk_factors": [],
+    "recommendations": [
+      "🛡️ Set X-XSS-Protection: 1; mode=block",
+      "🛡️ Consider implementing Permissions-Policy",
+      "🔍 2 potential vulnerabilities found"
+    ],
+    "summary": {
+      "has_ssl": true,
+      "has_hsts": true,
+      "has_csp": true,
+      "vulnerabilities_found": 2,
+      "phishing_suspected": false
+    }
+  }
+}

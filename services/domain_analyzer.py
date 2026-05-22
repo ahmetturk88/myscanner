@@ -1,6 +1,8 @@
 # services/domain_analyzer.py
 import requests
 from urllib.parse import urlparse
+import logging
+logger = logging.getLogger(__name__)
 
 class DomainAnalyzer:
     """تحليل متقدم للنطاقات"""
@@ -11,8 +13,10 @@ class DomainAnalyzer:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.timeout = 15
+        logger.info("✅ DomainAnalyzer initialized successfully")
     
     def analyze_domain(self, domain: str) -> dict:
+        logger.info(f"🔍 Starting domain analysis for: {domain}")
         """تحليل نطاق شامل"""
         
         # تنظيف النطاق
@@ -40,10 +44,11 @@ class DomainAnalyzer:
         
         # 3. DNS Records
         result["dns"] = self._get_dns_records(domain)
-        
+        logger.info(f"✅ Domain analysis completed for: {domain}")
         return result
     
     def _get_whois_info(self, domain: str) -> dict:
+        logger.debug(f"Fetching WHOIS info for: {domain}")
         """الحصول على معلومات WHOIS"""
         try:
             resp = self.session.get(
@@ -70,12 +75,12 @@ class DomainAnalyzer:
                     "status": reg_record.get("status", "N/A"),
                     "nameservers": nameservers[:5] if nameservers else []
                 }
-        except:
-            pass
-        
+        except Exception as e:
+            logger.error(f"Error fetching WHOIS for {domain}: {str(e)}")
         return {}
     
     def _get_ip_info(self, domain: str) -> dict:
+        logger.debug(f"Fetching IP info for: {domain}")
         """الحصول على معلومات IP للنطاق"""
         try:
             resp = self.session.get(f"http://ip-api.com/json/{domain}", timeout=self.timeout)
@@ -87,12 +92,12 @@ class DomainAnalyzer:
                         "country": r.get('country', 'N/A'),
                         "isp": r.get('isp', 'N/A')
                     }
-        except:
-            pass
-        
+        except Exception as e:
+            logger.error(f"Error fetching IP info for {domain}: {str(e)}")
         return {}
     
     def _get_dns_records(self, domain: str) -> list:
+        logger.debug(f"Fetching DNS records for: {domain}")
         """الحصول على سجلات DNS"""
         records = []
         
@@ -108,7 +113,6 @@ class DomainAnalyzer:
                         val = ans.get('data', '')
                         if val:
                             records.append({"type": rtype, "value": val})
-            except:
-                pass
-        
+            except Exception as e:
+                logger.error(f"Error fetching DNS records for {domain}: {str(e)}")
         return records

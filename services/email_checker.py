@@ -9,7 +9,8 @@ import dns.resolver
 import Levenshtein
 from email_validator import validate_email, EmailNotValidError
 from constants import DISPOSABLE_DOMAINS, FREE_DOMAINS, BLACKLISTS
-
+import logging
+logger = logging.getLogger(__name__)
 class AdvancedEmailChecker:
     """أداة متقدمة لفحص الإيميلات مع جميع الميزات"""
     
@@ -17,6 +18,7 @@ class AdvancedEmailChecker:
         self.redis = redis_client
         self.cache_ttl = 3600
         self.executor = ThreadPoolExecutor(max_workers=10)
+        logger.info("✅ AdvancedEmailChecker initialized successfully")
         
     def _get_cache_key(self, email: str, check_type: str) -> str:
         return f"email_check:{hashlib.md5(email.encode()).hexdigest()}:{check_type}"
@@ -39,6 +41,7 @@ class AdvancedEmailChecker:
                 pass
 
     def validate_format(self, email: str):
+        logger.debug(f"Validating email format: {email}")
         """التحقق من صحة صيغة الإيميل مع اقتراح تصحيحات"""
         try:
             validation = validate_email(email, check_deliverability=False)
@@ -80,6 +83,7 @@ class AdvancedEmailChecker:
             return False, email, {"error": str(e), "suggestions": []}
     
     def check_smtp(self, email: str, timeout: int = 10):
+        logger.debug(f"Checking SMTP for: {email}")
         """فحص SMTP المباشر للتأكد من وجود الصندوق"""
         cache_key = self._get_cache_key(email, "smtp")
         cached = self._cache_get(cache_key)
@@ -118,9 +122,11 @@ class AdvancedEmailChecker:
                     
                     if code == 250:
                         result["valid"] = True
+                        logger.info(f"✅ SMTP check passed for: {email}")
                         result["message"] = "Mailbox exists"
                     elif code in (550, 551):
                         result["valid"] = False
+                        logger.warning(f"SMTP check failed for: {email} - {result['message']}")
                         result["message"] = "Mailbox does not exist"
                     else:
                         result["message"] = f"Response: {code}"
@@ -138,6 +144,7 @@ class AdvancedEmailChecker:
         return result
     
     def check_dns_records(self, domain: str):
+        logger.debug(f"Checking DNS records for domain: {domain}")
         """فحص جميع سجلات DNS المتعلقة بالإيميل"""
         cache_key = self._get_cache_key(domain, "dns")
         cached = self._cache_get(cache_key)
@@ -197,6 +204,7 @@ class AdvancedEmailChecker:
         return result
     
     def check_blacklists(self, domain: str, ip: str = None):
+        logger.debug(f"Checking blacklists for domain: {domain}")
         """فحص النطاق أو IP ضد قوائم الحظر السوداء"""
         cache_key = self._get_cache_key(f"{domain}:{ip}", "blacklist")
         cached = self._cache_get(cache_key)
@@ -224,6 +232,7 @@ class AdvancedEmailChecker:
                 try:
                     socket.gethostbyname(bl_domain)
                     result["is_blacklisted"] = True
+                    logger.warning(f"⚠️ Domain {domain} found in blacklist: {bl}")
                     result["blacklisted_on"].append(bl)
                 except socket.gaierror:
                     result["clean_on"].append(bl)
@@ -234,6 +243,7 @@ class AdvancedEmailChecker:
         return result
     
     def check_domain_info(self, domain: str):
+        logger.debug(f"Getting WHOIS info for domain: {domain}")
         """الحصول على معلومات النطاق"""
         cache_key = self._get_cache_key(domain, "domain_info")
         cached = self._cache_get(cache_key)
@@ -278,6 +288,7 @@ class AdvancedEmailChecker:
         return result
     
     def check_all(self, email: str):
+        logger.info(f"🔍 Starting comprehensive email check for: {email}")
         """الفحص الشامل للإيميل بكل الميزات"""
         
         valid_format, normalized, format_details = self.validate_format(email)
@@ -331,7 +342,8 @@ class AdvancedEmailChecker:
             verdict = "moderate_risk"
         else:
             verdict = "high_risk"
-        
+
+        logger.info(f"✅ Email check completed for: {email} | Verdict: {verdict} | Score: {quality_score}")
         return {
             "email": normalized,
             "domain": domain,

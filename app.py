@@ -124,31 +124,31 @@ with app.app_context():
 # Email Helper (Resend API)
 # ================================================================
 
-import base64
-
-import smtplib
+iimport smtplib
+import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 def send_email(to_email, subject, body):
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = os.getenv('MAIL_DEFAULT_SENDER')
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
+    def _send():
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = os.getenv('MAIL_DEFAULT_SENDER')
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            msg.attach(MIMEText(body, 'plain'))
 
-        with smtplib.SMTP(os.getenv('MAIL_SERVER'), int(os.getenv('MAIL_PORT'))) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
-            server.sendmail(msg['From'], to_email, msg.as_string())
+            with smtplib.SMTP(os.getenv('MAIL_SERVER'), int(os.getenv('MAIL_PORT')), timeout=30) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
+                server.sendmail(msg['From'], to_email, msg.as_string())
 
-        print(f"[BREVO SUCCESS] Email sent to {to_email}")
-        return True
-    except Exception as e:
-        print(f"[BREVO ERROR] {e}")
-        return False
+            print(f"[EMAIL SUCCESS] Sent to {to_email}")
+        except Exception as e:
+            print(f"[EMAIL ERROR] {e}")
+
+    threading.Thread(target=_send, daemon=True).start()
 
 def send_verification_email(user):
     token = serializer.dumps(user.email, salt='email-verify')

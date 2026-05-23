@@ -35,6 +35,7 @@ from services.url_analyzer import URLDeepAnalyzer
 from services.subdomain_finder import SubdomainFinder
 from services.password_analyzer import PasswordAnalyzer
 from models import User, Scan
+from models import User, Scan, LogEntry
 from extensions import db, login_manager
 from services.ip_analyzer import IPAnalyzer
 from services.domain_analyzer import DomainAnalyzer
@@ -54,6 +55,14 @@ load_dotenv()
 # ================================================================
 app = Flask(__name__)
 from logging_config import setup_logging
+
+# ================================================================
+# CSRF Protection (أضيفي هذا هنا)
+# ================================================================
+from flask_wtf.csrf import CSRFProtect
+csrf = CSRFProtect()
+csrf.init_app(app)
+
 
 # ================================================================
 # Config
@@ -117,39 +126,34 @@ with app.app_context():
 
 import base64
 
-def send_email_via_resend(to_email, subject, body):
-    """إرسال إيميل عبر Resend API"""
-    if not RESEND_API_KEY:
-        print("[RESEND] No API key configured")
-        return False
-    
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_email(to_email, subject, body):
     try:
-        resp = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "from": "MyScanner <ahmetsayrafi538213@gmail.com>",
-                "to": [to_email],
-                "subject": subject,
-                "text": body
-            }
-        )
-        if resp.status_code in (200, 201):
-            print(f"[RESEND SUCCESS] Email sent to {to_email}")
-            return True
-        else:
-            print(f"[RESEND ERROR] {resp.status_code}: {resp.text}")
-            return False
+        msg = MIMEMultipart()
+        msg['From'] = os.getenv('MAIL_DEFAULT_SENDER')
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        with smtplib.SMTP(os.getenv('MAIL_SERVER'), int(os.getenv('MAIL_PORT'))) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
+            server.sendmail(msg['From'], to_email, msg.as_string())
+
+        print(f"[BREVO SUCCESS] Email sent to {to_email}")
+        return True
     except Exception as e:
-        print(f"[RESEND ERROR] {e}")
+        print(f"[BREVO ERROR] {e}")
         return False
 
 def send_verification_email(user):
     token = serializer.dumps(user.email, salt='email-verify')
-    link  = url_for('verify_email', token=token, _external=True)
+    base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+    link = f"{base_url}/verify/{token}"
     subject = '✅ Verify your MyScanner account'
     body = f"""Hello {user.username},
 
@@ -161,11 +165,13 @@ This link expires in 1 hour.
 
 — MyScanner Team
 """
-    send_email_via_resend(user.email, subject, body)
+    send_email(user.email, subject, body)
+
 
 def send_reset_email(user):
     token = serializer.dumps(user.email, salt='password-reset')
-    link  = url_for('reset_password', token=token, _external=True)
+    base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+    link = f"{base_url}/reset-password/{token}"
     subject = '🔑 Reset your MyScanner password'
     body = f"""Hello {user.username},
 
@@ -177,7 +183,7 @@ This link expires in 30 minutes.
 
 — MyScanner Team
 """
-    send_email_via_resend(user.email, subject, body)
+    send_email(user.email, subject, body)
 
 
 # ================================================================
@@ -270,29 +276,57 @@ def register():
         password = request.form.get('password', '')
         confirm  = request.form.get('confirm_password', '')
 
+        # التحقق من الحقول
         if not username or not email or not password:
             flash('All fields are required.', 'danger')
             return redirect(url_for('register'))
 
+        # التحقق من تطابق كلمة المرور
         if password != confirm:
             flash('Passwords do not match.', 'danger')
             return redirect(url_for('register'))
 
+        # التحقق من قوة كلمة المرور
+        password_errors = []
         if len(password) < 8:
-            flash('Password must be at least 8 characters.', 'danger')
+            password_errors.append('at least 8 characters')
+        if not re.search(r'[A-Z]', password):
+            password_errors.append('at least one uppercase letter')
+        if not re.search(r'[a-z]', password):
+            password_errors.append('at least one lowercase letter')
+        if not re.search(r'[0-9]', password):
+            password_errors.append('at least one number')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+            password_errors.append('at least one special character')
+        
+        if password_errors:
+            flash(f'Password must contain: {", ".join(password_errors)}', 'danger')
             return redirect(url_for('register'))
 
+        # التحقق من وجود المستخدم
         if User.query.filter_by(email=email).first():
             flash('Email already registered.', 'danger')
             return redirect(url_for('register'))
+        
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken.', 'danger')
+            return redirect(url_for('register'))
 
+        # إنشاء مستخدم جديد (غير مفعل)
         user = User(username=username, email=email)
         user.set_password(password)
-        user.is_verified = True
+        user.is_verified = False  # يتطلب تأكيد البريد
+        user.role = 'user'  # دور افتراضي
+        user.remaining_scans = 20  # 20 فحص في اليوم للمستخدم العادي
+        
         db.session.add(user)
         db.session.commit()
 
-        flash('Account created! You can now log in.', 'success')
+        # إرسال إيميل تأكيد
+        send_verification_email(user)
+        print(f"[DEBUG] RESEND_API_KEY = '{RESEND_API_KEY}'")
+        print(f"[DEBUG] Sending to: {user.email}")
+        flash('Account created! Please check your email to verify your account.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -330,24 +364,37 @@ def login():
         password = request.form.get('password', '')
         remember = request.form.get('remember') == 'on'
 
+        # التحقق من وجود البريد
         user = User.query.filter_by(email=email).first()
 
-        if not user or not user.check_password(password):
+        if not user:
             flash('Invalid email or password.', 'danger')
-            # ❌ لا تسجل هنا (محاولة فاشلة)
             return redirect(url_for('login'))
 
+        # التحقق من كلمة المرور
+        if not user.check_password(password):
+            # تسجيل محاولة فاشلة
+            app.logger.warning(f'Failed login attempt for email: {email}')
+            flash('Invalid email or password.', 'danger')
+            return redirect(url_for('login'))
+
+        # التحقق من تأكيد البريد الإلكتروني
         if not user.is_verified:
             flash('Please verify your email before logging in.', 'warning')
             return redirect(url_for('login'))
 
-        # ✅ تسجيل الدخول ناجح
+        # تسجيل الدخول الناجح
         login_user(user, remember=remember)
         
-        # ✅ هنا ضع سجل النشاط (بعد login_user وقبل الـ flash)
+        # تحديث آخر تسجيل دخول
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        # تسجيل النشاط
         log_activity(user.username, 'login', f'Logged in from {request.remote_addr}')
         
         flash(f'Welcome back, {user.username}!', 'success')
+        
         next_page = request.args.get('next')
         return redirect(next_page or url_for('dashboard'))
 
@@ -663,7 +710,7 @@ def api_scan_file():
             deep_result["verdict"] = "malicious"
         
         app.logger.info(f'[SUCCESS] File scan completed for {filename} | Score: {deep_result["security_score"]} | Verdict: {deep_result["verdict"]}')
-        
+        log_activity(current_user.username, 'file_scan', f'Scanned file: {filename} | Verdict: {deep_result.get("verdict")}')
         return jsonify(deep_result)
         
     except Exception as e:
@@ -872,11 +919,174 @@ def admin_panel():
     users = User.query.order_by(User.date_joined.desc()).all()
     scans = Scan.query.order_by(Scan.date_posted.desc()).limit(50).all()
     return render_template('admin.html', users=users, scans=scans)
+@app.route('/admin/logs')
+@login_required
+def admin_logs():
+    if not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    page      = request.args.get('page', 1, type=int)
+    action    = request.args.get('action', '').strip()
+    user      = request.args.get('user', '').strip()
+    ip        = request.args.get('ip', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to   = request.args.get('date_to', '').strip()
+
+    query = LogEntry.query
+
+    if action:
+        query = query.filter(LogEntry.action == action)
+    if user:
+        query = query.filter(LogEntry.username.ilike(f'%{user}%'))
+    if ip:
+        query = query.filter(LogEntry.ip_address.ilike(f'%{ip}%'))
+    if date_from:
+        try:
+            query = query.filter(LogEntry.timestamp >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import timedelta
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(LogEntry.timestamp < dt_to)
+        except ValueError:
+            pass
+
+    logs = query.order_by(LogEntry.timestamp.desc()).paginate(page=page, per_page=50)
+
+    stats = {
+        'total':          LogEntry.query.count(),
+        'logins':         LogEntry.query.filter_by(action='login').count(),
+        'logouts':        LogEntry.query.filter_by(action='logout').count(),
+        'site_scans':     LogEntry.query.filter_by(action='site_scan').count(),
+        'ip_checks':      LogEntry.query.filter_by(action='ip_check').count(),
+        'email_checks':   LogEntry.query.filter_by(action='email_check').count(),
+        'domain_lookups': LogEntry.query.filter_by(action='domain_lookup').count(),
+        'qr_scans':       LogEntry.query.filter_by(action='qr_scan').count(),
+        'url_analyses':   LogEntry.query.filter_by(action='url_analysis').count(),
+        'file_scans':     LogEntry.query.filter_by(action='file_scan').count(),
+        'ssl_checks':     LogEntry.query.filter_by(action='ssl_check').count(),
+        'subdomain_finds':LogEntry.query.filter_by(action='subdomain_finder').count(),
+        'password_checks':LogEntry.query.filter_by(action='password_check').count(),
+    }
+
+    return render_template('admin_logs.html', logs=logs, stats=stats)
 
 
+@app.route('/admin/logs/export')
+@login_required
+def admin_logs_export():
+    if not current_user.is_admin:
+        return jsonify({"error": "Access denied"}), 403
+
+    action    = request.args.get('action', '').strip()
+    user      = request.args.get('user', '').strip()
+    ip        = request.args.get('ip', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to   = request.args.get('date_to', '').strip()
+
+    query = LogEntry.query
+    if action:
+        query = query.filter(LogEntry.action == action)
+    if user:
+        query = query.filter(LogEntry.username.ilike(f'%{user}%'))
+    if ip:
+        query = query.filter(LogEntry.ip_address.ilike(f'%{ip}%'))
+    if date_from:
+        try:
+            query = query.filter(LogEntry.timestamp >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(LogEntry.timestamp < dt_to)
+        except ValueError:
+            pass
+
+    logs = query.order_by(LogEntry.timestamp.desc()).limit(5000).all()
+
+    import csv
+    from io import StringIO
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Timestamp', 'Level', 'Action', 'Username', 'IP Address', 'Message'])
+    for log in logs:
+        writer.writerow([
+            log.id,
+            log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            log.level,
+            log.action,
+            log.username or '',
+            log.ip_address or '',
+            log.message or ''
+        ])
+
+    output.seek(0)
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=activity_logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+    )
+
 # ================================================================
-# Email Check
+# Admin Delete Functions
 # ================================================================
+
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@login_required
+def admin_delete_user(user_id):
+    """حذف مستخدم من قاعدة البيانات"""
+    if not current_user.is_admin:
+        return jsonify({"error": "Access denied"}), 403
+    
+    if user_id == current_user.id:
+        return jsonify({"error": "You cannot delete yourself"}), 400
+    
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    
+    return jsonify({"success": True, "message": f"User {user.username} deleted"})
+
+
+@app.route('/admin/delete-scan/<int:scan_id>', methods=['POST'])
+@login_required
+def admin_delete_scan(scan_id):
+    """حذف فحص من قاعدة البيانات"""
+    if not current_user.is_admin:
+        return jsonify({"error": "Access denied"}), 403
+    
+    scan = Scan.query.get_or_404(scan_id)
+    db.session.delete(scan)
+    db.session.commit()
+    
+    return jsonify({"success": True, "message": f"Scan {scan_id} deleted"})
+
+
+@app.route('/admin/toggle-admin/<int:user_id>', methods=['POST'])
+@login_required
+def admin_toggle_admin(user_id):
+    """تبديل صلاحيات الأدمن لمستخدم"""
+    if not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash('You cannot change your own admin status.', 'warning')
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get_or_404(user_id)
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    
+    status = "granted" if user.is_admin else "revoked"
+    flash(f'Admin privileges {status} for {user.username}.', 'success')
+    
+    return redirect(url_for('admin_panel'))
 
 @app.route('/email-check')
 @login_required
@@ -1163,14 +1373,6 @@ def site_scanner():
 @app.route('/api/site-scan', methods=['POST'])
 @login_required
 def api_site_scan():
-    # ✅ أضف هاد مؤقتاً للتشخيص
-    import logging
-    print("=== ALL LOGGERS ===")
-    for name, logger in logging.Logger.manager.loggerDict.items():
-        if hasattr(logger, 'handlers'):
-            print(f"Logger: {name} | Handlers: {logger.handlers}")
-    print("=== APP LOGGER ===")
-    print(f"app.logger handlers: {app.logger.handlers}")
     """API متطور لفحص المواقع الإلكترونية"""
     data = request.get_json()
     domain = data.get('domain', '').strip()
@@ -1232,7 +1434,7 @@ def api_check_password():
         
         # لا نرسل كلمة المرور أبداً في الـ response
         result.pop('password', None)
-        
+        log_activity(current_user.username, 'password_check', f'Checked password strength')
         return jsonify(result)
         
     except Exception as e:
@@ -1263,7 +1465,7 @@ def api_subdomain_finder():
     try:
         finder = SubdomainFinder()
         result = finder.find_subdomains(domain)
-        
+        log_activity(current_user.username, 'subdomain_finder', f'Found subdomains for: {domain}')
         return jsonify(result)
         
     except Exception as e:
@@ -1469,7 +1671,7 @@ def api_ssl_checker():
     
     analyzer = SSLAnalyzer()
     result = analyzer.analyze_certificate(domain)
-    
+    log_activity(current_user.username, 'ssl_check', f'Checked SSL for: {domain}')
     return jsonify(result)
 
 

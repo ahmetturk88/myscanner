@@ -1,0 +1,695 @@
+{% extends "base.html" %}
+{% block title %}Activity Logs{% endblock %}
+
+{% block head_extra %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<script id="flash-data" type="application/json">
+  [{% with messages = get_flashed_messages(with_categories=true) %}{% for cat, msg in messages %}{"cat":"{{ cat }}","msg":"{{ msg | e }}"}{% if not loop.last %},{% endif %}{% endfor %}{% endwith %}]
+</script>
+<style>
+  /* ─── Base ─── */
+  .logs-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 24px 120px;
+  }
+
+  /* ─── Header ─── */
+  .logs-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .logs-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .logs-header h1 {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .logs-header p { font-size: 13px; color: var(--muted); }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    transition: all .2s;
+    flex-shrink: 0;
+  }
+  .btn-back:hover { background: var(--surface3); }
+
+  /* ─── Stats ─── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 14px;
+    text-align: center;
+    transition: border-color .2s, transform .15s;
+    cursor: default;
+  }
+  .stat-card:hover { border-color: rgba(0,200,255,0.2); transform: translateY(-1px); }
+  .stat-card .num {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .stat-card .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  /* ─── Filter Bar ─── */
+  .filter-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .filter-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-card select,
+  .filter-card input[type="text"],
+  .filter-card input[type="date"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: var(--mono);
+    outline: none;
+    transition: border-color .2s;
+    flex: 1;
+    min-width: 140px;
+  }
+  .filter-card select:focus,
+  .filter-card input:focus { border-color: var(--accent); }
+
+  .btn-filter {
+    padding: 9px 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .btn-filter:hover { opacity: 0.85; }
+
+  .btn-reset {
+    padding: 9px 16px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: var(--mono);
+    text-decoration: none;
+    transition: background .15s;
+    white-space: nowrap;
+  }
+  .btn-reset:hover { background: var(--surface3); }
+
+  .btn-export {
+    padding: 9px 16px;
+    background: var(--surface2);
+    color: var(--green);
+    border: 1px solid rgba(0,230,118,.3);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: var(--mono);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn-export:hover { background: var(--green-dim); }
+
+  /* ─── Live search bar ─── */
+  .live-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+  }
+  .live-search-wrap .icon {
+    position: absolute;
+    left: 11px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+    font-size: 14px;
+  }
+  .live-search-wrap input {
+    width: 100%;
+    padding-left: 34px !important;
+  }
+
+  /* ─── Table Card ─── */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .table-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .table-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .count-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 3px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+  }
+
+  /* ─── Table ─── */
+  .logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .logs-table th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 11px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color .15s;
+  }
+  .logs-table th:hover { color: var(--text); }
+  .logs-table th .arr { margin-left: 4px; opacity: 0.4; font-size: 9px; }
+  .logs-table th.sort-asc .arr,
+  .logs-table th.sort-desc .arr { opacity: 1; color: var(--accent); }
+
+  .logs-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  .logs-table tr:last-child td { border-bottom: none; }
+  .logs-table tr:hover td { background: var(--surface2); }
+
+  /* ─── Action badges ─── */
+  .action-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--mono);
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .ab-login         { background: var(--green-dim);  color: var(--green);  border-color: rgba(0,230,118,.25); }
+  .ab-site_scan     { background: rgba(0,120,255,.1); color: var(--accent); border-color: rgba(0,120,255,.25); }
+  .ab-ip_check      { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(255,211,42,.25); }
+  .ab-email_check   { background: var(--red-dim);    color: var(--red);    border-color: rgba(255,69,96,.25); }
+  .ab-domain_lookup { background: rgba(160,80,255,.1); color: #c084fc; border-color: rgba(160,80,255,.25); }
+  .ab-qr_scan       { background: rgba(0,200,200,.1); color: #22d3ee; border-color: rgba(0,200,200,.25); }
+  .ab-url_analysis  { background: rgba(255,140,0,.1); color: #fb923c; border-color: rgba(255,140,0,.25); }
+  .ab-logout        { background: var(--surface2);   color: var(--muted);  border-color: var(--border); }
+  .ab-default       { background: var(--surface2);   color: var(--muted);  border-color: var(--border); }
+
+  /* ─── Details expand ─── */
+  .details-cell {
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .details-cell:hover { color: var(--accent); }
+  .details-cell.expanded {
+    white-space: normal;
+    overflow: visible;
+    color: var(--text);
+  }
+
+  /* ─── IP cell ─── */
+  .ip-cell {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .ip-cell:hover { color: var(--accent); }
+
+  /* ─── No results ─── */
+  .no-results {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    display: none;
+  }
+
+  /* ─── Pagination ─── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .page-info {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    padding: 6px 14px;
+  }
+  .page-btn {
+    padding: 7px 13px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text);
+    cursor: pointer;
+    transition: all .15s;
+    text-decoration: none;
+  }
+  .page-btn:hover { background: var(--surface2); color: var(--text); }
+  .page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+  .page-btn[disabled] { opacity: 0.35; cursor: default; pointer-events: none; }
+
+  /* ─── Toast ─── */
+  .toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--text);
+    z-index: 999;
+    transform: translateY(16px);
+    opacity: 0;
+    transition: all .25s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(0,230,118,.4); color: var(--green); }
+  .toast.error   { border-color: rgba(255,69,96,.4);  color: var(--red); }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 700px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .logs-wrap  { padding: 28px 14px 80px; }
+    .filter-row { flex-direction: column; }
+    .filter-card select,
+    .filter-card input { min-width: 0; width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="logs-wrap">
+
+  <!-- ── Header ── -->
+  <div class="logs-header">
+    <div>
+      <h1>📋 Activity Logs</h1>
+      <p>Full audit trail — every action on the platform</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <a href="/admin/logs/export?{{ request.query_string.decode() }}" class="btn-export">↓ Export CSV</a>
+      <a href="{{ url_for('admin_panel') }}" class="btn-back">← Admin Panel</a>
+    </div>
+  </div>
+
+  <!-- ── Stats ── -->
+  <div class="stats-grid">
+  <div class="stat-card"><div class="num" style="color:var(--text);">{{ stats.total }}</div><div class="lbl">Total</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--green);">{{ stats.logins }}</div><div class="lbl">Logins</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--muted);">{{ stats.logouts }}</div><div class="lbl">Logouts</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--accent);">{{ stats.site_scans }}</div><div class="lbl">Site Scans</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--yellow);">{{ stats.ip_checks }}</div><div class="lbl">IP Checks</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--red);">{{ stats.email_checks }}</div><div class="lbl">Email Checks</div></div>
+  <div class="stat-card"><div class="num" style="color:#c084fc;">{{ stats.domain_lookups }}</div><div class="lbl">Domain Lookups</div></div>
+  <div class="stat-card"><div class="num" style="color:#22d3ee;">{{ stats.qr_scans }}</div><div class="lbl">QR Scans</div></div>
+  <div class="stat-card"><div class="num" style="color:#fb923c;">{{ stats.url_analyses }}</div><div class="lbl">URL Analyses</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--green);">{{ stats.file_scans }}</div><div class="lbl">File Scans</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--yellow);">{{ stats.ssl_checks }}</div><div class="lbl">SSL Checks</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--accent);">{{ stats.subdomain_finds }}</div><div class="lbl">Subdomains</div></div>
+  <div class="stat-card"><div class="num" style="color:var(--red);">{{ stats.password_checks }}</div><div class="lbl">Pwd Checks</div></div>
+  </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--text);">{{ stats.total }}</div>
+      <div class="lbl">Total</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--green);">{{ stats.logins }}</div>
+      <div class="lbl">Logins</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--accent);">{{ stats.site_scans }}</div>
+      <div class="lbl">Site Scans</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--yellow);">{{ stats.ip_checks }}</div>
+      <div class="lbl">IP Checks</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" style="color:var(--red);">{{ stats.email_checks }}</div>
+      <div class="lbl">Email Checks</div>
+    </div>
+    {% if stats.domain_lookups is defined %}
+    <div class="stat-card">
+      <div class="num" style="color:#c084fc;">{{ stats.domain_lookups }}</div>
+      <div class="lbl">Domain Lookups</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Filter Bar (Server-side) ── -->
+  <div class="filter-card">
+    <form method="GET" action="/admin/logs">
+      <div class="filter-row">
+        <select name="action">
+          <option value="">All Actions</option>
+          <option value="login"          {% if request.args.get('action')=='login'          %}selected{% endif %}>Login</option>
+          <option value="logout"         {% if request.args.get('action')=='logout'         %}selected{% endif %}>Logout</option>
+          <option value="site_scan"      {% if request.args.get('action')=='site_scan'      %}selected{% endif %}>Site Scan</option>
+          <option value="ip_check"       {% if request.args.get('action')=='ip_check'       %}selected{% endif %}>IP Check</option>
+          <option value="email_check"    {% if request.args.get('action')=='email_check'    %}selected{% endif %}>Email Check</option>
+          <option value="domain_lookup"  {% if request.args.get('action')=='domain_lookup'  %}selected{% endif %}>Domain Lookup</option>
+          <option value="qr_scan"        {% if request.args.get('action')=='qr_scan'        %}selected{% endif %}>QR Scan</option>
+          <option value="url_analysis"   {% if request.args.get('action')=='url_analysis'   %}selected{% endif %}>URL Analysis</option>
+        </select>
+
+        <input type="text" name="user"
+               value="{{ request.args.get('user','') }}"
+               placeholder="Filter by username...">
+
+        <input type="date" name="date_from"
+               value="{{ request.args.get('date_from','') }}"
+               title="From date">
+
+        <input type="date" name="date_to"
+               value="{{ request.args.get('date_to','') }}"
+               title="To date">
+
+        <input type="text" name="ip"
+               value="{{ request.args.get('ip','') }}"
+               placeholder="Filter by IP..."
+               style="max-width:160px;">
+
+        <button type="submit" class="btn-filter">Filter</button>
+        <a href="/admin/logs" class="btn-reset">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Table ── -->
+  <div class="table-card">
+    <div class="table-topbar">
+      <span class="table-title">Audit Log</span>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <!-- Live client-side search on top of server results -->
+        <div class="live-search-wrap">
+          <span class="icon">⌕</span>
+          <input type="text" id="liveSearch" placeholder="Quick search..." oninput="liveFilter()">
+        </div>
+        <span class="count-badge" id="rowCount">{{ logs.total }} logs</span>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="logs-table" id="logsTable">
+        <thead>
+          <tr>
+            <th onclick="sortLogs(0)">Time<span class="arr">↕</span></th>
+            <th onclick="sortLogs(1)">User<span class="arr">↕</span></th>
+            <th onclick="sortLogs(2)">Action<span class="arr">↕</span></th>
+            <th>Details</th>
+            <th onclick="sortLogs(4)">IP<span class="arr">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="logsBody">
+          {% for log in logs.items %}
+          <tr data-search="{{ log.username | lower }} {{ log.action | lower }} {{ log.message | lower }} {{ log.ip_address or '' }}">
+            <td style="font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap;">
+              {{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+            </td>
+            <td>
+              <a href="/admin/logs?user={{ log.username }}"
+                 style="color:var(--accent); text-decoration:none; font-size:13px; font-weight:600;">
+                {{ log.user }}
+              </a>
+            </td>
+            <td>
+              {% set ab_class = {
+                'login':         'ab-login',
+                'logout':        'ab-logout',
+                'site_scan':     'ab-site_scan',
+                'ip_check':      'ab-ip_check',
+                'email_check':   'ab-email_check',
+                'domain_lookup': 'ab-domain_lookup',
+                'qr_scan':       'ab-qr_scan',
+                'url_analysis':  'ab-url_analysis'
+              }.get(log.action, 'ab-default') %}
+              <span class="action-badge {{ ab_class }}">{{ log.action | upper | replace('_',' ') }}</span>
+            </td>
+            <td>
+              <div class="details-cell" onclick="toggleDetails(this)" title="{{ log.message }}">
+                {{ log.message }}
+              </div>
+            </td>
+            <td>
+              <span class="ip-cell" onclick="copyIP(this)" title="Click to copy">
+                {{ log.ip_address or 'N/A' }}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" style="text-align:center; padding:50px; color:var(--muted); font-family:var(--mono); font-size:12px;">
+              No logs found for the current filters.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="no-results" id="noResults">No results match your quick search.</div>
+  </div>
+
+  <!-- ── Pagination (server-side) ── -->
+  {% if logs.pages > 1 %}
+  <div class="pagination">
+    {% if logs.has_prev %}
+      <a class="page-btn"
+         href="?page={{ logs.prev_num }}&action={{ request.args.get('action','') }}&user={{ request.args.get('user','') }}&date_from={{ request.args.get('date_from','') }}&date_to={{ request.args.get('date_to','') }}&ip={{ request.args.get('ip','') }}">
+        ← Prev
+      </a>
+    {% else %}
+      <button class="page-btn" disabled>← Prev</button>
+    {% endif %}
+
+    {% set start_page = [logs.page - 2, 1] | max %}
+    {% set end_page   = [logs.page + 2, logs.pages] | min %}
+
+    {% if start_page > 1 %}
+      <a class="page-btn" href="?page=1&action={{ request.args.get('action','') }}&user={{ request.args.get('user','') }}">1</a>
+      {% if start_page > 2 %}<span class="page-info">…</span>{% endif %}
+    {% endif %}
+
+    {% for p in range(start_page, end_page + 1) %}
+      <a class="page-btn {% if p == logs.page %}active{% endif %}"
+         href="?page={{ p }}&action={{ request.args.get('action','') }}&user={{ request.args.get('user','') }}&date_from={{ request.args.get('date_from','') }}&date_to={{ request.args.get('date_to','') }}&ip={{ request.args.get('ip','') }}">
+        {{ p }}
+      </a>
+    {% endfor %}
+
+    {% if end_page < logs.pages %}
+      {% if end_page < logs.pages - 1 %}<span class="page-info">…</span>{% endif %}
+      <a class="page-btn" href="?page={{ logs.pages }}&action={{ request.args.get('action','') }}&user={{ request.args.get('user','') }}">{{ logs.pages }}</a>
+    {% endif %}
+
+    {% if logs.has_next %}
+      <a class="page-btn"
+         href="?page={{ logs.next_num }}&action={{ request.args.get('action','') }}&user={{ request.args.get('user','') }}&date_from={{ request.args.get('date_from','') }}&date_to={{ request.args.get('date_to','') }}&ip={{ request.args.get('ip','') }}">
+        Next →
+      </a>
+    {% else %}
+      <button class="page-btn" disabled>Next →</button>
+    {% endif %}
+
+    <span class="page-info">{{ logs.page }} / {{ logs.pages }}</span>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => { t.className = 'toast'; }, 2800);
+}
+
+// ════════════════════════════════════════
+//  LIVE SEARCH (client-side on current page)
+// ════════════════════════════════════════
+function liveFilter() {
+  const q = document.getElementById('liveSearch').value.toLowerCase();
+  const rows = document.querySelectorAll('#logsBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('rowCount').textContent = visible + ' logs';
+  document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+}
+
+// ════════════════════════════════════════
+//  EXPAND DETAILS CELL
+// ════════════════════════════════════════
+function toggleDetails(el) {
+  el.classList.toggle('expanded');
+}
+
+// ════════════════════════════════════════
+//  COPY IP TO CLIPBOARD
+// ════════════════════════════════════════
+function copyIP(el) {
+  const ip = el.textContent.trim();
+  if (ip === 'N/A') return;
+  navigator.clipboard.writeText(ip).then(() => {
+    showToast('✓ Copied: ' + ip, 'success');
+  }).catch(() => {
+    showToast('✗ Could not copy IP', 'error');
+  });
+}
+
+// ════════════════════════════════════════
+//  SORT (client-side on current page)
+// ════════════════════════════════════════
+const sortState = {};
+function sortLogs(colIndex) {
+  const key = 'logs_' + colIndex;
+  const asc = sortState[key] !== true;
+  sortState[key] = asc;
+
+  const table = document.getElementById('logsTable');
+  table.querySelectorAll('th').forEach((th, i) => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (i === colIndex) th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+    const arr = th.querySelector('.arr');
+    if (arr) arr.textContent = i === colIndex ? (asc ? '↑' : '↓') : '↕';
+  });
+
+  const tbody = document.getElementById('logsBody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-search]'));
+  rows.sort((a, b) => {
+    const at = a.cells[colIndex]?.textContent.trim() || '';
+    const bt = b.cells[colIndex]?.textContent.trim() || '';
+    return asc ? at.localeCompare(bt) : bt.localeCompare(at);
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ════════════════════════════════════════
+//  PRESERVE FILTERS IN PAGINATION LINKS
+// (keep current filter params when navigating pages)
+// ════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Flash messages (read from hidden JSON element)
+  const flashEl = document.getElementById('flash-data');
+  if (flashEl) {
+    JSON.parse(flashEl.textContent).forEach(function(f) {
+      showToast(f.msg, f.cat);
+    });
+  }
+});
+</script>
+{% endblock %}

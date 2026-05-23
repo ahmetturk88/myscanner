@@ -124,7 +124,7 @@ with app.app_context():
 # Email Helper (Resend API)
 # ================================================================
 
-iimport smtplib
+import smtplib
 import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart

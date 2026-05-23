@@ -130,25 +130,28 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 def send_email(to_email, subject, body):
+    import threading
     def _send():
         try:
-            msg = MIMEMultipart()
-            msg['From'] = os.getenv('MAIL_DEFAULT_SENDER')
-            msg['To'] = to_email
-            msg['Subject'] = subject
-            msg.attach(MIMEText(body, 'plain'))
-
-            with smtplib.SMTP(os.getenv('MAIL_SERVER'), int(os.getenv('MAIL_PORT')), timeout=30) as server:
-                server.ehlo()
-                server.starttls()
-                server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
-                server.sendmail(msg['From'], to_email, msg.as_string())
-
-            print(f"[EMAIL SUCCESS] Sent to {to_email}")
+            resp = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": "MyScanner <onboarding@resend.dev>",
+                    "to": [to_email],
+                    "subject": subject,
+                    "text": body
+                },
+                timeout=30
+            )
+            print(f"[RESEND] {resp.status_code}: {resp.text}")
         except Exception as e:
-            print(f"[EMAIL ERROR] {e}")
-
+            print(f"[RESEND ERROR] {e}")
     threading.Thread(target=_send, daemon=True).start()
+
 
 def send_verification_email(user):
     token = serializer.dumps(user.email, salt='email-verify')

@@ -108,6 +108,8 @@ setup_logging(app)
 
 db.init_app(app)
 from tasks import celery
+from flask_migrate import Migrate    
+migrate = Migrate(app, db)        
 login_manager.init_app(app)
 bcrypt.init_app(app)
 login_manager.login_view = 'login'
@@ -1871,51 +1873,38 @@ csrf.exempt(api_url_analyze)
 
 
 # ================================================================
-# Fix missing database columns for production (Render)
+# Fix missing database columns for production (Render/PostgreSQL only)
 # ================================================================
 with app.app_context():
-    from sqlalchemy import text
-    try:
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN last_login TIMESTAMP'))
-        print("✅ last_login column added/fixed")
-    except Exception as e:
-        print(f"last_login: {e}")
-    
-    try:
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN role VARCHAR(20) DEFAULT \'user\''))
-        print("✅ role column added/fixed")
-    except Exception as e:
-        print(f"role: {e}")
-    
-    try:
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN remaining_scans INTEGER DEFAULT 20'))
-        print("✅ remaining_scans column added/fixed")
-    except Exception as e:
-        print(f"remaining_scans: {e}")
-    
-    try:
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN scans_reset_date TIMESTAMP'))
-        print("✅ scans_reset_date column added/fixed")
-    except Exception as e:
-        print(f"scans_reset_date: {e}")
-    
-    columns = ['site_scan_remaining', 'file_scan_remaining', 'url_analyzer_remaining', 
-               'email_check_remaining', 'ip_check_remaining', 'domain_lookup_remaining',
-               'ssl_check_remaining', 'qr_scan_remaining', 'subdomain_finder_remaining',
-               'password_check_remaining']
-    
-    for col in columns:
-        try:
-            db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN {col} INTEGER DEFAULT 10'))
-            print(f"✅ {col} column added/fixed")
-        except Exception as e:
-            print(f"{col}: {e}")
-    
-    db.session.commit()
-    print("="*50)
-    print("🎉 Database columns fixed successfully!")
-    print("="*50)
+    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if 'postgresql' in db_uri or 'postgres' in db_uri:
+        from sqlalchemy import text
+        cols = [
+            ('last_login', 'TIMESTAMP'),
+            ("role", "VARCHAR(20) DEFAULT 'user'"),
+            ('remaining_scans', 'INTEGER DEFAULT 20'),
+            ('scans_reset_date', 'TIMESTAMP'),
+            ('site_scan_remaining', 'INTEGER DEFAULT 10'),
+            ('file_scan_remaining', 'INTEGER DEFAULT 10'),
+            ('url_analyzer_remaining', 'INTEGER DEFAULT 20'),
+            ('email_check_remaining', 'INTEGER DEFAULT 15'),
+            ('ip_check_remaining', 'INTEGER DEFAULT 15'),
+            ('domain_lookup_remaining', 'INTEGER DEFAULT 15'),
+            ('ssl_check_remaining', 'INTEGER DEFAULT 15'),
+            ('qr_scan_remaining', 'INTEGER DEFAULT 15'),
+            ('subdomain_finder_remaining', 'INTEGER DEFAULT 5'),
+            ('password_check_remaining', 'INTEGER DEFAULT 20'),
+        ]
+        for col, typ in cols:
+            try:
+                db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {col} {typ}'))
+                print(f'[DB] OK: {col}')
+            except Exception as e:
+                print(f'[DB] SKIP {col}: {e}')
+        db.session.commit()
+        print('[DB] PostgreSQL columns check done!')
 
+        
 # ================================================================
 # Run
 # ================================================================

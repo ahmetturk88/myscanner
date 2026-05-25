@@ -1869,6 +1869,53 @@ csrf.exempt(api_check_password)
 csrf.exempt(api_subdomain_finder)
 csrf.exempt(api_url_analyze)
 
+
+# ================================================================
+# Fix missing database columns for production (Render)
+# ================================================================
+with app.app_context():
+    from sqlalchemy import text
+    try:
+        db.session.execute(text('ALTER TABLE "user" ADD COLUMN last_login TIMESTAMP'))
+        print("✅ last_login column added/fixed")
+    except Exception as e:
+        print(f"last_login: {e}")
+    
+    try:
+        db.session.execute(text('ALTER TABLE "user" ADD COLUMN role VARCHAR(20) DEFAULT \'user\''))
+        print("✅ role column added/fixed")
+    except Exception as e:
+        print(f"role: {e}")
+    
+    try:
+        db.session.execute(text('ALTER TABLE "user" ADD COLUMN remaining_scans INTEGER DEFAULT 20'))
+        print("✅ remaining_scans column added/fixed")
+    except Exception as e:
+        print(f"remaining_scans: {e}")
+    
+    try:
+        db.session.execute(text('ALTER TABLE "user" ADD COLUMN scans_reset_date TIMESTAMP'))
+        print("✅ scans_reset_date column added/fixed")
+    except Exception as e:
+        print(f"scans_reset_date: {e}")
+    
+    columns = ['site_scan_remaining', 'file_scan_remaining', 'url_analyzer_remaining', 
+               'email_check_remaining', 'ip_check_remaining', 'domain_lookup_remaining',
+               'ssl_check_remaining', 'qr_scan_remaining', 'subdomain_finder_remaining',
+               'password_check_remaining']
+    
+    for col in columns:
+        try:
+            db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN {col} INTEGER DEFAULT 10'))
+            print(f"✅ {col} column added/fixed")
+        except Exception as e:
+            print(f"{col}: {e}")
+    
+    db.session.commit()
+    print("="*50)
+    print("🎉 Database columns fixed successfully!")
+    print("="*50)
+
 # ================================================================
 # Run
 # ================================================================

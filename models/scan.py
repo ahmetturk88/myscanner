@@ -3,7 +3,7 @@ from datetime import datetime
 from extensions import db
 
 class Scan(db.Model):
-    __tablename__ = 'scans'
+    __tablename__ = 'scan'
     
     id          = db.Column(db.Integer, primary_key=True)
     url         = db.Column(db.String(500), nullable=False)
@@ -12,4 +12,4 @@ class Scan(db.Model):
     verdict     = db.Column(db.String(50))
     status      = db.Column(db.String(20), default='pending')
     date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    user_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)

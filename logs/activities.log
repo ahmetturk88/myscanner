@@ -6,3 +6,110 @@
 2026-05-22 11:36:27,845 - Activity: qr_scan | User: ahmedsayrafi | Details: Scanned QR URL: http://en.m.wikipedia.org | Verdict: clean
 2026-05-22 16:27:09,256 - Activity: login | User: ahmedsayrafi | Details: Logged in from 127.0.0.1
 2026-05-22 16:58:26,492 - Activity: url_analysis | User: ahmedsayrafi | Details: Analyzed URL: https://www.klu.edu.tr/
+2026-05-23 13:48:05,401 - Activity: login | User: fdg | Details: Logged in from 127.0.0.1
+2026-05-23 14:03:35,674 - Activity: site_scan | User: fdg | Details: Scanned domain: google.com
+2026-05-23 14:06:42,593 - Activity: url_analysis | User: fdg | Details: Analyzed URL: https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE
+2026-05-23 14:07:33,535 - Activity: email_check | User: fdg | Details: Checked email: ahmetsayrafi538213@gmail.com | Verdict: blacklisted
+2026-05-23 14:07:47,497 - Activity: ip_check | User: fdg | Details: Checked IP: 37.154.170.218 | Verdict: safe
+2026-05-23 14:07:47,704 - Activity: ip_check | User: fdg | Details: Checked IP: 37.154.170.218 | Verdict: safe
+2026-05-23 14:07:47,936 - Activity: ip_check | User: fdg | Details: Checked IP: 37.154.170.218 | Verdict: safe
+2026-05-23 14:08:02,335 - Activity: password_check | User: fdg | Details: Checked password strength
+2026-05-23 14:08:35,224 - Activity: qr_scan | User: fdg | Details: Scanned QR URL: http://en.m.wikipedia.org | Verdict: unknown
+2026-05-23 14:08:49,098 - Activity: qr_scan | User: fdg | Details: Scanned QR URL: http://en.m.wikipedia.org | Verdict: clean
+2026-05-23 14:09:11,542 - Activity: domain_lookup | User: fdg | Details: Looked up domain: google.com | IP: 172.217.17.206
+2026-05-23 14:09:52,436 - Activity: subdomain_finder | User: fdg | Details: Found subdomains for: google.com
+2026-05-23 14:10:20,766 - Activity: ssl_check | User: fdg | Details: Checked SSL for: google.com
+2026-05-23 14:18:47,208 - Activity: login | User: ahmedsayrafi | Details: Logged in from 127.0.0.1
+2026-05-23 14:39:28,095 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE
+2026-05-23 14:40:04,185 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE
+2026-05-23 14:44:39,433 - Activity: login | User: AHMED | Details: Logged in from 127.0.0.1
+2026-05-23 14:45:54,346 - Activity: file_scan | User: AHMED | Details: Scanned file: pdf | Verdict: suspicious
+2026-05-23 20:41:32,357 - Activity: file_scan | User: AHMED | Details: Scanned file: Black_and_White_Modern_Entry_Level_Fresher_Cover_Letter.pdf | Verdict: safe
+2026-05-23 22:31:56,720 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-23 23:22:26,687 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE
+2026-05-24 09:06:09,476 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 09:13:18,421 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:13:51,790 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:13:54,720 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:13:57,408 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:14:06,319 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:14:40,086 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:14:50,629 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:14:56,885 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:15:05,590 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:21:37,615 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:21:43,112 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:21:48,055 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:21:52,947 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:22:02,154 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:22:52,987 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:22:57,952 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:23:02,443 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:23:09,936 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:23:16,904 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:23:58,148 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 09:24:05,238 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:24:10,529 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:24:15,347 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:24:21,310 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:24:27,712 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:27:48,274 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:27:53,123 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:27:56,700 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:28:01,859 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:31:57,958 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 09:32:27,345 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:32:31,529 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:32:37,791 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:32:42,745 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:32:49,714 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:35:32,169 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:36:12,664 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:42:36,014 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 09:42:45,179 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:42:50,221 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:42:55,295 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:43:00,451 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:43:05,673 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 09:43:11,464 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:00:32,422 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 11:00:42,710 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:00:49,889 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:00:53,140 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:00:57,586 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:02:38,294 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:05:33,567 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:05:38,814 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:05:46,614 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:05:51,495 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:05:56,852 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:09:05,553 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:09:10,413 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:09:14,595 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:09:20,114 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:09:26,804 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:19:23,393 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:19:28,004 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:19:32,685 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:19:36,723 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:19:47,672 - Activity: password_check | User: AHMED0 | Details: Checked password strength
+2026-05-24 11:23:01,688 - Activity: login | User: A | Details: Logged in from 127.0.0.1
+2026-05-24 11:23:15,054 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:23:20,756 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:23:25,790 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:23:31,786 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:46:32,243 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:46:38,107 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:46:42,838 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 11:52:17,019 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 11:52:26,753 - Activity: login | User: A | Details: Logged in from 127.0.0.1
+2026-05-24 11:53:56,714 - Activity: password_check | User: A | Details: Checked password strength
+2026-05-24 12:09:51,681 - Activity: login | User: ahmedsayrafi | Details: Logged in from 127.0.0.1
+2026-05-24 12:19:09,787 - Activity: login | User: ahmedsayrafi | Details: Logged in from 127.0.0.1
+2026-05-24 12:19:40,201 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 12:24:28,639 - Activity: login | User: AHMED07 | Details: Logged in from 127.0.0.1
+2026-05-24 12:27:29,433 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 14:49:44,838 - Activity: login | User: A | Details: Logged in from 127.0.0.1
+2026-05-24 17:16:44,743 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-24 17:34:14,456 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-25 11:28:51,453 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1

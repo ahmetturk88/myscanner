@@ -1,5 +1,7 @@
 from extensions import db
 from datetime import datetime, timezone
+from models.user import User
+from models.scan import Scan
 
 def _now():
     return datetime.now(timezone.utc)

@@ -126,3 +126,175 @@ def scan_large_file_task(self, file_path, filename, user_id):
         }
     except Exception as e:
         return {'status': 'failed', 'error': str(e)}
+    
+
+# ================================================================
+# TIP Celery Tasks — أضف هذا الكود في نهاية ملف tasks.py
+# ================================================================
+#
+# المهام المضافة:
+#   fetch_ioc_source_task   — جلب مصدر IoC واحد
+#   fetch_all_ioc_sources   — جلب كل المصادر المستحقة (يومي)
+#   cleanup_expired_iocs    — تنظيف IoCs المنتهية (يومي)
+#   misp_pull_task          — مزامنة من MISP
+#   misp_push_task          — تصدير IoC إلى MISP
+#   initialize_tip_sources  — تهيئة المصادر الافتراضية (مرة واحدة)
+# ================================================================
+
+
+@celery.task(bind=True, name='fetch_ioc_source_task', max_retries=3, default_retry_delay=300)
+def fetch_ioc_source_task(self, source_id: int):
+    """
+    جلب IoCs من مصدر واحد محدد.
+    يُستدعى يدوياً أو من fetch_all_ioc_sources.
+    """
+    try:
+        self.update_state(state='RUNNING', meta={'progress': 0, 'status': f'Fetching source {source_id}...'})
+
+        from services.tip_collector import TIPCollector
+        from app import app
+
+        with app.app_context():
+            collector = TIPCollector()
+            result = collector.fetch_source(source_id)
+
+        self.update_state(state='RUNNING', meta={'progress': 100, 'status': 'Done'})
+        return {'status': 'completed', **result}
+
+    except Exception as e:
+        try:
+            self.retry(exc=e)
+        except self.MaxRetriesExceededError:
+            return {'status': 'failed', 'error': str(e)}
+
+
+@celery.task(bind=True, name='fetch_all_ioc_sources')
+def fetch_all_ioc_sources(self):
+    """
+    جلب كل المصادر النشطة التي حان وقتها.
+    يُجدوَل بواسطة Celery Beat كل ساعة.
+    """
+    try:
+        from services.tip_collector import TIPCollector
+        from app import app
+
+        with app.app_context():
+            collector = TIPCollector()
+            result = collector.fetch_all_due()
+
+        return {'status': 'completed', **result}
+
+    except Exception as e:
+        return {'status': 'failed', 'error': str(e)}
+
+
+@celery.task(bind=True, name='cleanup_expired_iocs')
+def cleanup_expired_iocs(self):
+    """
+    تعطيل IoCs المنتهية الصلاحية.
+    يُجدوَل يومياً في Celery Beat.
+    """
+    try:
+        from services.tip_collector import TIPCollector
+        from app import app
+
+        with app.app_context():
+            collector = TIPCollector()
+            deactivated = collector.cleanup_expired()
+
+        return {'status': 'completed', 'deactivated': deactivated}
+
+    except Exception as e:
+        return {'status': 'failed', 'error': str(e)}
+
+
+@celery.task(bind=True, name='misp_pull_task')
+def misp_pull_task(self, days_back: int = 7):
+    """
+    استيراد Events من MISP.
+    يُجدوَل يومياً في Celery Beat.
+    """
+    try:
+        from services.misp_client import MISPClient
+        from app import app
+
+        with app.app_context():
+            client = MISPClient()
+            if not client.is_configured:
+                return {'status': 'skipped', 'reason': 'MISP not configured'}
+            result = client.pull_events(days_back=days_back)
+
+        return {'status': 'completed', **result}
+
+    except Exception as e:
+        return {'status': 'failed', 'error': str(e)}
+
+
+@celery.task(bind=True, name='misp_push_task')
+def misp_push_task(self, ioc_value: str, ioc_type: str, severity: str = 'medium',
+                   threat_type: str = 'suspicious', description: str = ''):
+    """
+    تصدير IoC واحدة إلى MISP.
+    يُستدعى يدوياً عند اكتشاف IoC جديدة ذات أهمية.
+    """
+    try:
+        from services.misp_client import MISPClient
+        from app import app
+
+        with app.app_context():
+            client = MISPClient()
+            if not client.is_configured:
+                return {'status': 'skipped', 'reason': 'MISP not configured'}
+            result = client.push_ioc(
+                ioc_value   = ioc_value,
+                ioc_type    = ioc_type,
+                severity    = severity,
+                threat_type = threat_type,
+                description = description,
+            )
+
+        return {'status': 'completed', **result}
+
+    except Exception as e:
+        return {'status': 'failed', 'error': str(e)}
+
+
+@celery.task(bind=True, name='initialize_tip_sources')
+def initialize_tip_sources(self):
+    """
+    تهيئة المصادر الافتراضية في قاعدة البيانات.
+    استدع مرة واحدة بعد النشر الأول.
+    """
+    try:
+        from services.tip_collector import TIPCollector
+        from app import app
+
+        with app.app_context():
+            collector = TIPCollector()
+            added = collector.initialize_default_sources()
+
+        return {'status': 'completed', 'sources_added': added}
+
+    except Exception as e:
+        return {'status': 'failed', 'error': str(e)}
+
+
+# ================================================================
+# Celery Beat Schedule — أضف هذا لملف celery_config.py أو app.py
+# ================================================================
+#
+# celery.conf.beat_schedule = {
+#     'fetch-ioc-sources-hourly': {
+#         'task':     'fetch_all_ioc_sources',
+#         'schedule': 3600,    # كل ساعة
+#     },
+#     'cleanup-expired-iocs-daily': {
+#         'task':     'cleanup_expired_iocs',
+#         'schedule': 86400,   # يومياً
+#     },
+#     'misp-pull-daily': {
+#         'task':     'misp_pull_task',
+#         'schedule': 86400,   # يومياً
+#         'kwargs':   {'days_back': 7},
+#     },
+# }

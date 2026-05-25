@@ -1,12 +1,12 @@
 {
   "domain": "google.com",
-  "cached_at": "2026-05-21T21:15:44.409546",
+  "cached_at": "2026-05-23T14:03:35.646500",
   "result": {
     "domain": "google.com",
     "url": "https://www.google.com/",
     "status": "success",
     "from_cache": false,
-    "timestamp": "2026-05-21T21:15:44.407530",
+    "timestamp": "2026-05-23T14:03:35.643498",
     "vulnerabilities": {
       "static": {
         "sql_injection": [],
@@ -94,23 +94,25 @@
       ]
     },
     "ssl": {
-      "valid": true,
+      "valid": false,
       "domain": "google.com",
-      "issuer": "WE2",
-      "subject": "*.google.com",
-      "version": 2,
-      "serial_number": "0x382aeaf5a5d2ac820a59482fb0e5c5cc",
-      "valid_from": "2026-05-07",
-      "valid_until": "2026-07-30",
-      "days_remaining": 69,
-      "days_since_issue": 14,
-      "signature_algorithm": "ecdsa-with-SHA256",
+      "issuer": null,
+      "subject": null,
+      "version": null,
+      "serial_number": null,
+      "valid_from": null,
+      "valid_until": null,
+      "days_remaining": 0,
+      "days_since_issue": 0,
+      "signature_algorithm": null,
       "tls_version": "TLSv1.3",
       "cipher_strength": "TLS_AES_256_GCM_SHA384 (TLSv1.3 bits)",
       "certificate_chain": [],
-      "vulnerabilities": [],
-      "grade": "B",
-      "risk_score": 20
+      "vulnerabilities": [
+        "Certificate expired or invalid"
+      ],
+      "grade": "F",
+      "risk_score": 80
     },
     "robots_txt": {
       "exists": true,
@@ -415,10 +417,10 @@
     },
     "dns": {
       "a_records": [
-        "142.251.38.238"
+        "142.251.208.110"
       ],
       "aaaa_records": [
-        "2a00:1450:4017:801::200e"
+        "2a00:1450:4017:807::200e"
       ],
       "mx_records": [
         {
@@ -427,31 +429,31 @@
         }
       ],
       "ns_records": [
-        "ns3.google.com",
         "ns1.google.com",
         "ns4.google.com",
+        "ns3.google.com",
         "ns2.google.com"
       ],
       "txt_records": [
-        "v=spf1 include:_spf.google.com ~all",
-        "docusign=1b0a6754-49b1-4db5-8540-d2c12664b289",
-        "apple-domain-verification=30afIBcvSuDV2PLX",
-        "google-site-verification=TV9-DBe4R80X4v0M4U_bd_J9cpOJM0nikft0jAgjmsQ",
-        "docusign=05958488-4752-4ef2-95eb-aa7ba8a3bd0e",
         "onetrust-domain-verification=6d685f1d41a94696ad7ef771f68993e0",
+        "google-site-verification=wD8N7i1JTNTkezJ49swvWW48f8_9xveREV4oB-0Hf5o",
+        "google-site-verification=TV9-DBe4R80X4v0M4U_bd_J9cpOJM0nikft0jAgjmsQ",
+        "apple-domain-verification=30afIBcvSuDV2PLX",
         "globalsign-smime-dv=CDYX+XFHUw2wml6/Gb8+59BsH31KzUr6c1l2BPvqKX8=",
         "facebook-domain-verification=22rm551cu4k0ab0bxsw536tlds4h95",
-        "google-site-verification=wD8N7i1JTNTkezJ49swvWW48f8_9xveREV4oB-0Hf5o",
         "google-site-verification=4ibFUgB-wXLQ_S7vsXVomSTVamuOXBiVAzpR5IZ87D0",
-        "MS=E4A68B9AB2BB9670BCE15412F62916164C0B20BB",
         "cisco-ci-domain-verification=47c38bc8c4b74b7233e9053220c1bbe76bcc1cd33c7acf7acd36cd6a5332004b",
-        "onetrust-domain-verification=0d477fe608074e6f9c12bca7826035cc"
+        "onetrust-domain-verification=0d477fe608074e6f9c12bca7826035cc",
+        "MS=E4A68B9AB2BB9670BCE15412F62916164C0B20BB",
+        "docusign=1b0a6754-49b1-4db5-8540-d2c12664b289",
+        "docusign=05958488-4752-4ef2-95eb-aa7ba8a3bd0e",
+        "v=spf1 include:_spf.google.com ~all"
       ],
       "cname_records": [],
       "soa_record": {
         "mname": "ns1.google.com",
         "rname": "dns-admin.google.com",
-        "serial": 918343850,
+        "serial": 919691820,
         "refresh": 900,
         "retry": 900,
         "expire": 1800,
@@ -477,8 +479,8 @@
       "details": []
     },
     "performance": {
-      "load_time_ms": 542.8,
-      "page_size_kb": 80.22,
+      "load_time_ms": 295.43,
+      "page_size_kb": 80.17,
       "resource_count": 14,
       "resources_breakdown": {
         "images": 2,
@@ -486,8 +488,8 @@
         "stylesheets": 1,
         "total": 14
       },
-      "grade": "A",
-      "score": 85,
+      "grade": "A+",
+      "score": 100,
       "risk_score": 0
     },
     "seo": {
@@ -516,20 +518,21 @@
       "forms": 1,
       "iframes": 0
     },
-    "security_score": 65,
-    "risk_score": 35,
-    "verdict": "moderate",
-    "verdict_icon": "⚠️",
-    "severity": "medium",
+    "security_score": 50,
+    "risk_score": 50,
+    "verdict": "risky",
+    "verdict_icon": "🔴",
+    "severity": "high",
     "risk_factors": [],
     "recommendations": [
+      "🔒 Install a valid SSL certificate immediately",
       "🛡️ Enable HSTS with max-age=31536000",
       "🛡️ Implement Content Security Policy (CSP)",
       "🛡️ Set X-Content-Type-Options: nosniff",
       "🔍 3 potential vulnerabilities found"
     ],
     "summary": {
-      "has_ssl": true,
+      "has_ssl": false,
       "has_hsts": false,
       "has_csp": false,
       "vulnerabilities_found": 3,

@@ -947,7 +947,40 @@ class URLDeepAnalyzer:
         logger.info(f"✅ Deep analysis completed for {url} | Risk Score: {result['overall_risk_score']} | Verdict: {result['verdict']}")
         return result
 
+    # أضف هذه الدالة في نهاية class URLDeepAnalyzer
 
+    def analyze_with_tip(self, url: str, user_id: int = None) -> dict:
+        """
+        تحليل URL مع دمج TIP (معلومات التهديدات)
+        """
+        from services.ioc_lookup import IoCLookup
+        
+        # التحليل الأساسي
+        result = self.comprehensive_analysis(url)
+        
+        # البحث في TIP
+        try:
+            lookup = IoCLookup()
+            tip_result = lookup.lookup_url(url=url, context='url_analyzer', user_id=user_id)
+            
+            if tip_result.get('found'):
+                result['tip'] = tip_result
+                result['security_score'] = max(0, result.get('security_score', 50) - tip_result.get('tip_score', 0))
+                
+                # تحديث الحكم بناءً على TIP
+                if tip_result.get('highest_severity') in ('critical', 'high'):
+                    result['verdict'] = 'malicious'
+                elif tip_result.get('highest_severity') == 'medium':
+                    if result.get('verdict') != 'malicious':
+                        result['verdict'] = 'suspicious'
+                
+                result['recommendations'].append(
+                    f"⚠️ URL matches {tip_result.get('count', 0)} threat intelligence indicator(s) - {tip_result.get('summary', '')}"
+                )
+        except Exception as e:
+            result['tip_error'] = str(e)
+        
+        return result
 # ================================================================
 # دوال مساعدة للاستخدام المباشر
 # ================================================================

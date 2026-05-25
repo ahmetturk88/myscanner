@@ -1,0 +1,90 @@
+{
+  "url": "https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE",
+  "cached_at": "2026-05-23T14:06:42.475331",
+  "result": {
+    "url": "https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE",
+    "domain": "www.onlinecalisma.org",
+    "timestamp": "2026-05-23T14:06:38.892583",
+    "from_cache": false,
+    "page_content": {
+      "error": "Could not fetch page content: HTTPSConnectionPool(host='www.onlinecalisma.org', port=443): Max retries exceeded with url: /?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE (Caused by NameResolutionError(\"HTTPSConnection(host='www.onlinecalisma.org', port=443): Failed to resolve 'www.onlinecalisma.org' ([Errno 11001] getaddrinfo failed)\"))"
+    },
+    "behavior": {
+      "original_url": "https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE",
+      "final_url": "https://www.onlinecalisma.org/?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE",
+      "redirect_count": 0,
+      "redirect_chain": [],
+      "is_shortened": false,
+      "status_code": null,
+      "behavior_risk_score": 0,
+      "error": "HTTPSConnectionPool(host='www.onlinecalisma.org', port=443): Max retries exceeded with url: /?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE (Caused by NameResolutionError(\"HTTPSConnection(host='www.onlinecalisma.org', port=443): Failed to resolve 'www.onlinecalisma.org' ([Errno 11001] getaddrinfo failed)\"))"
+    },
+    "whois": {
+      "domain": "www.onlinecalisma.org",
+      "age_days": null,
+      "creation_date": null,
+      "expiration_date": null,
+      "registrar": "N/A",
+      "is_new": false,
+      "is_expiring_soon": false,
+      "whois_risk_score": 0,
+      "red_flags": [],
+      "error": "Domain not found.\r\n>>> Last update of WHOIS database: 2026-05-23T11:06:40Z <<<\r\n\r\nTerms of Use: Access to Public Interest Registry WHOIS information is provided to assist persons in determining the contents of a domain name registration record in the Public Interest Registry registry database. The data in this record is provided by Public Interest Registry for informational purposes only, and Public Interest Registry does not guarantee its accuracy. This service is intended only for query-based access. You agree that you will use this data only for lawful purposes and that, under no circumstances will you use this data to (a) allow, enable, or otherwise support the transmission by e-mail, telephone, or facsimile of mass unsolicited, commercial advertising or solicitations to entities other than the data recipient's own existing customers; or (b) enable high volume, automated, electronic processes that send queries or data to the systems of Registry Operator, a Registrar, or Identity Digital except as reasonably necessary to register domain names or modify existing registrations. All rights reserved. Public Interest Registry reserves the right to modify these terms at any time. By submitting this query, you agree to abide by this policy.  The Registrar of Record identified in this output may have an RDDS service that can be queried for additional information on how to contact the Registrant, Admin, or Tech contact of the queried domain name.\r\n"
+    },
+    "osint": {
+      "urlhaus": false,
+      "urlhaus_details": {},
+      "osint_risk_score": 0,
+      "details": []
+    },
+    "structure": {
+      "scheme": "https",
+      "domain": "www.onlinecalisma.org",
+      "path": "/",
+      "has_query": true,
+      "query_params": 3,
+      "has_fragment": false,
+      "length": 132,
+      "is_https": true,
+      "contains_ip": false,
+      "subdomain_count": 1,
+      "suspicious_chars": [],
+      "trust_score": 90,
+      "trust_level": "High"
+    },
+    "phishing": {
+      "is_phishing_suspected": false,
+      "issues": [],
+      "risk_score": 0
+    },
+    "ssl": {
+      "valid": false,
+      "error": "[Errno 11001] getaddrinfo failed"
+    },
+    "dns": {
+      "a_records": [],
+      "aaaa_records": [],
+      "mx_records": [],
+      "ns_records": [],
+      "txt_records": [],
+      "has_spf": false,
+      "has_dmarc": false
+    },
+    "security_headers": {
+      "error": "HTTPSConnectionPool(host='www.onlinecalisma.org', port=443): Max retries exceeded with url: /?gad_source=5&gad_campaignid=22541255924&gclid=EAIaIQobChMI3cCUxsKAjgMVHQCiAx2txTqAEAEYAiAAEgJM4PD_BwE (Caused by NameResolutionError(\"HTTPSConnection(host='www.onlinecalisma.org', port=443): Failed to resolve 'www.onlinecalisma.org' ([Errno 11001] getaddrinfo failed)\"))",
+      "score": 0,
+      "grade": "F"
+    },
+    "overall_risk_score": 10,
+    "verdict": "safe",
+    "verdict_icon": "✅",
+    "summary": {
+      "level": "Low Risk",
+      "color": "green",
+      "message": "No significant threats detected. URL appears safe."
+    },
+    "recommendations": [
+      "✅ No threats detected - URL appears safe to visit"
+    ]
+  }
+}

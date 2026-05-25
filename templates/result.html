@@ -176,6 +176,16 @@
 
 {% block body_extra %}
 <script>
+// ✅ دالة الحماية من XSS
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
   const scanId = '{{ scan.id }}';
   const initStatus = '{{ scan.status }}';
   let allData = null;
@@ -276,7 +286,7 @@
     if (phishingIndicators?.is_phishing_suspected) {
       extraHTML += `<div class="section-card">
         <div class="section-title">⚠️ Phishing Indicators</div>
-        ${phishingIndicators.issues?.map(issue => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${issue}</span></div>`).join('')}
+        ${phishingIndicators.issues?.map(issue => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${esc(issue)}</span></div>`).join('')}
       </div>`;
     }
 
@@ -347,7 +357,7 @@
       extraHTML += `<div class="section-card">
         <div class="section-title">📋 Security Recommendations</div>
         <ul class="recommendations-list">
-          ${recommendations.map(r => `<li>${r}</li>`).join('')}
+          ${recommendations.map(r => `<li>${esc(r)}</li>`).join('')}
         </ul>
       </div>`;
     }
@@ -368,7 +378,7 @@
           <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${content.has_login_form ? 'info-bad' : 'info-good'}">${content.has_login_form ? '⚠️ Yes' : 'No'}</span></div>
           <div class="info-row"><span class="info-label">Has Password Field</span><span class="info-value ${content.has_password_field ? 'info-bad' : 'info-good'}">${content.has_password_field ? '⚠️ Yes' : 'No'}</span></div>
           ${content.suspicious_keywords_found && content.suspicious_keywords_found.length > 0 ? `
-          <div class="info-row"><span class="info-label">Suspicious Keywords</span><span class="info-value info-warn">${content.suspicious_keywords_found.join(', ')}</span></div>
+          <div class="info-row"><span class="info-label">Suspicious Keywords</span><span class="info-value info-warn">${content.suspicious_keywords_found.map(k => esc(k)).join(', ')}</span></div>
           ` : ''}
           <div class="info-row"><span class="info-label">Internal Links</span><span class="info-value">${(content.internal_links || []).length}</span></div>
           <div class="info-row"><span class="info-label">External Links</span><span class="info-value">${(content.external_links || []).length}</span></div>
@@ -461,7 +471,7 @@ if (osint.urlhaus) {
           <div>
             <h4 style="color:var(--accent); margin-bottom:10px;">📋 Deep Analysis Recommendations</h4>
             <ul class="recommendations-list">
-              ${deep.deep_recommendations.map(r => `<li>${r}</li>`).join('')}
+             ${deep.deep_recommendations.map(r => `<li>${esc(r)}</li>`).join('')}
             </ul>
           </div>
         `;

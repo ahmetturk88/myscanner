@@ -448,6 +448,7 @@
     <p>Check any URL for threats, verify email addresses, and protect yourself — powered by 90+ security engines.</p>
 
     <form method="POST" action="{{ url_for('dashboard') }}" target="_blank">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="scan-box">
         <input type="text" name="url" placeholder="https://example.com — enter URL to scan" required>
         <button type="submit">Scan URL →</button>

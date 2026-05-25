@@ -1,8 +1,8 @@
+from extensions import db, login_manager, bcrypt
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer
-from werkzeug.security import generate_password_hash, check_password_hash
 from markupsafe import Markup
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import A4
@@ -36,7 +36,6 @@ from services.subdomain_finder import SubdomainFinder
 from services.password_analyzer import PasswordAnalyzer
 from models import User, Scan
 from models import User, Scan, LogEntry
-from extensions import db, login_manager
 from services.ip_analyzer import IPAnalyzer
 from services.domain_analyzer import DomainAnalyzer
 from services.ssl_analyzer import SSLAnalyzer
@@ -47,6 +46,8 @@ from celery.result import AsyncResult
 from celery_config import celery
 import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task
+from services.permissions import check_permission
+from datetime import datetime, timedelta, timezone
 
 load_dotenv()
 
@@ -103,11 +104,12 @@ from logging_config import setup_logging, log_activity, log_performance, log_err
 setup_logging(app)
 # ================================================================
 # Extensions
-# ================================================================
+# ==============================================================
 
 db.init_app(app)
 from tasks import celery
 login_manager.init_app(app)
+bcrypt.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'warning'
@@ -119,7 +121,30 @@ def load_user(user_id):
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 with app.app_context():
     db.create_all()
-    print("✅ Database tables created successfully!")
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+def reset_daily_scans():
+    with app.app_context():
+        from services.permissions import DAILY_LIMITS
+        users = User.query.all()
+        for user in users:
+            role = user.role if user.role in DAILY_LIMITS else 'user'
+            limits = DAILY_LIMITS[role]
+            
+            user.site_scan_remaining = limits.get('site_scan', 10)
+            user.file_scan_remaining = limits.get('file_scan', 5)
+            user.url_analyzer_remaining = limits.get('url_analyzer', 20)
+            user.email_check_remaining = limits.get('email_check', 15)
+            user.ip_check_remaining = limits.get('ip_check', 15)
+            user.domain_lookup_remaining = limits.get('domain_lookup', 15)
+            user.ssl_check_remaining = limits.get('ssl_check', 15)
+            user.qr_scan_remaining = limits.get('qr_scan', 15)
+            user.subdomain_finder_remaining = limits.get('subdomain_finder', 5)
+            user.password_check_remaining = limits.get('password_check', 20)
+            user.scans_reset_date = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        print("[SCHEDULER] Daily scans reset for all services!")
 # ================================================================
 # Email Helper (Resend API)
 # ================================================================
@@ -264,6 +289,19 @@ def scan_in_background(scan_id, url):
         db.session.commit()
 
 
+from routes.tip_routes import tip_bp
+app.register_blueprint(tip_bp)
+
+# تهيئة مصادر TIP (مرة واحدة عند بدء التشغيل)
+with app.app_context():
+    try:
+        from services.tip_collector import TIPCollector
+        collector = TIPCollector()
+        collector.initialize_default_sources()
+        print("[TIP] Default sources initialized")
+    except Exception as e:
+        print(f"[TIP] Init error: {e}")
+        
 # ================================================================
 # Auth Routes
 # ================================================================
@@ -315,21 +353,31 @@ def register():
             flash('Username already taken.', 'danger')
             return redirect(url_for('register'))
 
-        # إنشاء مستخدم جديد (غير مفعل)
+        # إنشاء مستخدم جديد
         user = User(username=username, email=email)
         user.set_password(password)
-        user.is_verified = False  # يتطلب تأكيد البريد
+        user.is_verified = True
         user.role = 'user'  # دور افتراضي
-        user.remaining_scans = 20  # 20 فحص في اليوم للمستخدم العادي
+        
+        # تعيين الحدود الافتراضية للمستخدم الجديد
+        user.site_scan_remaining = 10
+        user.file_scan_remaining = 5
+        user.url_analyzer_remaining = 20
+        user.email_check_remaining = 15
+        user.ip_check_remaining = 15
+        user.domain_lookup_remaining = 15
+        user.ssl_check_remaining = 15
+        user.qr_scan_remaining = 15
+        user.subdomain_finder_remaining = 5
+        user.password_check_remaining = 20
         
         db.session.add(user)
         db.session.commit()
 
-        # إرسال إيميل تأكيد
-        send_verification_email(user)
+        # إرسال إيميل تأكيد (معطل)
         print(f"[DEBUG] RESEND_API_KEY = '{RESEND_API_KEY}'")
         print(f"[DEBUG] Sending to: {user.email}")
-        flash('Account created! Please check your email to verify your account.', 'success')
+        flash('Account created! You can now log in.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -352,6 +400,7 @@ def verify_email(token):
     else:
         user.is_verified = True
         db.session.commit()
+        logout_user()
         flash('Email verified! You can now log in.', 'success')
 
     return redirect(url_for('login'))
@@ -382,9 +431,6 @@ def login():
             return redirect(url_for('login'))
 
         # التحقق من تأكيد البريد الإلكتروني
-        if not user.is_verified:
-            flash('Please verify your email before logging in.', 'warning')
-            return redirect(url_for('login'))
 
         # تسجيل الدخول الناجح
         login_user(user, remember=remember)
@@ -480,9 +526,19 @@ def dashboard():
         url = request.form.get('url', '').strip()
         if not url:
             return redirect(url_for('dashboard'))
+        
+        # ← التحقق من الفحوصات المتبقية (حقل قديم)
+        if current_user.remaining_scans <= 0:
+            flash('You have reached your daily scan limit.', 'warning')
+            return redirect(url_for('dashboard'))
+        
         new_scan = Scan(url=url, verdict='pending', result='Pending...', user_id=current_user.id)
         db.session.add(new_scan)
+        
+        # ← خصم فحص
+        current_user.remaining_scans -= 1
         db.session.commit()
+        
         t = threading.Thread(target=scan_in_background, args=(new_scan.id, url), daemon=True)
         t.start()
         return redirect(url_for('result_page', scan_id=new_scan.id))
@@ -614,6 +670,7 @@ def api_bulk_email_check():
 
 @app.route('/api/scan-file', methods=['POST'])
 @login_required
+@check_permission('file_scan')
 def api_scan_file():
     """API الموحد لفحص الملفات (VirusTotal + التحليل العميق)"""
     
@@ -1099,6 +1156,7 @@ def email_check():
 
 @app.route('/api/check-email', methods=['POST'])
 @login_required
+@check_permission('email_check')
 def api_check_email():
     app.logger.info(f'[INFO] Email check requested by {current_user.username}')
 
@@ -1190,6 +1248,7 @@ def ip_check():
 
 @app.route('/api/check-ip', methods=['POST'])
 @login_required
+@check_permission('ip_check')
 def api_check_ip():
     app.logger.info(f'[INFO] IP check requested by {current_user.username}')
     
@@ -1375,6 +1434,7 @@ def site_scanner():
 
 @app.route('/api/site-scan', methods=['POST'])
 @login_required
+@check_permission('site_scan')
 def api_site_scan():
     """API متطور لفحص المواقع الإلكترونية"""
     data = request.get_json()
@@ -1417,15 +1477,14 @@ def password_check():
 
 @app.route('/api/check-password', methods=['POST'])
 @login_required
+@check_permission('password_check')
 def api_check_password():
-    """API متطور لفحص قوة كلمات المرور"""
     data = request.get_json()
     password = data.get('password', '')
     
     if not password:
         return jsonify({"error": "No password provided"}), 400
     
-    # تحديد إذا كان يجب إظهار الكلمة (لن نعرضها أبداً)
     show_password = data.get('show_password', False)
     
     try:
@@ -1435,7 +1494,6 @@ def api_check_password():
         if "error" in result:
             return jsonify({"error": result["error"]}), 400
         
-        # لا نرسل كلمة المرور أبداً في الـ response
         result.pop('password', None)
         log_activity(current_user.username, 'password_check', f'Checked password strength')
         return jsonify(result)
@@ -1443,7 +1501,7 @@ def api_check_password():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+        return jsonify({"error": f"Analysis error: {str(e)}"}), 500  # ← داخل الـ except
 
 # ================================================================
 # Subdomain Finder
@@ -1457,6 +1515,7 @@ def subdomain_finder():
 
 @app.route('/api/subdomain-finder', methods=['POST'])
 @login_required
+@check_permission('subdomain_finder')
 def api_subdomain_finder():
     """API لاكتشاف النطاقات الفرعية"""
     data = request.get_json()
@@ -1564,19 +1623,6 @@ def about():
 def contact():
     return render_template('contact.html')
 
-
-    # قائمة subdomains شائعة + المجال
-    common_subs = ['www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk', 'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test', 'ns', 'blog', 'shop', 'api', 'dev', 'admin', 'portal', 'cdn', 'remote', 'vpn', 'support', 'status', 'web', 'app', 'cloud', 'mail2', 'owa', 'exchange', 'demo', 'staging', 'beta']
-    
-    for sub in common_subs:
-        subdomains.add(f"{sub}.{domain}")
-
-    subdomains = sorted(list(subdomains))[:30]
-    results = [{"domain": sub, "verdict": "found"} for sub in subdomains]
-
-    return jsonify({"total": len(results), "subdomains": results})
-
-
 @app.route('/domain-lookup')
 @login_required
 def domain_lookup():
@@ -1585,6 +1631,7 @@ def domain_lookup():
 
 @app.route('/api/domain-lookup', methods=['POST'])
 @login_required
+@check_permission('domain_lookup')
 def api_domain_lookup():
     app.logger.info(f'[INFO] Domain lookup requested by {current_user.username}')
 
@@ -1626,6 +1673,7 @@ def qr_scanner():
     return render_template('qr_scanner.html')
 @app.route('/api/scan-qr-url', methods=['POST'])
 @login_required
+@check_permission('qr_scan')
 def api_scan_qr_url():
     app.logger.info(f'[INFO] QR scan requested by {current_user.username}')
 
@@ -1665,6 +1713,7 @@ def ssl_checker():
 
 @app.route('/api/ssl-checker', methods=['POST'])
 @login_required
+@check_permission('ssl_check')
 def api_ssl_checker():
     data = request.get_json()
     domain = data.get('domain', '').strip()
@@ -1785,7 +1834,40 @@ def api_url_analysis(scan_id):
         pass
     
     return jsonify(analysis)
+# ================================================================
+# URL Analyzer API (Direct URL Scan)
+# ================================================================
+
+@app.route('/api/url-analyze', methods=['POST'])
+@login_required
+@check_permission('url_analyzer')
+def api_url_analyze():
+    data = request.get_json()
+    url = data.get('url', '').strip()
     
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    
+    app.logger.info(f'[INFO] URL analysis requested for: {url}')
+    
+    try:
+        analyzer = URLDeepAnalyzer()
+        result = analyzer.comprehensive_analysis(url)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    
+csrf.exempt(api_scan_file)
+csrf.exempt(api_site_scan)
+csrf.exempt(api_check_email)
+csrf.exempt(api_check_ip)
+csrf.exempt(api_domain_lookup)
+csrf.exempt(api_ssl_checker)
+csrf.exempt(api_scan_qr_url)
+csrf.exempt(api_check_password)
+csrf.exempt(api_subdomain_finder)
+csrf.exempt(api_url_analyze)
 
 # ================================================================
 # Run

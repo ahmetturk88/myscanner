@@ -118,3 +118,31 @@ class IPAnalyzer:
             logger.error(f"Error checking AbuseIPDB for {ip}: {str(e)}")
         
         return {}
+    # أضف هذه الدالة في نهاية class IPAnalyzer
+
+    def analyze_with_tip(self, ip: str, user_id: int = None) -> dict:
+        """
+        تحليل IP مع دمج TIP
+        """
+        from services.ioc_lookup import IoCLookup
+        
+        result = self.analyze_ip(ip)
+        
+        try:
+            lookup = IoCLookup()
+            tip_result = lookup.lookup_ip(ip=ip, context='ip_check', user_id=user_id)
+            
+            if tip_result.get('found'):
+                result['tip'] = tip_result
+                result['tip_score'] = tip_result.get('tip_score', 0)
+                
+                if tip_result.get('highest_severity') == 'critical':
+                    result['verdict'] = 'malicious'
+                    result['risk_level'] = 'critical'
+                elif tip_result.get('highest_severity') == 'high':
+                    if result.get('risk_level') != 'critical':
+                        result['risk_level'] = 'high'
+        except Exception as e:
+            result['tip_error'] = str(e)
+        
+        return result

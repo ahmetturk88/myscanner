@@ -116,3 +116,27 @@ class DomainAnalyzer:
             except Exception as e:
                 logger.error(f"Error fetching DNS records for {domain}: {str(e)}")
         return records
+    # أضف هذه الدالة في نهاية class DomainAnalyzer
+
+    def analyze_with_tip(self, domain: str, user_id: int = None) -> dict:
+        """
+        تحليل Domain مع دمج TIP
+        """
+        from services.ioc_lookup import IoCLookup
+        
+        result = self.analyze_domain(domain)
+        
+        try:
+            lookup = IoCLookup()
+            tip_result = lookup.lookup_domain(domain=domain, context='domain_lookup', user_id=user_id)
+            
+            if tip_result.get('found'):
+                result['tip'] = tip_result
+                result['tip_score'] = tip_result.get('tip_score', 0)
+                
+                if tip_result.get('highest_severity') in ('critical', 'high'):
+                    result['reputation'] = 'malicious'
+        except Exception as e:
+            result['tip_error'] = str(e)
+        
+        return result

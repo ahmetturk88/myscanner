@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
     <link rel="icon" href="{{ url_for('static', filename='security-scan.png') }}" type="image/png">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         :root {
             --bg: #080810; --surface: #10101a; --surface2: #18182a; --surface3: #202035;
@@ -224,6 +225,7 @@
                     </div>
                 </div>
                 <a href="{{ url_for('dashboard_v2') }}">📊 Dashboard</a>
+                <a href="{{ url_for('tip.tip_dashboard') }}">🛡️ TIP Platform</a>
                 <a href="{{ url_for('about') }}">About</a>
                 <a href="{{ url_for('contact') }}">Contact</a>
                 {% if current_user.is_authenticated %}
@@ -306,5 +308,16 @@
     </script>
 
     {% block body_extra %}{% endblock %}
+    <script>
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    if (options.method && options.method.toUpperCase() !== 'GET') {
+        options.headers = options.headers || {};
+        options.headers['X-CSRFToken'] = csrfToken;
+    }
+    return originalFetch(url, options);
+};
+</script>
 </body>
 </html>

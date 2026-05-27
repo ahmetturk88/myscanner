@@ -1,0 +1,1158 @@
+{% extends "base.html" %}
+
+{% block title %}Sandbox Analyzer — Behavioral Malware Analysis{% endblock %}
+
+{% block head_extra %}
+<style>
+/* ═══════════════════════════════════════
+   SANDBOX PAGE STYLES — متوافقة مع ألوان المنصة
+═══════════════════════════════════════ */
+:root {
+  --sandbox-primary: #00c8ff;
+  --sandbox-primary-dark: #006aff;
+  --sandbox-danger: #ff4560;
+  --sandbox-warning: #ffd32a;
+  --sandbox-safe: #00e676;
+}
+
+/* Live Analysis Badge - Professional Style */
+.badge-live {
+    background: linear-gradient(135deg, #2f54eb, #3516ff);
+    color: #fff;
+    padding: 8px 24px;
+    border-radius: 40px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px #2f79eb;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.badge-live:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255,69,96,0.5);
+}
+
+.badge-live i {
+    font-size: 0.85rem;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+/* Hero Section */
+.sandbox-hero {
+  background: linear-gradient(135deg, rgba(0,200,255,0.08), rgba(0,106,255,0.08));
+  border-radius: 24px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.sandbox-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.sandbox-hero h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00c8ff, #006aff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.25rem;
+}
+
+.sandbox-hero p {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Tabs */
+.sandbox-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 2rem;
+  width: fit-content;
+  flex-wrap: wrap;
+}
+
+.sandbox-tab {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  padding: 10px 24px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sandbox-tab:hover {
+  color: var(--text);
+  background: var(--surface2);
+}
+
+.sandbox-tab.active {
+  background: var(--sandbox-primary);
+  color: #000;
+  font-weight: 600;
+  box-shadow: 0 0 16px rgba(0,200,255,0.3);
+}
+
+/* Upload Zone */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: var(--surface);
+  position: relative;
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--sandbox-primary);
+  box-shadow: 0 0 30px rgba(0,200,255,0.1);
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 1rem;
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(0,200,255,0.3));
+}
+
+.upload-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.upload-sub {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* File Preview */
+.file-preview {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+  align-items: center;
+  gap: 1rem;
+}
+
+.file-preview.show { display: flex; }
+
+.file-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--sandbox-primary-dark), var(--sandbox-primary));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #000;
+}
+
+/* Environment Grid */
+.env-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 1.5rem 0;
+}
+
+.env-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--surface);
+}
+
+.env-card:hover { border-color: var(--sandbox-primary); }
+.env-card.selected {
+  border-color: var(--sandbox-primary);
+  background: rgba(0,200,255,0.06);
+  box-shadow: 0 0 12px rgba(0,200,255,0.1);
+}
+
+.env-card input[type=radio] { display: none; }
+
+.env-os { font-size: 1.8rem; margin-bottom: 0.5rem; display: block; }
+.env-name { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+.env-id { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+
+/* Hash Input */
+.hash-input-group {
+  display: flex;
+  gap: 12px;
+  margin: 1.5rem 0;
+}
+
+.hash-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.hash-input:focus { border-color: var(--sandbox-primary); box-shadow: 0 0 0 3px rgba(0,200,255,0.1); }
+
+/* URL Input */
+.url-input-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.url-input-field {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.url-input-field:focus { border-color: var(--sandbox-primary); }
+
+/* Buttons */
+.sandbox-btn {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  padding: 0.8rem 2rem;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.sandbox-btn-primary {
+  background: linear-gradient(135deg, var(--sandbox-primary), var(--sandbox-primary-dark));
+  color: #000;
+  box-shadow: 0 0 20px rgba(0,200,255,0.25);
+}
+
+.sandbox-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 24px rgba(0,200,255,0.35);
+}
+
+.sandbox-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sandbox-btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.sandbox-btn-secondary:hover { border-color: var(--sandbox-primary); color: var(--sandbox-primary); }
+
+/* Progress Panel */
+.progress-panel {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.progress-panel.show { display: block; }
+
+.spinner-ring {
+  width: 60px;
+  height: 60px;
+  border: 3px solid var(--border);
+  border-top-color: var(--sandbox-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Results Panel */
+.results-panel { display: none; margin-top: 2rem; }
+.results-panel.show { display: block; animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Verdict Hero */
+.verdict-hero {
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid;
+  position: relative;
+  overflow: hidden;
+}
+
+.verdict-hero.malicious {
+  border-color: rgba(255,69,96,0.3);
+  background: linear-gradient(135deg, rgba(255,69,96,0.06), rgba(255,69,96,0.02));
+}
+.verdict-hero.suspicious {
+  border-color: rgba(255,211,42,0.3);
+  background: linear-gradient(135deg, rgba(255,211,42,0.06), rgba(255,211,42,0.02));
+}
+.verdict-hero.clean {
+  border-color: rgba(0,230,118,0.3);
+  background: linear-gradient(135deg, rgba(0,230,118,0.06), rgba(0,230,118,0.02));
+}
+
+.verdict-icon { font-size: 3rem; margin-right: 1rem; }
+.verdict-text { font-size: 2rem; font-weight: 800; letter-spacing: -1px; }
+.verdict-hero.malicious .verdict-text { color: var(--sandbox-danger); }
+.verdict-hero.suspicious .verdict-text { color: var(--sandbox-warning); }
+.verdict-hero.clean .verdict-text { color: var(--sandbox-safe); }
+
+.score-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Stats Cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+/* Sections */
+.sandbox-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.section-header:hover { background: rgba(255,255,255,0.02); }
+
+.section-title { font-weight: 700; }
+.section-chevron { margin-left: auto; transition: transform 0.2s; }
+.sandbox-section.collapsed .section-chevron { transform: rotate(-90deg); }
+.sandbox-section.collapsed .section-body { display: none; }
+
+.section-body { padding: 1.5rem; }
+
+/* Detection Table */
+.detection-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.detection-table th, .detection-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Hash Block */
+.hash-block {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 1rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.hash-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.hash-row:last-child { border-bottom: none; }
+
+/* Behavior Grid */
+.behavior-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.behavior-card {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.behavior-list {
+  list-style: none;
+  margin-top: 0.5rem;
+}
+.behavior-list li {
+  padding: 0.25rem 0;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border-bottom: 1px solid var(--border);
+  word-break: break-all;
+}
+
+/* Network Tags */
+.network-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.net-tag {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+/* MITRE Grid */
+.mitre-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.mitre-card {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 0.75rem;
+  border-left: 3px solid var(--sandbox-primary);
+}
+
+/* Signatures */
+.sig-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.sig-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: 10px;
+  border-left: 3px solid var(--border);
+}
+.sig-item.malicious { border-left-color: var(--sandbox-danger); }
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+/* Toast */
+.sandbox-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--sandbox-primary);
+  border-radius: 10px;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--sandbox-primary);
+  z-index: 1000;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+.sandbox-toast.show { transform: translateY(0); opacity: 1; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sandbox-tabs { width: 100%; }
+  .env-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .verdict-text { font-size: 1.5rem; }
+  .sandbox-hero h1 { font-size: 1.5rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrapper" style="max-width: 1200px; margin: 0 auto; padding: 0 20px 60px;">
+  
+  <!-- Hero Section -->
+  <div class="sandbox-hero">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+      <div>
+        <h1><i class="fas fa-flask"></i> Sandbox <span>Analyzer</span></h1>
+        <p>Behavioral Analysis Engine · Hybrid Analysis + VirusTotal + Static Analysis</p>
+      </div>
+      <div>
+        <span class="badge-live">
+          <i class="fas fa-bolt"></i> LIVE ANALYSIS
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="sandbox-tabs">
+    <button class="sandbox-tab active" onclick="switchTab('file')">
+      <span>📁</span> FILE ANALYSIS
+    </button>
+    <button class="sandbox-tab" onclick="switchTab('hash')">
+      <span>#</span> HASH LOOKUP
+    </button>
+    <button class="sandbox-tab" onclick="switchTab('url')">
+      <span>🔗</span> URL SANDBOX
+    </button>
+  </div>
+
+  <!-- Tab: FILE -->
+  <div id="tab-file" class="tab-panel" style="display: block;">
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <span class="upload-icon">🛡️</span>
+      <div class="upload-title">Drop file here or click to browse</div>
+      <div class="upload-sub">
+        Supported: <strong>EXE · DLL · PDF · DOC · ZIP · JAR · APK · JS · PY · BAT</strong><br>
+        Max size: <strong>32 MB</strong> · Analysis time: <strong>2–5 minutes</strong>
+      </div>
+      <input type="file" id="fileInput" accept=".exe,.dll,.pdf,.doc,.docx,.zip,.rar,.7z,.js,.py,.ps1,.bat,.jar,.apk,.bin,.msi,.lnk,.scr,.vbs" style="display: none;">
+    </div>
+
+    <div class="file-preview" id="filePreview">
+      <div class="file-icon" id="fileIcon">📄</div>
+      <div style="flex: 1;">
+        <div class="file-name" id="fileName" style="font-weight: 600;">—</div>
+        <div class="file-details" id="fileDetails" style="font-size: 0.7rem; color: var(--muted);">—</div>
+      </div>
+      <button class="remove-file" onclick="clearFile()" style="background: none; border: none; color: var(--muted); cursor: pointer;">✕</button>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+      <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; margin-bottom: 1rem;">SELECT ANALYSIS ENVIRONMENT</div>
+      <div class="env-grid">
+        <label class="env-card selected" onclick="selectEnv(this, '300')">
+          <input type="radio" name="env" value="300" checked>
+          <span class="env-os">🪟</span>
+          <div class="env-name">Windows 10 x64</div>
+          <div class="env-id">ENV · 300</div>
+        </label>
+        <label class="env-card" onclick="selectEnv(this, '200')">
+          <input type="radio" name="env" value="200">
+          <span class="env-os">🪟</span>
+          <div class="env-name">Windows 7 x32</div>
+          <div class="env-id">ENV · 200</div>
+        </label>
+        <label class="env-card" onclick="selectEnv(this, '160')">
+          <input type="radio" name="env" value="160">
+          <span class="env-os">📄</span>
+          <div class="env-name">Windows 7 + Office</div>
+          <div class="env-id">ENV · 160</div>
+        </label>
+        <label class="env-card" onclick="selectEnv(this, '500')">
+          <input type="radio" name="env" value="500">
+          <span class="env-os">🐧</span>
+          <div class="env-name">Linux Ubuntu 16</div>
+          <div class="env-id">ENV · 500</div>
+        </label>
+        <label class="env-card" onclick="selectEnv(this, '400')">
+          <input type="radio" name="env" value="400">
+          <span class="env-os">📱</span>
+          <div class="env-name">Android Static</div>
+          <div class="env-id">ENV · 400</div>
+        </label>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+      <button class="sandbox-btn sandbox-btn-primary" id="analyzeBtn" onclick="analyzeFile()" disabled>
+        <span>🚀</span> LAUNCH ANALYSIS
+      </button>
+      <button class="sandbox-btn sandbox-btn-secondary" onclick="clearFile()">CLEAR</button>
+    </div>
+  </div>
+
+  <!-- Tab: HASH -->
+  <div id="tab-hash" class="tab-panel" style="display: none;">
+    <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; margin-bottom: 0.5rem;">SEARCH BY HASH — MD5 / SHA1 / SHA256</div>
+    <div class="hash-input-group">
+      <input type="text" class="hash-input" id="hashInput" placeholder="e.g. 44d88612fea8a8f36de82e1278abb02f" onkeydown="if(event.key==='Enter') lookupHash()">
+      <button class="sandbox-btn sandbox-btn-primary" onclick="lookupHash()">
+        <span>🔍</span> LOOKUP
+      </button>
+    </div>
+    <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted);">Searches Hybrid Analysis + VirusTotal databases instantly — no file upload required.</div>
+  </div>
+
+  <!-- Tab: URL -->
+  <div id="tab-url" class="tab-panel" style="display: none;">
+    <div class="url-input-wrap">
+      <label class="url-input-label" style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; display: block; margin-bottom: 0.5rem;">TARGET URL FOR SANDBOX ANALYSIS</label>
+      <input type="text" class="url-input-field" id="urlInput" placeholder="https://suspicious-example.com/payload" onkeydown="if(event.key==='Enter') analyzeSandboxUrl()">
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; margin-bottom: 1rem;">BROWSER ENVIRONMENT</div>
+      <div class="env-grid">
+        <label class="env-card selected" onclick="selectUrlEnv(this, '300')">
+          <input type="radio" name="urlenv" value="300" checked>
+          <span class="env-os">🌐</span>
+          <div class="env-name">Chrome / Win10</div>
+          <div class="env-id">ENV · 300</div>
+        </label>
+        <label class="env-card" onclick="selectUrlEnv(this, '200')">
+          <input type="radio" name="urlenv" value="200">
+          <span class="env-os">🌐</span>
+          <div class="env-name">IE11 / Win7</div>
+          <div class="env-id">ENV · 200</div>
+        </label>
+      </div>
+    </div>
+
+    <button class="sandbox-btn sandbox-btn-primary" onclick="analyzeSandboxUrl()">
+      <span>🔬</span> ANALYZE IN SANDBOX
+    </button>
+  </div>
+
+  <!-- Progress Panel -->
+  <div class="progress-panel" id="progressPanel">
+    <div class="spinner-ring"></div>
+    <div style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;" id="progressTitle">Launching Sandbox Analysis...</div>
+    <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted);" id="progressSub">This may take 2–5 minutes. Please wait.</div>
+    <div class="progress-steps" style="display: flex; flex-direction: column; gap: 8px; max-width: 300px; margin: 1.5rem auto 0;">
+      <div class="progress-step active" id="step1" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">1</div><span>Calculating file hashes</span></div>
+      <div class="progress-step" id="step2" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">2</div><span>Static analysis (local)</span></div>
+      <div class="progress-step" id="step3" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">3</div><span>Submitting to Hybrid Analysis</span></div>
+      <div class="progress-step" id="step4" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">4</div><span>VirusTotal engine scan</span></div>
+      <div class="progress-step" id="step5" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">5</div><span>Behavioral report generation</span></div>
+    </div>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="verdict-hero clean" id="verdictHero">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <div class="verdict-icon" id="verdictIcon">❓</div>
+          <div>
+            <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 2px;">FINAL VERDICT</div>
+            <div class="verdict-text" id="verdictText">UNKNOWN</div>
+            <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem;" id="verdictEnv">—</div>
+          </div>
+        </div>
+        <div class="score-circle" id="scoreCircle">
+          <div class="score-value" id="scoreNum" style="font-size: 1.8rem; font-weight: 700;">—</div>
+          <div style="font-size: 0.6rem;">THREAT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sources-row" id="sourcesRow" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;"></div>
+    <div class="stats-grid" id="statsRow"></div>
+
+    <div class="sandbox-section" id="secHashes">
+      <div class="section-header" onclick="toggleSection('secHashes')">
+        <span>🔑</span> <span class="section-title">File Hashes</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body"><div class="hash-block" id="hashBlock">—</div></div>
+    </div>
+
+    <div class="sandbox-section" id="secVT">
+      <div class="section-header" onclick="toggleSection('secVT')">
+        <span>🦠</span> <span class="section-title">VirusTotal Detections</span>
+        <span class="section-count" id="vtCount" style="margin-left: auto; margin-right: 0.5rem;">0</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body" id="vtBody">—</div>
+    </div>
+
+    <div class="sandbox-section" id="secBehavior">
+      <div class="section-header" onclick="toggleSection('secBehavior')">
+        <span>⚙️</span> <span class="section-title">Behavioral Analysis</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body" id="behaviorBody">—</div>
+    </div>
+
+    <div class="sandbox-section" id="secNetwork">
+      <div class="section-header" onclick="toggleSection('secNetwork')">
+        <span>🌐</span> <span class="section-title">Network Activity</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body" id="networkBody">—</div>
+    </div>
+
+    <div class="sandbox-section" id="secMitre">
+      <div class="section-header" onclick="toggleSection('secMitre')">
+        <span>🎯</span> <span class="section-title">MITRE ATT&CK Techniques</span>
+        <span class="section-count" id="mitreCount" style="margin-left: auto; margin-right: 0.5rem;">0</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body" id="mitreBody">—</div>
+    </div>
+
+    <div class="sandbox-section" id="secSigs">
+      <div class="section-header" onclick="toggleSection('secSigs')">
+        <span>⚠️</span> <span class="section-title">Behavioral Signatures</span>
+        <span class="section-count" id="sigCount" style="margin-left: auto; margin-right: 0.5rem;">0</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body" id="sigsBody">—</div>
+    </div>
+
+    <div class="sandbox-section" id="secStatic">
+      <div class="section-header" onclick="toggleSection('secStatic')">
+        <span>🔬</span> <span class="section-title">Static Analysis (MyScanner)</span> <span class="section-chevron">▼</span>
+      </div>
+      <div class="section-body" id="staticBody">—</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="sandbox-toast" id="sandboxToast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let selectedFile = null;
+let selectedEnvId = '300';
+let selectedUrlEnvId = '300';
+
+/* ══════════════════════════════════════════
+   TABS
+══════════════════════════════════════════ */
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.sandbox-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).style.display = 'block';
+  event.currentTarget.classList.add('active');
+  hideResults();
+}
+
+/* ══════════════════════════════════════════
+   FILE UPLOAD
+══════════════════════════════════════════ */
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) setFile(e.target.files[0]);
+});
+
+const FILE_ICONS = {
+  exe: '⚙️', dll: '🔧', pdf: '📕', doc: '📝', docx: '📝',
+  zip: '🗜️', rar: '🗜️', '7z': '🗜️', js: '📜', py: '🐍',
+  jar: '☕', apk: '📱', bin: '💾'
+};
+
+function setFile(file) {
+  selectedFile = file;
+  const ext = file.name.split('.').pop().toLowerCase();
+  document.getElementById('fileIcon').textContent = FILE_ICONS[ext] || '📄';
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileDetails').textContent = `${formatBytes(file.size)} · ${ext.toUpperCase()}`;
+  document.getElementById('filePreview').classList.add('show');
+  document.getElementById('analyzeBtn').disabled = false;
+  hideResults();
+}
+
+function clearFile() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePreview').classList.remove('show');
+  document.getElementById('analyzeBtn').disabled = true;
+  hideResults();
+}
+
+function selectEnv(card, id) {
+  document.querySelectorAll('.env-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedEnvId = id;
+}
+
+function selectUrlEnv(card, id) {
+  document.querySelectorAll('[name=urlenv]').forEach(c => c.closest('.env-card').classList.remove('selected'));
+  card.classList.add('selected');
+  selectedUrlEnvId = id;
+}
+
+/* ══════════════════════════════════════════
+   ANALYZE FILE
+══════════════════════════════════════════ */
+async function analyzeFile() {
+  if (!selectedFile) return;
+
+  showProgress('FILE');
+  animateSteps([
+    {step: 'step1', delay: 0},
+    {step: 'step2', delay: 4000},
+    {step: 'step3', delay: 10000},
+    {step: 'step4', delay: 90000},
+    {step: 'step5', delay: 180000},
+  ]);
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('environment_id', selectedEnvId);
+
+  try {
+    const resp = await fetch('/api/sandbox/analyze-file', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.error) { showToast('❌ ' + data.error); hideProgress(); return; }
+    renderResults(data);
+  } catch(e) {
+    showToast('❌ Network error: ' + e.message);
+    hideProgress();
+  }
+}
+
+/* ══════════════════════════════════════════
+   HASH LOOKUP
+══════════════════════════════════════════ */
+async function lookupHash() {
+  const hash = document.getElementById('hashInput').value.trim();
+  if (!hash) return;
+
+  showProgress('HASH');
+  document.getElementById('progressTitle').textContent = 'Searching Threat Databases...';
+  document.getElementById('progressSub').textContent = 'Querying Hybrid Analysis + VirusTotal';
+
+  try {
+    const resp = await fetch('/api/sandbox/hash-lookup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({hash})
+    });
+    const data = await resp.json();
+    if (data.error) { showToast('❌ ' + data.error); hideProgress(); return; }
+    if (!data.found) { showToast('ℹ️ Hash not found in any database'); hideProgress(); return; }
+
+    const result = buildFromHashLookup(data, hash);
+    renderResults(result);
+  } catch(e) {
+    showToast('❌ ' + e.message);
+    hideProgress();
+  }
+}
+
+function buildFromHashLookup(data, hash) {
+  const ha = data.ha || {};
+  const vt = data.vt || {};
+  const vtAttrs = vt.attributes || {};
+  const vtStats = vtAttrs.last_analysis_stats || {};
+
+  const malicious = vtStats.malicious || 0;
+  const suspicious = vtStats.suspicious || 0;
+  const total = Object.values(vtStats).reduce((a,b) => a+b, 0);
+
+  let verdict = ha.verdict || 'unknown';
+  if (malicious >= 5) verdict = 'malicious';
+  else if (malicious >= 2 || suspicious >= 5) verdict = 'suspicious';
+
+  return {
+    sha256: hash.length === 64 ? hash : (vtAttrs.sha256 || hash),
+    md5: vtAttrs.md5 || (hash.length === 32 ? hash : '—'),
+    sha1: vtAttrs.sha1 || (hash.length === 40 ? hash : '—'),
+    filename: vtAttrs.meaningful_name || ha.submit_name || 'Unknown',
+    file_size: vtAttrs.size || 0,
+    verdict,
+    threat_score: ha.threat_score || (malicious / (total || 1) * 100),
+    environment: ha.environment_description || 'Hash Lookup',
+    from_cache: true,
+    sources: { hash_lookup: 'found', virustotal: total > 0 ? 'completed' : undefined },
+    vt_stats: { malicious, suspicious, harmless: vtStats.harmless || 0, undetected: vtStats.undetected || 0, total, detection_rate: total > 0 ? ((malicious+suspicious)/total*100).toFixed(1) : 0 },
+    vt_detections: Object.entries(vtAttrs.last_analysis_results || {})
+      .filter(([,v]) => ['malicious','suspicious'].includes(v.category))
+      .map(([engine, v]) => ({ engine, result: v.result, category: v.category }))
+      .slice(0, 20),
+    behavior: ha.behavior || {},
+    network: { domains: ha.domains || [], hosts: ha.hosts || [], http_requests: ha.http_requests || [] },
+    signatures: ha.signatures || [],
+    mitre_attacks: ha.mitre_attcks || [],
+    static_analysis: null,
+  };
+}
+
+/* ══════════════════════════════════════════
+   URL SANDBOX
+══════════════════════════════════════════ */
+async function analyzeSandboxUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+
+  showProgress('URL');
+  document.getElementById('progressTitle').textContent = 'URL Sandbox Analysis...';
+
+  try {
+    const resp = await fetch('/api/sandbox/analyze-url', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url, environment_id: selectedUrlEnvId})
+    });
+    const data = await resp.json();
+    if (data.error) { showToast('❌ ' + data.error); hideProgress(); return; }
+
+    const local = data.local_analysis || {};
+    const result = {
+      filename: url,
+      sha256: '—', md5: '—', sha1: '—',
+      verdict: data.verdict || local.verdict || 'unknown',
+      threat_score: 100 - (data.security_score || local.security_score || 50),
+      environment: 'URL Sandbox',
+      from_cache: false,
+      sources: data.sandbox_submission?.submitted ? { hybrid_analysis: 'submitted' } : {},
+      network: { domains: local.dns?.a_records || [] },
+      signatures: [],
+      static_analysis: { security_score: local.security_score || 50, static_verdict: local.verdict || 'unknown', indicators: local.recommendations || [] }
+    };
+    renderResults(result);
+  } catch(e) {
+    showToast('❌ ' + e.message);
+    hideProgress();
+  }
+}
+
+/* ══════════════════════════════════════════
+   RENDER RESULTS
+══════════════════════════════════════════ */
+function renderResults(data) {
+  hideProgress();
+  document.getElementById('resultsPanel').classList.add('show');
+
+  const v = data.verdict || 'unknown';
+  const hero = document.getElementById('verdictHero');
+  hero.className = 'verdict-hero ' + (v === 'malicious' ? 'malicious' : v === 'suspicious' ? 'suspicious' : 'clean');
+  const icons = { malicious: '🚨', suspicious: '⚠️', clean: '✅', unknown: '❓' };
+  document.getElementById('verdictIcon').textContent = icons[v] || '❓';
+  document.getElementById('verdictText').textContent = v.toUpperCase();
+  document.getElementById('verdictEnv').textContent = `${data.environment || '—'} · ${new Date().toUTCString()}`;
+
+  const score = Math.round(data.threat_score || 0);
+  const sc = document.getElementById('scoreCircle');
+  sc.style.borderColor = score >= 70 ? '#ff4560' : (score >= 40 ? '#ffd32a' : '#00e676');
+  sc.style.color = score >= 70 ? '#ff4560' : (score >= 40 ? '#ffd32a' : '#00e676');
+  document.getElementById('scoreNum').textContent = score + '%';
+
+  const srcLabels = { hash_lookup: '🔍 HASH LOOKUP', hybrid_analysis: '🧬 HYBRID ANALYSIS', virustotal: '🦠 VIRUSTOTAL' };
+  const srcRow = document.getElementById('sourcesRow');
+  srcRow.innerHTML = '';
+  Object.entries(data.sources || {}).forEach(([src, status]) => {
+    srcRow.innerHTML += `<span style="font-family: monospace; font-size: 0.7rem; padding: 0.25rem 0.75rem; border-radius: 20px; border: 1px solid #00c8ff;">${srcLabels[src] || src} · ${status}</span>`;
+  });
+
+  const vts = data.vt_stats;
+  const statsRow = document.getElementById('statsRow');
+  statsRow.innerHTML = '';
+  if (vts) {
+    statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">VT MALICIOUS</div><div class="stat-value">${vts.malicious}</div></div>`;
+    statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">DETECTION RATE</div><div class="stat-value">${vts.detection_rate}%</div></div>`;
+  }
+  statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">THREAT SCORE</div><div class="stat-value">${score}%</div></div>`;
+
+  document.getElementById('hashBlock').innerHTML = `
+    <div class="hash-row"><span style="width: 60px;">SHA256</span><span style="flex:1;word-break:break-all;">${escapeHtml(data.sha256 || '—')}</span></div>
+    <div class="hash-row"><span style="width: 60px;">MD5</span><span style="flex:1;word-break:break-all;">${escapeHtml(data.md5 || '—')}</span></div>
+    <div class="hash-row"><span style="width: 60px;">SHA1</span><span style="flex:1;word-break:break-all;">${escapeHtml(data.sha1 || '—')}</span></div>
+  `;
+
+  const dets = data.vt_detections || [];
+  document.getElementById('vtCount').textContent = dets.length;
+  if (dets.length === 0) {
+    document.getElementById('vtBody').innerHTML = '<div class="empty-state">No detections from VirusTotal engines</div>';
+  } else {
+    document.getElementById('vtBody').innerHTML = `<table class="detection-table"><thead><tr><th>ENGINE</th><th>RESULT</th></tr></thead><tbody>${dets.map(d => `<tr><td class="det-engine">${escapeHtml(d.engine)}</td><td class="det-result">${escapeHtml(d.result || '—')}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  const beh = data.behavior || {};
+  const behKeys = ['registry_keys', 'files_created', 'mutexes'];
+  const hasBeh = behKeys.some(k => beh[k]?.length > 0);
+  if (!hasBeh) {
+    document.getElementById('behaviorBody').innerHTML = '<div class="empty-state">No behavioral data available</div>';
+  } else {
+    document.getElementById('behaviorBody').innerHTML = `<div class="behavior-grid">${behKeys.filter(k => beh[k]?.length > 0).map(k => `<div class="behavior-card"><div class="behavior-card-title">${k.toUpperCase()}</div><ul class="behavior-list">${beh[k].slice(0,10).map(i => `<li>${escapeHtml(typeof i === 'string' ? i : JSON.stringify(i))}</li>`).join('')}</ul></div>`).join('')}</div>`;
+  }
+
+  const net = data.network || {};
+  if (!net.domains?.length) {
+    document.getElementById('networkBody').innerHTML = '<div class="empty-state">No network activity detected</div>';
+  } else {
+    document.getElementById('networkBody').innerHTML = `<div class="network-tags">${net.domains.slice(0,20).map(d => `<span class="net-tag">${escapeHtml(d)}</span>`).join('')}</div>`;
+  }
+
+  const mitres = data.mitre_attacks || [];
+  document.getElementById('mitreCount').textContent = mitres.length;
+  if (!mitres.length) {
+    document.getElementById('mitreBody').innerHTML = '<div class="empty-state">No MITRE ATT&amp;CK techniques identified</div>';
+  } else {
+    document.getElementById('mitreBody').innerHTML = `<div class="mitre-grid">${mitres.map(m => `<div class="mitre-card"><div class="mitre-id">${escapeHtml(m.attck_id || '—')}</div><div class="mitre-technique">${escapeHtml(m.technique || '—')}</div><div class="mitre-tactic">${escapeHtml(m.tactic || '—')}</div></div>`).join('')}</div>`;
+  }
+
+  const sigs = data.signatures || [];
+  document.getElementById('sigCount').textContent = sigs.length;
+  if (!sigs.length) {
+    document.getElementById('sigsBody').innerHTML = '<div class="empty-state">No behavioral signatures triggered</div>';
+  } else {
+    document.getElementById('sigsBody').innerHTML = `<div class="sig-list">${sigs.map(s => `<div class="sig-item ${s.severity === 'malicious' ? 'malicious' : ''}"><div><div class="sig-name">${escapeHtml(s.name || '—')}</div><div class="sig-desc">${escapeHtml(s.description || '—')}</div></div><span class="badge">${(s.severity || 'info').toUpperCase()}</span></div>`).join('')}</div>`;
+  }
+
+  const st = data.static_analysis;
+  if (!st) {
+    document.getElementById('staticBody').innerHTML = '<div class="empty-state">Static analysis not performed</div>';
+  } else {
+    document.getElementById('staticBody').innerHTML = `<div class="stats-grid"><div class="stat-card"><div class="stat-label">STATIC SCORE</div><div class="stat-value">${st.security_score || 0}/100</div></div></div>${st.indicators?.length ? `<div class="indicator-list">${st.indicators.slice(0,5).map(i => `<div class="indicator"><div class="indicator-dot"></div>${escapeHtml(typeof i === 'string' ? i : i.description)}</div>`).join('')}</div>` : ''}`;
+  }
+
+  document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+function showProgress() {
+  document.getElementById('progressPanel').classList.add('show');
+  document.getElementById('resultsPanel').classList.remove('show');
+}
+
+function hideProgress() {
+  document.getElementById('progressPanel').classList.remove('show');
+}
+
+function hideResults() {
+  document.getElementById('resultsPanel').classList.remove('show');
+}
+
+function animateSteps(steps) {
+  steps.forEach(({step, delay}, idx) => {
+    setTimeout(() => {
+      if (idx > 0) document.getElementById(steps[idx-1].step).classList.remove('active');
+      const el = document.getElementById(step);
+      if (el) el.classList.add('active');
+    }, delay);
+  });
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('sandboxToast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function formatBytes(b) {
+  if (!b) return '0 B';
+  const sizes = ['B','KB','MB','GB'];
+  const i = Math.floor(Math.log(b) / Math.log(1024));
+  return parseFloat((b / Math.pow(1024, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function escapeHtml(str) {
+  if (!str) return '—';
+  return String(str).replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+</script>
+{% endblock %}

@@ -17,17 +17,19 @@ from datetime import datetime, timezone
 # حدود الفحوصات اليومية لكل دور
 DAILY_LIMITS = {
     'user': {
-        'site_scan': 10,      # فحص المواقع
-        'file_scan': 5,       # فحص الملفات
-        'url_analyzer': 3,   # فحص الروابط
-        'email_check': 15,    # فحص الإيميلات
-        'ip_check': 15,       # فحص IP
-        'domain_lookup': 15,  # فحص النطاقات
-        'ssl_check': 15,      # فحص SSL
-        'qr_scan': 15,        # فحص QR
-        'subdomain_finder': 5,# اكتشاف النطاقات الفرعية
-        'password_check':3# فحص كلمات المرور
+        'site_scan': 10,
+        'file_scan': 5,
+        'url_analyzer': 3,
+        'email_check': 15,
+        'ip_check': 15,
+        'domain_lookup': 15,
+        'ssl_check': 15,
+        'qr_scan': 15,
+        'subdomain_finder': 5,
+        'password_check': 3,
+        'sandbox_analysis': 3      # 👈 أضف هذا السطر
     },
+    
     'premium': {
         'site_scan': 999999,
         'file_scan': 999999,
@@ -38,7 +40,8 @@ DAILY_LIMITS = {
         'ssl_check': 999999,
         'qr_scan': 999999,
         'subdomain_finder': 999999,
-        'password_check': 999999
+        'password_check': 999999,
+        'sandbox_analysis': 20
     },
     'admin': {
         'site_scan': 999999,
@@ -50,7 +53,8 @@ DAILY_LIMITS = {
         'ssl_check': 999999,
         'qr_scan': 999999,
         'subdomain_finder': 999999,
-        'password_check': 999999
+        'password_check': 999999,
+        'sandbox_analysis': 999999
     }
 }
 
@@ -65,7 +69,8 @@ SERVICE_COST = {
     'ssl_check': 1,
     'qr_scan': 1,
     'subdomain_finder': 1,
-    'password_check': 1
+    'password_check': 1,
+    'sandbox_analysis': 1
 }
 
 

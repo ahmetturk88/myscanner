@@ -48,6 +48,7 @@ import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task
 from services.permissions import check_permission
 from datetime import datetime, timedelta, timezone
+from logging_config import log_activity
 
 load_dotenv()
 
@@ -143,6 +144,7 @@ def reset_daily_scans():
             user.qr_scan_remaining = limits.get('qr_scan', 15)
             user.subdomain_finder_remaining = limits.get('subdomain_finder', 5)
             user.password_check_remaining = limits.get('password_check', 20)
+            user.sandbox_remaining = limits.get('sandbox_analysis', 5)
             user.scans_reset_date = datetime.now(timezone.utc)
         
         db.session.commit()
@@ -293,6 +295,10 @@ def scan_in_background(scan_id, url):
 
 from routes.tip_routes import tip_bp
 app.register_blueprint(tip_bp)
+
+from routes.sandbox_routes import sandbox_bp
+app.register_blueprint(sandbox_bp)
+csrf.exempt(sandbox_bp)
 
 # تهيئة مصادر TIP (مرة واحدة عند بدء التشغيل)
 with app.app_context():
@@ -1894,6 +1900,7 @@ with app.app_context():
             ('qr_scan_remaining', 'INTEGER DEFAULT 15'),
             ('subdomain_finder_remaining', 'INTEGER DEFAULT 5'),
             ('password_check_remaining', 'INTEGER DEFAULT 20'),
+            ('sandbox_remaining', 'INTEGER DEFAULT 5'),
         ]
         for col, typ in cols:
             try:

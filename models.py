@@ -38,7 +38,8 @@ class User(UserMixin, db.Model):
     qr_scan_remaining = db.Column(db.Integer, default=15)
     subdomain_finder_remaining = db.Column(db.Integer, default=5)
     password_check_remaining = db.Column(db.Integer, default=3)
-    
+    sandbox_remaining = db.Column(db.Integer, default=5)
+
 
     # ── Relationships ──
     scans = db.relationship('Scan', backref='owner', lazy='dynamic', cascade='all, delete-orphan')
@@ -148,6 +149,8 @@ class LogEntry(db.Model):
 
     def __repr__(self) -> str:
         return f'<LogEntry {self.id} [{self.level}] {self.action} by {self.user_display}>'
+    
+
 
 # ================================================================
 # TIP (Threat Intelligence Platform) — إضافة لـ models.py

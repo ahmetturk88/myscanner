@@ -114,3 +114,8 @@
 2026-05-24 17:34:14,456 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
 2026-05-25 11:28:51,453 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
 2026-05-25 17:36:29,794 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-26 19:02:19,411 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-05-26 23:49:59,934 - Activity: file_scan | User: AHMED0 | Details: [SANDBOX] Analyzed: CompTIA_Security_ce_certificate.pdf | Verdict: no_threat
+2026-05-26 23:54:05,031 - Activity: url_analyzer | User: AHMED0 | Details: [SANDBOX] URL: 44d88612fea8a8f36de82e1278abb02f
+2026-05-26 23:54:31,951 - Activity: file_scan | User: AHMED0 | Details: [SANDBOX] Hash lookup: 44d88612fea8a8f3...
+2026-05-26 23:55:07,095 - Activity: url_analyzer | User: AHMED0 | Details: [SANDBOX] URL: https://google.com

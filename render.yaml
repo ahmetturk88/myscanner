@@ -1,7 +1,5 @@
 # ================================================================
 # render.yaml - MyScanner Full Deployment Configuration
-# تاريخ التحديث: 20/05/2026
-# يتضمن: Flask Web, Celery Worker, Redis, PostgreSQL
 # ================================================================
 
 services:
@@ -39,9 +37,28 @@ services:
           name: redis
           type: redis
           property: connectionString
+      # ========================================================
+      # ZAP و OpenVAS إعدادات
+      # ========================================================
+      - key: ZAP_API_KEY
+        sync: false
+      - key: ZAP_HOST
+        value: localhost
+      - key: ZAP_PORT
+        value: 8080
+      - key: MOCK_MODE
+        value: false
+      - key: OPENVAS_USERNAME
+        sync: false
+      - key: OPENVAS_PASSWORD
+        sync: false
+      - key: OPENVAS_HOST
+        value: localhost
+      - key: OPENVAS_PORT
+        value: 9392
 
   # ================================================================
-  # 2. خدمة Celery Worker (المهام غير المتزامنة)
+  # 2. خدمة Celery Worker
   # ================================================================
   - type: worker
     name: celery-worker
@@ -70,7 +87,7 @@ services:
         value: 3.11.0
 
   # ================================================================
-  # 3. خدمة Celery Beat (للمهام المجدولة - اختياري)
+  # 3. خدمة Celery Beat
   # ================================================================
   - type: worker
     name: celery-beat
@@ -91,7 +108,7 @@ services:
         value: your-secret-key-here-change-it
 
   # ================================================================
-  # 4. خدمة Flower (مراقبة Celery - اختياري)
+  # 4. خدمة Flower
   # ================================================================
   - type: web
     name: flower
@@ -108,7 +125,7 @@ services:
         value: admin:password
 
   # ================================================================
-  # 5. خدمة Redis (ذاكرة تخزين مؤقت وتنسيق المهام)
+  # 5. خدمة Redis
   # ================================================================
   - type: redis
     name: redis
@@ -116,7 +133,7 @@ services:
     ipAllowList: []
 
   # ================================================================
-  # 6. خدمة PostgreSQL (قاعدة البيانات الرئيسية)
+  # 6. خدمة PostgreSQL
   # ================================================================
   - type: postgresql
     name: myscanner-db

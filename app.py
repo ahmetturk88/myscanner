@@ -49,6 +49,9 @@ from tasks import scan_file_task, scan_site_task, batch_scan_task
 from services.permissions import check_permission
 from datetime import datetime, timedelta, timezone
 from logging_config import log_activity
+from services.vulnerability_scanner.scan_orchestrator import get_orchestrator
+from services.vulnerability_scanner.report_generator import get_report_generator
+from models.vulnerability import VulnerabilityScan, Vulnerability, ScanConfig
 
 load_dotenv()
 
@@ -299,6 +302,10 @@ app.register_blueprint(tip_bp)
 from routes.sandbox_routes import sandbox_bp
 app.register_blueprint(sandbox_bp)
 csrf.exempt(sandbox_bp)
+
+from routes.vuln_routes import vuln_bp
+app.register_blueprint(vuln_bp)
+csrf.exempt(vuln_bp)  # إذا واجهت مشاكل مع CSRF
 
 # تهيئة مصادر TIP (مرة واحدة عند بدء التشغيل)
 with app.app_context():
@@ -1901,6 +1908,7 @@ with app.app_context():
             ('subdomain_finder_remaining', 'INTEGER DEFAULT 5'),
             ('password_check_remaining', 'INTEGER DEFAULT 20'),
             ('sandbox_remaining', 'INTEGER DEFAULT 5'),
+            ('is_admin', 'BOOLEAN DEFAULT FALSE'),
         ]
         for col, typ in cols:
             try:

@@ -1,0 +1,795 @@
+{# templates/vuln_scan.html #}
+{% extends "base.html" %}
+
+{% block title %}Advanced Vulnerability Scanner - MyScanner{% endblock %}
+
+{% block head_extra %}
+<style>
+    .vuln-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+
+    /* Header Section */
+    .vuln-header {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
+        border: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .vuln-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(0,200,255,0.05) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .vuln-header h1 {
+        font-family: var(--mono);
+        font-size: 28px;
+        margin-bottom: 10px;
+    }
+
+    .vuln-header h1 span { color: var(--accent); }
+
+    .vuln-header p {
+        color: var(--muted);
+        margin-bottom: 20px;
+    }
+
+    /* Scanner Status Cards */
+    .scanner-status {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .scanner-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .scanner-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--surface3);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .scanner-info h4 {
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .scanner-status-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 20px;
+        display: inline-block;
+    }
+
+    .status-online { background: var(--green-dim); color: var(--green); }
+    .status-offline { background: var(--red-dim); color: var(--red); }
+
+    /* Scan Form */
+    .scan-form-section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%;
+        padding: 12px 16px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text);
+        font-family: var(--sans);
+        transition: all 0.2s;
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0,200,255,0.1);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    /* Scan Type Cards */
+    .scan-types {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .scan-type-card {
+        background: var(--surface2);
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+
+    .scan-type-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+    }
+
+    .scan-type-card.selected {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+    }
+
+    .scan-type-card input {
+        position: absolute;
+        opacity: 0;
+    }
+
+    .scan-type-icon {
+        font-size: 32px;
+        margin-bottom: 10px;
+    }
+
+    .scan-type-title {
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .scan-type-desc {
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    /* Options */
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+    }
+
+    .checkbox-group input {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    /* Buttons */
+    .btn-scan {
+        background: linear-gradient(135deg, var(--accent), #006aff);
+        color: #000;
+        padding: 14px 32px;
+        font-size: 16px;
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .btn-scan:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0,200,255,0.3);
+    }
+
+    .btn-scan:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--accent);
+    }
+
+    .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        font-family: var(--mono);
+        color: var(--accent);
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+    }
+
+    /* Recent Scans Table */
+    .recent-scans-section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    .section-header {
+        padding: 20px 25px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .section-header h2 {
+        font-size: 18px;
+        font-family: var(--mono);
+    }
+
+    .scans-table {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 14px 20px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    th {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    tr:hover {
+        background: var(--surface2);
+    }
+
+    .severity-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .severity-critical { background: #ff003320; color: #ff0033; }
+    .severity-high { background: #ff6b3520; color: #ff6b35; }
+    .severity-medium { background: #ffd32a20; color: #ffd32a; }
+    .severity-low { background: #00e67620; color: #00e676; }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+    }
+
+    .status-completed { background: var(--green-dim); color: var(--green); }
+    .status-running { background: var(--accent-dim); color: var(--accent); }
+    .status-pending { background: #ffd32a20; color: #ffd32a; }
+    .status-failed { background: var(--red-dim); color: var(--red); }
+
+    .view-btn {
+        padding: 6px 12px;
+        background: var(--surface3);
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 12px;
+        color: var(--text);
+        transition: all 0.2s;
+    }
+
+    .view-btn:hover {
+        background: var(--accent);
+        color: #000;
+    }
+
+    /* Progress Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        max-width: 500px;
+        width: 90%;
+        padding: 30px;
+        text-align: center;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--surface3);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 20px 0;
+    }
+
+    .progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), #006aff);
+        transition: width 0.3s;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .loader {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--surface3);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @media (max-width: 768px) {
+        .vuln-header { padding: 20px; }
+        .scan-form-section { padding: 20px; }
+        th, td { padding: 10px 12px; font-size: 12px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vuln-container">
+    
+    <!-- Header -->
+    <div class="vuln-header">
+        <h1>🛡️ Advanced <span>Vulnerability Scanner</span></h1>
+        <p>Enterprise-grade vulnerability scanning powered by OWASP ZAP and OpenVAS</p>
+        
+        <!-- Scanner Status -->
+        <div class="scanner-status">
+            <div class="scanner-card">
+                <div class="scanner-icon">🔍</div>
+                <div class="scanner-info">
+                    <h4>OWASP ZAP</h4>
+                    <span class="scanner-status-badge {% if scanners_status.zap.available %}status-online{% else %}status-offline{% endif %}">
+                        {{ scanners_status.zap.status|upper }}
+                    </span>
+                </div>
+            </div>
+            <div class="scanner-card">
+                <div class="scanner-icon">🌐</div>
+                <div class="scanner-info">
+                    <h4>OpenVAS/GVM</h4>
+                    <span class="scanner-status-badge {% if scanners_status.openvas.available %}status-online{% else %}status-offline{% endif %}">
+                        {{ scanners_status.openvas.status|upper }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_scans }}</div>
+            <div class="stat-label">Total Scans</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_vulnerabilities }}</div>
+            <div class="stat-label">Vulnerabilities Found</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: #ff0033">{{ stats.critical_count }}</div>
+            <div class="stat-label">Critical Issues</div>
+        </div>
+    </div>
+
+    <!-- Scan Form -->
+    <div class="scan-form-section">
+        <h2 style="margin-bottom: 20px;">🎯 New Vulnerability Scan</h2>
+        
+        <form id="scanForm">
+            <div class="form-group">
+                <label>Target URL / IP / Domain *</label>
+                <input type="text" id="target" placeholder="https://example.com or 192.168.1.1" required>
+            </div>
+
+            <div class="form-group">
+                <label>Scan Type</label>
+                <div class="scan-types">
+                    <div class="scan-type-card" data-type="web_application">
+                        <div class="scan-type-icon">🌐</div>
+                        <div class="scan-type-title">Web Application Scan</div>
+                        <div class="scan-type-desc">XSS, SQLi, CSRF, Security Headers</div>
+                        <input type="radio" name="scan_type" value="web_application" checked hidden>
+                    </div>
+                    <div class="scan-type-card" data-type="network">
+                        <div class="scan-type-icon">🖧</div>
+                        <div class="scan-type-title">Network Scan</div>
+                        <div class="scan-type-desc">Ports, Services, CVEs, Misconfigurations</div>
+                        <input type="radio" name="scan_type" value="network" hidden>
+                    </div>
+                    <div class="scan-type-card" data-type="full">
+                        <div class="scan-type-icon">⚡</div>
+                        <div class="scan-type-title">Full Assessment</div>
+                        <div class="scan-type-desc">Complete Web + Network + Infrastructure</div>
+                        <input type="radio" name="scan_type" value="full" hidden>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Advanced Options</label>
+                <div class="options-grid">
+                    <label class="checkbox-group">
+                        <input type="checkbox" id="activeScan" checked>
+                        <span>Active Scanning</span>
+                    </label>
+                    <label class="checkbox-group">
+                        <input type="checkbox" id="deepScan">
+                        <span>Deep Scan (Slower)</span>
+                    </label>
+                    <label class="checkbox-group">
+                        <input type="checkbox" id="generateReport" checked>
+                        <span>Auto-generate Report</span>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-scan" id="startScanBtn">
+                🚀 Start Vulnerability Scan
+            </button>
+        </form>
+    </div>
+
+    <!-- Recent Scans -->
+    <div class="recent-scans-section">
+        <div class="section-header">
+            <h2>📋 Recent Scans</h2>
+            <a href="#" onclick="refreshHistory()" style="color: var(--accent); font-size: 13px;">🔄 Refresh</a>
+        </div>
+        <div class="scans-table">
+            <table id="scansTable">
+                <thead>
+                    <tr>
+                        <th>Target</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Vulnerabilities</th>
+                        <th>Risk Score</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="scansTableBody">
+                    {% for scan in recent_scans %}
+                    <tr>
+                        <td>{{ scan.target[:50] }}</td>
+                        <td>{{ scan.scan_type.replace('_', ' ').title() }}</td>
+                        <td>
+                            <span class="status-badge status-{{ scan.status }}">
+                                {{ scan.status|upper }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if scan.critical_count > 0 %}
+                            <span style="color: #ff0033">{{ scan.critical_count }}C</span>
+                            {% endif %}
+                            {% if scan.high_count > 0 %}
+                            <span style="color: #ff6b35"> {{ scan.high_count }}H</span>
+                            {% endif %}
+                            {% if scan.medium_count > 0 %}
+                            <span style="color: #ffd32a"> {{ scan.medium_count }}M</span>
+                            {% endif %}
+                            <span style="color: var(--muted)"> ({{ scan.total_vulnerabilities }})</span>
+                        </td>
+                        <td>
+                            <span style="color: {{ '#ff0033' if scan.risk_score >= 7 else '#ff6b35' if scan.risk_score >= 4 else '#00e676' }}">
+                                {{ scan.risk_score }}/10
+                            </span>
+                        </td>
+                        <td>{{ scan.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {% if scan.status == 'completed' %}
+                            <a href="{{ url_for('vuln.view_results', scan_uuid=scan.scan_uuid) }}" class="view-btn">View</a>
+                            {% elif scan.status == 'running' %}
+                            <button onclick="checkStatus('{{ scan.scan_uuid }}')" class="view-btn">Check</button>
+                            {% else %}
+                            <span style="color: var(--muted);">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--muted);">No scans yet. Start your first scan above!</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="progressModal" class="modal">
+    <div class="modal-content">
+        <h3>🔄 Scanning in Progress</h3>
+        <div class="loader" id="modalLoader"></div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="progressStatus">Initializing scan...</p>
+        <p id="progressPercent" style="font-family: var(--mono); font-size: 24px; margin-top: 10px;">0%</p>
+        <button onclick="cancelScan()" style="margin-top: 20px; background: var(--red); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancel Scan</button>
+    </div>
+</div>
+
+<script>
+    let currentScanUuid = null;
+    let statusInterval = null;
+
+    // Scan Type Selection
+    document.querySelectorAll('.scan-type-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.scan-type-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            const radio = this.querySelector('input');
+            if (radio) radio.checked = true;
+        });
+    });
+
+    // Form Submission
+    document.getElementById('scanForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const target = document.getElementById('target').value.trim();
+        if (!target) {
+            showNotification('Please enter a target', 'error');
+            return;
+        }
+
+        const scanType = document.querySelector('input[name="scan_type"]:checked').value;
+        const activeScan = document.getElementById('activeScan').checked;
+        const deepScan = document.getElementById('deepScan').checked;
+
+        const startBtn = document.getElementById('startScanBtn');
+        startBtn.disabled = true;
+        startBtn.textContent = '⏳ Starting Scan...';
+
+        try {
+            const response = await fetch('/vulnerability/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    target: target,
+                    scan_type: scanType,
+                    active_scan: activeScan,
+                    depth: deepScan ? 10 : 5,
+                    timeout: deepScan ? 7200 : 3600
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                currentScanUuid = data.scan_uuid;
+                showProgressModal();
+                startStatusPolling(currentScanUuid);
+                showNotification('Scan started successfully!', 'success');
+            } else {
+                showNotification(data.error || 'Failed to start scan', 'error');
+                startBtn.disabled = false;
+                startBtn.textContent = '🚀 Start Vulnerability Scan';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Network error. Please try again.', 'error');
+            startBtn.disabled = false;
+            startBtn.textContent = '🚀 Start Vulnerability Scan';
+        }
+    });
+
+    // Status Polling
+    function startStatusPolling(scanUuid) {
+        if (statusInterval) clearInterval(statusInterval);
+        
+        statusInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/vulnerability/status/${scanUuid}`);
+                const data = await response.json();
+                
+                updateProgressModal(data);
+                
+                if (data.status === 'completed') {
+                    clearInterval(statusInterval);
+                    closeProgressModal(true);
+                    showNotification('Scan completed successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = `/vulnerability/results/${scanUuid}/view`;
+                    }, 1500);
+                } else if (data.status === 'failed') {
+                    clearInterval(statusInterval);
+                    closeProgressModal(false);
+                    showNotification('Scan failed. Please check logs.', 'error');
+                } else if (data.status === 'cancelled') {
+                    clearInterval(statusInterval);
+                    closeProgressModal(false);
+                    showNotification('Scan cancelled.', 'warning');
+                }
+            } catch (error) {
+                console.error('Status check error:', error);
+            }
+        }, 3000);
+    }
+
+    function updateProgressModal(data) {
+        const progress = data.progress || 0;
+        const fill = document.getElementById('progressFill');
+        const percent = document.getElementById('progressPercent');
+        const statusText = document.getElementById('progressStatus');
+        
+        fill.style.width = `${progress}%`;
+        percent.textContent = `${progress}%`;
+        
+        if (data.total_vulnerabilities > 0) {
+            statusText.textContent = `Found ${data.total_vulnerabilities} vulnerabilities so far...`;
+        } else if (progress < 100) {
+            statusText.textContent = `Scanning ${progress}% complete...`;
+        } else {
+            statusText.textContent = 'Finalizing results...';
+        }
+    }
+
+    function showProgressModal() {
+        document.getElementById('progressModal').classList.add('active');
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('progressPercent').textContent = '0%';
+        document.getElementById('progressStatus').textContent = 'Initializing scan...';
+        document.getElementById('modalLoader').style.display = 'block';
+    }
+
+    function closeProgressModal(success) {
+        document.getElementById('progressModal').classList.remove('active');
+        const startBtn = document.getElementById('startScanBtn');
+        startBtn.disabled = false;
+        startBtn.textContent = '🚀 Start Vulnerability Scan';
+        
+        if (statusInterval) {
+            clearInterval(statusInterval);
+            statusInterval = null;
+        }
+    }
+
+    async function cancelScan() {
+        if (!currentScanUuid) return;
+        
+        try {
+            const response = await fetch(`/vulnerability/stop/${currentScanUuid}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            });
+            
+            if (response.ok) {
+                showNotification('Scan cancelled', 'warning');
+                closeProgressModal(false);
+            }
+        } catch (error) {
+            console.error('Cancel error:', error);
+        }
+    }
+
+    async function checkStatus(scanUuid) {
+        showNotification('Checking scan status...', 'info');
+        window.location.href = `/vulnerability/results/${scanUuid}/view`;
+    }
+
+    async function refreshHistory() {
+        showNotification('Refreshing history...', 'info');
+        window.location.reload();
+    }
+
+    function showNotification(message, type) {
+        const flashWrap = document.querySelector('.flash-wrap') || (() => {
+            const div = document.createElement('div');
+            div.className = 'flash-wrap';
+            document.body.appendChild(div);
+            return div;
+        })();
+        
+        const flash = document.createElement('div');
+        flash.className = `flash-msg flash-${type}`;
+        flash.textContent = message;
+        flashWrap.appendChild(flash);
+        
+        setTimeout(() => flash.remove(), 4000);
+    }
+</script>
+{% endblock %}

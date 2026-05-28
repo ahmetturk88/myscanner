@@ -1,0 +1,475 @@
+{# templates/vuln_results.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ scan.target }} - Vulnerability Scan Results{% endblock %}
+
+{% block head_extra %}
+<style>
+    .results-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+
+    /* Header */
+    .results-header {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
+        border: 1px solid var(--border);
+    }
+
+    .results-header h1 {
+        font-family: var(--mono);
+        font-size: 24px;
+        margin-bottom: 10px;
+        word-break: break-all;
+    }
+
+    .results-header h1 span { color: var(--accent); }
+
+    .scan-meta {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+    }
+
+    /* Risk Score Card */
+    .risk-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    .risk-score {
+        font-size: 64px;
+        font-weight: 700;
+        font-family: var(--mono);
+        margin-bottom: 10px;
+    }
+
+    .risk-label {
+        font-size: 14px;
+        color: var(--muted);
+    }
+
+    /* Stats Summary */
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .severity-stat {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .severity-stat:hover { transform: translateY(-3px); }
+
+    .severity-count {
+        font-size: 36px;
+        font-weight: 700;
+        font-family: var(--mono);
+    }
+
+    .severity-critical .severity-count { color: #ff0033; }
+    .severity-high .severity-count { color: #ff6b35; }
+    .severity-medium .severity-count { color: #ffd32a; }
+    .severity-low .severity-count { color: #00e676; }
+    .severity-info .severity-count { color: var(--accent); }
+
+    /* Filters */
+    .filters-bar {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 30px;
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .filter-btn {
+        padding: 8px 20px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+    }
+
+    .filter-btn:hover { border-color: var(--accent); }
+    .filter-btn.active {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+    }
+
+    .search-box {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 8px 16px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 30px;
+        color: var(--text);
+    }
+
+    /* Export Buttons */
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .export-btn {
+        padding: 8px 16px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+        text-decoration: none;
+        color: var(--text);
+    }
+
+    .export-btn:hover {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+    }
+
+    /* Vulnerabilities List */
+    .vulnerabilities-section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    .section-header {
+        padding: 20px 25px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .vuln-item {
+        border-bottom: 1px solid var(--border);
+        transition: all 0.2s;
+    }
+
+    .vuln-item:last-child { border-bottom: none; }
+
+    .vuln-header {
+        padding: 20px 25px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .vuln-header:hover { background: var(--surface2); }
+
+    .vuln-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .vuln-name {
+        font-weight: 600;
+        font-size: 16px;
+    }
+
+    .severity-tag {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .tag-critical { background: #ff003320; color: #ff0033; }
+    .tag-high { background: #ff6b3520; color: #ff6b35; }
+    .tag-medium { background: #ffd32a20; color: #ffd32a; }
+    .tag-low { background: #00e67620; color: #00e676; }
+    .tag-info { background: var(--accent-dim); color: var(--accent); }
+
+    .vuln-source {
+        font-size: 11px;
+        padding: 4px 10px;
+        background: var(--surface3);
+        border-radius: 20px;
+    }
+
+    .vuln-body {
+        display: none;
+        padding: 0 25px 25px 25px;
+        background: var(--surface2);
+    }
+
+    .vuln-body.open { display: block; }
+
+    .vuln-description {
+        color: var(--muted);
+        line-height: 1.7;
+        margin-bottom: 20px;
+    }
+
+    .vuln-solution {
+        background: var(--surface);
+        border-left: 3px solid var(--accent);
+        padding: 16px;
+        border-radius: 10px;
+        margin-top: 15px;
+    }
+
+    .vuln-solution strong { color: var(--accent); }
+
+    .vuln-meta {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    /* No Results */
+    .no-results {
+        text-align: center;
+        padding: 60px;
+        color: var(--muted);
+    }
+
+    @media (max-width: 768px) {
+        .results-header { padding: 20px; }
+        .vuln-header { flex-direction: column; align-items: flex-start; }
+        .section-header { flex-direction: column; align-items: flex-start; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    
+    <!-- Header -->
+    <div class="results-header">
+        <h1>📊 Vulnerability Scan Results: <span>{{ scan.target[:80] }}</span></h1>
+        <div class="scan-meta">
+            <div class="meta-item">🆔 {{ scan.scan_uuid[:16] }}...</div>
+            <div class="meta-item">📅 {{ scan.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+            <div class="meta-item">⏱️ {{ (scan.scan_duration // 60) if scan.scan_duration else 0 }} min {{ scan.scan_duration % 60 if scan.scan_duration else 0 }} sec</div>
+            <div class="meta-item">🔍 {{ scan.sources|upper if scan.sources else 'N/A' }}</div>
+        </div>
+    </div>
+
+    <!-- Risk Score -->
+    <div class="risk-card">
+        <div class="risk-score" style="color: {{ '#ff0033' if scan.risk_score >= 7 else '#ff6b35' if scan.risk_score >= 4 else '#00e676' }}">
+            {{ "%.1f"|format(scan.risk_score) }}/10
+        </div>
+        <div class="risk-label">Overall Risk Score</div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="stats-summary">
+        <div class="severity-stat severity-critical">
+            <div class="severity-count">{{ scan.critical_count }}</div>
+            <div class="risk-label">🔴 Critical</div>
+        </div>
+        <div class="severity-stat severity-high">
+            <div class="severity-count">{{ scan.high_count }}</div>
+            <div class="risk-label">🟠 High</div>
+        </div>
+        <div class="severity-stat severity-medium">
+            <div class="severity-count">{{ scan.medium_count }}</div>
+            <div class="risk-label">🟡 Medium</div>
+        </div>
+        <div class="severity-stat severity-low">
+            <div class="severity-count">{{ scan.low_count }}</div>
+            <div class="risk-label">🟢 Low</div>
+        </div>
+        <div class="severity-stat severity-info">
+            <div class="severity-count">{{ scan.info_count }}</div>
+            <div class="risk-label">🔵 Info</div>
+        </div>
+    </div>
+
+    <!-- Filters & Export -->
+    <div class="filters-bar">
+        <button class="filter-btn active" data-filter="all">All ({{ results.vulnerabilities|length }})</button>
+        <button class="filter-btn" data-filter="critical">Critical ({{ scan.critical_count }})</button>
+        <button class="filter-btn" data-filter="high">High ({{ scan.high_count }})</button>
+        <button class="filter-btn" data-filter="medium">Medium ({{ scan.medium_count }})</button>
+        <button class="filter-btn" data-filter="low">Low ({{ scan.low_count }})</button>
+        <button class="filter-btn" data-filter="info">Info ({{ scan.info_count }})</button>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 Search vulnerabilities...">
+        </div>
+        
+        <div class="export-buttons">
+            <a href="{{ url_for('vuln.download_report', scan_uuid=scan.scan_uuid, format='html') }}" class="export-btn">📄 HTML</a>
+            <a href="{{ url_for('vuln.download_report', scan_uuid=scan.scan_uuid, format='pdf') }}" class="export-btn">📑 PDF</a>
+            <a href="{{ url_for('vuln.download_report', scan_uuid=scan.scan_uuid, format='json') }}" class="export-btn">📋 JSON</a>
+            <a href="{{ url_for('vuln.download_report', scan_uuid=scan.scan_uuid, format='csv') }}" class="export-btn">📊 CSV</a>
+        </div>
+    </div>
+
+    <!-- Vulnerabilities List -->
+    <div class="vulnerabilities-section">
+        <div class="section-header">
+            <h2>🔍 Detected Vulnerabilities</h2>
+            <span style="color: var(--muted); font-size: 13px;">{{ results.vulnerabilities|length }} findings</span>
+        </div>
+        
+        <div id="vulnerabilitiesList">
+            {% if results.vulnerabilities %}
+                {% for vuln in results.vulnerabilities %}
+                <div class="vuln-item" data-severity="{{ vuln.severity }}">
+                    <div class="vuln-header" onclick="toggleVuln(this)">
+                        <div class="vuln-title">
+                            <span class="severity-tag tag-{{ vuln.severity }}">{{ vuln.severity|upper }}</span>
+                            <span class="vuln-name">{{ vuln.title[:80] }}</span>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            {% if vuln.source %}
+                            <span class="vuln-source">{{ vuln.source|upper }}</span>
+                            {% endif %}
+                            {% if vuln.cvss_score > 0 %}
+                            <span style="font-size: 12px; color: var(--muted);">CVSS: {{ vuln.cvss_score }}</span>
+                            {% endif %}
+                            <span style="font-size: 18px;">▼</span>
+                        </div>
+                    </div>
+                    <div class="vuln-body">
+                        <div class="vuln-description">
+                            <strong>Description:</strong><br>
+                            {{ vuln.description if vuln.description else 'No description available.' }}
+                        </div>
+                        
+                        {% if vuln.affected_component %}
+                        <div class="vuln-meta">
+                            <span>📍 Affected: {{ vuln.affected_component }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if vuln.solution %}
+                        <div class="vuln-solution">
+                            <strong>🔧 Solution / Remediation:</strong><br>
+                            {{ vuln.solution }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if vuln.references %}
+                        <div class="vuln-meta">
+                            <span>📚 References: {{ vuln.references|join(', ') if vuln.references is iterable else vuln.references }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-results">
+                    <span style="font-size: 48px;">✅</span>
+                    <h3>No Vulnerabilities Found</h3>
+                    <p>Great! Your target appears to be secure based on this scan.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentFilter = 'all';
+    let searchTerm = '';
+
+    function toggleVuln(header) {
+        const body = header.nextElementSibling;
+        body.classList.toggle('open');
+    }
+
+    function filterVulnerabilities() {
+        const items = document.querySelectorAll('.vuln-item');
+        
+        items.forEach(item => {
+            const severity = item.dataset.severity;
+            const title = item.querySelector('.vuln-name')?.textContent.toLowerCase() || '';
+            const description = item.querySelector('.vuln-description')?.textContent.toLowerCase() || '';
+            
+            const matchesSeverity = currentFilter === 'all' || severity === currentFilter;
+            const matchesSearch = searchTerm === '' || 
+                                 title.includes(searchTerm) || 
+                                 description.includes(searchTerm);
+            
+            item.style.display = (matchesSeverity && matchesSearch) ? 'block' : 'none';
+        });
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            filterVulnerabilities();
+        });
+    });
+
+    // Search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchTerm = e.target.value.toLowerCase();
+            filterVulnerabilities();
+        });
+    }
+
+    // Expand all critical vulnerabilities by default
+    document.querySelectorAll('.vuln-item[data-severity="critical"] .vuln-header').forEach(header => {
+        const body = header.nextElementSibling;
+        if (body) body.classList.add('open');
+    });
+</script>
+<!-- New Scan Button -->
+<div style="text-align: center; margin-top: 40px;">
+    <a href="{{ url_for('vuln.vuln_dashboard') }}" class="btn-primary" style="display: inline-block; background: var(--accent); color: #000; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; transition: all 0.2s;">
+        🚀 Start New Vulnerability Scan
+    </a>
+</div>
+{% endblock %}

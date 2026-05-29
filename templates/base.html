@@ -22,163 +22,555 @@
             --mono: 'Space Mono', monospace; --sans: 'DM Sans', sans-serif;
         }
         *{ margin:0; padding:0; box-sizing:border-box; }
-        body{ 
-            font-family:var(--sans); 
-            background:var(--bg); 
-            color:var(--text); 
-            min-height: 100vh;
-            overflow-x: hidden; 
+        body{
+            font-family:var(--sans);
+            background:var(--bg);
+            color:var(--text);
+            min-height:100vh;
+            overflow-x:hidden;
         }
 
-        /* NAVBAR */
-        .navbar{ 
-            position:fixed; 
-            width:100%; 
-            top:0; 
-            z-index:1000; 
-            height:60px; 
-            background:rgba(8,8,16,0.95); 
-            backdrop-filter:blur(20px); 
-            border-bottom:1px solid var(--border); 
-            display:flex; 
-            align-items:center; 
-            justify-content:space-between; 
-            padding:0 20px; 
+        /* ═══════════════════════════════════════
+           NAVBAR
+        ═══════════════════════════════════════ */
+        .navbar{
+            position:fixed; width:100%; top:0; z-index:1000;
+            height:60px;
+            background:rgba(8,8,16,0.92);
+            backdrop-filter:blur(24px);
+            -webkit-backdrop-filter:blur(24px);
+            border-bottom:1px solid var(--border);
+            display:flex; align-items:center; justify-content:space-between;
+            padding:0 28px;
         }
-        
-        .nav-brand{ display:flex; align-items:center; gap:10px; text-decoration:none; }
-        .nav-brand-icon{ width:32px; height:32px; background:linear-gradient(135deg, var(--accent) 0%, #006aff 100%); border-radius:8px; display:flex; align-items:center; justify-content:center; }
+
+        .nav-brand{
+            display:flex; align-items:center; gap:10px;
+            text-decoration:none; flex-shrink:0;
+        }
+        .nav-brand-icon{
+            width:32px; height:32px;
+            background:linear-gradient(135deg,var(--accent) 0%,#006aff 100%);
+            border-radius:8px; display:flex; align-items:center; justify-content:center;
+        }
         .nav-brand-name{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--text); }
         .nav-brand-name em{ color:var(--accent); font-style:normal; }
-        
-        .nav-toggle{ 
-            display:none; 
-            background:none; 
-            border:none; 
-            color:var(--text); 
-            font-size:24px; 
-            cursor:pointer;
-        }
-        
-        /* DESKTOP MENU */
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .nav-links a{ 
-            font-size:13px; 
-            color:var(--muted); 
-            text-decoration:none; 
-            padding:8px 14px; 
-            border-radius:6px; 
-            transition:all .18s; 
-        }
-        .nav-links a:hover{ color:var(--accent); background:var(--surface2); }
-        .nav-links .n-logout{ color:var(--red); }
-        .nav-links .n-login{ background:var(--accent); color:#000; padding:6px 16px; border-radius:8px; }
-        .nav-links .n-login:hover{ background:#00aad9; }
 
-        /* DROPDOWN */
-        .nav-dropdown { position: relative; }
-        .dropdown-menu {
+        /* ── desktop links ── */
+        .nav-links{
+            display:flex; align-items:center; gap:2px;
+        }
+        .nav-links > a{
+            font-size:13px; color:var(--muted); text-decoration:none;
+            padding:7px 12px; border-radius:6px;
+            transition:color .18s, background .18s;
+            white-space:nowrap;
+        }
+        .nav-links > a:hover{ color:var(--text); background:var(--surface2); }
+        .n-login{
+            background:var(--accent)!important; color:#000!important;
+            padding:7px 18px!important; border-radius:8px!important; font-weight:700!important;
+            transition:background .2s!important;
+        }
+        .n-login:hover{ background:#00aad9!important; }
+        .n-logout{ color:var(--red)!important; }
+        .n-logout:hover{ background:var(--red-dim)!important; color:var(--red)!important; }
+
+        /* ── services button ── */
+        .nav-services-btn{
+            display:flex; align-items:center; gap:6px;
+            font-size:13px; color:var(--muted);
+            background:none; border:none; padding:7px 12px;
+            border-radius:6px; cursor:pointer;
+            font-family:var(--sans);
+            transition:color .18s, background .18s;
+            white-space:nowrap;
+        }
+        .nav-services-btn:hover{ color:var(--text); background:var(--surface2); }
+        .svc-chevron{
+            width:14px; height:14px;
+            border-right:1.5px solid currentColor;
+            border-bottom:1.5px solid currentColor;
+            transform:rotate(45deg) translateY(-2px);
+            transition:transform .25s;
+            flex-shrink:0;
+        }
+        .nav-services-btn.active{ color:var(--accent); background:var(--accent-dim); }
+        .nav-services-btn.active .svc-chevron{
+            transform:rotate(-135deg) translateY(-2px);
+            border-color:var(--accent);
+        }
+
+        /* ── mega menu ── */
+        .mega-backdrop{
+            position:fixed; inset:0; top:60px;
+            background:rgba(0,0,0,0); z-index:998;
+            pointer-events:none; opacity:0;
+            transition:opacity .22s;
+        }
+        .mega-backdrop.show{
+            pointer-events:auto; opacity:1;
+            background:rgba(0,0,0,0.45);
+        }
+
+        .mega-menu{
+            position:fixed;
+            top:60px; left:50%;
+            transform:translateX(-50%) translateY(-12px);
+            width:min(880px, calc(100vw - 40px));
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-top:2px solid var(--accent);
+            border-radius:0 0 18px 18px;
+            padding:28px 28px 24px;
+            z-index:999;
+            opacity:0; visibility:hidden;
+            transition:opacity .22s ease, transform .22s ease, visibility 0s linear .22s;
+            box-shadow:0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,200,255,0.05);
+        }
+        .mega-menu.open{
+            opacity:1; visibility:visible;
+            transform:translateX(-50%) translateY(0);
+            transition:opacity .22s ease, transform .22s ease, visibility 0s linear 0s;
+        }
+
+        .mega-top{
+            display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:20px; padding-bottom:16px;
+            border-bottom:1px solid var(--border);
+        }
+        .mega-label{
+            font-family:var(--mono); font-size:10px;
+            letter-spacing:2.5px; text-transform:uppercase; color:var(--accent);
+            display:flex; align-items:center; gap:8px;
+        }
+        .mega-label::before{
+            content:''; width:6px; height:6px; background:var(--accent);
+            border-radius:50%; animation:blink 2s infinite;
+        }
+        @keyframes blink{
+            0%,100%{opacity:1;} 50%{opacity:.3;}
+        }
+        .mega-count{
+            font-size:11px; color:var(--muted);
+            background:var(--surface2); border:1px solid var(--border);
+            padding:3px 10px; border-radius:20px;
+        }
+
+        .mega-grid{
+            display:grid;
+            grid-template-columns:repeat(4,1fr);
+            gap:6px;
+        }
+
+        .mega-item{
+            display:flex; align-items:center; gap:10px;
+            padding:10px 12px; border-radius:10px;
+            text-decoration:none;
+            border:1px solid transparent;
+            transition:background .15s, border-color .15s, transform .15s;
+            position:relative; overflow:hidden;
+        }
+        .mega-item::before{
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg,var(--accent-dim),transparent);
+            opacity:0; transition:opacity .15s; border-radius:10px;
+        }
+        .mega-item:hover{
+            background:var(--surface2); border-color:var(--border);
+            transform:translateY(-1px);
+        }
+        .mega-item:hover::before{ opacity:1; }
+        .mega-item-icon{
+            width:34px; height:34px; flex-shrink:0;
+            background:var(--surface3); border-radius:8px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:15px; transition:background .15s;
+        }
+        .mega-item:hover .mega-item-icon{ background:var(--accent-dim); }
+        .mega-item-text{}
+        .mega-item-name{
+            font-size:12px; font-weight:600; color:var(--text);
+            margin-bottom:1px; transition:color .15s;
+        }
+        .mega-item:hover .mega-item-name{ color:var(--accent); }
+        .mega-item-desc{ font-size:10px; color:var(--muted); }
+
+        /* ── hamburger ── */
+        .nav-toggle{
+            display:none;
+            background:none; border:1px solid var(--border);
+            width:38px; height:38px; border-radius:9px;
+            cursor:pointer; flex-direction:column;
+            align-items:center; justify-content:center; gap:5px;
+            transition:border-color .2s;
+            flex-shrink:0;
+        }
+        .nav-toggle:hover{ border-color:var(--accent); }
+        .hline{
+            width:16px; height:1.5px;
+            background:var(--text); border-radius:2px;
+            transition:all .3s cubic-bezier(.4,0,.2,1);
+            transform-origin:center;
+        }
+        .nav-toggle.open .hline:nth-child(1){ transform:translateY(6.5px) rotate(45deg); }
+        .nav-toggle.open .hline:nth-child(2){ opacity:0; transform:scaleX(0); }
+        .nav-toggle.open .hline:nth-child(3){ transform:translateY(-6.5px) rotate(-45deg); }
+
+        /* ── mobile drawer ── */
+        .mobile-drawer{
+            display:none;
+            position:fixed; top:60px; left:0; right:0; bottom:0;
+            background:var(--surface); z-index:997;
+            overflow-y:auto; overflow-x:hidden;
+            transform:translateX(100%);
+            transition:transform .32s cubic-bezier(.4,0,.2,1);
+            border-top:1px solid var(--border);
+        }
+        .mobile-drawer.open{ transform:translateX(0); }
+
+        .drawer-body{ padding:16px 16px 40px; }
+
+        .drawer-section{
+            font-family:var(--mono); font-size:9px;
+            letter-spacing:2.5px; text-transform:uppercase;
+            color:var(--accent); padding:20px 8px 8px; opacity:.8;
+        }
+
+        .drawer-link{
+            display:flex; align-items:center; gap:12px;
+            padding:12px 12px; border-radius:10px;
+            text-decoration:none; color:var(--text); font-size:15px;
+            margin-bottom:2px;
+            transition:background .15s, color .15s;
+        }
+        .drawer-link:hover{ background:var(--surface2); }
+        .drawer-link-icon{
+            width:34px; height:34px; flex-shrink:0;
+            background:var(--surface2); border-radius:9px;
+            display:flex; align-items:center; justify-content:center; font-size:16px;
+        }
+
+        .drawer-svc-toggle{
+            display:flex; align-items:center; justify-content:space-between;
+            width:100%; padding:12px 12px;
+            background:none; border:none; border-radius:10px;
+            color:var(--text); font-size:15px;
+            font-family:var(--sans); cursor:pointer;
+            transition:background .15s; margin-bottom:2px;
+        }
+        .drawer-svc-toggle:hover{ background:var(--surface2); }
+        .drawer-svc-left{ display:flex; align-items:center; gap:12px; }
+        .drawer-svc-badge{
+            font-size:10px; background:var(--accent-dim); color:var(--accent);
+            border:1px solid rgba(0,200,255,0.25); padding:2px 8px; border-radius:20px;
+            font-family:var(--mono);
+        }
+        .drawer-svc-arrow{
+            width:12px; height:12px;
+            border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted);
+            transform:rotate(45deg) translateY(-2px);
+            transition:transform .25s, border-color .25s;
+            flex-shrink:0;
+        }
+        .drawer-svc-toggle.open .drawer-svc-arrow{
+            transform:rotate(-135deg) translateY(2px); border-color:var(--accent);
+        }
+
+        .drawer-svc-list{
+            max-height:0; overflow:hidden;
+            transition:max-height .35s cubic-bezier(.4,0,.2,1);
+            padding-left:20px;
+        }
+        .drawer-svc-list.open{ max-height:600px; }
+        .drawer-svc-list-inner{
+            border-left:2px solid var(--border);
+            padding:4px 0 8px 12px;
+            margin-left:5px;
+        }
+
+        .drawer-svc-item{
+            display:flex; align-items:center; gap:10px;
+            padding:9px 10px; border-radius:8px;
+            text-decoration:none; color:var(--muted); font-size:13px;
+            margin-bottom:1px;
+            transition:color .15s, background .15s;
+        }
+        .drawer-svc-item:hover{ color:var(--text); background:var(--surface2); }
+        .drawer-svc-item .svc-em{ font-size:14px; }
+
+        .drawer-divider{
+            height:1px; background:var(--border);
+            margin:14px 0;
+        }
+
+        .drawer-auth{ padding:4px 0 0; }
+        .drawer-auth-login{
+            display:flex; align-items:center; justify-content:center;
+            gap:8px; width:100%; padding:14px;
+            background:var(--accent); color:#000;
+            border-radius:12px; text-decoration:none;
+            font-weight:700; font-size:15px;
+            transition:background .2s;
+        }
+        .drawer-auth-login:hover{ background:#00aad9; }
+        .drawer-auth-user{
+            display:flex; align-items:center; gap:12px;
+            padding:12px 14px; border-radius:12px;
+            background:var(--surface2); border:1px solid var(--border);
+            margin-bottom:8px;
+        }
+        .drawer-auth-avatar{
+            width:36px; height:36px; border-radius:50%;
+            background:var(--accent-dim); border:1px solid rgba(0,200,255,.3);
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; flex-shrink:0;
+        }
+        .drawer-auth-name{ font-size:14px; font-weight:600; color:var(--text); }
+        .drawer-auth-sub{ font-size:11px; color:var(--muted); font-family:var(--mono); }
+        .drawer-auth-logout{
+            display:block; width:100%; padding:13px;
+            background:var(--red-dim); color:var(--red);
+            border-radius:12px; text-align:center;
+            text-decoration:none; font-weight:600; font-size:14px;
+            border:1px solid rgba(255,69,96,.2);
+            transition:background .2s;
+        }
+        .drawer-auth-logout:hover{ background:rgba(255,69,96,.2); }
+
+        /* ══════════════════════════════════
+           MAIN & FOOTER
+        ══════════════════════════════════ */
+        main{
+            padding-top:80px; padding-left:24px; padding-right:24px;
+            min-height:calc(100vh - 200px);
+        }
+        @media (max-width:768px){
+            main{ padding-left:16px; padding-right:16px; padding-top:70px; }
+        }
+
+        footer {
+            margin-top: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+ 
+        /* خط متوهج فوق الفوتر */
+        footer::before {
+            content: '';
             position: absolute;
-            top: 40px;
-            left: 0;
-            background: var(--surface2);
-            border: 1px solid var(--border);
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(0,200,255,0.15) 20%,
+                rgba(0,200,255,0.6)  50%,
+                rgba(0,200,255,0.15) 80%,
+                transparent 100%);
+        }
+ 
+        /* خلفية بـ subtle grid */
+        .footer-bg {
+            background: var(--surface);
+            position: relative;
+        }
+        .footer-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,200,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,200,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+ 
+        /* ── TOP BAND ── */
+        .footer-top {
+            position: relative; z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 56px 32px 48px;
+            display: grid;
+            grid-template-columns: 1.8fr 1fr 1fr 1.5fr;
+            gap: 48px;
+            align-items: start;
+        }
+ 
+        /* brand col */
+        .footer-brand {}
+        .footer-logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; margin-bottom: 16px;
+        }
+        .footer-logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent), #006aff);
             border-radius: 10px;
-            padding: 8px 0;
-            min-width: 180px;
-            opacity: 0;
-            visibility: hidden;
-            transition: 0.2s;
-            z-index: 1001;
+            display: flex; align-items: center; justify-content: center;
         }
-        .nav-dropdown:hover .dropdown-menu {
-            opacity: 1;
-            visibility: visible;
+        .footer-logo-name {
+            font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text);
         }
-        .dropdown-menu a { 
-            display: block; 
-            padding: 8px 16px; 
-            font-size: 12px; 
-            color: var(--muted); 
-            text-decoration: none; 
+        .footer-logo-name em { color: var(--accent); font-style: normal; }
+ 
+        .footer-tagline {
+            font-size: 13px; color: var(--muted); line-height: 1.7;
+            margin-bottom: 20px; max-width: 240px;
         }
-        .dropdown-menu a:hover { background: var(--surface3); color: var(--accent); }
-
-        main { 
-            padding-top: 80px;
-            padding-left: 24px;
-            padding-right: 24px;
-            min-height: calc(100vh - 200px);
+ 
+        /* status pill */
+        .footer-status {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: var(--green-dim); border: 1px solid rgba(0,230,118,0.2);
+            border-radius: 20px; padding: 5px 12px;
+            font-size: 11px; color: var(--green); font-family: var(--mono);
+            margin-bottom: 24px;
         }
-        
-        /* MOBILE */
+        .status-dot {
+            width: 6px; height: 6px; background: var(--green);
+            border-radius: 50%; animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
+            50%      { box-shadow: 0 0 0 5px rgba(0,230,118,0); }
+        }
+ 
+        /* social icons */
+        .footer-socials {
+            display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .footer-socials a {
+            width: 36px; height: 36px;
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); font-size: 14px;
+            text-decoration: none;
+            transition: all .2s;
+        }
+        .footer-socials a:hover {
+            background: var(--accent); border-color: var(--accent);
+            color: #000; transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,200,255,0.25);
+        }
+ 
+        /* ── LINK COLUMNS ── */
+        .footer-col {}
+        .footer-col-title {
+            font-family: var(--mono); font-size: 10px;
+            letter-spacing: 2.5px; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 18px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .footer-col-title::after {
+            content: ''; flex: 1; height: 1px;
+            background: linear-gradient(90deg, var(--border), transparent);
+        }
+ 
+        .footer-col a {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: var(--muted);
+            text-decoration: none; padding: 5px 0;
+            line-height: 1.5;
+            transition: color .18s, gap .18s;
+            border-bottom: none;
+        }
+        .footer-col a::before {
+            content: '›'; color: var(--border); font-size: 14px;
+            transition: color .18s, transform .18s;
+            transform: translateX(0);
+        }
+        .footer-col a:hover { color: var(--text); gap: 10px; }
+        .footer-col a:hover::before { color: var(--accent); transform: translateX(2px); }
+ 
+        /* contact col */
+        .footer-contact-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            margin-bottom: 12px;
+        }
+        .footer-contact-icon {
+            width: 32px; height: 32px; flex-shrink: 0;
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; margin-top: 1px;
+        }
+        .footer-contact-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .footer-contact-label {
+            font-size: 10px; font-family: var(--mono);
+            color: var(--accent); opacity: .7; margin-bottom: 2px;
+        }
+ 
+        /* ── BOTTOM BAR ── */
+        .footer-bottom-bar {
+            position: relative; z-index: 1;
+            border-top: 1px solid var(--border);
+        }
+        .footer-bottom-inner {
+            max-width: 1100px; margin: 0 auto;
+            padding: 18px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .footer-copy {
+            font-size: 11px; color: var(--muted); font-family: var(--mono);
+        }
+        .footer-copy span { color: var(--accent); }
+ 
+        .footer-badges {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .footer-badge {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 10px; color: var(--muted);
+            background: var(--surface2); border: 1px solid var(--border);
+            padding: 4px 10px; border-radius: 6px; font-family: var(--mono);
+        }
+        .footer-badge .bdot {
+            width: 5px; height: 5px; border-radius: 50%;
+        }
+        .bdot-green  { background: var(--green); }
+        .bdot-accent { background: var(--accent); }
+        .bdot-yellow { background: var(--yellow); }
+ 
+        /* ── RESPONSIVE ── */
         @media (max-width: 900px) {
-            .nav-toggle{ display: block; }
-            .nav-links{ 
-                display: none; 
-                position: fixed; 
-                top: 60px; 
-                left: 0; 
-                right: 0; 
-                background: var(--surface); 
-                border-bottom: 1px solid var(--accent);
-                flex-direction: column; 
-                padding: 20px;
-                z-index: 999;
+            .footer-top {
+                grid-template-columns: 1fr 1fr;
+                gap: 36px;
+                padding: 40px 24px 36px;
             }
-            .nav-links.open{ display: flex; }
-            .nav-links a{ 
-                padding: 14px; 
-                font-size: 16px; 
-                text-align: center;
-                border-bottom: 1px solid var(--border);
-            }
-            .nav-links a:last-child{ border-bottom: none; }
-            .dropdown-menu {
-                position: static;
-                opacity: 1;
-                visibility: visible;
-                background: transparent;
-                border: none;
-                padding-left: 20px;
-                display: none;
-            }
-            .dropdown-menu.show { display: block; }
-            .nav-dropdown > a { pointer-events: auto; }
+            .footer-brand { grid-column: 1 / -1; }
+            .footer-tagline { max-width: 100%; }
         }
-        
-        @media (max-width: 768px) { 
-            main { padding-left: 16px; padding-right: 16px; padding-top: 70px; } 
+ 
+        @media (max-width: 560px) {
+            .footer-top {
+                grid-template-columns: 1fr;
+                gap: 28px;
+                padding: 32px 20px 28px;
+            }
+            .footer-bottom-inner {
+                flex-direction: column; align-items: flex-start;
+                padding: 16px 20px;
+            }
+            .footer-badges { gap: 6px; }
         }
-
-        footer { background: var(--surface); border-top: 1px solid var(--border); margin-top: 60px; }
-        .footer-inner{ max-width:1100px; margin:0 auto; padding:40px 28px; display:grid; grid-template-columns:2fr 1fr 1fr 1.5fr; gap:40px; }
-        @media (max-width: 768px){ .footer-inner{ grid-template-columns:1fr 1fr; gap:30px; } }
-        @media (max-width: 480px){ .footer-inner{ grid-template-columns:1fr; gap:20px; text-align:center; } }
-        .footer-col-title{ font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--accent); margin-bottom:12px; }
-        .footer-col p,.footer-col a{ display:block; font-size:12px; color:var(--muted); line-height:1.8; text-decoration:none; }
-        .footer-col a:hover{ color:var(--accent); }
-        .footer-socials{ display:flex; gap:12px; margin-top:15px; flex-wrap:wrap; }
-        .footer-socials a{ width:34px; height:34px; background:var(--surface2); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--muted); transition:all .2s; }
-        .footer-socials a:hover{ background:var(--accent); color:#000; }
-        .footer-bottom{ text-align:center; font-size:11px; color:var(--muted); padding:15px; border-top:1px solid var(--border); }
 
         .flash-wrap{ position:fixed; top:70px; right:16px; z-index:1002; }
-        .flash-msg{ padding:12px 20px; border-radius:8px; font-size:13px; background:var(--surface); border-left:3px solid var(--accent); margin-bottom:8px; }
+        .flash-msg{ padding:12px 20px; border-radius:8px; font-size:13px; background:var(--surface); border-left:3px solid var(--accent); margin-bottom:8px; box-shadow:0 8px 24px rgba(0,0,0,.4); }
         .btn-primary{ background:var(--accent); color:#000; padding:10px 24px; border-radius:8px; text-decoration:none; display:inline-block; }
-        .wa-float{ position:fixed; right:16px; bottom:16px; width:48px; height:48px; background:#25d366; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:99; }
+        .wa-float{ position:fixed; right:16px; bottom:16px; width:48px; height:48px; background:#25d366; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:99; box-shadow:0 4px 16px rgba(37,211,102,.4); transition:transform .2s; }
+        .wa-float:hover{ transform:scale(1.1); }
         .wa-float img{ width:26px; }
-        /* إخفاء زر Services في الجوال فقط */
-@media (max-width: 900px) {
-  .nav-dropdown > a {
-    display: none;
-  }
-}
+
+        /* ══ RESPONSIVE NAV ══ */
+        @media (max-width:900px){
+            .nav-links{ display:none; }
+            .nav-toggle{ display:flex; }
+            .mobile-drawer{ display:block; }
+        }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
@@ -199,6 +591,9 @@
         <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
     </a>
 
+    <!-- ══════════════════════════════════════════
+         NAVBAR
+    ══════════════════════════════════════════ -->
     <nav>
         <div class="navbar">
             <a href="/" class="nav-brand">
@@ -207,119 +602,378 @@
                 </div>
                 <span class="nav-brand-name">My<em>Scanner</em></span>
             </a>
-            <button class="nav-toggle" id="menuToggle">☰</button>
-            <div class="nav-links" id="navMenu">
+
+            <!-- Desktop -->
+            <div class="nav-links">
                 <a href="/">Home</a>
-                <div class="nav-dropdown">
-                    <a href="#" id="servicesBtn">Services ▾</a>
-                    <div class="dropdown-menu" id="servicesMenu">
-                        <a href="{{ url_for('email_check') }}">📧 Email Checker</a>
-                        <a href="{{ url_for('ip_check') }}">🌐 IP Checker</a>
-                        <a href="{{ url_for('site_scanner') }}">🌍 Site Scanner</a>
-                        <a href="{{ url_for('file_scanner') }}">📁 File Scanner</a>
-                        <a href="{{ url_for('subdomain_finder') }}">🔎 Subdomain Finder</a>
-                        <a href="{{ url_for('qr_scanner') }}">📱 QR Scanner</a>
-                        <a href="{{ url_for('domain_lookup') }}">🔍 Domain Lookup</a>
-                        <a href="{{ url_for('password_check') }}">🔐 Password Check</a>
-                        <a href="{{ url_for('ssl_checker') }}">🛡️ SSL Checker</a>
-                        <a href="{{ url_for('sandbox.sandbox_page') }}">🧪 Sandbox</a>
-                        <a href="{{ url_for('vuln.vuln_dashboard') }}">🔬 Vulnerability Scanner</a>
-                    </div>
-                </div>
-                <a href="{{ url_for('dashboard_v2') }}">📊 Dashboard</a>
-                <a href="{{ url_for('tip.tip_dashboard') }}">🛡️ TIP Platform</a>
+                <button class="nav-services-btn" id="servicesBtn" aria-expanded="false" aria-haspopup="true">
+                    Services <span class="svc-chevron"></span>
+                </button>
+                <a href="{{ url_for('dashboard_v2') }}">Dashboard</a>
+                <a href="{{ url_for('tip.tip_dashboard') }}">TIP Platform</a>
                 <a href="{{ url_for('about') }}">About</a>
                 <a href="{{ url_for('contact') }}">Contact</a>
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('profile') }}" class="n-user">👤 {{ current_user.username }}</a>
+                    <a href="{{ url_for('profile') }}">👤 {{ current_user.username }}</a>
                     <a href="{{ url_for('logout') }}" class="n-logout">Logout</a>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="n-login">Login →</a>
                 {% endif %}
+            </div>
+
+            <!-- Hamburger -->
+            <button class="nav-toggle" id="menuToggle" aria-label="Open menu">
+                <span class="hline"></span>
+                <span class="hline"></span>
+                <span class="hline"></span>
+            </button>
+        </div>
+
+        <!-- Mega Menu (desktop) -->
+        <div class="mega-backdrop" id="megaBackdrop"></div>
+        <div class="mega-menu" id="megaMenu" role="dialog" aria-label="Services">
+            <div class="mega-top">
+                <span class="mega-label">Security Services</span>
+                <span class="mega-count">12 tools</span>
+            </div>
+            <div class="mega-grid">
+                <a href="{{ url_for('dashboard') }}" class="mega-item">
+                    <div class="mega-item-icon">🔗</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">URL Scanner</div>
+                        <div class="mega-item-desc">90+ engines</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('email_check') }}" class="mega-item">
+                    <div class="mega-item-icon">📧</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Email Checker</div>
+                        <div class="mega-item-desc">Breach & validity</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('ip_check') }}" class="mega-item">
+                    <div class="mega-item-icon">🌐</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">IP Checker</div>
+                        <div class="mega-item-desc">Location & threat</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('site_scanner') }}" class="mega-item">
+                    <div class="mega-item-icon">🌍</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Site Scanner</div>
+                        <div class="mega-item-desc">Full domain scan</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('file_scanner') }}" class="mega-item">
+                    <div class="mega-item-icon">📁</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">File Scanner</div>
+                        <div class="mega-item-desc">Malware detection</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('subdomain_finder') }}" class="mega-item">
+                    <div class="mega-item-icon">🔎</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Subdomain Finder</div>
+                        <div class="mega-item-desc">Discover subdomains</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('qr_scanner') }}" class="mega-item">
+                    <div class="mega-item-icon">📱</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">QR Scanner</div>
+                        <div class="mega-item-desc">Decode & verify</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('domain_lookup') }}" class="mega-item">
+                    <div class="mega-item-icon">🔍</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Domain Lookup</div>
+                        <div class="mega-item-desc">WHOIS & DNS</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('password_check') }}" class="mega-item">
+                    <div class="mega-item-icon">🔐</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Password Check</div>
+                        <div class="mega-item-desc">Breach history</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('ssl_checker') }}" class="mega-item">
+                    <div class="mega-item-icon">🛡️</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">SSL Checker</div>
+                        <div class="mega-item-desc">Certificate grade</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('sandbox.sandbox_page') }}" class="mega-item">
+                    <div class="mega-item-icon">🧪</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Sandbox</div>
+                        <div class="mega-item-desc">Safe analysis</div>
+                    </div>
+                </a>
+                <a href="{{ url_for('vuln.vuln_dashboard') }}" class="mega-item">
+                    <div class="mega-item-icon">🔬</div>
+                    <div class="mega-item-text">
+                        <div class="mega-item-name">Vuln Scanner</div>
+                        <div class="mega-item-desc">CVE detection</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Mobile Drawer -->
+        <div class="mobile-drawer" id="mobileDrawer">
+            <div class="drawer-body">
+
+                <div class="drawer-section">Navigation</div>
+
+                <a href="/" class="drawer-link">
+                    <div class="drawer-link-icon">🏠</div>
+                    Home
+                </a>
+
+                <button class="drawer-svc-toggle" id="drawerSvcBtn">
+                    <span class="drawer-svc-left">
+                        <span class="drawer-link-icon">⚡</span>
+                        Services
+                        <span class="drawer-svc-badge">12</span>
+                    </span>
+                    <span class="drawer-svc-arrow"></span>
+                </button>
+                <div class="drawer-svc-list" id="drawerSvcList">
+                    <div class="drawer-svc-list-inner">
+                        <a href="{{ url_for('dashboard') }}" class="drawer-svc-item"><span class="svc-em">🔗</span> URL Scanner</a>
+                        <a href="{{ url_for('email_check') }}" class="drawer-svc-item"><span class="svc-em">📧</span> Email Checker</a>
+                        <a href="{{ url_for('ip_check') }}" class="drawer-svc-item"><span class="svc-em">🌐</span> IP Checker</a>
+                        <a href="{{ url_for('site_scanner') }}" class="drawer-svc-item"><span class="svc-em">🌍</span> Site Scanner</a>
+                        <a href="{{ url_for('file_scanner') }}" class="drawer-svc-item"><span class="svc-em">📁</span> File Scanner</a>
+                        <a href="{{ url_for('subdomain_finder') }}" class="drawer-svc-item"><span class="svc-em">🔎</span> Subdomain Finder</a>
+                        <a href="{{ url_for('qr_scanner') }}" class="drawer-svc-item"><span class="svc-em">📱</span> QR Scanner</a>
+                        <a href="{{ url_for('domain_lookup') }}" class="drawer-svc-item"><span class="svc-em">🔍</span> Domain Lookup</a>
+                        <a href="{{ url_for('password_check') }}" class="drawer-svc-item"><span class="svc-em">🔐</span> Password Check</a>
+                        <a href="{{ url_for('ssl_checker') }}" class="drawer-svc-item"><span class="svc-em">🛡️</span> SSL Checker</a>
+                        <a href="{{ url_for('sandbox.sandbox_page') }}" class="drawer-svc-item"><span class="svc-em">🧪</span> Sandbox</a>
+                        <a href="{{ url_for('vuln.vuln_dashboard') }}" class="drawer-svc-item"><span class="svc-em">🔬</span> Vuln Scanner</a>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('dashboard_v2') }}" class="drawer-link">
+                    <div class="drawer-link-icon">📊</div>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('tip.tip_dashboard') }}" class="drawer-link">
+                    <div class="drawer-link-icon">🛡️</div>
+                    TIP Platform
+                </a>
+                <a href="{{ url_for('about') }}" class="drawer-link">
+                    <div class="drawer-link-icon">ℹ️</div>
+                    About
+                </a>
+                <a href="{{ url_for('contact') }}" class="drawer-link">
+                    <div class="drawer-link-icon">✉️</div>
+                    Contact
+                </a>
+
+                <div class="drawer-divider"></div>
+
+                <div class="drawer-auth">
+                    {% if current_user.is_authenticated %}
+                        <div class="drawer-auth-user">
+                            <div class="drawer-auth-avatar">👤</div>
+                            <div>
+                                <div class="drawer-auth-name">{{ current_user.username }}</div>
+                                <div class="drawer-auth-sub">Signed in</div>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('logout') }}" class="drawer-auth-logout">Sign Out</a>
+                    {% else %}
+                        <a href="{{ url_for('login') }}" class="drawer-auth-login">Login →</a>
+                    {% endif %}
+                </div>
+
             </div>
         </div>
     </nav>
 
     <main>{% block content %}{% endblock %}</main>
 
-    <footer>
-        <div class="footer-inner">
-            <div class="footer-col">
-                <div class="footer-col-title">MyScanner</div>
-                <p>Your all-in-one cybersecurity toolkit.</p>
+   <footer>
+    <div class="footer-bg">
+        <div class="footer-top">
+ 
+            <!-- Brand -->
+            <div class="footer-brand">
+                <a href="/" class="footer-logo">
+                    <div class="footer-logo-icon">
+                        <img src="{{ url_for('static', filename='security-scan.png') }}" alt="logo" style="width:20px;">
+                    </div>
+                    <span class="footer-logo-name">My<em>Scanner</em></span>
+                </a>
+                <p class="footer-tagline">Your all-in-one cybersecurity toolkit — powered by 90+ security engines to keep you protected online.</p>
+                <div class="footer-status">
+                    <span class="status-dot"></span>
+                    All systems operational
+                </div>
                 <div class="footer-socials">
-                    <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
-                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="#"><i class="fa-brands fa-linkedin-in"></i></a>
+                    <a href="#" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" aria-label="Twitter/X"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
                 </div>
             </div>
+ 
+            <!-- Services -->
             <div class="footer-col">
                 <div class="footer-col-title">Services</div>
-                <a href="/">URL Scanner</a>
+                <a href="{{ url_for('dashboard') }}">URL Scanner</a>
                 <a href="{{ url_for('email_check') }}">Email Checker</a>
                 <a href="{{ url_for('ip_check') }}">IP Checker</a>
+                <a href="{{ url_for('site_scanner') }}">Site Scanner</a>
+                <a href="{{ url_for('file_scanner') }}">File Scanner</a>
+                <a href="{{ url_for('ssl_checker') }}">SSL Checker</a>
             </div>
+ 
+            <!-- Links -->
             <div class="footer-col">
-                <div class="footer-col-title">Links</div>
+                <div class="footer-col-title">Tools</div>
+                <a href="{{ url_for('subdomain_finder') }}">Subdomain Finder</a>
+                <a href="{{ url_for('domain_lookup') }}">Domain Lookup</a>
+                <a href="{{ url_for('password_check') }}">Password Check</a>
+                <a href="{{ url_for('qr_scanner') }}">QR Scanner</a>
                 <a href="{{ url_for('about') }}">About</a>
                 <a href="{{ url_for('contact') }}">Contact</a>
             </div>
+ 
+            <!-- Contact -->
             <div class="footer-col">
                 <div class="footer-col-title">Contact</div>
-                <p>ahmetsayrafi538213@gmail.com</p>
-                <p>+90 538 213 1162</p>
+                <div class="footer-contact-item">
+                    <div class="footer-contact-icon">📧</div>
+                    <div class="footer-contact-text">
+                        <div class="footer-contact-label">Email</div>
+                        ahmetsayrafi538213@gmail.com
+                    </div>
+                </div>
+                <div class="footer-contact-item">
+                    <div class="footer-contact-icon">📞</div>
+                    <div class="footer-contact-text">
+                        <div class="footer-contact-label">Phone</div>
+                        +90 538 213 1162
+                    </div>
+                </div>
+                <div class="footer-contact-item">
+                    <div class="footer-contact-icon">💬</div>
+                    <div class="footer-contact-text">
+                        <div class="footer-contact-label">WhatsApp</div>
+                        Available 24/7
+                    </div>
+                </div>
+            </div>
+ 
+        </div>
+ 
+        <!-- Bottom bar -->
+        <div class="footer-bottom-bar">
+            <div class="footer-bottom-inner">
+                <div class="footer-copy">
+                    © 2025 <span>MyScanner</span> — Built by Ahmed Sairafi
+                </div>
+                <div class="footer-badges">
+                    <span class="footer-badge"><span class="bdot bdot-green"></span>Secure</span>
+                    <span class="footer-badge"><span class="bdot bdot-accent"></span>90+ Engines</span>
+                    <span class="footer-badge"><span class="bdot bdot-yellow"></span>Real-time</span>
+                </div>
             </div>
         </div>
-        <div class="footer-bottom">© 2025 MyScanner — Built by Ahmed Sairafi</div>
-    </footer>
+    </div>
+</footer>
 
     <script>
-        // Mobile menu toggle
-        const menuToggle = document.getElementById('menuToggle');
-        const navMenu = document.getElementById('navMenu');
-        
-        if (menuToggle) {
-            menuToggle.addEventListener('click', function() {
-                navMenu.classList.toggle('open');
+    (function(){
+        var btn      = document.getElementById('servicesBtn');
+        var menu     = document.getElementById('megaMenu');
+        var backdrop = document.getElementById('megaBackdrop');
+        var toggle   = document.getElementById('menuToggle');
+        var drawer   = document.getElementById('mobileDrawer');
+        var svcBtn   = document.getElementById('drawerSvcBtn');
+        var svcList  = document.getElementById('drawerSvcList');
+
+        /* ── mega menu ── */
+        function openMega(){
+            menu.classList.add('open');
+            backdrop.classList.add('show');
+            btn.classList.add('active');
+            btn.setAttribute('aria-expanded','true');
+        }
+        function closeMega(){
+            menu.classList.remove('open');
+            backdrop.classList.remove('show');
+            btn.classList.remove('active');
+            btn.setAttribute('aria-expanded','false');
+        }
+        if(btn){
+            btn.addEventListener('click',function(e){
+                e.stopPropagation();
+                menu.classList.contains('open') ? closeMega() : openMega();
             });
         }
-        
-        // Mobile dropdown for services
-        const servicesBtn = document.getElementById('servicesBtn');
-        const servicesMenu = document.getElementById('servicesMenu');
-        
-        if (servicesBtn && servicesMenu) {
-            servicesBtn.addEventListener('click', function(e) {
-                if (window.innerWidth <= 900) {
-                    e.preventDefault();
-                    servicesMenu.classList.toggle('show');
-                }
+        if(backdrop) backdrop.addEventListener('click', closeMega);
+
+        /* ── mobile drawer ── */
+        function openDrawer(){
+            drawer.classList.add('open');
+            toggle.classList.add('open');
+            toggle.setAttribute('aria-label','Close menu');
+            document.body.style.overflow='hidden';
+        }
+        function closeDrawer(){
+            drawer.classList.remove('open');
+            toggle.classList.remove('open');
+            toggle.setAttribute('aria-label','Open menu');
+            document.body.style.overflow='';
+        }
+        if(toggle){
+            toggle.addEventListener('click',function(){
+                drawer.classList.contains('open') ? closeDrawer() : openDrawer();
             });
         }
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', function(e) {
-            if (window.innerWidth <= 900) {
-                if (!navMenu.contains(e.target) && e.target !== menuToggle) {
-                    navMenu.classList.remove('open');
-                    servicesMenu.classList.remove('show');
-                }
-            }
+
+        /* ── services accordion ── */
+        if(svcBtn){
+            svcBtn.addEventListener('click',function(){
+                var open = svcList.classList.toggle('open');
+                svcBtn.classList.toggle('open', open);
+            });
+        }
+
+        /* ── outside click / escape ── */
+        document.addEventListener('click',function(e){
+            if(menu && !menu.contains(e.target) && e.target !== btn) closeMega();
         });
+        document.addEventListener('keydown',function(e){
+            if(e.key==='Escape'){ closeMega(); closeDrawer(); }
+        });
+        window.addEventListener('resize',function(){
+            if(window.innerWidth > 900) closeDrawer();
+        });
+    })();
     </script>
 
     {% block body_extra %}{% endblock %}
+
     <script>
-const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-const originalFetch = window.fetch;
-window.fetch = function(url, options = {}) {
-    if (options.method && options.method.toUpperCase() !== 'GET') {
-        options.headers = options.headers || {};
-        options.headers['X-CSRFToken'] = csrfToken;
-    }
-    return originalFetch(url, options);
-};
-</script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+        if (options.method && options.method.toUpperCase() !== 'GET') {
+            options.headers = options.headers || {};
+            options.headers['X-CSRFToken'] = csrfToken;
+        }
+        return originalFetch(url, options);
+    };
+    </script>
 </body>
 </html>

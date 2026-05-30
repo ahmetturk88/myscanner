@@ -1634,8 +1634,75 @@ def resources():
 def about():
     return render_template('about.html')
 
-@app.route('/contact')
+# ================================================================
+# Contact Form Handler - Professional Version
+# ================================================================
+
+@app.route('/contact', methods=['GET', 'POST'])
 def contact():
+    if request.method == 'POST':
+        # جلب البيانات من النموذج
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        company = request.form.get('company', '').strip()
+        phone = request.form.get('phone', '').strip()
+        subject = request.form.get('subject', '').strip()
+        message = request.form.get('message', '').strip()
+        
+        # التحقق من الحقول الإلزامية
+        if not name or not email or not message or not subject:
+            flash('Please fill in all required fields.', 'danger')
+            return redirect(url_for('contact'))
+        
+        # بناء محتوى البريد الإلكتروني
+        email_body = f"""
+        ========================================
+        NEW CONTACT MESSAGE FROM MyScanner
+        ========================================
+        
+        📌 SUBJECT: {subject}
+        
+        👤 SENDER INFORMATION:
+        ----------------------------------------
+        Name:    {name}
+        Email:   {email}
+        Company: {company if company else 'Not provided'}
+        Phone:   {phone if phone else 'Not provided'}
+        IP:      {request.remote_addr}
+        
+        💬 MESSAGE:
+        ----------------------------------------
+        {message}
+        
+        ========================================
+        Sent from MyScanner Contact Form
+        ========================================
+        """
+        
+        # إرسال البريد الإلكتروني
+        try:
+            # استخدم الدالة المساعدة التي لديك في app.py
+            send_email(
+                to_email="ahmetsayrafi538213@gmail.com",
+                subject=f"[MyScanner Contact] {subject} from {name}",
+                body=email_body
+            )
+            # نعود برد JSON للنموذج (AJAX) بدلاً من إعادة التوجيه
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"success": True, "message": "Message sent successfully!"}), 200
+            else:
+                flash('Your message has been sent successfully! We will respond within 3 business days.', 'success')
+                return redirect(url_for('contact'))
+                
+        except Exception as e:
+            app.logger.error(f"Failed to send contact email: {e}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"success": False, "error": "Failed to send message. Please try again later."}), 500
+            else:
+                flash('Failed to send message. Please try again later.', 'danger')
+                return redirect(url_for('contact'))
+    
+    # عرض صفحة الاتصال (GET request)
     return render_template('contact.html')
 
 @app.route('/domain-lookup')

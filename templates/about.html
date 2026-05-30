@@ -1,11 +1,742 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>About</title>
-</head>
-<body>
-    <h1>About MyScanner</h1>
-    <p>This site was created by Ahmed Sairafi for cybersecurity and URL safety.</p>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}About Us - MyScanner{% endblock %}
+
+{% block head_extra %}
+<style>
+    .about-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    /* Hero Section */
+    .about-hero {
+        text-align: center;
+        margin-bottom: 60px;
+        position: relative;
+    }
+
+    .about-hero h1 {
+        font-family: var(--mono);
+        font-size: 56px;
+        background: linear-gradient(135deg, var(--text), var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 20px;
+    }
+
+    .about-hero p {
+        color: var(--muted);
+        font-size: 18px;
+        max-width: 700px;
+        margin: 0 auto;
+        line-height: 1.8;
+    }
+
+    .hero-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 600px;
+        height: 300px;
+        background: radial-gradient(ellipse, rgba(0,200,255,0.08), transparent);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    /* Mission & Vision Cards */
+    .mission-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 80px;
+    }
+
+    .mission-card, .vision-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 40px;
+        text-align: center;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mission-card::before, .vision-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent), var(--green));
+    }
+
+    .mission-card:hover, .vision-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+    }
+
+    .mission-icon, .vision-icon {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, var(--accent-dim), var(--surface3));
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 32px;
+    }
+
+    .mission-card h2, .vision-card h2 {
+        font-family: var(--mono);
+        font-size: 24px;
+        margin-bottom: 16px;
+    }
+
+    .mission-card p, .vision-card p {
+        color: var(--muted);
+        line-height: 1.7;
+    }
+
+    /* Stats Section */
+    .stats-showcase {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border-radius: 30px;
+        padding: 60px 40px;
+        margin-bottom: 80px;
+        border: 1px solid var(--border);
+        text-align: center;
+    }
+
+    .stats-showcase h2 {
+        font-family: var(--mono);
+        font-size: 28px;
+        margin-bottom: 40px;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 30px;
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 48px;
+        font-weight: 700;
+        font-family: var(--mono);
+        color: var(--accent);
+        margin-bottom: 8px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        color: var(--muted);
+    }
+
+    /* Services Grid */
+    .services-showcase {
+        margin-bottom: 80px;
+    }
+
+    .section-title {
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 32px;
+        margin-bottom: 16px;
+    }
+
+    .section-subtitle {
+        text-align: center;
+        color: var(--muted);
+        margin-bottom: 48px;
+        font-size: 16px;
+    }
+
+    .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+    }
+
+    .service-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 30px;
+        transition: all 0.3s;
+    }
+
+    .service-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+    }
+
+    .service-icon {
+        width: 55px;
+        height: 55px;
+        background: var(--surface2);
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+
+    .service-card h3 {
+        font-size: 18px;
+        margin-bottom: 12px;
+    }
+
+    .service-card p {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    /* Timeline Section */
+    .timeline-section {
+        margin-bottom: 80px;
+    }
+
+    .timeline {
+        position: relative;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--accent), transparent);
+    }
+
+    .timeline-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        position: relative;
+    }
+
+    .timeline-item:nth-child(odd) {
+        flex-direction: row;
+    }
+
+    .timeline-item:nth-child(even) {
+        flex-direction: row-reverse;
+    }
+
+    .timeline-content {
+        width: 45%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s;
+    }
+
+    .timeline-content:hover {
+        border-color: var(--accent);
+        transform: scale(1.02);
+    }
+
+    .timeline-year {
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--accent);
+        margin-bottom: 8px;
+    }
+
+    .timeline-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .timeline-desc {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .timeline-dot {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 12px;
+        height: 12px;
+        background: var(--accent);
+        border-radius: 50%;
+        top: 20px;
+    }
+
+    /* Team Section */
+    .team-section {
+        margin-bottom: 80px;
+    }
+
+    .team-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+    }
+
+    .team-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 30px;
+        text-align: center;
+        transition: all 0.3s;
+    }
+
+    .team-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+    }
+
+    .team-avatar {
+        width: 120px;
+        height: 120px;
+        background: linear-gradient(135deg, var(--surface3), var(--surface2));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 48px;
+        border: 2px solid var(--accent);
+    }
+
+    .team-name {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .team-role {
+        font-size: 12px;
+        color: var(--accent);
+        margin-bottom: 12px;
+    }
+
+    .team-bio {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    /* Tech Stack Section */
+    .tech-section {
+        margin-bottom: 80px;
+    }
+
+    .tech-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 20px;
+        text-align: center;
+    }
+
+    .tech-item {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s;
+    }
+
+    .tech-item:hover {
+        border-color: var(--accent);
+        transform: translateY(-3px);
+    }
+
+    .tech-icon {
+        font-size: 32px;
+        margin-bottom: 10px;
+    }
+
+    .tech-name {
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    /* CTA Section */
+    .cta-section {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border-radius: 30px;
+        padding: 60px 40px;
+        text-align: center;
+        border: 1px solid var(--border);
+    }
+
+    .cta-section h2 {
+        font-family: var(--mono);
+        font-size: 28px;
+        margin-bottom: 16px;
+    }
+
+    .cta-section p {
+        color: var(--muted);
+        margin-bottom: 30px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .cta-buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn-primary, .btn-secondary {
+        padding: 12px 28px;
+        border-radius: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: var(--accent);
+        color: #000;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0,200,255,0.3);
+    }
+
+    .btn-secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+
+    .btn-secondary:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+        .mission-section {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .timeline::before {
+            left: 20px;
+        }
+
+        .timeline-item,
+        .timeline-item:nth-child(odd),
+        .timeline-item:nth-child(even) {
+            flex-direction: column;
+            margin-left: 40px;
+        }
+
+        .timeline-content {
+            width: 100%;
+        }
+
+        .timeline-dot {
+            left: 20px;
+        }
+
+        .about-hero h1 {
+            font-size: 36px;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-container">
+    
+    <!-- Hero Section -->
+    <div class="about-hero">
+        <div class="hero-glow"></div>
+        <h1>About MyScanner</h1>
+        <p>We're on a mission to make enterprise-grade cybersecurity accessible to everyone. Built by security experts, for security professionals.</p>
+    </div>
+
+    <!-- Mission & Vision -->
+    <div class="mission-section">
+        <div class="mission-card">
+            <div class="mission-icon">
+                <i class="fas fa-bullseye"></i>
+            </div>
+            <h2>Our Mission</h2>
+            <p>To democratize cybersecurity by providing powerful, accessible, and affordable security scanning tools that protect digital assets worldwide.</p>
+        </div>
+        <div class="vision-card">
+            <div class="vision-icon">
+                <i class="fas fa-eye"></i>
+            </div>
+            <h2>Our Vision</h2>
+            <p>A world where every organization, regardless of size, has the tools and knowledge to defend against cyber threats effectively.</p>
+        </div>
+    </div>
+
+    <!-- Stats Showcase -->
+    <div class="stats-showcase">
+        <h2>MyScanner by the Numbers</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number" id="statScans">0</div>
+                <div class="stat-label">Scans Performed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="statThreats">0</div>
+                <div class="stat-label">Threats Detected</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="statUsers">0</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="statCountries">0</div>
+                <div class="stat-label">Countries</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Services -->
+<div class="services-showcase">
+    <h2 class="section-title">What We Offer</h2>
+    <p class="section-subtitle">Comprehensive security toolkit for modern organizations</p>
+    <div class="services-grid">
+        <div class="service-card">
+            <div class="service-icon">🔗</div>
+            <h3>URL Scanner</h3>
+            <p>90+ engines</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">📧</div>
+            <h3>Email Checker</h3>
+            <p>Breach & validity</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🌐</div>
+            <h3>IP Checker</h3>
+            <p>Location & threat</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🌍</div>
+            <h3>Site Scanner</h3>
+            <p>Full domain scan</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">📁</div>
+            <h3>File Scanner</h3>
+            <p>Malware detection</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🔎</div>
+            <h3>Subdomain Finder</h3>
+            <p>Discover subdomains</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">📱</div>
+            <h3>QR Scanner</h3>
+            <p>Decode & verify</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🔍</div>
+            <h3>Domain Lookup</h3>
+            <p>WHOIS & DNS</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🔐</div>
+            <h3>Password Check</h3>
+            <p>Breach history</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🛡️</div>
+            <h3>SSL Checker</h3>
+            <p>Certificate grade</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🧪</div>
+            <h3>Sandbox</h3>
+            <p>Safe analysis</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">⚡</div>
+            <h3>Vuln Scanner</h3>
+            <p>CVE detection</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🛸</div>
+            <h3>Dark Web Monitor</h3>
+            <p>Leak detection</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🎯</div>
+            <h3>Phishing Simulator</h3>
+            <p>Awareness training</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">📊</div>
+            <h3>Security Reports</h3>
+            <p>PDF & CSV export</p>
+        </div>
+        <div class="service-card">
+            <div class="service-icon">🧠</div>
+            <h3>Threat Intel (TIP)</h3>
+            <p>IOC aggregation</p>
+        </div>
+    </div>
+</div>
+
+    <!-- Timeline -->
+    <div class="timeline-section">
+        <h2 class="section-title">Our Journey</h2>
+        <p class="section-subtitle">The story behind MyScanner</p>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-year">2024</div>
+                    <div class="timeline-title">🌟 The Beginning</div>
+                    <div class="timeline-desc">MyScanner was founded with a vision to create an accessible cybersecurity platform for everyone.</div>
+                </div>
+                <div class="timeline-dot"></div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-year">2025</div>
+                    <div class="timeline-title">🚀 Platform Launch</div>
+                    <div class="timeline-desc">Initial release featuring URL scanning and email security modules.</div>
+                </div>
+                <div class="timeline-dot"></div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-year">2026</div>
+                    <div class="timeline-title">🔬 Advanced Features</div>
+                    <div class="timeline-desc">Added vulnerability scanning, TIP integration, and malware analysis capabilities.</div>
+                </div>
+                <div class="timeline-dot"></div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-year">2026</div>
+                    <div class="timeline-title">🌍 Global Expansion</div>
+                    <div class="timeline-desc">Reached 10,000+ users across 50+ countries worldwide.</div>
+                </div>
+                <div class="timeline-dot"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team -->
+    <div class="team-section">
+        <h2 class="section-title">Meet the Team</h2>
+        <p class="section-subtitle">Passionate security experts behind MyScanner</p>
+        <div class="team-grid">
+            <div class="team-card">
+                <div class="team-avatar">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div class="team-name">Ahmed Sairafi</div>
+                <div class="team-role">Founder & Lead Developer</div>
+                <div class="team-bio">Security researcher and full-stack developer with 5+ years of experience in cybersecurity.</div>
+            </div>
+            <div class="team-card">
+                <div class="team-avatar">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="team-name">Security Team</div>
+                <div class="team-role">Threat Intelligence</div>
+                <div class="team-bio">Dedicated team of security analysts monitoring global threats 24/7.</div>
+            </div>
+            <div class="team-card">
+                <div class="team-avatar">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="team-name">Support Team</div>
+                <div class="team-role">Customer Success</div>
+                <div class="team-bio">Always ready to assist with professional guidance and technical support.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="tech-section">
+        <h2 class="section-title">Powered By</h2>
+        <p class="section-subtitle">Industry-leading technologies we trust</p>
+        <div class="tech-grid">
+            <div class="tech-item"><div class="tech-icon">🐍</div><div class="tech-name">Python</div></div>
+            <div class="tech-item"><div class="tech-icon">🌊</div><div class="tech-name">Flask</div></div>
+            <div class="tech-item"><div class="tech-icon">🐘</div><div class="tech-name">PostgreSQL</div></div>
+            <div class="tech-item"><div class="tech-icon">📦</div><div class="tech-name">Docker</div></div>
+            <div class="tech-item"><div class="tech-icon">🔍</div><div class="tech-name">OWASP ZAP</div></div>
+            <div class="tech-item"><div class="tech-icon">🛡️</div><div class="tech-name">OpenVAS</div></div>
+            <div class="tech-item"><div class="tech-icon">📧</div><div class="tech-name">Resend API</div></div>
+            <div class="tech-item"><div class="tech-icon">☁️</div><div class="tech-name">Render</div></div>
+        </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-section">
+        <h2>Ready to secure your digital assets?</h2>
+        <p>Join thousands of users who trust MyScanner for their cybersecurity needs.</p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('register') }}" class="btn-primary">Get Started Free</a>
+            <a href="{{ url_for('contact') }}" class="btn-secondary">Contact Sales</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    function animateNumber(elementId, target, duration = 2000) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        let start = 0;
+        const increment = target / (duration / 16);
+        const timer = setInterval(() => {
+            start += increment;
+            if (start >= target) {
+                element.textContent = target.toLocaleString();
+                clearInterval(timer);
+            } else {
+                element.textContent = Math.floor(start).toLocaleString();
+            }
+        }, 16);
+    }
+
+    // Animate stats when page loads
+    animateNumber('statScans', 15428, 2000);
+    animateNumber('statThreats', 3421, 2000);
+    animateNumber('statUsers', 1247, 1500);
+    animateNumber('statCountries', 52, 1500);
+</script>
+
+{% endblock %}

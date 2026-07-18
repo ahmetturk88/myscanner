@@ -787,3 +787,6 @@ Terms of Use: Access to Public Interest Registry WHOIS information is provided t
 2026-07-18 20:06:41,778 INFO: [SUCCESS] Logging system initialized successfully [Local ] [in C:\Users\MSI\OneDrive - klu.edu.tr\Masaüstü\flask_app\logging_config.py:92]
 2026-07-18 20:07:03,838 INFO: [EMAIL] Sent to ahmetsayrafi538213@gmail.com | ID: bff061da-06d4-4383-bb0d-4f406bdd6cf9 [in C:\Users\MSI\OneDrive - klu.edu.tr\Masaüstü\flask_app\app.py:206]
 2026-07-18 20:08:17,836 INFO: [EMAIL] Sent to ahmetsayrafi538213@gmail.com | ID: 99bfb791-83c8-40f7-8f9e-d13ecc06851a [in c:\Users\MSI\OneDrive - klu.edu.tr\Masaüstü\flask_app\app.py:206]
+2026-07-18 20:33:42,897 INFO: [SUCCESS] Logging system initialized successfully [Local ] [in c:\Users\MSI\OneDrive - klu.edu.tr\Masaüstü\flask_app\logging_config.py:92]
+2026-07-18 20:33:45,422 INFO: [SUCCESS] Logging system initialized successfully [Local ] [in c:\Users\MSI\OneDrive - klu.edu.tr\Masaüstü\flask_app\logging_config.py:92]
+2026-07-18 20:34:41,985 INFO: [EMAIL] Sent to ahmetturk538213@gmail.com | ID: 5f456b0e-6a1e-451a-9378-a049c6a9abe7 [in c:\Users\MSI\OneDrive - klu.edu.tr\Masaüstü\flask_app\app.py:206]

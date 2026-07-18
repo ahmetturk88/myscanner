@@ -220,19 +220,75 @@ def send_verification_email(user):
     token = serializer.dumps(user.email, salt='email-verify')
     base_url = os.getenv('BASE_URL', 'https://myscanners.com')
     link = f"{base_url}/verify/{token}"
+    
     subject = '✅ Verify your MyScanner account'
-    body = f"""Hello {user.username},
+    
+    # نسخة HTML احترافية
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8"></head>
+    <body style="margin:0;padding:0;background:#0a0a14;font-family:'Segoe UI',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td align="center" style="padding:40px 20px;">
+                    <table width="600" cellpadding="0" cellspacing="0" style="background:#10101a;border-radius:16px;border:1px solid #2a2a45;overflow:hidden;">
+                        <tr>
+                            <td style="background:linear-gradient(135deg,#00c8ff20,#006aff10);padding:32px;text-align:center;border-bottom:1px solid #2a2a45;">
+                                <div style="font-size:32px;margin-bottom:8px;">🛡️</div>
+                                <h1 style="margin:0;color:#00c8ff;font-family:'Courier New',monospace;font-size:24px;">MyScanner</h1>
+                                <p style="margin:4px 0 0;color:#6a6a90;font-size:13px;">Advanced Cybersecurity Platform</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:40px 32px;">
+                                <h2 style="color:#dde0f0;margin:0 0 16px;font-size:20px;">Welcome, {user.username}! 👋</h2>
+                                <p style="color:#6a6a90;line-height:1.7;margin:0 0 28px;">
+                                    Please verify your email address to activate your MyScanner account 
+                                    and start securing your digital assets.
+                                </p>
+                                <div style="text-align:center;margin:32px 0;">
+                                    <a href="{link}" style="display:inline-block;background:#00c8ff;color:#000;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
+                                        ✅ Verify My Email
+                                    </a>
+                                </div>
+                                <div style="background:#18182a;border-radius:8px;padding:16px;">
+                                    <p style="color:#6a6a90;font-size:12px;margin:0 0 8px;">Or copy this link:</p>
+                                    <p style="color:#00c8ff;font-size:11px;word-break:break-all;margin:0;font-family:'Courier New',monospace;">{link}</p>
+                                </div>
+                                <p style="color:#6a6a90;font-size:12px;margin:24px 0 0;text-align:center;">
+                                    ⏰ This link expires in <strong style="color:#ffd32a;">1 hour</strong>
+                                    <br>If you didn't create this account, ignore this email.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:20px 32px;border-top:1px solid #2a2a45;text-align:center;">
+                                <p style="color:#6a6a90;font-size:11px;margin:0;">
+                                    © 2025 MyScanner · <a href="https://myscanners.com" style="color:#00c8ff;text-decoration:none;">myscanners.com</a>
+                                    <br>info@myscanners.com
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+    
+    body_text = f"""Hello {user.username},
 
-Please click the link below to verify your email address:
-
-{link}
+Please verify your email: {link}
 
 This link expires in 1 hour.
 
 — MyScanner Team
 info@myscanners.com
 """
-    send_email(user.email, subject, body)
+    
+    send_email(user.email, subject, body_text, html_body=html_body)
 
 
 def send_reset_email(user):
@@ -403,7 +459,7 @@ def register():
         # إنشاء مستخدم جديد
         user = User(username=username, email=email)
         user.set_password(password)
-        user.is_verified = True
+        user.is_verified = False
         user.role = 'user'  # دور افتراضي
         
         # تعيين الحدود الافتراضية للمستخدم الجديد
@@ -420,11 +476,13 @@ def register():
         
         db.session.add(user)
         db.session.commit()
+        send_verification_email(user)
+
 
         # إرسال إيميل تأكيد (معطل)
         print(f"[DEBUG] RESEND_API_KEY = '{RESEND_API_KEY}'")
         print(f"[DEBUG] Sending to: {user.email}")
-        flash('Account created! You can now log in.', 'success')
+        flash('Account created! Please check your email to verify your account before logging in.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -477,7 +535,14 @@ def login():
             flash('Invalid email or password.', 'danger')
             return redirect(url_for('login'))
 
+     
         # التحقق من تأكيد البريد الإلكتروني
+
+        # ✅ التحقق من أن الحساب مفعّل
+        if not user.is_verified:
+         flash('Please verify your email address before logging in. A new verification link has been sent to your email.', 'warning')
+        send_verification_email(user)  # إعادة إرسال رابط التفعيل
+        return redirect(url_for('login'))
 
         # تسجيل الدخول الناجح
         login_user(user, remember=remember)

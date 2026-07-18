@@ -52,7 +52,8 @@ from logging_config import log_activity
 from services.vulnerability_scanner.scan_orchestrator import get_orchestrator
 from services.vulnerability_scanner.report_generator import get_report_generator
 from models.vulnerability import VulnerabilityScan, Vulnerability, ScanConfig
-
+import resend
+from typing import Optional
 load_dotenv()
 
 # ================================================================
@@ -161,33 +162,63 @@ import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-def send_email(to_email, subject, body):
-    import threading
+# ================================================================
+# Email Helper (Resend API) - Updated Version
+# ================================================================
+
+import resend
+
+# تأكد من تعيين مفتاح Resend
+resend.api_key = os.getenv('RESEND_API_KEY')
+
+# ثوابت البريد الإلكتروني
+FROM_EMAIL = os.getenv('FROM_EMAIL', 'info@myscanners.com')
+FROM_NAME = os.getenv('FROM_NAME', 'MyScanner Security')
+
+
+def send_email(to_email: str, subject: str, body: str,
+               html_body: Optional[str] = None) -> bool:
+    """
+    إرسال إيميل عبر Resend API مع دعم HTML
+    
+    Args:
+        to_email: البريد الإلكتروني للمستلم
+        subject: عنوان الإيميل
+        body: نص الإيميل (نسخة نصية عادية)
+        html_body: نص الإيميل (نسخة HTML - اختياري)
+    
+    Returns:
+        bool: True إذا تم الإرسال بنجاح، False إذا فشل
+    """
+    
     def _send():
         try:
-            resp = requests.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "from": "MyScanner <onboarding@resend.dev>",
-                    "to": [to_email],
-                    "subject": subject,
-                    "text": body
-                },
-                timeout=30
-            )
-            print(f"[RESEND] {resp.status_code}: {resp.text}")
+            params = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [to_email],
+                "subject": subject,
+                "text": body,
+            }
+            if html_body:
+                params["html"] = html_body
+            
+            resp = resend.Emails.send(params)
+            app.logger.info(f"[EMAIL] Sent to {to_email} | ID: {resp.get('id')}")
+            return True
+            
         except Exception as e:
-            print(f"[RESEND ERROR] {e}")
+            app.logger.error(f"[EMAIL ERROR] {to_email}: {str(e)}")
+            return False
+    
+    # إرسال في thread منفصل لعدم تأخير الاستجابة
+    import threading
     threading.Thread(target=_send, daemon=True).start()
+    return True
 
 
 def send_verification_email(user):
     token = serializer.dumps(user.email, salt='email-verify')
-    base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+    base_url = os.getenv('BASE_URL', 'https://myscanners.com')
     link = f"{base_url}/verify/{token}"
     subject = '✅ Verify your MyScanner account'
     body = f"""Hello {user.username},
@@ -199,13 +230,14 @@ Please click the link below to verify your email address:
 This link expires in 1 hour.
 
 — MyScanner Team
+info@myscanners.com
 """
     send_email(user.email, subject, body)
 
 
 def send_reset_email(user):
     token = serializer.dumps(user.email, salt='password-reset')
-    base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+    base_url = os.getenv('BASE_URL', 'https://myscanners.com')
     link = f"{base_url}/reset-password/{token}"
     subject = '🔑 Reset your MyScanner password'
     body = f"""Hello {user.username},
@@ -217,9 +249,9 @@ Click the link below to reset your password:
 This link expires in 30 minutes.
 
 — MyScanner Team
+info@myscanners.com
 """
     send_email(user.email, subject, body)
-
 
 # ================================================================
 # Database Models

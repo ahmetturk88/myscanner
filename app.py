@@ -584,7 +584,7 @@ def reset_password(token):
 
     if request.method == 'POST':
         password = request.form.get('password', '')
-        confirm  = request.form.get('confirm_password', '')
+        confirm = request.form.get('confirm_password', '')
 
         if password != confirm:
             flash('Passwords do not match.', 'danger')
@@ -594,8 +594,11 @@ def reset_password(token):
             flash('Password must be at least 8 characters.', 'danger')
             return redirect(request.url)
 
-        user.set_password(password)
+        # ✅ استخدم bcrypt من extensions
+        from extensions import bcrypt
+        user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
         db.session.commit()
+
         flash('Password updated! You can now log in.', 'success')
         return redirect(url_for('login'))
 

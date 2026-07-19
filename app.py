@@ -180,40 +180,28 @@ def send_email(to_email: str, subject: str, body: str,
                html_body: Optional[str] = None) -> bool:
     """
     إرسال إيميل عبر Resend API مع دعم HTML
-    
-    Args:
-        to_email: البريد الإلكتروني للمستلم
-        subject: عنوان الإيميل
-        body: نص الإيميل (نسخة نصية عادية)
-        html_body: نص الإيميل (نسخة HTML - اختياري)
-    
-    Returns:
-        bool: True إذا تم الإرسال بنجاح، False إذا فشل
+    ملاحظة: تم تحويلها إلى إرسال متزامن (synchronous) بدلاً من thread منفصل،
+    لأن الـ daemon thread كان يُقتل على Render قبل أن ينفّذ resend.Emails.send()
+    عندما يُعاد تدوير الـ worker مباشرة بعد إرسال الاستجابة — وهذا كان يفسر
+    عدم ظهور أي [EMAIL] أو [EMAIL ERROR] في اللوج رغم أن الكود يبدو صحيحاً.
     """
-    
-    def _send():
-        try:
-            params = {
-                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
-                "to": [to_email],
-                "subject": subject,
-                "text": body,
-            }
-            if html_body:
-                params["html"] = html_body
-            
-            resp = resend.Emails.send(params)
-            app.logger.info(f"[EMAIL] Sent to {to_email} | ID: {resp.get('id')}")
-            return True
-            
-        except Exception as e:
-            app.logger.error(f"[EMAIL ERROR] {to_email}: {str(e)}")
-            return False
-    
-    # إرسال في thread منفصل لعدم تأخير الاستجابة
-    import threading
-    threading.Thread(target=_send, daemon=True).start()
-    return True
+    try:
+        params = {
+            "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+            "to": [to_email],
+            "subject": subject,
+            "text": body,
+        }
+        if html_body:
+            params["html"] = html_body
+
+        resp = resend.Emails.send(params)
+        app.logger.info(f"[EMAIL] Sent to {to_email} | ID: {resp.get('id')}")
+        return True
+
+    except Exception as e:
+        app.logger.error(f"[EMAIL ERROR] {to_email}: {str(e)}")
+        return False
 
 
 def send_verification_email(user):
@@ -535,14 +523,14 @@ def login():
             flash('Invalid email or password.', 'danger')
             return redirect(url_for('login'))
 
-     
-        # التحقق من تأكيد البريد الإلكتروني
-
         # ✅ التحقق من أن الحساب مفعّل
+        # (تم إصلاح باگ الإزاحة هنا: كانت السطور التالية تنفذ دائماً
+        # بغض النظر عن حالة is_verified، مما كان يمنع أي مستخدم من تسجيل
+        # الدخول ويعيد إرسال إيميل التفعيل في كل مرة)
         if not user.is_verified:
-         flash('Please verify your email address before logging in. A new verification link has been sent to your email.', 'warning')
-        send_verification_email(user)  # إعادة إرسال رابط التفعيل
-        return redirect(url_for('login'))
+            flash('Please verify your email address before logging in. A new verification link has been sent to your email.', 'warning')
+            send_verification_email(user)  # إعادة إرسال رابط التفعيل
+            return redirect(url_for('login'))
 
         # تسجيل الدخول الناجح
         login_user(user, remember=remember)

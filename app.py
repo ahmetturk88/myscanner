@@ -604,17 +604,6 @@ def reset_password(token):
 
     return render_template('reset_password.html', token=token)
 
-@app.route('/debug-check-user/<email>')
-def debug_check_user(email):
-    users = User.query.filter_by(email=email.lower()).all()
-    data = []
-    for u in users:
-        data.append({
-            "id": u.id,
-            "email": u.email,
-            "hash_start": u.password_hash[:25]
-        })
-    return jsonify({"count": len(data), "users": data})
 
 @app.route('/profile')
 @login_required

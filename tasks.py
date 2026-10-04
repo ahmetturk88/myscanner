@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from celery import Celery
 from datetime import datetime
 import json
+from services.upload_validation import FILE_MAX_SIZE, remove_temporary_upload
 
 # إعداد Celery
 celery = Celery(
@@ -73,12 +74,13 @@ def scan_file_task(self, file_path, filename, user_id):
         from services.file_deep_analyzer import FileDeepAnalyzer
         
         with open(file_path, 'rb') as f:
-            file_content = f.read()
+            file_content = f.read(FILE_MAX_SIZE + 1)
+        if len(file_content) > FILE_MAX_SIZE:
+            raise ValueError('File too large for file scan')
         
         analyzer = FileDeepAnalyzer(use_exiftool=True)
         result = analyzer.comprehensive_analysis(file_content, filename)
         
-        os.remove(file_path)
         
         return {
             'status': 'completed',
@@ -87,6 +89,8 @@ def scan_file_task(self, file_path, filename, user_id):
         }
     except Exception as e:
         return {'status': 'failed', 'error': str(e)}
+    finally:
+        remove_temporary_upload(file_path)
 
 
 @celery.task(bind=True, name='batch_scan_task')
@@ -117,7 +121,6 @@ def scan_large_file_task(self, file_path, filename, user_id):
         analyzer = FileDeepAnalyzer()
         result = analyzer.analyze_large_file(file_path)
         
-        os.remove(file_path)
         
         return {
             'status': 'completed',
@@ -126,6 +129,8 @@ def scan_large_file_task(self, file_path, filename, user_id):
         }
     except Exception as e:
         return {'status': 'failed', 'error': str(e)}
+    finally:
+        remove_temporary_upload(file_path)
     
 
 # ================================================================

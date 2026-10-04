@@ -11,6 +11,7 @@ from datetime import datetime
 
 from services.hybrid_analysis import HybridAnalysisService
 from services.permissions import check_permission
+from services.upload_validation import read_validated_upload
 from logging_config import log_activity
 
 sandbox_bp = Blueprint('sandbox', __name__)
@@ -45,21 +46,9 @@ def sandbox_page():
 def api_sandbox_analyze_file():
     current_app.logger.info(f'[SANDBOX] File analysis requested by {current_user.username}')
 
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-
-    file = request.files['file']
-    if not file.filename:
-        return jsonify({'error': 'No file selected'}), 400
-
-    if not allowed_file(file.filename):
-        return jsonify({'error': f'File type not allowed'}), 400
-
-    file_content = file.read()
-    if len(file_content) > MAX_SIZE:
-        return jsonify({'error': f'File too large (max 32MB)'}), 400
-
-    filename = secure_filename(file.filename)
+    filename, file_content = read_validated_upload(
+        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_SIZE
+    )
     environment_id = request.form.get('environment_id', '300')
 
     try:

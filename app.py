@@ -49,6 +49,9 @@ from tasks import scan_file_task, scan_site_task, batch_scan_task
 from services.permissions import check_permission
 from models.async_scan_task import AsyncScanTask
 from services.task_dispatch import enqueue_owned_task
+from services.upload_validation import (UploadValidationError, read_validated_upload,
+    save_temporary_upload, remove_temporary_upload)
+from werkzeug.exceptions import RequestEntityTooLarge
 from datetime import datetime, timedelta, timezone
 from logging_config import log_activity
 from services.vulnerability_scanner.scan_orchestrator import get_orchestrator
@@ -80,6 +83,16 @@ csrf.init_app(app)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Allow a 32 MB Sandbox file plus bounded multipart overhead.
+app.config['MAX_CONTENT_LENGTH'] = 33 * 1024 * 1024
+
+@app.errorhandler(UploadValidationError)
+def invalid_upload(error):
+    return jsonify({'error': str(error)}), error.status_code
+
+@app.errorhandler(RequestEntityTooLarge)
+def oversized_request(error):
+    return jsonify({'error': 'Upload request too large.'}), 413
 
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
 ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY')
@@ -797,35 +810,11 @@ def api_scan_file():
     # ─────────────────────────────────────────────────────────────
     # التحقق من الملف
     # ─────────────────────────────────────────────────────────────
-    if 'file' not in request.files:
-        app.logger.warning(f'⚠️ No file provided by {current_user.username}')
-        return jsonify({"error": "No file provided"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        app.logger.warning(f'⚠️ Empty filename from {current_user.username}')
-        return jsonify({"error": "No file selected"}), 400
-    
-    if not allowed_file(file.filename):
-        app.logger.warning(f'⚠️ Unallowed file type: {file.filename}')
-        return jsonify({
-            "error": f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
-        }), 400
-    
-    # ─────────────────────────────────────────────────────────────
-    # قراءة الملف
-    # ─────────────────────────────────────────────────────────────
+    filename, file_content = read_validated_upload(
+        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
+    )
+    file_size = len(file_content)
     try:
-        file_content = file.read()
-        file_size = len(file_content)
-        
-        if file_size > MAX_FILE_SIZE:
-            app.logger.warning(f'⚠️ File too large: {file_size} bytes')
-            return jsonify({
-                "error": f"File too large. Max: {MAX_FILE_SIZE // 1024 // 1024} MB"
-            }), 400
-        
-        filename = secure_filename(file.filename)
         app.logger.info(f'📄 Processing file: {filename} ({file_size} bytes)')
         
         # ─────────────────────────────────────────────────────────────
@@ -865,17 +854,10 @@ def api_scan_file():
 @login_required
 def api_file_deep_analysis():
     """API للتحليل العميق للملفات مع exiftool"""
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-    
+    filename, file_content = read_validated_upload(
+        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
+    )
     try:
-        file_content = file.read()
-        filename = file.filename
-        
         # ✅ التعديل هنا: إضافة use_exiftool=True
         analyzer = FileDeepAnalyzer(use_exiftool=True)
         result = analyzer.comprehensive_analysis(file_content, filename)
@@ -898,23 +880,19 @@ def async_scan_file():
     بدء فحص ملف في الخلفية (غير متزامن)
     يعود فوراً بـ task_id لتتبع التقدم
     """
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-    
-    # حفظ الملف مؤقتاً
-    task_id = str(uuid.uuid4())
-    temp_path = os.path.join(UPLOAD_FOLDER, f"{task_id}_{file.filename}")
-    file.save(temp_path)
-    
-    # بدء المهمة في الخلفية
-    task_id = enqueue_owned_task(
-        scan_file_task, (temp_path, file.filename, current_user.id), current_user.id
+    filename, file_content = read_validated_upload(
+        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
     )
-    
+    temp_path = save_temporary_upload(file_content, filename, UPLOAD_FOLDER)
+    try:
+        task_id = enqueue_owned_task(
+            scan_file_task, (temp_path, filename, current_user.id), current_user.id
+        )
+    except Exception:
+        remove_temporary_upload(temp_path)
+        app.logger.exception('Failed to enqueue file scan')
+        return jsonify({'error': 'Unable to queue file scan. Please try again later.'}), 503
+
     return jsonify({
         "task_id": task_id,
         "status": "started",

@@ -1,4 +1,7 @@
-﻿instance/
+instance/
 __pycache__
 .env
 *.db
+
+# Runtime logs are generated locally and must not be committed.
+logs/

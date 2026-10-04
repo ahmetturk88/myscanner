@@ -48,6 +48,7 @@ import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task
 from services.permissions import check_permission
 from models.async_scan_task import AsyncScanTask
+from services.safe_http import PublicHTTPSession, UnsafeTargetError
 from services.task_dispatch import enqueue_owned_task
 from services.upload_validation import (UploadValidationError, read_validated_upload,
     save_temporary_upload, remove_temporary_upload)
@@ -85,6 +86,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///sit
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Allow a 32 MB Sandbox file plus bounded multipart overhead.
 app.config['MAX_CONTENT_LENGTH'] = 33 * 1024 * 1024
+
+@app.errorhandler(UnsafeTargetError)
+def unsafe_scan_target(error):
+    return jsonify({"error": str(error)}), 400
 
 @app.errorhandler(UploadValidationError)
 def invalid_upload(error):
@@ -1419,6 +1424,8 @@ def api_site_scan():
         
         return jsonify(result)
         
+    except UnsafeTargetError:
+        raise
     except Exception as e:
         app.logger.error(f'[ERROR] Site scan failed for {domain}: {str(e)}')
         import traceback
@@ -1555,6 +1562,8 @@ def api_scan_subdomain():
             "source": "url.vet + local_analysis"
         })
         
+    except UnsafeTargetError:
+        raise
     except Exception as e:
         app.logger.error(f'❌ Subdomain scan failed for {domain}: {e}')
         return jsonify({"verdict": "unknown", "error": str(e)}), 500    
@@ -1736,6 +1745,8 @@ def api_scan_qr_url():
 
         return jsonify(result)
 
+    except UnsafeTargetError:
+        raise
     except Exception as e:
         app.logger.error(f'[ERROR] QR scan failed for {url[:100]}: {str(e)}')
         import traceback
@@ -1827,7 +1838,8 @@ def api_url_analysis(scan_id):
     
     # جمع الـ cookies
     try:
-        resp = requests.get(url, timeout=15, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+        with PublicHTTPSession() as target_session:
+            resp = target_session.get(url, timeout=15, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
         for r in resp.history:
             analysis["redirect_chain"].append({"url": r.url, "status_code": r.status_code})
         analysis["final_url"] = resp.url
@@ -1838,6 +1850,8 @@ def api_url_analysis(scan_id):
                 "secure": bool(cookie.secure),
                 "domain": cookie.domain or 'N/A'
             })
+    except UnsafeTargetError:
+        raise
     except:
         pass
     
@@ -1851,6 +1865,8 @@ def api_url_analysis(scan_id):
                 "created": (w.get("createdDate") or "N/A")[:10],
                 "expires": (w.get("expiresDate") or "N/A")[:10],
             }
+    except UnsafeTargetError:
+        raise
     except:
         pass
     
@@ -1861,6 +1877,8 @@ def api_url_analysis(scan_id):
             g = geo_resp.json()
             if g.get("status") != "fail":
                 analysis["geo"] = {"lat": g.get("lat"), "lon": g.get("lon"), "city": g.get("city", ""), "country": g.get("country", "")}
+    except UnsafeTargetError:
+        raise
     except:
         pass
     
@@ -1868,6 +1886,8 @@ def api_url_analysis(scan_id):
     try:
         history = Scan.query.filter(Scan.url.contains(domain)).order_by(Scan.date_posted.desc()).limit(10).all()
         analysis["history_scans"] = [{"id": s.id, "verdict": s.verdict, "date": s.date_posted.strftime("%Y-%m-%d")} for s in history]
+    except UnsafeTargetError:
+        raise
     except:
         pass
     
@@ -1892,6 +1912,8 @@ def api_url_analyze():
         analyzer = URLDeepAnalyzer()
         result = analyzer.comprehensive_analysis(url)
         return jsonify(result)
+    except UnsafeTargetError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

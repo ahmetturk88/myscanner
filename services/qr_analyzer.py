@@ -5,6 +5,7 @@
 # =================================================================
 
 import logging
+from services.safe_http import UnsafeTargetError
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,8 @@ class QRAnalyzer:
             logger.info(f"✅ QR URL scan completed | Verdict: {verdict}")
             return result
             
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"❌ Error scanning QR URL: {str(e)}")
             import traceback

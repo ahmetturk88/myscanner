@@ -11,6 +11,7 @@ from datetime import datetime
 
 from services.hybrid_analysis import HybridAnalysisService
 from services.permissions import check_permission
+from services.safe_http import UnsafeTargetError
 from services.upload_validation import read_validated_upload
 from logging_config import log_activity
 
@@ -156,5 +157,7 @@ def api_sandbox_analyze_url():
         log_activity(current_user.username, 'url_analyzer', f'[SANDBOX] URL: {url[:80]}')
         return jsonify(final)
 
+    except UnsafeTargetError:
+        raise
     except Exception as e:
         return jsonify({'error': str(e)}), 500

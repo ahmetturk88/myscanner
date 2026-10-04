@@ -579,7 +579,7 @@
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
       <div>
         <h1><i class="fas fa-flask"></i> Sandbox <span>Analyzer</span></h1>
-        <p>Behavioral Analysis Engine · Hybrid Analysis + VirusTotal + Static Analysis</p>
+        <p>Behavioral Analysis Engine · Hybrid Analysis + MalwareBazaar + Static Analysis</p>
       </div>
       <div>
         <span class="badge-live">
@@ -676,7 +676,7 @@
         <span>🔍</span> LOOKUP
       </button>
     </div>
-    <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted);">Searches Hybrid Analysis + VirusTotal databases instantly — no file upload required.</div>
+    <div style="font-family: var(--mono); font-size: 0.7rem; color: var(--muted);">Searches Hybrid Analysis + MalwareBazaar databases instantly — no file upload required.</div>
   </div>
 
   <!-- Tab: URL -->
@@ -718,7 +718,7 @@
       <div class="progress-step active" id="step1" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">1</div><span>Calculating file hashes</span></div>
       <div class="progress-step" id="step2" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">2</div><span>Static analysis (local)</span></div>
       <div class="progress-step" id="step3" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">3</div><span>Submitting to Hybrid Analysis</span></div>
-      <div class="progress-step" id="step4" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">4</div><span>VirusTotal engine scan</span></div>
+      <div class="progress-step" id="step4" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">4</div><span>MalwareBazaar engine scan</span></div>
       <div class="progress-step" id="step5" style="display: flex; align-items: center; gap: 12px;"><div class="step-icon" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center;">5</div><span>Behavioral report generation</span></div>
     </div>
   </div>
@@ -752,9 +752,9 @@
       <div class="section-body"><div class="hash-block" id="hashBlock">—</div></div>
     </div>
 
-    <div class="sandbox-section" id="secVT">
-      <div class="section-header" onclick="toggleSection('secVT')">
-        <span>🦠</span> <span class="section-title">VirusTotal Detections</span>
+    <div class="sandbox-section" id="secMB">
+      <div class="section-header" onclick="toggleSection('secMB')">
+        <span>🦠</span> <span class="section-title">MalwareBazaar Detections</span>
         <span class="section-count" id="vtCount" style="margin-left: auto; margin-right: 0.5rem;">0</span> <span class="section-chevron">▼</span>
       </div>
       <div class="section-body" id="vtBody">—</div>
@@ -914,7 +914,7 @@ async function lookupHash() {
 
   showProgress('HASH');
   document.getElementById('progressTitle').textContent = 'Searching Threat Databases...';
-  document.getElementById('progressSub').textContent = 'Querying Hybrid Analysis + VirusTotal';
+  document.getElementById('progressSub').textContent = 'Querying Hybrid Analysis + MalwareBazaar';
 
   try {
     const resp = await fetch('/api/sandbox/hash-lookup', {
@@ -936,34 +936,44 @@ async function lookupHash() {
 
 function buildFromHashLookup(data, hash) {
   const ha = data.ha || {};
-  const vt = data.vt || {};
-  const vtAttrs = vt.attributes || {};
-  const vtStats = vtAttrs.last_analysis_stats || {};
-
-  const malicious = vtStats.malicious || 0;
-  const suspicious = vtStats.suspicious || 0;
-  const total = Object.values(vtStats).reduce((a,b) => a+b, 0);
+  const mb = data.mb || {};
 
   let verdict = ha.verdict || 'unknown';
-  if (malicious >= 5) verdict = 'malicious';
-  else if (malicious >= 2 || suspicious >= 5) verdict = 'suspicious';
+  if (mb.is_malicious) verdict = 'malicious';
+  else if (verdict === 'unknown' && mb.found) verdict = 'suspicious';
+
+  // بناء detections من MalwareBazaar
+  const mbDetections = [];
+  if (mb.is_malicious && mb.signature) {
+    mbDetections.push({ engine: 'MalwareBazaar Signature', result: mb.signature, category: 'malicious' });
+  }
+  (mb.tags || []).forEach(tag => {
+    mbDetections.push({ engine: 'MalwareBazaar Tag', result: tag, category: 'suspicious' });
+  });
 
   return {
-    sha256: hash.length === 64 ? hash : (vtAttrs.sha256 || hash),
-    md5: vtAttrs.md5 || (hash.length === 32 ? hash : '—'),
-    sha1: vtAttrs.sha1 || (hash.length === 40 ? hash : '—'),
-    filename: vtAttrs.meaningful_name || ha.submit_name || 'Unknown',
-    file_size: vtAttrs.size || 0,
+    sha256: hash.length === 64 ? hash : (mb.hash || hash),
+    md5: hash.length === 32 ? hash : '—',
+    sha1: hash.length === 40 ? hash : '—',
+    filename: mb.file_name || ha.submit_name || 'Unknown',
+    file_size: 0,
     verdict,
-    threat_score: ha.threat_score || (malicious / (total || 1) * 100),
+    threat_score: ha.threat_score || (mb.is_malicious ? 100 : 0),
     environment: ha.environment_description || 'Hash Lookup',
     from_cache: true,
-    sources: { hash_lookup: 'found', virustotal: total > 0 ? 'completed' : undefined },
-    vt_stats: { malicious, suspicious, harmless: vtStats.harmless || 0, undetected: vtStats.undetected || 0, total, detection_rate: total > 0 ? ((malicious+suspicious)/total*100).toFixed(1) : 0 },
-    vt_detections: Object.entries(vtAttrs.last_analysis_results || {})
-      .filter(([,v]) => ['malicious','suspicious'].includes(v.category))
-      .map(([engine, v]) => ({ engine, result: v.result, category: v.category }))
-      .slice(0, 20),
+    sources: { hash_lookup: 'found', malwarebazaar: mb.found ? 'found' : 'not_found' },
+    mb_data: {
+      found: mb.found || false,
+      is_malicious: mb.is_malicious || false,
+      signature: mb.signature || null,
+      file_type: mb.file_type || null,
+      file_name: mb.file_name || null,
+      tags: mb.tags || [],
+      first_seen: mb.first_seen || null,
+      last_seen: mb.last_seen || null,
+      reporter: mb.reporter || null,
+    },
+    vt_detections: mbDetections,
     behavior: ha.behavior || {},
     network: { domains: ha.domains || [], hosts: ha.hosts || [], http_requests: ha.http_requests || [] },
     signatures: ha.signatures || [],
@@ -1032,19 +1042,19 @@ function renderResults(data) {
   sc.style.color = score >= 70 ? '#ff4560' : (score >= 40 ? '#ffd32a' : '#00e676');
   document.getElementById('scoreNum').textContent = score + '%';
 
-  const srcLabels = { hash_lookup: '🔍 HASH LOOKUP', hybrid_analysis: '🧬 HYBRID ANALYSIS', virustotal: '🦠 VIRUSTOTAL' };
+  const srcLabels = { hash_lookup: '🔍 HASH LOOKUP', hybrid_analysis: '🧬 HYBRID ANALYSIS', malwarebazaar: '🦠 MALWAREBAZAAR' };
   const srcRow = document.getElementById('sourcesRow');
   srcRow.innerHTML = '';
   Object.entries(data.sources || {}).forEach(([src, status]) => {
     srcRow.innerHTML += `<span style="font-family: monospace; font-size: 0.7rem; padding: 0.25rem 0.75rem; border-radius: 20px; border: 1px solid #00c8ff;">${srcLabels[src] || src} · ${status}</span>`;
   });
 
-  const vts = data.vt_stats;
+  const mbData = data.mb_data || {};
   const statsRow = document.getElementById('statsRow');
   statsRow.innerHTML = '';
-  if (vts) {
-    statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">VT MALICIOUS</div><div class="stat-value">${vts.malicious}</div></div>`;
-    statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">DETECTION RATE</div><div class="stat-value">${vts.detection_rate}%</div></div>`;
+  if (mbData.found !== undefined) {
+    statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">MALWAREBAZAAR</div><div class="stat-value">${mbData.is_malicious ? 'YES' : 'NO'}</div></div>`;
+    statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">SIGNATURE</div><div class="stat-value" style="font-size: 0.9rem;">${escapeHtml(mbData.signature || 'N/A')}</div></div>`;
   }
   statsRow.innerHTML += `<div class="stat-card"><div class="stat-label">THREAT SCORE</div><div class="stat-value">${score}%</div></div>`;
 
@@ -1057,9 +1067,9 @@ function renderResults(data) {
   const dets = data.vt_detections || [];
   document.getElementById('vtCount').textContent = dets.length;
   if (dets.length === 0) {
-    document.getElementById('vtBody').innerHTML = '<div class="empty-state">No detections from VirusTotal engines</div>';
+    document.getElementById('vtBody').innerHTML = '<div class="empty-state">No detections from MalwareBazaar</div>';
   } else {
-    document.getElementById('vtBody').innerHTML = `<table class="detection-table"><thead><tr><th>ENGINE</th><th>RESULT</th></tr></thead><tbody>${dets.map(d => `<tr><td class="det-engine">${escapeHtml(d.engine)}</td><td class="det-result">${escapeHtml(d.result || '—')}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('vtBody').innerHTML = `<table class="detection-table"><thead><tr><th>SOURCE</th><th>RESULT</th></tr></thead><tbody>${dets.map(d => `<tr><td class="det-engine">${escapeHtml(d.engine)}</td><td class="det-result">${escapeHtml(d.result || '—')}</td></tr>`).join('')}</tbody></table>`;
   }
 
   const beh = data.behavior || {};

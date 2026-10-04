@@ -1,10 +1,10 @@
 {
   "url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
-  "cached_at": "2026-05-22T00:05:38.468288",
+  "cached_at": "2026-10-03T17:06:12.324343",
   "result": {
     "url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
     "domain": "www.youtube.com",
-    "timestamp": "2026-05-22T00:05:32.178738",
+    "timestamp": "2026-10-03T17:06:05.414345",
     "from_cache": false,
     "page_content": {
       "title": "Nassif Zeytoun x Mortadha Ftiti - Ya Sidi Ensa (2024) / ناصيف زيتون ومرتضى فتيتي - يا سيدي انسى - YouTube",
@@ -31,16 +31,16 @@
         "https://www.youtube.com/new"
       ],
       "scripts": [
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/web-animations-next-lite.min.vflset/web-animations-next-lite.min.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/webcomponents-all-noPatch.vflset/webcomponents-all-noPatch.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/fetch-polyfill.vflset/fetch-polyfill.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/intersection-observer.min.vflset/intersection-observer.min.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/scheduler.vflset/scheduler.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/www-i18n-constants-tr_TR.vflset/www-i18n-constants.js",
-        "/s/player/c2f7551f/player_ias.vflset/tr_TR/base.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/spf.vflset/spf.js",
-        "https://www.youtube.com/s/desktop/5af4fee3/jsbin/network.vflset/network.js",
-        "https://www.youtube.com/s/_/ytmainappweb/_/js/k=ytmainappweb.kevlar_base.en_US.V8hdYT03Ezk.es5.O/am=AAAAACAAEAAk/d=1/rs=AGKMywERhN8DDN_zEvLZH9qtSE6j5hE8uQ/m=kevlar_base_module,kevlar_main_module,kevlar_base_sync_mod_chunk"
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/web-animations-next-lite.min.vflset/web-animations-next-lite.min.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/webcomponents-all-noPatch.vflset/webcomponents-all-noPatch.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/fetch-polyfill.vflset/fetch-polyfill.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/intersection-observer.min.vflset/intersection-observer.min.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/scheduler.vflset/scheduler.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/www-i18n-constants-tr_TR.vflset/www-i18n-constants.js",
+        "/s/player/8ab5c328/player_ias.vflset/tr_TR/base.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/spf.vflset/spf.js",
+        "https://www.youtube.com/s/desktop/85a3164d/jsbin/network.vflset/network.js",
+        "https://www.youtube.com/s/_/ytmainappweb/_/js/k=ytmainappweb.kevlar_base.en_US.QoIJCn4IPpA.es5.O/am=AAAAIAAAEICU/d=1/rs=AGKMywHMFm7XvOdvHO3cTSu7TMRFeF-V4Q/m=kevlar_base_module,kevlar_main_module,kevlar_base_sync_mod_chunk"
       ],
       "suspicious_keywords_found": [],
       "has_login_form": false,
@@ -59,7 +59,7 @@
     },
     "whois": {
       "domain": "www.youtube.com",
-      "age_days": 7765,
+      "age_days": 7900,
       "creation_date": "2005-02-15",
       "expiration_date": "2027-02-15",
       "registrar": "MarkMonitor, Inc.",
@@ -100,33 +100,29 @@
       "issuer": "Google Trust Services",
       "tls_version": "TLSv1.3",
       "grade": "B",
-      "valid_from": "2026-05-07",
-      "valid_until": "2026-07-30"
+      "valid_from": "2026-09-18",
+      "valid_until": "2026-12-11"
     },
     "dns": {
       "a_records": [
-        "172.217.22.238",
-        "172.217.21.206",
-        "172.217.21.238",
-        "172.217.20.78",
-        "172.217.18.174",
-        "142.251.142.110",
-        "172.217.171.78",
-        "172.217.20.206",
-        "172.217.16.142",
-        "192.178.24.78",
-        "172.217.23.142",
-        "192.178.25.238",
-        "216.58.204.110",
-        "192.178.24.46",
-        "142.251.208.110",
-        "142.251.38.238"
+        "142.251.154.4",
+        "142.251.151.4",
+        "142.251.155.4",
+        "142.251.150.4",
+        "142.251.153.4",
+        "142.251.157.4",
+        "142.251.152.4",
+        "142.251.156.4"
       ],
       "aaaa_records": [
-        "2a00:1450:4017:81a::200e",
-        "2a00:1450:4017:812::200e",
-        "2a00:1450:4017:822::200e",
-        "2a00:1450:4017:81d::200e"
+        "2001:4860:482a:400::",
+        "2001:4860:4827:400::",
+        "2001:4860:4826:400::",
+        "2001:4860:4829:400::",
+        "2001:4860:482d:400::",
+        "2001:4860:482b:400::",
+        "2001:4860:482c:400::",
+        "2001:4860:4828:400::"
       ],
       "mx_records": [],
       "ns_records": [],
@@ -147,6 +143,107 @@
       "grade": "A",
       "recommendations": []
     },
+    "urlvet": {
+      "source": "url.vet",
+      "url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+      "verdict": "harmless",
+      "verdict_raw": "Safe",
+      "trust_score": 100,
+      "final_score": 100,
+      "risk_score": 0,
+      "red_flags": [],
+      "green_flags": [
+        "Global Giant: Ranked #9 worldwide.",
+        "Enforces strict HTTPS security (HSTS Enabled).",
+        "Long-standing domain history (21 years 8 months)."
+      ],
+      "neutral_reasons": [
+        "Standard, officially recognized domain extension.",
+        "Standard DNS security (DNSSEC not enabled)."
+      ],
+      "domain_info": {
+        "registrar": "MarkMonitor Inc.",
+        "created": "2005-02-15T05:13:12Z",
+        "expiry": "2027-02-15T05:13:12Z",
+        "age_human": "21 years 8 months",
+        "age_days": 7900,
+        "dnssec": false,
+        "nameservers": [
+          "NS1.GOOGLE.COM",
+          "NS2.GOOGLE.COM",
+          "NS3.GOOGLE.COM",
+          "NS4.GOOGLE.COM"
+        ]
+      },
+      "ssl_info": {
+        "has_tls": true,
+        "chain_valid": true,
+        "issuer": "WE2",
+        "not_after": "2026-12-11T20:00:18Z",
+        "is_suspicious": false,
+        "reasons": []
+      },
+      "infrastructure": {
+        "ip_addresses": [
+          "172.217.21.206"
+        ],
+        "nameservers_valid": true,
+        "ns_hosts": [
+          "ns3.google.com."
+        ]
+      },
+      "analysis": {
+        "is_redirected": false,
+        "chain_length": 1,
+        "final_url": "https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+        "http_status": 200,
+        "hsts_supported": true
+      },
+      "phishing": {
+        "in_database": false,
+        "verified": false,
+        "target": "",
+        "source": "phishtank"
+      },
+      "typosquatting": {
+        "is_suspicious": false
+      },
+      "domain_randomness": {
+        "entropy": 2.5216406363433186,
+        "is_suspicious": false,
+        "reasons": []
+      },
+      "url_features": {
+        "url_shortener": false,
+        "uses_ip": false,
+        "contains_punycode": false,
+        "too_long": false,
+        "too_deep": false,
+        "has_homoglyph": false,
+        "subdomain_count": 1,
+        "has_keywords": false,
+        "keywords_found": []
+      },
+      "tld_info": {
+        "tld": "com",
+        "is_trusted": false,
+        "is_risky": false,
+        "is_icann": true
+      },
+      "content": {
+        "title": "Nassif Zeytoun x Mortadha Ftiti - Ya Sidi Ensa (2024) / ناصيف زيتون ومرتضى فتيتي - يا سيدي انسى - YouTube",
+        "has_forms": false,
+        "has_login_form": false,
+        "has_payment_form": false,
+        "has_hidden_iframe": false,
+        "brand_found": "",
+        "brand_mismatch": false
+      },
+      "screenshot": "http://localhost:8080/api/v1/screenshot?url=https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4",
+      "incomplete": false,
+      "errors": [],
+      "analyzed_at": "2026-10-03T14:06:12.322139"
+    },
     "overall_risk_score": 0,
     "verdict": "safe",
     "verdict_icon": "✅",
@@ -156,7 +253,9 @@
       "message": "No significant threats detected. URL appears safe."
     },
     "recommendations": [
-      "✅ No threats detected - URL appears safe to visit"
+      "✅ Global Giant: Ranked #9 worldwide.",
+      "✅ Enforces strict HTTPS security (HSTS Enabled).",
+      "✅ Long-standing domain history (21 years 8 months)."
     ]
   }
 }

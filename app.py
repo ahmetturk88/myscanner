@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, PageBreak
 from reportlab.lib.units import cm
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -54,6 +54,8 @@ from services.vulnerability_scanner.report_generator import get_report_generator
 from models.vulnerability import VulnerabilityScan, Vulnerability, ScanConfig
 import resend
 from typing import Optional
+from services.pdf_report_generator import generate_vulnerability_report
+
 load_dotenv()
 
 # ================================================================
@@ -77,7 +79,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-API_KEY = os.getenv('VIRUSTOTAL_API_KEY')
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
 ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY')
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
@@ -301,75 +302,82 @@ info@myscanners.com
 # Database Models
 # ================================================================
 
+
 # ================================================================
-# VirusTotal Logic
+# URL Scan in Background - الإصدار الجديد (بدون VirusTotal)
+# يستخدم: URLDeepAnalyzer + url.vet
 # ================================================================
-
-def perform_virustotal_scan(url, api_key):
-    headers = {"x-apikey": api_key}
-    try:
-        resp = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data={"url": url})
-        if resp.status_code not in (200, 201):
-            return {"error": f"Submission failed (HTTP {resp.status_code})"}
-        url_id     = resp.json()["data"]["id"]
-        report_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Network error: {str(e)}"}
-
-    for _ in range(20):
-        try:
-            r      = requests.get(report_url, headers=headers)
-            report = r.json()
-            if report["data"]["attributes"].get("status") == "completed":
-                break
-            time.sleep(3)
-        except requests.exceptions.RequestException as e:
-            return {"error": f"Polling error: {str(e)}"}
-    else:
-        return {"error": "Scan timeout."}
-
-    stats      = report["data"]["attributes"].get("stats", {})
-    malicious  = stats.get("malicious", 0)
-    suspicious = stats.get("suspicious", 0)
-    harmless   = stats.get("harmless", 0)
-
-    if malicious > 0:
-        verdict = "malicious"
-    elif suspicious > 0:
-        verdict = "suspicious"
-    elif harmless > 0:
-        verdict = "harmless"
-    else:
-        verdict = "unknown"
-
-    return {"verdict": verdict, "raw_report": report}
-
 
 def scan_in_background(scan_id, url):
+    """
+    فحص URL في الخلفية باستخدام url.vet + التحليل المحلي
+    (بدلاً من VirusTotal)
+    """
+    from services.url_analyzer import URLDeepAnalyzer
+    
     with app.app_context():
         s = db.session.get(Scan, scan_id)
         if not s:
             return
         s.status = 'running'
         db.session.commit()
-
-    res = perform_virustotal_scan(url, API_KEY)
-
-    with app.app_context():
-        s = db.session.get(Scan, scan_id)
-        if not s:
-            return
-        if "error" in res:
-            s.status     = 'error'
-            s.verdict    = 'error'
-            s.result     = f"<p>❌ {res['error']}</p>"
-            s.raw_report = json.dumps(res)
-        else:
-            s.status     = 'completed'
-            s.verdict    = res['verdict']
-            s.result     = f"<p>Verdict: {res['verdict']}</p>"
-            s.raw_report = json.dumps(res['raw_report'])
-        db.session.commit()
+    
+    try:
+        # ─────────────────────────────────────────────────────────────
+        # التحليل الكامل (url.vet + المحلي)
+        # ─────────────────────────────────────────────────────────────
+        analyzer = URLDeepAnalyzer()
+        
+        # التحليل السريع
+        analysis = analyzer.comprehensive_analysis(url)
+        
+        # التحليل العميق
+        deep_analysis = analyzer.comprehensive_deep_analysis(url)
+        
+        # ─────────────────────────────────────────────────────────────
+        # استخراج الـ verdict
+        # ─────────────────────────────────────────────────────────────
+        urlvet = analysis.get('urlvet', {}) or {}
+        verdict = urlvet.get('verdict', 'unknown')
+        
+        # دمج النتائج في raw_report
+        raw_report = {
+            'urlvet': urlvet,
+            'local_analysis': analysis,
+            'deep_analysis': deep_analysis,
+            'scanned_at': datetime.utcnow().isoformat(),
+            'sources': ['url.vet', 'local_analysis']
+        }
+        
+        # ─────────────────────────────────────────────────────────────
+        # حفظ النتائج في قاعدة البيانات
+        # ─────────────────────────────────────────────────────────────
+        with app.app_context():
+            s = db.session.get(Scan, scan_id)
+            if not s:
+                return
+            
+            s.status = 'completed'
+            s.verdict = verdict
+            s.result = f"<p>Verdict: {verdict}</p>"
+            s.raw_report = json.dumps(raw_report)
+            db.session.commit()
+            
+            app.logger.info(f'✅ Background scan completed for {url} | Verdict: {verdict}')
+            
+    except Exception as e:
+        app.logger.error(f'❌ Background scan failed for {url}: {e}')
+        import traceback
+        traceback.print_exc()
+        
+        with app.app_context():
+            s = db.session.get(Scan, scan_id)
+            if s:
+                s.status = 'error'
+                s.verdict = 'error'
+                s.result = f"<p>❌ {str(e)}</p>"
+                s.raw_report = json.dumps({'error': str(e)})
+                db.session.commit()
 
 
 from routes.tip_routes import tip_bp
@@ -771,113 +779,82 @@ def api_bulk_email_check():
 # File Scanner API
 # ================================================================
 
+# ================================================================
+# File Scanner API - الإصدار الجديد (بدون VirusTotal)
+# ================================================================
+
+from services.file_threat_intel import get_file_threat_intel
+
 @app.route('/api/scan-file', methods=['POST'])
 @login_required
 @check_permission('file_scan')
 def api_scan_file():
-    """API الموحد لفحص الملفات (VirusTotal + التحليل العميق)"""
+    """
+    API الموحد لفحص الملفات
+    يستخدم: FileDeepAnalyzer + MalwareBazaar (بدلاً من VirusTotal)
+    """
     
-    app.logger.info(f'[INFO] File scan requested by {current_user.username}')
+    app.logger.info(f'📁 File scan requested by {current_user.username}')
     
+    # ─────────────────────────────────────────────────────────────
+    # التحقق من الملف
+    # ─────────────────────────────────────────────────────────────
     if 'file' not in request.files:
-        app.logger.warning(f'[WARNING] No file provided by {current_user.username}')
+        app.logger.warning(f'⚠️ No file provided by {current_user.username}')
         return jsonify({"error": "No file provided"}), 400
     
     file = request.files['file']
     if file.filename == '':
-        app.logger.warning(f'[WARNING] Empty filename from {current_user.username}')
+        app.logger.warning(f'⚠️ Empty filename from {current_user.username}')
         return jsonify({"error": "No file selected"}), 400
     
     if not allowed_file(file.filename):
-        app.logger.warning(f'[WARNING] Unallowed file type: {file.filename} by {current_user.username}')
-        return jsonify({"error": f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
+        app.logger.warning(f'⚠️ Unallowed file type: {file.filename}')
+        return jsonify({
+            "error": f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        }), 400
     
+    # ─────────────────────────────────────────────────────────────
+    # قراءة الملف
+    # ─────────────────────────────────────────────────────────────
     try:
         file_content = file.read()
         file_size = len(file_content)
         
         if file_size > MAX_FILE_SIZE:
-            app.logger.warning(f'[WARNING] File too large: {file_size} bytes by {current_user.username}')
-            return jsonify({"error": f"File too large. Max: {MAX_FILE_SIZE // 1024 // 1024} MB"}), 400
+            app.logger.warning(f'⚠️ File too large: {file_size} bytes')
+            return jsonify({
+                "error": f"File too large. Max: {MAX_FILE_SIZE // 1024 // 1024} MB"
+            }), 400
         
         filename = secure_filename(file.filename)
-        app.logger.info(f'[INFO] Processing file: {filename} ({file_size} bytes) by {current_user.username}')
+        app.logger.info(f'📄 Processing file: {filename} ({file_size} bytes)')
         
-        # 1. التحليل العميق المحلي
-        analyzer = FileDeepAnalyzer(use_exiftool=True)
-        deep_result = analyzer.comprehensive_analysis(file_content, filename)
+        # ─────────────────────────────────────────────────────────────
+        # الفحص الشامل (بدون VirusTotal)
+        # ─────────────────────────────────────────────────────────────
+        scanner = get_file_threat_intel()
+        result = scanner.comprehensive_file_scan(file_content, filename)
         
-        # 2. تحليل VirusTotal
-        vt_result = {"verdict": "unknown", "stats": {}, "threats": []}
-        if API_KEY:
-            try:
-                headers = {"x-apikey": API_KEY}
-                files = {'file': (filename, file_content)}
-                upload_resp = requests.post("https://www.virustotal.com/api/v3/files", headers=headers, files=files, timeout=30)
-                
-                if upload_resp.status_code in (200, 201):
-                    analysis_id = upload_resp.json().get("data", {}).get("id", "")
-                    analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
-                    
-                    for _ in range(20):
-                        time.sleep(2)
-                        analysis_resp = requests.get(analysis_url, headers=headers, timeout=30)
-                        if analysis_resp.status_code == 200:
-                            analysis_data = analysis_resp.json()
-                            if analysis_data.get("data", {}).get("attributes", {}).get("status") == "completed":
-                                attr = analysis_data["data"]["attributes"]
-                                stats = attr.get("stats", {})
-                                results = attr.get("results", {})
-                                
-                                malicious = stats.get("malicious", 0)
-                                suspicious = stats.get("suspicious", 0)
-                                total_engines = sum(stats.values())
-                                
-                                threats = []
-                                for engine, data in results.items():
-                                    if data.get("category") in ("malicious", "suspicious"):
-                                        threats.append({"engine": engine, "result": data.get("result"), "category": data.get("category")})
-                                
-                                vt_result = {
-                                    "verdict": "malicious" if malicious > 0 else "suspicious" if suspicious > 0 else "clean",
-                                    "malicious": malicious,
-                                    "suspicious": suspicious,
-                                    "harmless": stats.get("harmless", 0),
-                                    "undetected": stats.get("undetected", 0),
-                                    "total_engines": total_engines,
-                                    "detection_rate": round((malicious + suspicious) / total_engines * 100, 2) if total_engines > 0 else 0,
-                                    "threats": threats[:20]
-                                }
-                                break
-            except Exception as e:
-                vt_result["error"] = str(e)
+        # ─────────────────────────────────────────────────────────────
+        # تسجيل النشاط
+        # ─────────────────────────────────────────────────────────────
+        app.logger.info(
+            f'✅ File scan completed for {filename} | '
+            f'Verdict: {result["verdict"]} | '
+            f'Score: {result["security_score"]}/100'
+        )
         
-        # دمج النتائج
-        deep_result["virustotal"] = vt_result
+        log_activity(
+            current_user.username,
+            'file_scan',
+            f'Scanned file: {filename} | Verdict: {result["verdict"]}'
+        )
         
-        # تحديث درجة الأمان بناءً على VT
-        if vt_result.get("verdict") == "malicious":
-            deep_result["security_score"] = max(0, deep_result["security_score"] - 50)
-        elif vt_result.get("verdict") == "suspicious":
-            deep_result["security_score"] = max(0, deep_result["security_score"] - 25)
-            
-        # تحديث الحكم النهائي بناءً على النتيجة الجديدة
-        score = deep_result["security_score"]
-        if score >= 80:
-            deep_result["verdict"] = "safe"
-        elif score >= 60:
-            deep_result["verdict"] = "suspicious"
-        elif score >= 30:
-            deep_result["verdict"] = "high_risk"
-        else:
-            deep_result["verdict"] = "malicious"
-        
-        app.logger.info(f'[SUCCESS] File scan completed for {filename} | Score: {deep_result["security_score"]} | Verdict: {deep_result["verdict"]}')
-        log_activity(current_user.username, 'file_scan', f'Scanned file: {filename} | Verdict: {deep_result.get("verdict")}')
-        return jsonify(deep_result)
+        return jsonify(result)
         
     except Exception as e:
-        app.logger.error(f'[ERROR] File scan failed for {current_user.username}: {str(e)}')
+        app.logger.error(f'❌ File scan failed: {str(e)}')
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Scan error: {str(e)}"}), 500
@@ -1390,9 +1367,14 @@ from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
+# ================================================================
+# PDF Report
+# ================================================================
+
 @app.route('/report/pdf/<int:scan_id>')
 @login_required
 def download_pdf(scan_id):
+    """تحميل تقرير PDF احترافي"""
     scan = db.session.get(Scan, scan_id)
     if not scan:
         flash('Scan not found.', 'danger')
@@ -1400,132 +1382,20 @@ def download_pdf(scan_id):
     if scan.user_id != current_user.id and not current_user.is_admin:
         flash('Access denied.', 'danger')
         return redirect(url_for('dashboard'))
-
-    raw = {}
-    try:
-        if scan.raw_report:
-            raw = json.loads(scan.raw_report)
-    except:
-        pass
-
-    stats = raw.get('data', {}).get('attributes', {}).get('stats', {})
-    results = raw.get('data', {}).get('attributes', {}).get('results', {})
-    h = stats.get('harmless', 0)
-    m = stats.get('malicious', 0)
-    sus = stats.get('suspicious', 0)
-    u = stats.get('undetected', 0)
-    total = h + m + sus + u
-    risk = round(((m * 3 + sus * 2) / (total * 3)) * 100) if total > 0 else 0
-
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=1.5*cm, allowSplitting=1)
-    elements = []
-
-    accent = colors.HexColor('#00c8ff')
-    dark_bg = colors.HexColor('#0a0a14')
-    card_bg = colors.HexColor('#141425')
-    green = colors.HexColor('#00e676')
-    red = colors.HexColor('#ff4560')
-    yellow = colors.HexColor('#ffd32a')
-    white = colors.HexColor('#dde0f0')
-    muted = colors.HexColor('#6a6a90')
-    border = colors.HexColor('#2a2a45')
-
-    title_style = ParagraphStyle('title', fontSize=26, fontName='Helvetica-Bold', textColor=accent, alignment=TA_CENTER, spaceAfter=4)
-    sub_style = ParagraphStyle('sub', fontSize=10, fontName='Helvetica', textColor=muted, alignment=TA_CENTER, spaceAfter=16)
-    section_style = ParagraphStyle('sec', fontSize=12, fontName='Helvetica-Bold', textColor=accent, spaceBefore=20, spaceAfter=10, alignment=TA_LEFT)
-    text_style = ParagraphStyle('txt', fontSize=9, fontName='Helvetica', textColor=white, leading=14)
-    small_style = ParagraphStyle('sm', fontSize=8, fontName='Courier', textColor=white)
-    tiny_style = ParagraphStyle('ty', fontSize=7, fontName='Courier', textColor=muted)
-    footer_style = ParagraphStyle('ft', fontSize=7, fontName='Helvetica', textColor=muted, alignment=TA_CENTER)
-    verdict_style = ParagraphStyle('v', fontSize=16, fontName='Helvetica-Bold', alignment=TA_CENTER, spaceAfter=12)
-    score_style = ParagraphStyle('score', fontSize=12, fontName='Helvetica', textColor=muted, alignment=TA_CENTER, spaceAfter=16)
-
-    elements.append(Spacer(1, 10))
-    elements.append(Paragraph('🛡️ MyScanner', title_style))
-    elements.append(Paragraph('Security Scan Report', sub_style))
-    elements.append(HRFlowable(width="90%", thickness=1, color=accent, spaceBefore=0, spaceAfter=12))
-
-    v_map = {'harmless': ('✅ HARMLESS', green), 'malicious': ('🚨 MALICIOUS', red), 'suspicious': ('⚠️ SUSPICIOUS', yellow)}
-    v_text, v_color = v_map.get(scan.verdict, ('❓ UNKNOWN', muted))
-    verdict_style.textColor = v_color
-    elements.append(Paragraph(v_text, verdict_style))
-    elements.append(Paragraph(f'Risk Score: {risk}%', score_style))
-
-    elements.append(Paragraph('📋 SCAN INFORMATION', section_style))
-    info_data = [
-        [Paragraph('Scan ID', small_style), Paragraph(f'#{scan.id}', text_style)],
-        [Paragraph('URL', small_style), Paragraph(scan.url[:80], tiny_style)],
-        [Paragraph('Status', small_style), Paragraph(scan.status.upper(), text_style)],
-        [Paragraph('Date', small_style), Paragraph(scan.date_posted.strftime('%Y-%m-%d %H:%M UTC'), tiny_style)],
-        [Paragraph('User', small_style), Paragraph(current_user.username, text_style)],
-        [Paragraph('Risk Score', small_style), Paragraph(f'{risk}%', text_style)],
-    ]
-    info_table = Table(info_data, colWidths=[3.5*cm, 12.5*cm])
-    info_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), card_bg), ('TEXTCOLOR', (0,0), (0,-1), muted),
-        ('TEXTCOLOR', (1,0), (1,-1), white), ('TOPPADDING', (0,0), (-1,-1), 7),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 7), ('LEFTPADDING', (0,0), (-1,-1), 12),
-        ('GRID', (0,0), (-1,-1), 0.5, border),
-    ]))
-    elements.append(info_table)
-    elements.append(Spacer(1, 14))
-
-    elements.append(Paragraph('📊 SCAN STATISTICS', section_style))
-    stats_data = [
-        [Paragraph('HARMLESS', small_style), Paragraph('MALICIOUS', small_style), Paragraph('SUSPICIOUS', small_style), Paragraph('UNDETECTED', small_style)],
-        [Paragraph(str(h), ParagraphStyle('b1', fontSize=22, fontName='Helvetica-Bold', textColor=green, alignment=TA_CENTER)),
-         Paragraph(str(m), ParagraphStyle('b2', fontSize=22, fontName='Helvetica-Bold', textColor=red, alignment=TA_CENTER)),
-         Paragraph(str(sus), ParagraphStyle('b3', fontSize=22, fontName='Helvetica-Bold', textColor=yellow, alignment=TA_CENTER)),
-         Paragraph(str(u), ParagraphStyle('b4', fontSize=22, fontName='Helvetica-Bold', textColor=white, alignment=TA_CENTER))],
-    ]
-    stats_table = Table(stats_data, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
-    stats_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), card_bg), ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('TOPPADDING', (0,0), (-1,-1), 10), ('BOTTOMPADDING', (0,0), (-1,-1), 10),
-        ('GRID', (0,0), (-1,-1), 0.5, border),
-    ]))
-    elements.append(stats_table)
-    elements.append(Spacer(1, 14))
-
-    elements.append(Paragraph('🎯 THREAT DISTRIBUTION', section_style))
-    drawing = Drawing(250, 160)
-    pie = Pie()
-    pie.x, pie.y, pie.width, pie.height = 60, 15, 130, 130
-    pie.data = [max(h,1), max(m,1), max(sus,1), max(u,1)]
-    pie.labels = ['Harmless', 'Malicious', 'Suspicious', 'Undetected']
-    pie.slices[0].fillColor = green; pie.slices[1].fillColor = red
-    pie.slices[2].fillColor = yellow; pie.slices[3].fillColor = muted
-    pie.slices.strokeWidth = 1; pie.slices.strokeColor = dark_bg
-    pie.slices.popout = 3; pie.sideLabels = True; pie.simpleLabels = False
-    drawing.add(pie)
-    elements.append(drawing)
-    elements.append(Spacer(1, 16))
-
-    elements.append(Paragraph('🔍 ENGINE RESULTS', section_style))
-    engine_rows = [[Paragraph('Engine', small_style), Paragraph('Category', small_style), Paragraph('Result', small_style)]]
-    for name, info in list(results.items())[:10]:
-        cat = info.get('category', 'undetected').upper()
-        res = str(info.get('result', 'N/A'))[:40]
-        engine_rows.append([Paragraph(name[:25], tiny_style), Paragraph(cat, tiny_style), Paragraph(res, tiny_style)])
-    engine_table = Table(engine_rows, colWidths=[5.5*cm, 4*cm, 6.5*cm])
-    engine_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), dark_bg), ('TEXTCOLOR', (0,0), (-1,0), accent),
-        ('BACKGROUND', (0,1), (-1,-1), card_bg), ('TEXTCOLOR', (0,1), (-1,-1), white),
-        ('TOPPADDING', (0,0), (-1,-1), 5), ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 8), ('GRID', (0,0), (-1,-1), 0.5, border),
-    ]))
-    elements.append(engine_table)
-    elements.append(Spacer(1, 20))
-
-    elements.append(HRFlowable(width="90%", thickness=0.5, color=border))
-    elements.append(Spacer(1, 8))
-    elements.append(Paragraph(f'Generated by MyScanner · {scan.date_posted.strftime("%Y-%m-%d %H:%M")} UTC · Ahmed Sairafi', footer_style))
-
-    doc.build(elements)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name=f'myscanner-report-{scan.id}.pdf', mimetype='application/pdf')
-
+    
+    # الحصول على نتائج التحليل
+    analyzer = URLDeepAnalyzer()
+    analysis = analyzer.comprehensive_analysis(scan.url)
+    
+    # توليد PDF
+    buffer = generate_vulnerability_report(scan, analysis, current_user.username)
+    
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f'MyScanner-Report-{scan.id}-{datetime.utcnow().strftime("%Y%m%d")}.pdf',
+        mimetype='application/pdf'
+    )
 # ================================================================
 # Site Scanner
 # ================================================================
@@ -1639,10 +1509,20 @@ def api_subdomain_finder():
         return jsonify({"error": f"Analysis error: {str(e)}"}), 500
 
 
+# ================================================================
+# Subdomain Scan API - الإصدار الجديد (بدون VirusTotal)
+# يستخدم: url.vet + التحليل المحلي
+# ================================================================
+
 @app.route('/api/scan-subdomain', methods=['POST'])
 @login_required
 def api_scan_subdomain():
-    """فحص نطاق فرعي عبر VirusTotal"""
+    """
+    فحص نطاق فرعي باستخدام url.vet + التحليل المحلي
+    (بدلاً من VirusTotal)
+    """
+    from services.url_analyzer import URLDeepAnalyzer
+    
     data = request.get_json()
     domain = data.get('domain', '').strip()
     
@@ -1650,47 +1530,48 @@ def api_scan_subdomain():
         return jsonify({"error": "No domain provided"}), 400
     
     try:
-        headers = {"x-apikey": API_KEY}
-        resp = requests.post(
-            "https://www.virustotal.com/api/v3/urls",
-            headers=headers,
-            data={"url": f"https://{domain}"},
-            timeout=30
+        # ─────────────────────────────────────────────────────────────
+        # استخدام url.vet + التحليل المحلي
+        # ─────────────────────────────────────────────────────────────
+        analyzer = URLDeepAnalyzer()
+        analysis = analyzer.comprehensive_analysis(domain)
+        
+        # استخراج url.vet
+        urlvet = analysis.get('urlvet', {}) or {}
+        
+        # استخراج Verdict
+        verdict_raw = urlvet.get('verdict', 'unknown')
+        trust_score = urlvet.get('trust_score', 0)
+        
+        # تحويل الحكم
+        if verdict_raw == 'harmless':
+            verdict = 'clean'
+        elif verdict_raw == 'suspicious':
+            verdict = 'suspicious'
+        elif verdict_raw == 'malicious':
+            verdict = 'malicious'
+        else:
+            verdict = 'unknown'
+        
+        # تسجيل النشاط
+        log_activity(
+            current_user.username,
+            'subdomain_scan',
+            f'Scanned subdomain: {domain} | Verdict: {verdict}'
         )
         
-        if resp.status_code not in (200, 201):
-            return jsonify({"verdict": "unknown", "error": f"Submit failed: {resp.status_code}"})
-        
-        url_id = resp.json()["data"]["id"]
-        analysis_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
-        
-        for _ in range(10):
-            time.sleep(2)
-            r = requests.get(analysis_url, headers=headers, timeout=30)
-            if r.status_code == 200:
-                result = r.json()
-                status = result.get("data", {}).get("attributes", {}).get("status", "")
-                if status == "completed":
-                    break
-        else:
-            return jsonify({"verdict": "unknown", "error": "Timeout"})
-        
-        stats = result.get("data", {}).get("attributes", {}).get("stats", {})
-        malicious = stats.get("malicious", 0)
-        suspicious = stats.get("suspicious", 0)
-        
-        if malicious > 0:
-            verdict = "malicious"
-        elif suspicious > 0:
-            verdict = "suspicious"
-        else:
-            verdict = "clean"
-        
-        return jsonify({"verdict": verdict})
+        return jsonify({
+            "verdict": verdict,
+            "trust_score": trust_score,
+            "verdict_raw": verdict_raw,
+            "red_flags": urlvet.get('red_flags', []),
+            "green_flags": urlvet.get('green_flags', []),
+            "source": "url.vet + local_analysis"
+        })
         
     except Exception as e:
-        return jsonify({"verdict": "unknown", "error": str(e)})
-    
+        app.logger.error(f'❌ Subdomain scan failed for {domain}: {e}')
+        return jsonify({"verdict": "unknown", "error": str(e)}), 500    
 # ================================================================
 # File Scanner  👈 👈 👈 أضف هنا
 # ================================================================
@@ -1858,7 +1739,7 @@ def api_scan_qr_url():
 
     try:
         analyzer = QRAnalyzer()
-        result = analyzer.scan_url(url, API_KEY)
+        result = analyzer.scan_url(url)
 
         app.logger.info(f'[SUCCESS] QR scan completed for {url[:100]} | Verdict: {result.get("verdict")}')
         log_activity(
@@ -1945,6 +1826,7 @@ def api_url_analysis(scan_id):
         "security_score": local_analysis.get("security_score", 0),
         "verdict": local_analysis.get("verdict", "unknown"),
         "recommendations": local_analysis.get("recommendations", []),
+        "urlvet": local_analysis.get("urlvet", {}),
         # ميزات التحليل العميق
         "deep_analysis": {
             "page_content": deep_analysis.get("page_content", {}),

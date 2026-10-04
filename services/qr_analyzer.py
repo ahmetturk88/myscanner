@@ -1,75 +1,144 @@
 # services/qr_analyzer.py
-import requests
-import time
+# =================================================================
+# QR ANALYZER - تحليل متقدم لرموز QR
+# يستخدم: url.vet + التحليل المحلي (بدلاً من VirusTotal)
+# =================================================================
+
 import logging
+from typing import Dict, Any, Optional
+
 logger = logging.getLogger(__name__)
+
 
 class QRAnalyzer:
     """تحليل متقدم لرموز QR"""
-    
+
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
         self.timeout = 15
         logger.info("✅ QRAnalyzer initialized successfully")
+
+    # ================================================================
+    # الدالة الرئيسية: فحص رابط QR
+    # ================================================================
     
-    def scan_url(self, url: str, api_key: str) -> dict:
+    def scan_url(self, url: str, api_key: str = None) -> Dict[str, Any]:
+        """
+        فحص الرابط المستخرج من QR عبر url.vet + التحليل المحلي
+        
+        Args:
+            url: الرابط المستخرج من QR
+            api_key: (غير مستخدم - متروك للتوافق مع الكود القديم)
+        
+        Returns:
+            Dict يحتوي على نتائج الفحص
+        """
         logger.info(f"🔍 Starting QR URL scan for: {url[:100]}...")
-        """فحص الرابط المستخرج من QR عبر VirusTotal"""
-        result = {
-            "verdict": "unknown",
-            "stats": {}
-        }
-        
+
+        # ─────────────────────────────────────────────────────────────
+        # 1. التحقق من الرابط
+        # ─────────────────────────────────────────────────────────────
+        if not url or not isinstance(url, str):
+            return {
+                "verdict": "unknown",
+                "error": "Invalid URL",
+                "source": "qr_analyzer"
+            }
+
+        # ─────────────────────────────────────────────────────────────
+        # 2. استخدام url.vet + التحليل المحلي
+        # ─────────────────────────────────────────────────────────────
         try:
-            headers = {"x-apikey": api_key}
-            logger.debug(f"Submitting URL to VirusTotal: {url[:100]}...")
+            from services.url_analyzer import URLDeepAnalyzer
             
-            resp = self.session.post(
-                "https://www.virustotal.com/api/v3/urls",
-                headers=headers,
-                data={"url": url},
-                timeout=30
-            )
+            analyzer = URLDeepAnalyzer()
+            analysis = analyzer.comprehensive_analysis(url)
             
-            if resp.status_code not in (200, 201):
-                logger.warning(f"VirusTotal submission failed with status {resp.status_code}")
-                return result
+            # استخراج البيانات من url.vet
+            urlvet = analysis.get('urlvet', {}) or {}
             
-            url_id = resp.json()["data"]["id"]
-            analysis_url = f"https://www.virustotal.com/api/v3/analyses/{url_id}"
-            logger.debug(f"Analysis ID: {url_id}")
+            trust_score = urlvet.get('trust_score', 0)
+            verdict_raw = urlvet.get('verdict', 'unknown')
+            red_flags = urlvet.get('red_flags', []) or []
+            green_flags = urlvet.get('green_flags', []) or []
             
-            for attempt in range(10):
-                r = self.session.get(analysis_url, headers=headers, timeout=30)
-                if r.status_code == 200:
-                    result_data = r.json()
-                    if result_data.get("data", {}).get("attributes", {}).get("status") == "completed":
-                        stats = result_data["data"]["attributes"].get("stats", {})
-                        result["stats"] = stats
-                        
-                        malicious = stats.get("malicious", 0)
-                        suspicious = stats.get("suspicious", 0)
-                        
-                        if malicious > 0:
-                            result["verdict"] = "malicious"
-                            logger.warning(f"🚨 QR URL is MALICIOUS! Malicious: {malicious}, Suspicious: {suspicious}")
-                        elif suspicious > 0:
-                            result["verdict"] = "suspicious"
-                            logger.warning(f"⚠️ QR URL is SUSPICIOUS! Malicious: {malicious}, Suspicious: {suspicious}")
-                        else:
-                            result["verdict"] = "clean"
-                            logger.info(f"✅ QR URL is clean - Malicious: {malicious}, Suspicious: {suspicious}")
-                        break
-                time.sleep(2)
+            # ─────────────────────────────────────────────────────────
+            # تحويل الحكم إلى التنسيق القديم (للتوافق)
+            # ─────────────────────────────────────────────────────────
+            if verdict_raw == 'harmless':
+                verdict = 'clean'
+            elif verdict_raw == 'suspicious':
+                verdict = 'suspicious'
+            elif verdict_raw == 'malicious':
+                verdict = 'malicious'
             else:
-                logger.warning(f"VirusTotal scan timeout for URL: {url[:100]}...")
-                
+                verdict = 'unknown'
+            
+            # ─────────────────────────────────────────────────────────
+            # بناء النتيجة
+            # ─────────────────────────────────────────────────────────
+            result = {
+                "verdict": verdict,
+                "verdict_raw": verdict_raw,
+                "trust_score": trust_score,
+                "red_flags": red_flags,
+                "green_flags": green_flags,
+                "stats": {
+                    "trust_score": trust_score,
+                    "red_flags_count": len(red_flags),
+                    "green_flags_count": len(green_flags)
+                },
+                "source": "url.vet + local_analysis",
+                "url": url
+            }
+            
+            # إضافة معلومات محلية
+            local_verdict = analysis.get('verdict', 'unknown')
+            local_score = analysis.get('security_score', 0)
+            
+            result["local_verdict"] = local_verdict
+            result["local_security_score"] = local_score
+            
+            # ─────────────────────────────────────────────────────────
+            # تسجيل النتائج
+            # ─────────────────────────────────────────────────────────
+            if verdict == 'malicious':
+                logger.warning(f"🚨 QR URL is MALICIOUS! Trust Score: {trust_score}")
+            elif verdict == 'suspicious':
+                logger.warning(f"⚠️ QR URL is SUSPICIOUS! Trust Score: {trust_score}")
+            elif verdict == 'clean':
+                logger.info(f"✅ QR URL is clean - Trust Score: {trust_score}")
+            else:
+                logger.warning(f"❓ QR URL verdict unknown - Trust Score: {trust_score}")
+            
+            logger.info(f"✅ QR URL scan completed | Verdict: {verdict}")
+            return result
+            
         except Exception as e:
-            logger.error(f"Error scanning QR URL: {str(e)}")
-            result["error"] = str(e)
+            logger.error(f"❌ Error scanning QR URL: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                "verdict": "unknown",
+                "error": str(e),
+                "source": "qr_analyzer"
+            }
+    
+    # ================================================================
+    # دالة مساعدة: فحص batch
+    # ================================================================
+    
+    def scan_urls_batch(self, urls: list) -> list:
+        """
+        فحص مجموعة من روابط QR دفعة واحدة
         
-        logger.info(f"✅ QR URL scan completed | Verdict: {result['verdict']}")
-        return result
+        Args:
+            urls: قائمة الروابط
+        
+        Returns:
+            قائمة بالنتائج
+        """
+        results = []
+        for url in urls:
+            results.append(self.scan_url(url))
+        return results

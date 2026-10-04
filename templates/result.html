@@ -17,7 +17,6 @@
   .btn-danger { background: var(--red); color: #fff; }
   .btn-danger:hover { opacity: 0.9; }
   .btn-success { background: var(--green); color: #000; font-weight: 700; }
-  .btn-primary { background: var(--accent); color: #000; }
 
   .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
   .badge { padding: 4px 14px; border-radius: 20px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; display: inline-block; }
@@ -30,32 +29,244 @@
   .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-  .verdict-banner .v-icon { font-size: 42px; }
-  .v-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-  .v-sub { font-size: 13px; opacity: 0.8; }
-  .banner-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
-  .banner-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  /* ===== URL.VET SECTION ===== */
+  .urlvet-section {
+    background: linear-gradient(135deg, var(--surface), var(--surface2));
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .urlvet-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 24px; right: 24px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .urlvet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .urlvet-title {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 1px;
+  }
+  .urlvet-title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .urlvet-source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface3);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
 
-  .risk-score-section { margin-bottom: 24px; }
-  .risk-title { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-bottom: 10px; }
-  .risk-bar-wrap { display: flex; align-items: center; gap: 12px; }
-  .risk-bar-bg { flex: 1; background: var(--surface2); border-radius: 6px; height: 10px; overflow: hidden; }
-  .risk-bar-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
-  .risk-num { font-family: var(--mono); font-size: 18px; font-weight: 700; min-width: 50px; text-align: right; }
+  .urlvet-main {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 768px) {
+    .urlvet-main { grid-template-columns: 1fr; }
+  }
 
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-  .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
-  .stat-card .stat-icon { font-size: 24px; margin-bottom: 6px; }
-  .stat-card .stat-label { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px; }
-  .stat-card .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
-  .stat-green .stat-value { color: var(--green); }
-  .stat-red .stat-value { color: var(--red); }
-  .stat-yellow .stat-value { color: var(--yellow); }
-  .stat-blue .stat-value { color: var(--accent); }
+  /* Trust Score Circle */
+  .trust-circle-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+  }
+  .trust-circle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .trust-circle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 6px;
+    background: conic-gradient(
+      var(--trust-color) calc(var(--trust-score) * 1%),
+      var(--surface3) calc(var(--trust-score) * 1%)
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .trust-circle-inner {
+    width: 100%;
+    height: 100%;
+    background: var(--surface);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+  }
+  .trust-score-value {
+    font-family: var(--mono);
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--trust-color);
+    line-height: 1;
+  }
+  .trust-score-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .trust-verdict {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
 
-  .grid-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+  /* Verdict Details */
+  .urlvet-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .urlvet-verdict-banner {
+    padding: 16px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+  }
+  .urlvet-verdict-banner.safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .urlvet-verdict-banner.suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
+  .urlvet-verdict-banner.malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
+  .urlvet-verdict-banner.error { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .urlvet-verdict-banner .v-icon { font-size: 24px; }
+
+  .flags-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .flags-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .flags-card.red { border-left: 3px solid var(--red); }
+  .flags-card.green { border-left: 3px solid var(--green); }
+  .flags-card.neutral { border-left: 3px solid var(--muted); }
+  .flags-card h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .flags-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .flags-card li {
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(42,42,69,0.3);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .flags-card li:last-child { border-bottom: none; }
+  .flags-card li::before { content: '•'; color: var(--muted); flex-shrink: 0; }
+  .flags-card.red li { color: var(--red); }
+  .flags-card.red li::before { color: var(--red); }
+  .flags-card.green li { color: var(--green); }
+  .flags-card.green li::before { color: var(--green); }
+  .flags-card.neutral li { color: var(--muted); }
+
+  .urlvet-tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .tech-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .tech-card h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+  .tech-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(42,42,69,0.3);
+  }
+  .tech-row:last-child { border-bottom: none; }
+  .tech-label { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .tech-value { color: var(--text); font-weight: 600; text-align: right; }
+  .tech-value.good { color: var(--green); }
+  .tech-value.bad { color: var(--red); }
+  .tech-value.warn { color: var(--yellow); }
+
+  /* ===== OTHER SECTIONS ===== */
   .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 16px; }
   .section-title { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(42,42,69,0.3); font-size: 13px; }
@@ -66,10 +277,15 @@
   .info-bad { color: var(--red); }
   .info-warn { color: var(--yellow); }
 
-  .threat-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: var(--mono); font-size: 11px; font-weight: 700; margin: 3px; }
-  .threat-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .threat-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .threat-safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .stat-card .stat-icon { font-size: 24px; margin-bottom: 6px; }
+  .stat-card .stat-label { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-card .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+  .stat-green .stat-value { color: var(--green); }
+  .stat-red .stat-value { color: var(--red); }
+  .stat-yellow .stat-value { color: var(--yellow); }
+  .stat-blue .stat-value { color: var(--accent); }
 
   .screenshot-img { width: 100%; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
   .map-frame { width: 100%; height: 280px; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
@@ -85,49 +301,9 @@
 
   .export-btns { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; justify-content: center; }
 
-  @media (max-width: 768px) { 
+  @media (max-width: 768px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .grid-2col { grid-template-columns: 1fr; }
   }
-  .deep-subsection {
-  margin-bottom: 24px;
-  background: var(--surface2);
-  border-radius: 10px;
-  padding: 16px;
-  border: 1px solid var(--border);
-}
-
-.deep-subsection h4 {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--accent);
-  margin-bottom: 12px;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.deep-subsection .info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(42,42,69,0.3);
-  font-size: 12px;
-}
-
-.deep-subsection .info-label {
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 10px;
-}
-
-.deep-subsection .info-value {
-  color: var(--text);
-  font-weight: 600;
-  text-align: right;
-}
-  
 </style>
 {% endblock %}
 
@@ -150,28 +326,27 @@
       <span style="font-family:var(--mono);color:var(--muted);">STATUS</span>
       <span id="status-badge" class="badge badge-{{ scan.status }}">{{ scan.status | upper }}</span>
     </div>
-    
+
     <div id="loading-area" class="loading-area">
       <span class="spinner"></span>
       <span id="loading-text">Loading scan results...</span>
     </div>
-    
+
     <div id="verdict-area" class="verdict-area"></div>
     <div id="extra-sections"></div>
     <div id="export-buttons" class="export-btns" style="display:none;"></div>
   </div>
+
   <!-- Deep Analysis Section -->
-<div id="deep-analysis-section" class="section-card" style="display:none; margin-top:20px;">
-  <div class="section-title">🔍 Deep Content Analysis</div>
-  <div id="page-content-analysis"></div>
-  <div id="behavior-analysis"></div>
-  <div id="whois-deep-analysis"></div>
-  <div id="osint-analysis"></div>
-  <div id="deep-recommendations"></div>
+  <div id="deep-analysis-section" class="section-card" style="display:none; margin-top:20px;">
+    <div class="section-title">🔍 Deep Content Analysis</div>
+    <div id="page-content-analysis"></div>
+    <div id="behavior-analysis"></div>
+    <div id="whois-deep-analysis"></div>
+    <div id="osint-analysis"></div>
+    <div id="deep-recommendations"></div>
+  </div>
 </div>
-</div>
-
-
 {% endblock %}
 
 {% block body_extra %}
@@ -186,404 +361,392 @@ function esc(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#x27;');
 }
-  const scanId = '{{ scan.id }}';
-  const initStatus = '{{ scan.status }}';
-  let allData = null;
-  let pieChart = null, historyChart = null;
 
-  function updateBadge(status, verdict) {
-    const badge = document.getElementById('status-badge');
-    badge.textContent = status.toUpperCase();
-    badge.className = 'badge badge-' + (verdict || status);
-  }
+const scanId = '{{ scan.id }}';
+const initStatus = '{{ scan.status }}';
+let allData = null;
+let historyChart = null;
 
-  function renderResult(scanData, analysisData) {
-    document.getElementById('loading-area').style.display = 'none';
-    const verdictArea = document.getElementById('verdict-area');
-    verdictArea.style.display = 'block';
-    allData = { scan: scanData, analysis: analysisData };
+function updateBadge(status, verdict) {
+  const badge = document.getElementById('status-badge');
+  badge.textContent = status.toUpperCase();
+  badge.className = 'badge badge-' + (verdict || status);
+}
 
-    const s = scanData.raw_report?.data?.attributes?.stats || {};
-    const h = s.harmless || 0, m = s.malicious || 0, sus = s.suspicious || 0, u = s.undetected || 0;
-    const total = h + m + sus + u;
-    const riskScore = total > 0 ? Math.round(((m * 3 + sus * 2) / (total * 3)) * 100) : 0;
-    const riskColor = riskScore > 50 ? 'var(--red)' : riskScore > 20 ? 'var(--yellow)' : 'var(--green)';
-    const aiVerdict = riskScore > 50 ? '🔴 High Risk — Avoid this URL' : riskScore > 20 ? '🟡 Medium Risk — Proceed with caution' : '🟢 Low Risk — Likely safe';
-
-    updateBadge(scanData.status, scanData.verdict);
-
-    const verdictMeta = {
-      harmless: { icon:'✅', title:'No Threats Detected', sub:'This URL appears to be safe.', cls:'banner-green' },
-      malicious: { icon:'🚨', title:'Malicious Detected!', sub:'This URL was flagged by multiple engines.', cls:'banner-red' },
-      suspicious: { icon:'⚠️', title:'Suspicious Activity', sub:'Some engines flagged this URL.', cls:'banner-yellow' },
-      unknown: { icon:'❓', title:'Unknown', sub:'Not enough data.', cls:'' },
-    };
-    const v = verdictMeta[scanData.verdict] || verdictMeta.unknown;
-
-    const localVerdict = analysisData?.verdict || 'unknown';
-    const localScore = analysisData?.security_score || 0;
-    const urlStructure = analysisData?.url_structure || {};
-    const phishingIndicators = analysisData?.phishing_indicators || {};
-    const sslInfo = analysisData?.ssl_info || {};
-    const dnsRecords = analysisData?.dns_records || {};
-    const isShortened = analysisData?.is_shortened || false;
-    const recommendations = analysisData?.recommendations || [];
-
-    verdictArea.innerHTML = `
-      <div class="verdict-banner ${v.cls}">
-        <div class="v-icon">${v.icon}</div>
-        <div>
-          <div class="v-title">${v.title}</div>
-          <div class="v-sub">${v.sub}</div>
+// ================================================================
+// 🌐 Render URL.VET Section
+// ================================================================
+function renderURLVet(urlvet) {
+  if (!urlvet || !urlvet.trust_score) {
+    return `
+      <div class="urlvet-section">
+        <div class="urlvet-header">
+          <div class="urlvet-title">url.vet Analysis</div>
+          <div class="urlvet-source">Source: url.vet</div>
         </div>
-      </div>
-      
-      <div class="risk-score-section">
-        <div class="risk-title">🎯 Risk Score</div>
-        <div class="risk-bar-wrap">
-          <div class="risk-bar-bg"><div class="risk-bar-fill" style="width:${riskScore}%;background:${riskColor};"></div></div>
-          <div class="risk-num" style="color:${riskColor};">${riskScore}%</div>
+        <div class="urlvet-verdict-banner error">
+          <div class="v-icon">❓</div>
+          <div>
+            <strong>url.vet Analysis Unavailable</strong>
+            <div style="font-size: 12px; opacity: 0.8;">${esc(urlvet?.error || 'No data available')}</div>
+          </div>
         </div>
-      </div>
-      
-      <div class="stats-grid">
-        <div class="stat-card stat-green"><div class="stat-icon">✅</div><div class="stat-label">Harmless</div><div class="stat-value">${h}</div></div>
-        <div class="stat-card stat-red"><div class="stat-icon">🚨</div><div class="stat-label">Malicious</div><div class="stat-value">${m}</div></div>
-        <div class="stat-card stat-yellow"><div class="stat-icon">⚠️</div><div class="stat-label">Suspicious</div><div class="stat-value">${sus}</div></div>
-        <div class="stat-card stat-blue"><div class="stat-icon">🕵️</div><div class="stat-label">Undetected</div><div class="stat-value">${u}</div></div>
       </div>
     `;
+  }
 
-    let extraHTML = '';
+  const trustScore = urlvet.trust_score || 0;
+  const finalScore = urlvet.final_score || trustScore;
+  const verdict = urlvet.verdict || 'unknown';
+  const verdictRaw = urlvet.verdict_raw || verdict;
 
-    extraHTML += `<div class="section-card">
-      <div class="section-title">🧠 AI Risk Analysis</div>
-      <div style="font-size:16px;font-weight:700;color:${riskColor};">${aiVerdict}</div>
-      <p style="color:var(--muted);font-size:13px;margin-top:12px;">Based on ${total} security engines, ${m} flagged as malicious, ${sus} as suspicious.</p>
-      <div style="margin-top:12px;"><span class="threat-tag threat-safe">${h} engines safe</span></div>
-    </div>`;
+  // لون الدائرة حسب الدرجة
+  let trustColor = '#6a6a90';
+  let verdictClass = 'error';
+  let verdictIcon = '❓';
+  let verdictText = 'Unknown';
 
-    extraHTML += `<div class="section-card">
-      <div class="section-title">🔒 Local Security Analysis</div>
-      <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)'}">${localScore}/100</span></div>
-      <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${localVerdict.toUpperCase()}</span></div>
-      ${isShortened ? `<div class="info-row"><span class="info-label">URL Shortener</span><span class="info-value info-warn">⚠️ Detected</span></div>` : ''}
-      ${urlStructure?.is_https ? `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-good">✓ Enabled</span></div>` : `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-bad">✗ Not Secure</span></div>`}
-      ${urlStructure?.contains_ip ? `<div class="info-row"><span class="info-label">IP Address URL</span><span class="info-value info-bad">⚠️ Suspicious</span></div>` : ''}
-    </div>`;
+  if (trustScore >= 80) {
+    trustColor = '#00e676';
+    verdictClass = 'safe';
+    verdictIcon = '✅';
+    verdictText = 'Safe — Trusted';
+  } else if (trustScore >= 50) {
+    trustColor = '#ffd32a';
+    verdictClass = 'suspicious';
+    verdictIcon = '⚠️';
+    verdictText = 'Suspicious — Proceed with caution';
+  } else if (trustScore > 0) {
+    trustColor = '#ff4560';
+    verdictClass = 'malicious';
+    verdictIcon = '🚨';
+    verdictText = 'Risky — Likely unsafe';
+  }
 
-    if (urlStructure) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">🔗 URL Structure Analysis</div>
-        <div class="info-row"><span class="info-label">URL Length</span><span class="info-value">${urlStructure.length || 0} characters</span></div>
-        <div class="info-row"><span class="info-label">Trust Level</span><span class="info-value">${urlStructure.trust_level || 'Unknown'}</span></div>
-        <div class="info-row"><span class="info-label">Query Parameters</span><span class="info-value">${urlStructure.query_params || 0}</span></div>
-        <div class="info-row"><span class="info-label">Subdomains</span><span class="info-value">${urlStructure.subdomain_count || 0}</span></div>
-        ${urlStructure.suspicious_chars?.length ? `<div class="info-row"><span class="info-label">Suspicious Chars</span><span class="info-value info-warn">${urlStructure.suspicious_chars.join(', ')}</span></div>` : ''}
-      </div>`;
-    }
+  // Red Flags
+  const redFlags = urlvet.red_flags || [];
+  const greenFlags = urlvet.green_flags || [];
+  const neutralReasons = urlvet.neutral_reasons || [];
 
-    if (phishingIndicators?.is_phishing_suspected) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">⚠️ Phishing Indicators</div>
-        ${phishingIndicators.issues?.map(issue => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${esc(issue)}</span></div>`).join('')}
-      </div>`;
-    }
+  let flagsHTML = '<div class="flags-grid">';
 
-    if (sslInfo) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">🔐 SSL Certificate</div>
-        <div class="info-row"><span class="info-label">Status</span><span class="info-value ${sslInfo.valid ? 'info-good' : 'info-bad'}">${sslInfo.valid ? 'Valid' : 'Invalid'}</span></div>
-        <div class="info-row"><span class="info-label">Days Remaining</span><span class="info-value">${sslInfo.days_remaining || 0} days</span></div>
-        <div class="info-row"><span class="info-label">Issuer</span><span class="info-value">${sslInfo.issuer || 'N/A'}</span></div>
-        <div class="info-row"><span class="info-label">TLS Version</span><span class="info-value">${sslInfo.tls_version || 'N/A'}</span></div>
-        <div class="info-row"><span class="info-label">Grade</span><span class="info-value">${sslInfo.grade || 'N/A'}</span></div>
-      </div>`;
-    }
+  if (redFlags.length > 0) {
+    flagsHTML += `
+      <div class="flags-card red">
+        <h4>🚩 Red Flags (${redFlags.length})</h4>
+        <ul>${redFlags.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+      </div>
+    `;
+  }
 
-    if (analysisData && analysisData.screenshot) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">📸 Website Screenshot</div>
-        <img src="${analysisData.screenshot}" alt="Screenshot" class="screenshot-img" onerror="this.parentElement.style.display='none'">
-      </div>`;
-    }
+  if (greenFlags.length > 0) {
+    flagsHTML += `
+      <div class="flags-card green">
+        <h4>✅ Green Flags (${greenFlags.length})</h4>
+        <ul>${greenFlags.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+      </div>
+    `;
+  }
 
-    if (analysisData && analysisData.geo && analysisData.geo.lat) {
-      const g = analysisData.geo;
-      extraHTML += `<div class="section-card">
-        <div class="section-title">📍 Server Location</div>
-        <p style="color:var(--muted);font-size:13px;margin-bottom:10px;">${g.city}, ${g.country}</p>
-        <iframe class="map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=${g.lon-0.1},${g.lat-0.1},${g.lon+0.1},${g.lat+0.1}&layer=mapnik&marker=${g.lat},${g.lon}"></iframe>
-      </div>`;
-    }
+  if (neutralReasons.length > 0) {
+    flagsHTML += `
+      <div class="flags-card neutral">
+        <h4>📋 Info (${neutralReasons.length})</h4>
+        <ul>${neutralReasons.slice(0, 5).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+      </div>
+    `;
+  }
 
-    if (analysisData && analysisData.redirect_chain && analysisData.redirect_chain.length > 0) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">🔄 Redirect Chain</div>
-        ${analysisData.redirect_chain.map(r => `<div class="redirect-step"><span>${r.status_code}</span> <span class="redirect-arrow">→</span> <span style="color:var(--accent);">${r.url.substring(0,60)}</span></div>`).join('')}
-        <div class="redirect-step"><span>200</span> <span class="redirect-arrow">→</span> <span style="color:var(--green);">${(analysisData.final_url || scanData.url).substring(0,60)}</span></div>
-      </div>`;
-    }
+  if (redFlags.length === 0 && greenFlags.length === 0 && neutralReasons.length === 0) {
+    flagsHTML += `
+      <div class="flags-card neutral">
+        <h4>📋 No flags</h4>
+        <ul><li>No specific flags reported</li></ul>
+      </div>
+    `;
+  }
 
-    if (analysisData && analysisData.security_headers) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">🛡️ Security Headers</div>
-        ${Object.entries(analysisData.security_headers).map(([k,v]) => {
-          const isMissing = v === 'Missing';
-          const isGood = !isMissing && v !== 'Missing ❌';
-          return `<div class="info-row"><span class="info-label">${k.toUpperCase()}</span><span class="info-value ${isGood ? 'info-good' : 'info-bad'}">${isMissing ? 'Missing ❌' : v.substring(0, 50)}</span></div>`;
-        }).join('')}
-      </div>`;
-    }
+  flagsHTML += '</div>';
 
-    if (analysisData && analysisData.cookies && analysisData.cookies.length > 0) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">🍪 Cookies</div>
-        ${analysisData.cookies.map(c => `<div class="cookie-item"><span>🍪 ${c.name}</span><span class="${c.secure ? 'cookie-secure' : 'cookie-insecure'}">${c.secure ? 'Secure ✓' : 'Insecure ⚠️'}</span></div>`).join('')}
-      </div>`;
-    }
+  // تفاصيل تقنية
+  const domainInfo = urlvet.domain_info || {};
+  const sslInfo = urlvet.ssl_info || {};
+  const urlFeatures = urlvet.url_features || {};
+  const analysis = urlvet.analysis || {};
+  const phishing = urlvet.phishing || {};
+  const typosquatting = urlvet.typosquatting || {};
 
-    if (dnsRecords) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">🌐 DNS Records</div>
-        <div class="info-row"><span class="info-label">A Records</span><span class="info-value">${(dnsRecords.a_records || []).join(', ') || 'None'}</span></div>
-        <div class="info-row"><span class="info-label">MX Records</span><span class="info-value">${(dnsRecords.mx_records || []).map(m => `${m.exchange} (${m.preference})`).join(', ') || 'None'}</span></div>
-        <div class="info-row"><span class="info-label">SPF Record</span><span class="info-value ${dnsRecords.has_spf ? 'info-good' : 'info-bad'}">${dnsRecords.has_spf ? '✓ Configured' : '✗ Missing'}</span></div>
-        <div class="info-row"><span class="info-label">DMARC Record</span><span class="info-value ${dnsRecords.has_dmarc ? 'info-good' : 'info-bad'}">${dnsRecords.has_dmarc ? '✓ Configured' : '✗ Missing'}</span></div>
-      </div>`;
-    }
+  let techHTML = '<div class="urlvet-tech-grid">';
 
-    if (recommendations.length > 0) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">📋 Security Recommendations</div>
-        <ul class="recommendations-list">
-          ${recommendations.map(r => `<li>${esc(r)}</li>`).join('')}
-        </ul>
-      </div>`;
-    }
+  // Domain Info
+  if (domainInfo.age_human || domainInfo.registrar) {
+    techHTML += `
+      <div class="tech-card">
+        <h4>🌐 Domain Info</h4>
+        <div class="tech-row"><span class="tech-label">Age</span><span class="tech-value">${esc(domainInfo.age_human || 'N/A')}</span></div>
+        <div class="tech-row"><span class="tech-label">Registrar</span><span class="tech-value">${esc((domainInfo.registrar || 'N/A').substring(0, 30))}</span></div>
+        <div class="tech-row"><span class="tech-label">DNSSEC</span><span class="tech-value ${domainInfo.dnssec ? 'good' : 'warn'}">${domainInfo.dnssec ? '✓ Enabled' : '✗ Disabled'}</span></div>
+      </div>
+    `;
+  }
 
-    // Deep Analysis Rendering
-    console.log("Deep Analysis Data:", analysisData?.deep_analysis); // للتصحيح
+  // SSL/TLS
+  if (sslInfo.has_tls !== undefined) {
+    techHTML += `
+      <div class="tech-card">
+        <h4>🔐 SSL/TLS</h4>
+        <div class="tech-row"><span class="tech-label">HTTPS</span><span class="tech-value ${sslInfo.has_tls ? 'good' : 'bad'}">${sslInfo.has_tls ? '✓ Yes' : '✗ No'}</span></div>
+        <div class="tech-row"><span class="tech-label">Chain Valid</span><span class="tech-value ${sslInfo.chain_valid ? 'good' : 'bad'}">${sslInfo.chain_valid ? '✓ Valid' : '✗ Invalid'}</span></div>
+        <div class="tech-row"><span class="tech-label">Issuer</span><span class="tech-value">${esc((sslInfo.issuer || 'N/A').substring(0, 25))}</span></div>
+        <div class="tech-row"><span class="tech-label">Expires</span><span class="tech-value">${esc((sslInfo.not_after || 'N/A').substring(0, 10))}</span></div>
+      </div>
+    `;
+  }
 
-   if (analysisData && analysisData.deep_analysis) {      const deep = analysisData.deep_analysis;
-      const deepSection = document.getElementById('deep-analysis-section');
-      deepSection.style.display = 'block';
-      
-      const content = deep.page_content || {};
-      document.getElementById('page-content-analysis').innerHTML = `
-        <div style="margin-bottom: 20px;">
-          <h4 style="color:var(--accent); margin-bottom:10px;">📄 Page Content Analysis</h4>
-          <div class="info-row"><span class="info-label">Title</span><span class="info-value">${content.title || 'N/A'}</span></div>
-          <div class="info-row"><span class="info-label">Meta Description</span><span class="info-value">${(content.meta_description || 'N/A').substring(0, 100)}</span></div>
-          <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${content.has_login_form ? 'info-bad' : 'info-good'}">${content.has_login_form ? '⚠️ Yes' : 'No'}</span></div>
-          <div class="info-row"><span class="info-label">Has Password Field</span><span class="info-value ${content.has_password_field ? 'info-bad' : 'info-good'}">${content.has_password_field ? '⚠️ Yes' : 'No'}</span></div>
-          ${content.suspicious_keywords_found && content.suspicious_keywords_found.length > 0 ? `
-          <div class="info-row"><span class="info-label">Suspicious Keywords</span><span class="info-value info-warn">${content.suspicious_keywords_found.map(k => esc(k)).join(', ')}</span></div>
-          ` : ''}
-          <div class="info-row"><span class="info-label">Internal Links</span><span class="info-value">${(content.internal_links || []).length}</span></div>
-          <div class="info-row"><span class="info-label">External Links</span><span class="info-value">${(content.external_links || []).length}</span></div>
-          <div class="info-row"><span class="info-label">Content Risk Score</span><span class="info-value" style="color:${content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${content.content_risk_score || 0}%</span></div>
+  // URL Features
+  techHTML += `
+    <div class="tech-card">
+      <h4>🔗 URL Features</h4>
+      <div class="tech-row"><span class="tech-label">URL Shortener</span><span class="tech-value ${urlFeatures.url_shortener ? 'bad' : 'good'}">${urlFeatures.url_shortener ? '⚠️ Yes' : '✓ No'}</span></div>
+      <div class="tech-row"><span class="tech-label">Uses IP</span><span class="tech-value ${urlFeatures.uses_ip ? 'bad' : 'good'}">${urlFeatures.uses_ip ? '⚠️ Yes' : '✓ No'}</span></div>
+      <div class="tech-row"><span class="tech-label">Punycode</span><span class="tech-value ${urlFeatures.contains_punycode ? 'bad' : 'good'}">${urlFeatures.contains_punycode ? '⚠️ Yes' : '✓ No'}</span></div>
+      <div class="tech-row"><span class="tech-label">Subdomains</span><span class="tech-value">${urlFeatures.subdomain_count || 0}</span></div>
+      <div class="tech-row"><span class="tech-label">Sensitive Keywords</span><span class="tech-value ${urlFeatures.has_keywords ? 'warn' : 'good'}">${urlFeatures.has_keywords ? '⚠️ ' + (urlFeatures.keywords_found || []).join(', ') : '✓ None'}</span></div>
+    </div>
+  `;
+
+  // Analysis
+  techHTML += `
+    <div class="tech-card">
+      <h4>📊 Analysis</h4>
+      <div class="tech-row"><span class="tech-label">Redirected</span><span class="tech-value ${analysis.is_redirected ? 'warn' : 'good'}">${analysis.is_redirected ? '⚠️ Yes (' + (analysis.chain_length || 0) + ')' : '✓ No'}</span></div>
+      <div class="tech-row"><span class="tech-label">HTTP Status</span><span class="tech-value">${analysis.http_status || 'N/A'}</span></div>
+      <div class="tech-row"><span class="tech-label">HSTS</span><span class="tech-value ${analysis.hsts_supported ? 'good' : 'warn'}">${analysis.hsts_supported ? '✓ Yes' : '✗ No'}</span></div>
+      <div class="tech-row"><span class="tech-label">PhishTank</span><span class="tech-value ${phishing.in_database ? 'bad' : 'good'}">${phishing.in_database ? '⚠️ Listed' : '✓ Clean'}</span></div>
+      <div class="tech-row"><span class="tech-label">Typosquatting</span><span class="tech-value ${typosquatting.is_suspicious ? 'bad' : 'good'}">${typosquatting.is_suspicious ? '⚠️ Detected' : '✓ Clean'}</span></div>
+    </div>
+  `;
+
+  techHTML += '</div>';
+
+  return `
+    <div class="urlvet-section">
+      <div class="urlvet-header">
+        <div class="urlvet-title">url.vet Advanced Analysis</div>
+        <div class="urlvet-source">Source: url.vet · 33 signals</div>
+      </div>
+
+      <div class="urlvet-main">
+        <div class="trust-circle-wrap">
+          <div class="trust-circle" style="--trust-score: ${trustScore}; --trust-color: ${trustColor};">
+            <div class="trust-circle-inner">
+              <div class="trust-score-value" style="color: ${trustColor};">${trustScore}</div>
+              <div class="trust-score-label">Trust Score</div>
+            </div>
+          </div>
+          <div class="trust-verdict" style="color: ${trustColor}; border: 1px solid ${trustColor}40;">${verdictRaw}</div>
         </div>
-      `;
-      
-      const behavior = deep.behavior || {};
-      document.getElementById('behavior-analysis').innerHTML = `
-        <div style="margin-bottom: 20px;">
-          <h4 style="color:var(--accent); margin-bottom:10px;">🔄 Behavioral Analysis</h4>
-          <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${behavior.is_shortened ? 'info-warn' : 'info-good'}">${behavior.is_shortened ? '⚠️ Yes' : 'No'}</span></div>
-          <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${behavior.redirect_count || 0}</span></div>
-          <div class="info-row"><span class="info-label">Final URL</span><span class="info-value" style="font-size:11px;">${behavior.final_url || 'N/A'}</span></div>
-          <div class="info-row"><span class="info-label">Behavior Risk Score</span><span class="info-value" style="color:${behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${behavior.behavior_risk_score || 0}%</span></div>
-        </div>
-      `;
-      
-      const whoisDeep = deep.whois_deep || {};
-      document.getElementById('whois-deep-analysis').innerHTML = `
-        <div style="margin-bottom: 20px;">
-          <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
-          <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A'} ${whoisDeep.is_new ? '<span class="info-warn"> (⚠️ New domain)</span>' : ''}</span></div>
-          <div class="info-row"><span class="info-label">Creation Date</span><span class="info-value">${whoisDeep.creation_date || 'N/A'}</span></div>
-          <div class="info-row"><span class="info-label">Expiration Date</span><span class="info-value">${whoisDeep.expiration_date || 'N/A'}</span></div>
-          <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${whoisDeep.registrar || 'N/A'}</span></div>
-          ${whoisDeep.red_flags && whoisDeep.red_flags.length > 0 ? `
-          <div class="info-row"><span class="info-label">Red Flags</span><span class="info-value info-warn">${whoisDeep.red_flags.join('; ')}</span></div>
-          ` : ''}
-          <div class="info-row"><span class="info-label">WHOIS Risk Score</span><span class="info-value" style="color:${whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${whoisDeep.whois_risk_score || 0}%</span></div>
-        </div>
-      `;
-      
-      // OSINT Results with URLhaus
-const osint = deep.osint || {};
-const urlhaus = osint.urlhaus_details || {};
 
-let osintHTML = `
-  <div style="margin-bottom: 20px;">
-    <h4 style="color:var(--accent); margin-bottom:10px;">🛡️ OSINT Threat Intelligence</h4>
-    <div class="info-row">
-      <span class="info-label">URLhaus Detection</span>
-      <span class="info-value ${osint.urlhaus ? 'info-bad' : 'info-good'}">
-        ${osint.urlhaus ? '⚠️ Found in URLhaus' : '✅ Clean'}
-      </span>
-    </div>
-`;
+        <div class="urlvet-details">
+          <div class="urlvet-verdict-banner ${verdictClass}">
+            <div class="v-icon">${verdictIcon}</div>
+            <div>
+              <strong>${verdictText}</strong>
+              <div style="font-size: 12px; opacity: 0.8;">
+                ${redFlags.length > 0 ? redFlags.length + ' red flag(s) detected' : 'No red flags detected'}
+              </div>
+            </div>
+          </div>
+          ${flagsHTML}
+        </div>
+      </div>
 
-if (osint.urlhaus) {
-  osintHTML += `
-    <div class="info-row">
-      <span class="info-label">Threat Type</span>
-      <span class="info-value info-bad">${urlhaus.threat || 'Malicious'}</span>
+      ${techHTML}
     </div>
-    ${urlhaus.tags && urlhaus.tags.length > 0 ? `
-    <div class="info-row">
-      <span class="info-label">Tags</span>
-      <span class="info-value">${urlhaus.tags.join(', ')}</span>
-    </div>
-    ` : ''}
-    ${urlhaus.first_seen ? `
-    <div class="info-row">
-      <span class="info-label">First Seen</span>
-      <span class="info-value">${urlhaus.first_seen}</span>
-    </div>
-    ` : ''}
-    ${urlhaus.id ? `
-    <div class="info-row">
-      <span class="info-label">URLhaus ID</span>
-      <span class="info-value">#${urlhaus.id}</span>
-    </div>
-    ` : ''}
   `;
 }
 
-   osintHTML += `
-       <div class="info-row">
-         <span class="info-label">OSINT Risk Score</span>
-         <span class="info-value" style="color:${osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">
-           ${osint.osint_risk_score || 0}%
-         </span>
-       </div>
-     </div>
-   `;
+// ================================================================
+// Render Result (النسخة الجديدة)
+// ================================================================
+function renderResult(scanData, analysisData) {
+  document.getElementById('loading-area').style.display = 'none';
+  const verdictArea = document.getElementById('verdict-area');
+  verdictArea.style.display = 'block';
+  allData = { scan: scanData, analysis: analysisData };
 
-  document.getElementById('osint-analysis').innerHTML = osintHTML;
-      
-      if (deep.deep_recommendations && deep.deep_recommendations.length > 0) {
-        document.getElementById('deep-recommendations').innerHTML = `
-          <div>
-            <h4 style="color:var(--accent); margin-bottom:10px;">📋 Deep Analysis Recommendations</h4>
-            <ul class="recommendations-list">
-             ${deep.deep_recommendations.map(r => `<li>${esc(r)}</li>`).join('')}
-            </ul>
-          </div>
-        `;
-      }
-    }
+  updateBadge(scanData.status, scanData.verdict);
 
-    if (analysisData && analysisData.history_scans && analysisData.history_scans.length > 1) {
-      extraHTML += `<div class="section-card">
-        <div class="section-title">📊 Scan History</div>
-        <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
-      </div>`;
-    }
+  // استخراج بيانات url.vet
+  const urlvet = analysisData?.urlvet || {};
 
+  // بناء القسم الرئيسي
+  let mainHTML = '';
+
+  // 1. قسم url.vet (الأهم)
+  mainHTML += renderURLVet(urlvet);
+
+  // 2. الأقسام المحلية الأخرى (Deep Analysis, etc.)
+  const localVerdict = analysisData?.verdict || 'unknown';
+  const localScore = analysisData?.security_score || 0;
+  const urlStructure = analysisData?.url_structure || {};
+  const sslInfo = analysisData?.ssl_info || {};
+  const dnsRecords = analysisData?.dns_records || {};
+  const isShortened = analysisData?.is_shortened || false;
+  const recommendations = analysisData?.recommendations || [];
+  const phishingIndicators = analysisData?.phishing_indicators || {};
+
+  let extraHTML = '';
+
+  // Local Security Analysis
+  extraHTML += `<div class="section-card">
+    <div class="section-title">🔒 Local Security Analysis</div>
+    <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)'}">${localScore}/100</span></div>
+    <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${localVerdict.toUpperCase()}</span></div>
+    ${isShortened ? `<div class="info-row"><span class="info-label">URL Shortener</span><span class="info-value info-warn">⚠️ Detected</span></div>` : ''}
+    ${urlStructure?.is_https ? `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-good">✓ Enabled</span></div>` : `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-bad">✗ Not Secure</span></div>`}
+    ${urlStructure?.contains_ip ? `<div class="info-row"><span class="info-label">IP Address URL</span><span class="info-value info-bad">⚠️ Suspicious</span></div>` : ''}
+  </div>`;
+
+  // Phishing Indicators
+  if (phishingIndicators?.is_phishing_suspected) {
     extraHTML += `<div class="section-card">
-      <div class="section-title">🗺️ Threat Map</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        ${m > 0 ? `<span class="threat-tag threat-malicious">🚨 MALICIOUS (${m})</span>` : ''}
-        ${sus > 0 ? `<span class="threat-tag threat-suspicious">⚠️ SUSPICIOUS (${sus})</span>` : ''}
-        <span class="threat-tag threat-safe">✅ ${h} engines safe</span>
-      </div>
+      <div class="section-title">⚠️ Phishing Indicators</div>
+      ${phishingIndicators.issues?.map(issue => `<div class="info-row"><span class="info-label">⚠️</span><span class="info-value info-warn">${esc(issue)}</span></div>`).join('')}
     </div>`;
+  }
 
-    document.getElementById('extra-sections').innerHTML = extraHTML;
+  // SSL Certificate
+  if (sslInfo && sslInfo.valid !== undefined) {
+    extraHTML += `<div class="section-card">
+      <div class="section-title">🔐 SSL Certificate</div>
+      <div class="info-row"><span class="info-label">Status</span><span class="info-value ${sslInfo.valid ? 'info-good' : 'info-bad'}">${sslInfo.valid ? 'Valid' : 'Invalid'}</span></div>
+      <div class="info-row"><span class="info-label">Days Remaining</span><span class="info-value">${sslInfo.days_remaining || 0} days</span></div>
+      <div class="info-row"><span class="info-label">Issuer</span><span class="info-value">${sslInfo.issuer || 'N/A'}</span></div>
+      <div class="info-row"><span class="info-label">TLS Version</span><span class="info-value">${sslInfo.tls_version || 'N/A'}</span></div>
+    </div>`;
+  }
 
-    if (analysisData && analysisData.history_scans && analysisData.history_scans.length > 1) {
-      setTimeout(() => {
-        const ctx = document.getElementById('history-chart');
-        if (ctx) {
-          const historyData = analysisData.history_scans;
-          const labels = historyData.map(s => s.date).reverse();
-          if (historyChart) historyChart.destroy();
-          historyChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: labels,
-              datasets: [{
-                label: 'Scan Count',
-                data: historyData.map((_, i) => i + 1).reverse(),
-                borderColor: '#00c8ff',
-                backgroundColor: 'rgba(0,200,255,0.1)',
-                tension: 0.3,
-                fill: true
-              }]
-            },
-            options: { 
-              responsive: true, 
-              maintainAspectRatio: true,
-              plugins: { legend: { display: false } },
-              scales: { 
-                x: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } },
-                y: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } }
-              }
-            }
-          });
-        }
-      }, 500);
-    }
+  // Screenshot from url.vet
+  if (urlvet.screenshot) {
+    extraHTML += `<div class="section-card">
+      <div class="section-title">📸 Website Screenshot (url.vet)</div>
+      <img src="${urlvet.screenshot}" alt="Screenshot" class="screenshot-img" onerror="this.parentElement.style.display='none'">
+    </div>`;
+  }
 
-    document.getElementById('export-buttons').style.display = 'flex';
-    document.getElementById('export-buttons').innerHTML = `
-      <button class="btn btn-success" onclick="exportJSON()">💾 Export JSON</button>
-      <button class="btn btn-outline" onclick="exportCSV()">📊 Export CSV</button>
+  // DNS Records
+  if (dnsRecords && (dnsRecords.a_records?.length > 0 || dnsRecords.mx_records?.length > 0)) {
+    extraHTML += `<div class="section-card">
+      <div class="section-title">🌐 DNS Records</div>
+      <div class="info-row"><span class="info-label">A Records</span><span class="info-value">${(dnsRecords.a_records || []).join(', ') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">SPF Record</span><span class="info-value ${dnsRecords.has_spf ? 'info-good' : 'info-bad'}">${dnsRecords.has_spf ? '✓ Configured' : '✗ Missing'}</span></div>
+      <div class="info-row"><span class="info-label">DMARC Record</span><span class="info-value ${dnsRecords.has_dmarc ? 'info-good' : 'info-bad'}">${dnsRecords.has_dmarc ? '✓ Configured' : '✗ Missing'}</span></div>
+    </div>`;
+  }
+
+  // Recommendations
+  if (recommendations.length > 0) {
+    extraHTML += `<div class="section-card">
+      <div class="section-title">📋 Security Recommendations</div>
+      <ul class="recommendations-list">
+        ${recommendations.map(r => `<li>${esc(r)}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+  // ⚡ إضافة قسم url.vet إلى الصفحة
+  document.getElementById('verdict-area').innerHTML = mainHTML;
+  
+  document.getElementById('extra-sections').innerHTML = extraHTML;
+
+  // Deep Analysis Section (إذا موجود)
+  if (analysisData && analysisData.deep_analysis) {
+    const deep = analysisData.deep_analysis;
+    const deepSection = document.getElementById('deep-analysis-section');
+    deepSection.style.display = 'block';
+
+    const content = deep.page_content || {};
+    document.getElementById('page-content-analysis').innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <h4 style="color:var(--accent); margin-bottom:10px;">📄 Page Content Analysis</h4>
+        <div class="info-row"><span class="info-label">Title</span><span class="info-value">${esc(content.title || 'N/A')}</span></div>
+        <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${content.has_login_form ? 'info-bad' : 'info-good'}">${content.has_login_form ? '⚠️ Yes' : 'No'}</span></div>
+        <div class="info-row"><span class="info-label">Content Risk Score</span><span class="info-value" style="color:${content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${content.content_risk_score || 0}%</span></div>
+      </div>
+    `;
+
+    const behavior = deep.behavior || {};
+    document.getElementById('behavior-analysis').innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <h4 style="color:var(--accent); margin-bottom:10px;">🔄 Behavioral Analysis</h4>
+        <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${behavior.is_shortened ? 'info-warn' : 'info-good'}">${behavior.is_shortened ? '⚠️ Yes' : 'No'}</span></div>
+        <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${behavior.redirect_count || 0}</span></div>
+        <div class="info-row"><span class="info-label">Behavior Risk Score</span><span class="info-value" style="color:${behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${behavior.behavior_risk_score || 0}%</span></div>
+      </div>
+    `;
+
+    const whoisDeep = deep.whois_deep || {};
+    document.getElementById('whois-deep-analysis').innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
+        <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${esc(whoisDeep.registrar || 'N/A')}</span></div>
+        <div class="info-row"><span class="info-label">WHOIS Risk Score</span><span class="info-value" style="color:${whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${whoisDeep.whois_risk_score || 0}%</span></div>
+      </div>
+    `;
+
+    const osint = deep.osint || {};
+    document.getElementById('osint-analysis').innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <h4 style="color:var(--accent); margin-bottom:10px;">🛡️ OSINT Threat Intelligence</h4>
+        <div class="info-row"><span class="info-label">URLhaus Detection</span><span class="info-value ${osint.urlhaus ? 'info-bad' : 'info-good'}">${osint.urlhaus ? '⚠️ Found' : '✅ Clean'}</span></div>
+        <div class="info-row"><span class="info-label">OSINT Risk Score</span><span class="info-value" style="color:${osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${osint.osint_risk_score || 0}%</span></div>
+      </div>
     `;
   }
 
-  function exportJSON() {
-    if (!allData) return;
-    const blob = new Blob([JSON.stringify(allData, null, 2)], {type: 'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `scan-${scanId}-report.json`; a.click();
+  // Export Buttons
+  document.getElementById('export-buttons').style.display = 'flex';
+  document.getElementById('export-buttons').innerHTML = `
+    <button class="btn btn-success" onclick="exportJSON()">💾 Export JSON</button>
+  `;
+}
+
+function exportJSON() {
+  if (!allData) return;
+  const blob = new Blob([JSON.stringify(allData, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `scan-${scanId}-report.json`; a.click();
+}
+
+function loadResult() {
+  document.getElementById('loading-text').textContent = 'Loading full analysis...';
+  Promise.all([
+    fetch('/api/scan_result/' + scanId).then(r => r.json()),
+    fetch('/api/url-analysis/' + scanId).then(r => r.json()).catch(() => null)
+  ]).then(([scanData, analysisData]) => { renderResult(scanData, analysisData); })
+  .catch(() => { document.getElementById('loading-text').textContent = 'Failed to load results. Refresh page.'; updateBadge('error','error'); });
+}
+
+function pollStatus() {
+  fetch('/api/scan_status/' + scanId).then(r => r.json()).then(data => {
+    updateBadge(data.status, data.verdict);
+    document.getElementById('loading-text').textContent = 'Analyzing... ' + data.status;
+    if (data.status === 'completed' || data.status === 'error') { loadResult(); return; }
+    setTimeout(pollStatus, 1500);
+  }).catch(() => { document.getElementById('loading-text').textContent = 'Connection error.'; });
+}
+
+if (initStatus === 'completed' || initStatus === 'error') { loadResult(); }
+else { pollStatus(); }
+
+// Get URL from query parameter and auto-fill
+window.addEventListener('load', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlFromQR = urlParams.get('url');
+  if (urlFromQR) {
+    localStorage.setItem('pending_scan_url', urlFromQR);
+    window.location.href = '/dashboard';
   }
-
-  function exportCSV() {
-    if (!allData) return;
-    const s = allData.scan.raw_report?.data?.attributes?.stats || {};
-    let csv = 'Category,Count\n';
-    csv += 'Harmless,'+(s.harmless||0)+'\n';
-    csv += 'Malicious,'+(s.malicious||0)+'\n';
-    csv += 'Suspicious,'+(s.suspicious||0)+'\n';
-    csv += 'Undetected,'+(s.undetected||0)+'\n';
-    const blob = new Blob([csv], {type: 'text/csv'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `scan-${scanId}-report.csv`; a.click();
-  }
-
-  function loadResult() {
-    document.getElementById('loading-text').textContent = 'Loading full analysis...';
-    Promise.all([
-      fetch('/api/scan_result/' + scanId).then(r => r.json()),
-      fetch('/api/url-analysis/' + scanId).then(r => r.json()).catch(() => null)
-    ]).then(([scanData, analysisData]) => { renderResult(scanData, analysisData); })
-    .catch(() => { document.getElementById('loading-text').textContent = 'Failed to load results. Refresh page.'; updateBadge('error','error'); });
-  }
-
-  function pollStatus() {
-    fetch('/api/scan_status/' + scanId).then(r => r.json()).then(data => {
-      updateBadge(data.status, data.verdict);
-      document.getElementById('loading-text').textContent = 'Analyzing... ' + data.status;
-      if (data.status === 'completed' || data.status === 'error') { loadResult(); return; }
-      setTimeout(pollStatus, 1500);
-    }).catch(() => { document.getElementById('loading-text').textContent = 'Connection error.'; });
-  }
-
-  if (initStatus === 'completed' || initStatus === 'error') { loadResult(); }
-  else { pollStatus(); }
-
-  // Get URL from query parameter and auto-fill
-  window.addEventListener('load', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlFromQR = urlParams.get('url');
-    if (urlFromQR) {
-      localStorage.setItem('pending_scan_url', urlFromQR);
-      window.location.href = '/dashboard';
-    }
-  });
+});
 </script>
 {% endblock %}

@@ -256,12 +256,12 @@
         <div class="deep-card" id="df-reputation"></div>
       </div>
       
-      <!-- Section 7: VirusTotal Results -->
+       <!-- Section 7: MalwareBazaar Results -->
       <div class="deep-section-title" onclick="toggleCollapse(this)">
-        <span class="icon">🦠</span> VIRUSTOTAL ANALYSIS
+        <span class="icon">🦠</span> MALWAREBAZAAR ANALYSIS
       </div>
       <div class="collapsible-content">
-        <div class="deep-card" id="df-virustotal"></div>
+        <div class="deep-card" id="df-malwarebazaar"></div>
       </div>
       
       <!-- Section 8: Warnings -->
@@ -480,8 +480,8 @@ function renderResult(d) {
   const yara = d.yara || {};
   const metadata = d.metadata || {};
   const iocs = d.iocs || {};
-  const vt = d.virustotal || {};
-  
+  const mb = d.malwarebazaar || {};
+    
   const statsGrid = document.getElementById('stats-grid');
   if (statsGrid) {
     statsGrid.innerHTML = `
@@ -491,8 +491,8 @@ function renderResult(d) {
       <div class="stat-box"><div class="num">${metadata.has_macros ? 'Yes' : 'No'}</div><div class="label">MACROS</div></div>
       <div class="stat-box"><div class="num">${metadata.has_javascript ? 'Yes' : 'No'}</div><div class="label">JAVASCRIPT</div></div>
       <div class="stat-box"><div class="num">${d.file_size_mb || 0} MB</div><div class="label">SIZE</div></div>
-      <div class="stat-box"><div class="num">${vt.malicious || 0}</div><div class="label">VT MALICIOUS</div></div>
-      <div class="stat-box"><div class="num">${vt.suspicious || 0}</div><div class="label">VT SUSPICIOUS</div></div>
+      <div class="stat-box"><div class="num">${mb.is_malicious ? 'Yes' : 'No'}</div><div class="label">MALWAREBAZAAR</div></div>
+      <div class="stat-box"><div class="num">${(mb.tags || []).length}</div><div class="label">MB TAGS</div></div>
     `;
   }
   
@@ -507,11 +507,22 @@ function renderResult(d) {
     `).join('');
   }
   
-  if (vt.threats && vt.threats.length > 0) {
-    threatHtml += vt.threats.slice(0, 15).map(t => `
+   // MalwareBazaar signature
+  if (mb.is_malicious && mb.signature) {
+    threatHtml += `
       <div class="detection-item">
-        <span class="detection-engine">${escapeHtml(t.engine)}</span>
-        <span class="detection-result">${escapeHtml(t.result)}</span>
+        <span class="detection-engine">MalwareBazaar</span>
+        <span class="detection-result">${escapeHtml(mb.signature)}</span>
+      </div>
+    `;
+  }
+  
+  // MalwareBazaar tags
+  if (mb.tags && mb.tags.length > 0) {
+    threatHtml += mb.tags.slice(0, 10).map(tag => `
+      <div class="detection-item">
+        <span class="detection-engine">MB Tag</span>
+        <span class="detection-result">${escapeHtml(tag)}</span>
       </div>
     `).join('');
   }
@@ -692,18 +703,22 @@ function renderFullDeepAnalysis(d) {
     `;
   }
   
-  // 7. VirusTotal
-  const vt = d.virustotal || {};
-  const vtDiv = document.getElementById('df-virustotal');
-  if (vtDiv) {
-    vtDiv.innerHTML = `
-      <div class="info-row"><span class="info-label">Verdict</span><span class="info-value ${vt.verdict === 'malicious' ? 'info-danger' : vt.verdict === 'suspicious' ? 'info-warn' : 'info-good'}">${escapeHtml(vt.verdict || 'Unknown')}</span></div>
-      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value info-danger">${vt.malicious || 0}</span></div>
-      <div class="info-row"><span class="info-label">Suspicious</span><span class="info-value info-warn">${vt.suspicious || 0}</span></div>
-      <div class="info-row"><span class="info-label">Harmless</span><span class="info-value info-good">${vt.harmless || 0}</span></div>
-      <div class="info-row"><span class="info-label">Undetected</span><span class="info-value">${vt.undetected || 0}</span></div>
-      <div class="info-row"><span class="info-label">Detection Rate</span><span class="info-value ${(vt.detection_rate || 0) > 10 ? 'info-warn' : 'info-good'}">${vt.detection_rate || 0}%</span></div>
-      <div class="info-row"><span class="info-label">Total Engines</span><span class="info-value">${vt.total_engines || 0}</span></div>
+    // 7. MalwareBazaar
+  const mb = d.malwarebazaar || {};
+  const mbDiv = document.getElementById('df-malwarebazaar');
+  if (mbDiv) {
+    const mbFound = mb.found || mb.is_malicious;
+    mbDiv.innerHTML = `
+      <div class="info-row"><span class="info-label">Status</span><span class="info-value ${mbFound ? 'info-danger' : 'info-good'}">${mbFound ? '⚠️ Found in MalwareBazaar' : '✅ Not Found'}</span></div>
+      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${mb.is_malicious ? 'info-danger' : 'info-good'}">${mb.is_malicious ? 'Yes' : 'No'}</span></div>
+      <div class="info-row"><span class="info-label">Signature</span><span class="info-value">${escapeHtml(mb.signature || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">File Type</span><span class="info-value">${escapeHtml(mb.file_type || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">File Name</span><span class="info-value">${escapeHtml(mb.file_name || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">Tags</span><span class="info-value">${(mb.tags || []).map(t => `<span class="ioc-badge">${escapeHtml(t)}</span>`).join('') || 'None'}</span></div>
+      <div class="info-row"><span class="info-label">First Seen</span><span class="info-value">${escapeHtml(mb.first_seen || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">Last Seen</span><span class="info-value">${escapeHtml(mb.last_seen || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">Reporter</span><span class="info-value">${escapeHtml(mb.reporter || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">Source</span><span class="info-value">MalwareBazaar (abuse.ch)</span></div>
     `;
   }
   
@@ -831,9 +846,9 @@ if (copyReportBtn) {
 ║   URLs: ${d.iocs?.urls?.length || 0}
 ║   Domains: ${d.iocs?.domains?.length || 0}
 ╠══════════════════════════════════════════════════════════════════╣
-║ VirusTotal: ${d.virustotal?.verdict || 'Unknown'}
-║   Malicious: ${d.virustotal?.malicious || 0}
-║   Detection Rate: ${d.virustotal?.detection_rate || 0}%
+║   MalwareBazaar: ${d.malwarebazaar?.is_malicious ? 'MALICIOUS' : 'CLEAN'}
+║   Signature: ${d.malwarebazaar?.signature || 'N/A'}
+║   File Type: ${d.malwarebazaar?.file_type || 'N/A'}
 ╠══════════════════════════════════════════════════════════════════╣
 ║ Generated by MyScanner File Security Tool
 ║ Date: ${new Date().toLocaleString()}

@@ -1,6 +1,6 @@
 # services/hybrid_analysis.py
 # ================================================================
-# Hybrid Analysis + VirusTotal + MyScanner Unified Sandbox Service
+# Hybrid Analysis + MalwareBazaar + MyScanner Unified Sandbox Service
 # ================================================================
 
 import requests
@@ -11,12 +11,12 @@ import json
 from datetime import datetime
 from typing import Optional
 
+from services.malwarebazaar_client import MalwareBazaarClient
+
 
 HYBRID_API_KEY = os.getenv('HYBRID_ANALYSIS_API_KEY', '')
-VIRUSTOTAL_API_KEY = os.getenv('VIRUSTOTAL_API_KEY', '')
 
 HYBRID_BASE = 'https://www.hybrid-analysis.com/api/v2'
-VT_BASE = 'https://www.virustotal.com/api/v3'
 
 ENVIRONMENTS = {
     '300': 'Windows 10 64-bit',
@@ -32,28 +32,28 @@ class HybridAnalysisService:
     """
     خدمة تحليل موحدة تجمع:
     - Hybrid Analysis API  → تحليل سلوكي / Sandbox
-    - VirusTotal API       → فحص محركات الكشف
+    - MalwareBazaar        → فحص محركات الكشف (بديل VirusTotal)
     - MyScanner Static     → تحليل ثابت محلي
     """
 
     def __init__(self):
         self.ha_key = HYBRID_API_KEY
-        self.vt_key = VIRUSTOTAL_API_KEY
         self.ha_headers = {
             'api-key': self.ha_key,
             'User-Agent': 'MyScanner/2.0',
             'accept': 'application/json',
         }
+        self.mb_client = MalwareBazaarClient()
 
     # ──────────────────────────────────────────────
     #  HASH LOOKUP  (سريع - بدون رفع)
     # ──────────────────────────────────────────────
     def lookup_hash(self, file_hash: str) -> dict:
         """
-        ابحث عن ملف بالـ hash في Hybrid Analysis.
+        ابحث عن ملف بالـ hash في Hybrid Analysis + MalwareBazaar.
         يعود بنتيجة فورية إن كان الملف محللاً مسبقاً.
         """
-        results = {'ha': None, 'vt': None, 'found': False}
+        results = {'ha': None, 'mb': None, 'found': False}
 
         # Hybrid Analysis
         if self.ha_key:
@@ -72,19 +72,14 @@ class HybridAnalysisService:
             except Exception as e:
                 results['ha_error'] = str(e)
 
-        # VirusTotal
-        if self.vt_key:
-            try:
-                resp = requests.get(
-                    f'{VT_BASE}/files/{file_hash}',
-                    headers={'x-apikey': self.vt_key},
-                    timeout=20
-                )
-                if resp.status_code == 200:
-                    results['vt'] = resp.json().get('data', {})
-                    results['found'] = True
-            except Exception as e:
-                results['vt_error'] = str(e)
+        # MalwareBazaar
+        try:
+            mb_result = self.mb_client.check_hash(file_hash)
+            results['mb'] = mb_result
+            if mb_result.get('found'):
+                results['found'] = True
+        except Exception as e:
+            results['mb_error'] = str(e)
 
         return results
 
@@ -187,51 +182,15 @@ class HybridAnalysisService:
         return {'state': 'TIMEOUT', 'error': f'Analysis did not complete within {max_wait}s'}
 
     # ──────────────────────────────────────────────
-    #  VIRUSTOTAL SUBMIT
-    # ──────────────────────────────────────────────
-    def submit_to_virustotal(self, file_content: bytes, filename: str) -> dict:
-        """رفع الملف لـ VirusTotal وانتظار النتيجة."""
-        if not self.vt_key:
-            return {'error': 'VirusTotal API key not configured'}
-
-        try:
-            headers = {'x-apikey': self.vt_key}
-            resp = requests.post(
-                f'{VT_BASE}/files',
-                headers=headers,
-                files={'file': (filename, file_content)},
-                timeout=60
-            )
-
-            if resp.status_code not in (200, 201):
-                return {'error': f'VT submit failed: {resp.status_code}'}
-
-            analysis_id = resp.json()['data']['id']
-            analysis_url = f'{VT_BASE}/analyses/{analysis_id}'
-
-            for _ in range(30):
-                time.sleep(5)
-                r = requests.get(analysis_url, headers=headers, timeout=30)
-                if r.status_code == 200:
-                    data = r.json()
-                    if data['data']['attributes'].get('status') == 'completed':
-                        return data['data']['attributes']
-
-            return {'error': 'VT analysis timeout'}
-
-        except Exception as e:
-            return {'error': str(e)}
-
-    # ──────────────────────────────────────────────
     #  COMPREHENSIVE ANALYSIS  (التحليل الكامل الموحد)
     # ──────────────────────────────────────────────
     def comprehensive_analysis(self, file_content: bytes, filename: str,
                                environment_id: str = '300') -> dict:
         """
         تحليل شامل يجمع:
-        1. Hash lookup (فوري)
+        1. Hash lookup (فوري) - HA + MalwareBazaar
         2. Hybrid Analysis Sandbox (سلوكي)
-        3. VirusTotal (محركات الكشف)
+        3. MalwareBazaar (محركات الكشف)
         4. Static Analysis (محلي)
         """
         sha256 = hashlib.sha256(file_content).hexdigest()
@@ -261,20 +220,32 @@ class HybridAnalysisService:
             'errors': [],
         }
 
-        # ── 1. Hash Lookup ──
+        # ── 1. Hash Lookup (HA + MalwareBazaar) ──
         lookup = self.lookup_hash(sha256)
         if lookup.get('found'):
             result['sources']['hash_lookup'] = 'found'
             if lookup.get('ha'):
                 self._parse_ha_report(result, lookup['ha'])
-            if lookup.get('vt'):
-                self._parse_vt_report(result, lookup['vt'])
+            if lookup.get('mb'):
+                self._parse_mb_report(result, lookup['mb'])
             result['from_cache'] = True
+            self._calculate_final_verdict(result)
             return result
 
         result['from_cache'] = False
 
-        # ── 2. Hybrid Analysis Submit ──
+        # ── 2. MalwareBazaar (فحص بالـ hash) ──
+        try:
+            mb_result = self.mb_client.scan_file(file_content, filename)
+            if mb_result.get('found'):
+                self._parse_mb_report(result, mb_result)
+                result['sources']['malwarebazaar'] = 'found'
+            else:
+                result['sources']['malwarebazaar'] = 'not_found'
+        except Exception as e:
+            result['errors'].append(f"MalwareBazaar: {str(e)}")
+
+        # ── 3. Hybrid Analysis Submit ──
         if self.ha_key:
             submit = self.submit_file(file_content, filename, environment_id)
             if submit.get('submitted'):
@@ -292,15 +263,6 @@ class HybridAnalysisService:
                     result['errors'].append(ha_report.get('error', 'HA failed'))
             else:
                 result['errors'].append(submit.get('error', 'HA submit failed'))
-
-        # ── 3. VirusTotal ──
-        if self.vt_key:
-            vt_result = self.submit_to_virustotal(file_content, filename)
-            if not vt_result.get('error'):
-                self._parse_vt_attributes(result, vt_result)
-                result['sources']['virustotal'] = 'completed'
-            else:
-                result['errors'].append(f"VT: {vt_result['error']}")
 
         # ── 4. حساب الحكم النهائي ──
         self._calculate_final_verdict(result)
@@ -368,60 +330,45 @@ class HybridAnalysisService:
         result['av_detections'] = report.get('av_detect', 0) or 0
         result['total_engines'] = 100  # HA يستخدم ~100 محرك
 
-    def _parse_vt_report(self, result: dict, report: dict):
-        """تحليل تقرير VirusTotal من hash lookup."""
-        attrs = report.get('attributes', {})
-        self._parse_vt_attributes(result, attrs)
+    def _parse_mb_report(self, result: dict, mb_report: dict):
+        """تحليل تقرير MalwareBazaar واستخراج البيانات المهمة."""
+        if not mb_report.get('found'):
+            return
 
-    def _parse_vt_attributes(self, result: dict, attrs: dict):
-        """تحليل attributes من VirusTotal."""
-        stats = attrs.get('stats', {})
-        last_analysis = attrs.get('last_analysis_results', {})
+        result['mb_signature'] = mb_report.get('signature')
+        result['mb_file_type'] = mb_report.get('file_type')
+        result['mb_file_name'] = mb_report.get('file_name')
+        result['mb_tags'] = mb_report.get('tags', [])
+        result['mb_first_seen'] = mb_report.get('first_seen')
+        result['mb_last_seen'] = mb_report.get('last_seen')
+        result['mb_reporter'] = mb_report.get('reporter')
 
-        malicious = stats.get('malicious', 0)
-        suspicious = stats.get('suspicious', 0)
-        harmless = stats.get('harmless', 0)
-        undetected = stats.get('undetected', 0)
-        total = malicious + suspicious + harmless + undetected
+        # MalwareBazaar = الملف موجود في قاعدة بيانات البرمجيات الخبيثة
+        # هذا يعني كشف مؤكد (100%)
+        if mb_report.get('is_malicious'):
+            result['threat_score'] = max(result['threat_score'], 100)
+            result['verdict'] = 'malicious'
+            result['threat_level'] = 'malicious'
 
-        result['vt_stats'] = {
-            'malicious': malicious,
-            'suspicious': suspicious,
-            'harmless': harmless,
-            'undetected': undetected,
-            'total': total,
-            'detection_rate': round((malicious + suspicious) / total * 100, 1) if total > 0 else 0,
-        }
-
-        # أبرز المحركات التي اكتشفت
-        result['vt_detections'] = [
-            {
-                'engine': engine,
-                'result': data.get('result', ''),
-                'category': data.get('category', ''),
-                'version': data.get('engine_version', ''),
-            }
-            for engine, data in last_analysis.items()
-            if data.get('category') in ('malicious', 'suspicious')
-        ][:20]
-
-        # تحديث threat_score من VT
-        vt_score = int((malicious / total * 100)) if total > 0 else 0
-        result['threat_score'] = max(result['threat_score'], vt_score)
+        # إضافة إلى signatures
+        if mb_report.get('signature'):
+            result['signatures'].append({
+                'name': mb_report['signature'],
+                'description': f"Detected by MalwareBazaar (Family: {mb_report['signature']})",
+                'severity': 'malicious',
+            })
 
     def _calculate_final_verdict(self, result: dict):
         """حساب الحكم النهائي الموحد بناءً على كل المصادر."""
         score = result['threat_score']
-        vt_stats = result.get('vt_stats', {})
-        vt_malicious = vt_stats.get('malicious', 0)
-        vt_total = vt_stats.get('total', 1)
+        mb_found = bool(result.get('mb_signature'))
 
         # تطبيق قواعد الحكم
-        if result.get('verdict') in ('malicious',) or vt_malicious >= 5:
+        if result.get('verdict') in ('malicious',) or mb_found:
             result['verdict'] = 'malicious'
             result['threat_level'] = 'malicious'
             result['threat_score'] = max(score, 80)
-        elif result.get('verdict') == 'suspicious' or vt_malicious >= 2:
+        elif result.get('verdict') == 'suspicious':
             result['verdict'] = 'suspicious'
             result['threat_level'] = 'suspicious'
             result['threat_score'] = max(score, 50)
@@ -431,7 +378,7 @@ class HybridAnalysisService:
         elif score >= 40:
             result['verdict'] = 'suspicious'
             result['threat_level'] = 'suspicious'
-        elif vt_malicious == 0 and vt_total > 0:
+        elif result.get('sources', {}).get('malwarebazaar') == 'not_found':
             result['verdict'] = 'no_threat'
             result['threat_level'] = 'no_threat'
             result['threat_score'] = min(score, 10)

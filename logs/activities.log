@@ -128,3 +128,30 @@
 2026-05-29 13:50:48,880 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
 2026-06-13 09:02:15,704 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
 2026-07-18 19:54:27,613 - Activity: login | User: ahmed | Details: Logged in from 127.0.0.1
+2026-10-03 13:53:51,893 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-10-03 13:56:16,170 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:00:30,803 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:08:26,132 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:10:27,853 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:11:35,239 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:11:43,305 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:13:46,586 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:16:03,672 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:17:15,389 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:18:23,422 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:19:27,201 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:19:36,326 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 14:21:22,013 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://example.com
+2026-10-03 17:06:12,343 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4
+2026-10-03 18:20:03,822 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4
+2026-10-03 18:37:39,004 - Activity: url_analysis | User: AHMED0 | Details: Analyzed URL: https://www.youtube.com/watch?v=-NK89xCWM-o&list=RDMMPUG69tqSlt0&index=4
+2026-10-03 18:54:50,433 - Activity: file_scan | User: AHMED0 | Details: Scanned file: MyScanner-Report-9-20261003.pdf | Verdict: safe
+2026-10-03 19:05:55,026 - Activity: file_scan | User: AHMED0 | Details: Scanned file: MyScanner-Report-9-20261003.pdf | Verdict: safe
+2026-10-03 19:18:02,240 - Activity: file_scan | User: AHMED0 | Details: Scanned file: MyScanner-Report-9-20261003.pdf | Verdict: safe
+2026-10-03 23:24:58,970 - Activity: file_scan | User: AHMED0 | Details: Scanned file: test.pdf | Verdict: safe
+2026-10-04 00:35:08,406 - Activity: qr_scan | User: AHMED0 | Details: Scanned QR URL: http://en.m.wikipedia.org | Verdict: clean
+2026-10-04 00:53:56,617 - Activity: file_scan | User: AHMED0 | Details: [SANDBOX] Hash lookup: 44d88612fea8a8f3...
+2026-10-04 00:54:39,078 - Activity: file_scan | User: AHMED0 | Details: [SANDBOX] Analyzed: MyScanner-Report-8-20261003.pdf | Verdict: no_threat
+2026-10-04 14:51:20,977 - Activity: login | User: AHMED0 | Details: Logged in from 127.0.0.1
+2026-10-04 14:51:43,896 - Activity: file_scan | User: AHMED0 | Details: [SANDBOX] Analyzed: myscanner-report-6.pdf | Verdict: no_threat
+2026-10-04 14:52:27,007 - Activity: url_analyzer | User: AHMED0 | Details: [SANDBOX] URL: https://gemini.google.com/app/3c6a8fab04fd9db7

@@ -20,6 +20,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import requests
+from services.safe_http import PublicHTTPSession, UnsafeTargetError, validate_public_url, public_connection
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import ssl
@@ -67,7 +68,7 @@ class SiteAnalyzer:
             cache_ttl: مدة صلاحية cache بالثواني (افتراضي 24 ساعة)
             use_external_scanners: استخدام Nikto/ZAP (يتطلب تثبيت)
         """
-        self.session = requests.Session()
+        self.session = PublicHTTPSession()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
@@ -292,6 +293,8 @@ class SiteAnalyzer:
                         logger.warning(f"Potential XSS at {test_url[:100]}")
                         break
                         
+            except UnsafeTargetError:
+                raise
             except Exception as e:
                 logger.debug(f"Dynamic scan error for {endpoint}: {str(e)}")
         
@@ -412,6 +415,8 @@ class SiteAnalyzer:
                 "recommendations": [v["recommendation"] for k, v in analysis.items() if "recommendation" in v]
             }
             
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"Failed to check security headers for {url}: {str(e)}")
             return {"error": str(e), "score": 0, "grade": "F", "recommendations": []}
@@ -445,7 +450,7 @@ class SiteAnalyzer:
         try:
             context = ssl.create_default_context()
             
-            with socket.create_connection((domain, 443), timeout=10) as sock:
+            with public_connection(domain, timeout=10) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
                     cert_bin = ssock.getpeercert(True)
                     result["tls_version"] = ssock.version()
@@ -509,6 +514,8 @@ class SiteAnalyzer:
             result["error"] = "Connection refused - SSL may not be enabled"
             result["risk_score"] = 50
             logger.error(f"SSL connection refused for {domain}")
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             result["error"] = str(e)
             result["risk_score"] = 50
@@ -577,6 +584,8 @@ class SiteAnalyzer:
             else:
                 logger.warning(f"robots.txt returned status {response.status_code} for {domain}")
                 
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"Failed to analyze robots.txt for {domain}: {str(e)}")
         
@@ -621,6 +630,8 @@ class SiteAnalyzer:
                     
                     logger.info(f"Found sitemap for {domain} with {len(result['urls'])} URLs")
                     break
+            except UnsafeTargetError:
+                raise
             except Exception:
                 continue
         
@@ -879,6 +890,8 @@ class SiteAnalyzer:
                 "score": score,
                 "risk_score": 0 if grade in ['A+', 'A'] else 10 if grade == 'B' else 20 if grade == 'C' else 35
             }
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"Performance analysis failed for {url}: {str(e)}")
             return {"error": str(e), "grade": "Unknown", "score": 0, "risk_score": 0}
@@ -893,6 +906,8 @@ class SiteAnalyzer:
         """
         logger.info(f"[START] Starting comprehensive analysis for: {domain}")
         
+        domain = validate_public_url(domain).url
+
         cached_result = self._get_cached_result(domain)
         if cached_result:
             cached_result['from_cache'] = True
@@ -903,7 +918,7 @@ class SiteAnalyzer:
         
         url = domain
         parsed = urlparse(url)
-        clean_domain = parsed.netloc
+        clean_domain = parsed.hostname
         
         response = None
         html_content = ""
@@ -914,14 +929,18 @@ class SiteAnalyzer:
             final_url = response.url
             html_content = response.text
             logger.info(f"[SUCCESS] Successfully fetched {url} (Status: {response.status_code})")
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.warning(f"⚠️ HTTPS failed for {domain}: {str(e)}. Trying HTTP...")
             try:
-                url = 'http://' + clean_domain
+                url = 'http://' + parsed.netloc
                 response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
                 final_url = response.url
                 html_content = response.text
                 logger.info(f"[SUCCESS] Successfully fetched {url} with HTTP")
+            except UnsafeTargetError:
+                raise
             except Exception as e2:
                 logger.error(f"❌ Failed to fetch {domain}: {str(e2)}")
                 return {
@@ -953,8 +972,8 @@ class SiteAnalyzer:
         ssl_result = self.check_ssl_advanced(clean_domain)
         
         logger.info(f"[ROBOTS] Analyzing robots.txt & sitemap for {domain}")
-        robots_txt = self.analyze_robots_txt(f"{parsed.scheme}://{clean_domain}")
-        sitemap = self.analyze_sitemap(f"{parsed.scheme}://{clean_domain}")
+        robots_txt = self.analyze_robots_txt(f"{parsed.scheme}://{parsed.netloc}")
+        sitemap = self.analyze_sitemap(f"{parsed.scheme}://{parsed.netloc}")
         
         logger.info(f"[DNS] Checking DNS records for {domain}")
         dns_records = self.check_dns_records(clean_domain)

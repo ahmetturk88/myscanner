@@ -1,5 +1,6 @@
 # services/ssl_analyzer.py
 import ssl
+from services.safe_http import validate_public_url, public_connection
 import socket
 from datetime import datetime
 import logging
@@ -16,13 +17,13 @@ class SSLAnalyzer:
         """تحليل شهادة SSL للنطاق"""
         
         # تنظيف النطاق
-        domain = domain.replace('https://', '').replace('http://', '').split('/')[0]
+        domain = validate_public_url(domain).hostname
         logger.debug(f"Cleaned domain: {domain}")
         
         try:
             logger.debug(f"Connecting to {domain}:443...")
             context = ssl.create_default_context()
-            with socket.create_connection((domain, 443), timeout=10) as sock:
+            with public_connection(domain, timeout=10) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
                     cert = ssock.getpeercert()
                     tls_version = ssock.version()

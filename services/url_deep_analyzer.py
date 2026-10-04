@@ -9,6 +9,7 @@ import socket
 import ssl
 import dns.resolver
 import requests
+from services.safe_http import PublicHTTPSession, UnsafeTargetError, validate_public_url, public_connection
 import hashlib
 import json
 import os
@@ -74,7 +75,7 @@ class URLDeepAnalyzer:
             cache_dir: مجلد التخزين المؤقت
             cache_ttl: مدة صلاحية الـ cache بالثواني (افتراضي 24 ساعة)
         """
-        self.session = requests.Session()
+        self.session = PublicHTTPSession()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
@@ -269,7 +270,7 @@ class URLDeepAnalyzer:
         logger.debug(f"Checking SSL certificate for: {domain}")
         try:
             context = ssl.create_default_context()
-            with socket.create_connection((domain, 443), timeout=10) as sock:
+            with public_connection(domain, timeout=10) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
                     cert = ssock.getpeercert()
                     tls_version = ssock.version()
@@ -304,6 +305,8 @@ class URLDeepAnalyzer:
                 "valid_from": not_before.strftime('%Y-%m-%d'),
                 "valid_until": not_after.strftime('%Y-%m-%d')
             }
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"SSL check error: {str(e)}")
             return {"valid": False, "error": str(e)}
@@ -419,6 +422,8 @@ class URLDeepAnalyzer:
                 "grade": "A" if score >= 70 else "B" if score >= 50 else "C" if score >= 30 else "D",
                 "recommendations": recommendations
             }
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"Security headers check error: {str(e)}")
             return {"error": str(e), "score": 0, "grade": "F"}
@@ -539,6 +544,8 @@ class URLDeepAnalyzer:
                     result["details"] = f"Query status: {data.get('query_status')}"
             else:
                 result["details"] = f"API Error: {resp.status_code}"
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"URLhaus error: {str(e)}")
             result["details"] = f"Error: {str(e)}"
@@ -586,6 +593,8 @@ class URLDeepAnalyzer:
             try:
                 response = self.session.get(url, timeout=self.timeout)
                 html = response.text
+            except UnsafeTargetError:
+                raise
             except Exception as e:
                 logger.error(f"Page content fetch error: {str(e)}")
                 return {"error": f"Could not fetch page content: {str(e)}"}
@@ -719,6 +728,8 @@ class URLDeepAnalyzer:
             final_domain = urlparse(result["final_url"]).netloc
             if final_domain in self.PHISHING_DOMAINS:
                 result["behavior_risk_score"] += 40
+        except UnsafeTargetError:
+            raise
         except Exception as e:
             logger.error(f"Behavior analysis error: {str(e)}")
             result["error"] = str(e)
@@ -781,11 +792,10 @@ class URLDeepAnalyzer:
         """
         logger.info(f"🔍 Starting quick URL analysis for: {url}")
 
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
+        url = validate_public_url(url).url
 
         parsed = urlparse(url)
-        domain = parsed.netloc
+        domain = parsed.hostname
 
         results = {
             "url": url,
@@ -883,8 +893,7 @@ class URLDeepAnalyzer:
         """
         logger.info(f"🚀 Starting deep URL analysis for: {url}")
 
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
+        url = validate_public_url(url).url
 
         # التحقق من cache
         cached_result = self._get_cached_result(url)
@@ -894,7 +903,7 @@ class URLDeepAnalyzer:
 
         result = {
             "url": url,
-            "domain": urlparse(url).netloc,
+            "domain": urlparse(url).hostname,
             "timestamp": datetime.now().isoformat(),
             "from_cache": False,
             "page_content": {},
@@ -948,6 +957,8 @@ class URLDeepAnalyzer:
         # 9. فحص رؤوس الأمان
         try:
             result["security_headers"] = self.check_security_headers(url)
+        except UnsafeTargetError:
+            raise
         except:
             result["security_headers"] = {"error": "Could not fetch headers"}
 

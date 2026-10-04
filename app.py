@@ -47,6 +47,8 @@ from celery_config import celery
 import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task
 from services.permissions import check_permission
+from models.async_scan_task import AsyncScanTask
+from services.task_dispatch import enqueue_owned_task
 from datetime import datetime, timedelta, timezone
 from logging_config import log_activity
 from services.vulnerability_scanner.scan_orchestrator import get_orchestrator
@@ -909,10 +911,12 @@ def async_scan_file():
     file.save(temp_path)
     
     # بدء المهمة في الخلفية
-    task = scan_file_task.delay(temp_path, file.filename, current_user.id)
+    task_id = enqueue_owned_task(
+        scan_file_task, (temp_path, file.filename, current_user.id), current_user.id
+    )
     
     return jsonify({
-        "task_id": task.id,
+        "task_id": task_id,
         "status": "started",
         "message": "File scan started in background"
     })
@@ -929,6 +933,12 @@ def task_status(task_id):
     """
     التحقق من حالة مهمة غير متزامنة
     """
+    ownership = db.session.get(AsyncScanTask, task_id)
+    if not ownership:
+        return jsonify({'error': 'Task not found'}), 404
+    if ownership.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
     task = AsyncResult(task_id, app=celery)
     
     if task.state == 'PENDING':
@@ -1003,12 +1013,14 @@ def async_scan_site():
     db.session.commit()
     
     # بدء المهمة في الخلفية
-    task = scan_site_task.delay(domain, current_user.id, new_scan.id)
+    task_id = enqueue_owned_task(
+        scan_site_task, (domain, current_user.id, new_scan.id), current_user.id
+    )
     
-    app.logger.info(f'[SUCCESS] Async scan started for {domain} | Task ID: {task.id}')
+    app.logger.info(f'[SUCCESS] Async scan started for {domain} | Task ID: {task_id}')
     
     return jsonify({
-        "task_id": task.id,
+        "task_id": task_id,
         "scan_id": new_scan.id,
         "status": "started",
         "message": "Site scan started in background"
@@ -1031,10 +1043,10 @@ def batch_scan():
     if not urls or len(urls) > 20:
         return jsonify({"error": "Provide 1-20 URLs"}), 400
     
-    task = batch_scan_task.delay(urls, current_user.id)
+    task_id = enqueue_owned_task(batch_scan_task, (urls, current_user.id), current_user.id)
     
     return jsonify({
-        "task_id": task.id,
+        "task_id": task_id,
         "total_urls": len(urls),
         "status": "started",
         "message": f"Batch scan of {len(urls)} URLs started"

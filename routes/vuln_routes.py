@@ -212,6 +212,13 @@ def download_report(scan_uuid):
 @login_required
 def stop_scan(scan_uuid):
     """إيقاف مسح قيد التشغيل"""
+    scan = VulnerabilityScan.query.filter_by(scan_uuid=scan_uuid).first()
+    if not scan:
+        return jsonify({'error': 'Scan not found'}), 404
+
+    if scan.user_id != current_user.id and not getattr(current_user, 'is_admin', False):
+        return jsonify({'error': 'Unauthorized'}), 403
+
     orchestrator = get_orchestrator()
     
     if orchestrator.stop_scan(scan_uuid):

@@ -474,10 +474,6 @@ def register():
         db.session.commit()
         send_verification_email(user)
 
-
-        # إرسال إيميل تأكيد (معطل)
-        print(f"[DEBUG] RESEND_API_KEY = '{RESEND_API_KEY}'")
-        print(f"[DEBUG] Sending to: {user.email}")
         flash('Account created! Please check your email to verify your account before logging in.', 'success')
         return redirect(url_for('login'))
 

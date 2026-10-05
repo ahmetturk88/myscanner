@@ -369,7 +369,7 @@ function updateBadge(status, verdict) {
 // 🌐 Render URL.VET Section
 // ================================================================
 function renderURLVet(urlvet) {
-  if (!urlvet || !urlvet.trust_score) {
+  if (!urlvet || urlvet.error || (urlvet.errors && urlvet.errors.length) || urlvet.trust_score == null || !Number.isFinite(Number(urlvet.trust_score))) {
     return `
       <div class="urlvet-section">
         <div class="urlvet-header">
@@ -573,7 +573,7 @@ function renderResult(scanData, analysisData) {
   const urlvet = analysisData?.urlvet || {};
 
   // بناء القسم الرئيسي
-  let mainHTML = '';
+  let mainHTML = scanData.status === 'partial' || analysisData?.assessment_status === 'partial' ? '<div><h3>Incomplete scan</h3><p>' + esc(analysisData?.assessment_warning || 'url.vet is unavailable. Local checks alone cannot confirm that this URL is safe.') + '</p></div>' : '';
 
   // 1. قسم url.vet (الأهم)
   mainHTML += renderURLVet(urlvet);
@@ -726,12 +726,12 @@ function pollStatus() {
   fetch('/api/scan_status/' + scanId).then(r => r.json()).then(data => {
     updateBadge(data.status, data.verdict);
     document.getElementById('loading-text').textContent = 'Analyzing... ' + data.status;
-    if (data.status === 'completed' || data.status === 'error') { loadResult(); return; }
+    if (data.status === 'completed' || data.status === 'partial' || data.status === 'error') { loadResult(); return; }
     setTimeout(pollStatus, 1500);
   }).catch(() => { document.getElementById('loading-text').textContent = 'Connection error.'; });
 }
 
-if (initStatus === 'completed' || initStatus === 'error') { loadResult(); }
+if (initStatus === 'completed' || initStatus === 'partial' || initStatus === 'error') { loadResult(); }
 else { pollStatus(); }
 
 // Get URL from query parameter and auto-fill

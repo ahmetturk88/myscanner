@@ -83,6 +83,8 @@ csrf.init_app(app)
 # ================================================================
 from services.runtime_security import security_settings
 app.config.update(security_settings())
+from services.trusted_proxy import configure_trusted_proxy
+trusted_proxy = configure_trusted_proxy(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Allow a 32 MB Sandbox file plus bounded multipart overhead.
@@ -440,8 +442,8 @@ from sqlalchemy.exc import SQLAlchemyError
 def protect_auth_requests():
     if request.method == 'POST' and request.endpoint in {'login', 'register'} and not current_user.is_authenticated:
         try:
-            # Ignore untrusted forwarding headers. Reverse-proxy trust is
-            # configured separately during deployment.
+            # Middleware applies forwarded addresses only for configured
+            # trusted peers. Direct clients cannot spoof this identity.
             check_auth_request(request.endpoint, request.remote_addr or 'unknown',
                                request.form.get('email', '').strip().lower())
         except SQLAlchemyError:
@@ -1072,6 +1074,24 @@ def batch_scan():
 # ================================================================
 # Admin
 # ================================================================
+
+@app.route('/admin/proxy-info')
+@login_required
+def admin_proxy_info():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Forbidden'}), 403
+    response = jsonify({
+        'peer_ip': request.environ.get('myscanner.proxy_peer', request.remote_addr),
+        'client_ip': request.remote_addr,
+        'scheme': request.scheme,
+        'forwarded_for': request.headers.get('X-Forwarded-For', '')[:2048],
+        'forwarded_proto': request.headers.get('X-Forwarded-Proto', '')[:100],
+        'configured': trusted_proxy is not None,
+        'applied': request.environ.get('myscanner.proxy_applied', False),
+    })
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
 
 @app.route('/admin')
 @login_required

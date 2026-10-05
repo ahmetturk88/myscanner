@@ -352,18 +352,10 @@
 {% block body_extra %}
 <script>
 // ✅ دالة الحماية من XSS
-function esc(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;');
-}
+function esc(value) { return ScanUI.escape(value); }
 
-const scanId = '{{ scan.id }}';
-const initStatus = '{{ scan.status }}';
+const scanId = {{ scan.id | tojson }};
+const initStatus = {{ scan.status | tojson }};
 let allData = null;
 let historyChart = null;
 
@@ -395,8 +387,8 @@ function renderURLVet(urlvet) {
     `;
   }
 
-  const trustScore = urlvet.trust_score || 0;
-  const finalScore = urlvet.final_score || trustScore;
+  const trustScore = ScanUI.score(urlvet.trust_score);
+  const finalScore = ScanUI.score(urlvet.final_score ?? trustScore);
   const verdict = urlvet.verdict || 'unknown';
   const verdictRaw = urlvet.verdict_raw || verdict;
 
@@ -433,7 +425,7 @@ function renderURLVet(urlvet) {
   if (redFlags.length > 0) {
     flagsHTML += `
       <div class="flags-card red">
-        <h4>🚩 Red Flags (${redFlags.length})</h4>
+        <h4>🚩 Red Flags (${esc(redFlags.length)})</h4>
         <ul>${redFlags.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
       </div>
     `;
@@ -442,7 +434,7 @@ function renderURLVet(urlvet) {
   if (greenFlags.length > 0) {
     flagsHTML += `
       <div class="flags-card green">
-        <h4>✅ Green Flags (${greenFlags.length})</h4>
+        <h4>✅ Green Flags (${esc(greenFlags.length)})</h4>
         <ul>${greenFlags.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
       </div>
     `;
@@ -451,7 +443,7 @@ function renderURLVet(urlvet) {
   if (neutralReasons.length > 0) {
     flagsHTML += `
       <div class="flags-card neutral">
-        <h4>📋 Info (${neutralReasons.length})</h4>
+        <h4>📋 Info (${esc(neutralReasons.length)})</h4>
         <ul>${neutralReasons.slice(0, 5).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
       </div>
     `;
@@ -485,7 +477,7 @@ function renderURLVet(urlvet) {
         <h4>🌐 Domain Info</h4>
         <div class="tech-row"><span class="tech-label">Age</span><span class="tech-value">${esc(domainInfo.age_human || 'N/A')}</span></div>
         <div class="tech-row"><span class="tech-label">Registrar</span><span class="tech-value">${esc((domainInfo.registrar || 'N/A').substring(0, 30))}</span></div>
-        <div class="tech-row"><span class="tech-label">DNSSEC</span><span class="tech-value ${domainInfo.dnssec ? 'good' : 'warn'}">${domainInfo.dnssec ? '✓ Enabled' : '✗ Disabled'}</span></div>
+        <div class="tech-row"><span class="tech-label">DNSSEC</span><span class="tech-value ${esc(domainInfo.dnssec ? 'good' : 'warn')}">${esc(domainInfo.dnssec ? '✓ Enabled' : '✗ Disabled')}</span></div>
       </div>
     `;
   }
@@ -495,8 +487,8 @@ function renderURLVet(urlvet) {
     techHTML += `
       <div class="tech-card">
         <h4>🔐 SSL/TLS</h4>
-        <div class="tech-row"><span class="tech-label">HTTPS</span><span class="tech-value ${sslInfo.has_tls ? 'good' : 'bad'}">${sslInfo.has_tls ? '✓ Yes' : '✗ No'}</span></div>
-        <div class="tech-row"><span class="tech-label">Chain Valid</span><span class="tech-value ${sslInfo.chain_valid ? 'good' : 'bad'}">${sslInfo.chain_valid ? '✓ Valid' : '✗ Invalid'}</span></div>
+        <div class="tech-row"><span class="tech-label">HTTPS</span><span class="tech-value ${esc(sslInfo.has_tls ? 'good' : 'bad')}">${esc(sslInfo.has_tls ? '✓ Yes' : '✗ No')}</span></div>
+        <div class="tech-row"><span class="tech-label">Chain Valid</span><span class="tech-value ${esc(sslInfo.chain_valid ? 'good' : 'bad')}">${esc(sslInfo.chain_valid ? '✓ Valid' : '✗ Invalid')}</span></div>
         <div class="tech-row"><span class="tech-label">Issuer</span><span class="tech-value">${esc((sslInfo.issuer || 'N/A').substring(0, 25))}</span></div>
         <div class="tech-row"><span class="tech-label">Expires</span><span class="tech-value">${esc((sslInfo.not_after || 'N/A').substring(0, 10))}</span></div>
       </div>
@@ -507,11 +499,11 @@ function renderURLVet(urlvet) {
   techHTML += `
     <div class="tech-card">
       <h4>🔗 URL Features</h4>
-      <div class="tech-row"><span class="tech-label">URL Shortener</span><span class="tech-value ${urlFeatures.url_shortener ? 'bad' : 'good'}">${urlFeatures.url_shortener ? '⚠️ Yes' : '✓ No'}</span></div>
-      <div class="tech-row"><span class="tech-label">Uses IP</span><span class="tech-value ${urlFeatures.uses_ip ? 'bad' : 'good'}">${urlFeatures.uses_ip ? '⚠️ Yes' : '✓ No'}</span></div>
-      <div class="tech-row"><span class="tech-label">Punycode</span><span class="tech-value ${urlFeatures.contains_punycode ? 'bad' : 'good'}">${urlFeatures.contains_punycode ? '⚠️ Yes' : '✓ No'}</span></div>
-      <div class="tech-row"><span class="tech-label">Subdomains</span><span class="tech-value">${urlFeatures.subdomain_count || 0}</span></div>
-      <div class="tech-row"><span class="tech-label">Sensitive Keywords</span><span class="tech-value ${urlFeatures.has_keywords ? 'warn' : 'good'}">${urlFeatures.has_keywords ? '⚠️ ' + (urlFeatures.keywords_found || []).join(', ') : '✓ None'}</span></div>
+      <div class="tech-row"><span class="tech-label">URL Shortener</span><span class="tech-value ${esc(urlFeatures.url_shortener ? 'bad' : 'good')}">${esc(urlFeatures.url_shortener ? '⚠️ Yes' : '✓ No')}</span></div>
+      <div class="tech-row"><span class="tech-label">Uses IP</span><span class="tech-value ${esc(urlFeatures.uses_ip ? 'bad' : 'good')}">${esc(urlFeatures.uses_ip ? '⚠️ Yes' : '✓ No')}</span></div>
+      <div class="tech-row"><span class="tech-label">Punycode</span><span class="tech-value ${esc(urlFeatures.contains_punycode ? 'bad' : 'good')}">${esc(urlFeatures.contains_punycode ? '⚠️ Yes' : '✓ No')}</span></div>
+      <div class="tech-row"><span class="tech-label">Subdomains</span><span class="tech-value">${esc(urlFeatures.subdomain_count || 0)}</span></div>
+      <div class="tech-row"><span class="tech-label">Sensitive Keywords</span><span class="tech-value ${esc(urlFeatures.has_keywords ? 'warn' : 'good')}">${esc(urlFeatures.has_keywords ? '⚠️ ' + (urlFeatures.keywords_found || []).join(', ') : '✓ None')}</span></div>
     </div>
   `;
 
@@ -519,11 +511,11 @@ function renderURLVet(urlvet) {
   techHTML += `
     <div class="tech-card">
       <h4>📊 Analysis</h4>
-      <div class="tech-row"><span class="tech-label">Redirected</span><span class="tech-value ${analysis.is_redirected ? 'warn' : 'good'}">${analysis.is_redirected ? '⚠️ Yes (' + (analysis.chain_length || 0) + ')' : '✓ No'}</span></div>
-      <div class="tech-row"><span class="tech-label">HTTP Status</span><span class="tech-value">${analysis.http_status || 'N/A'}</span></div>
-      <div class="tech-row"><span class="tech-label">HSTS</span><span class="tech-value ${analysis.hsts_supported ? 'good' : 'warn'}">${analysis.hsts_supported ? '✓ Yes' : '✗ No'}</span></div>
-      <div class="tech-row"><span class="tech-label">PhishTank</span><span class="tech-value ${phishing.in_database ? 'bad' : 'good'}">${phishing.in_database ? '⚠️ Listed' : '✓ Clean'}</span></div>
-      <div class="tech-row"><span class="tech-label">Typosquatting</span><span class="tech-value ${typosquatting.is_suspicious ? 'bad' : 'good'}">${typosquatting.is_suspicious ? '⚠️ Detected' : '✓ Clean'}</span></div>
+      <div class="tech-row"><span class="tech-label">Redirected</span><span class="tech-value ${esc(analysis.is_redirected ? 'warn' : 'good')}">${esc(analysis.is_redirected ? '⚠️ Yes (' + (analysis.chain_length || 0) + ')' : '✓ No')}</span></div>
+      <div class="tech-row"><span class="tech-label">HTTP Status</span><span class="tech-value">${esc(analysis.http_status || 'N/A')}</span></div>
+      <div class="tech-row"><span class="tech-label">HSTS</span><span class="tech-value ${esc(analysis.hsts_supported ? 'good' : 'warn')}">${esc(analysis.hsts_supported ? '✓ Yes' : '✗ No')}</span></div>
+      <div class="tech-row"><span class="tech-label">PhishTank</span><span class="tech-value ${esc(phishing.in_database ? 'bad' : 'good')}">${esc(phishing.in_database ? '⚠️ Listed' : '✓ Clean')}</span></div>
+      <div class="tech-row"><span class="tech-label">Typosquatting</span><span class="tech-value ${esc(typosquatting.is_suspicious ? 'bad' : 'good')}">${esc(typosquatting.is_suspicious ? '⚠️ Detected' : '✓ Clean')}</span></div>
     </div>
   `;
 
@@ -538,20 +530,20 @@ function renderURLVet(urlvet) {
 
       <div class="urlvet-main">
         <div class="trust-circle-wrap">
-          <div class="trust-circle" style="--trust-score: ${trustScore}; --trust-color: ${trustColor};">
+          <div class="trust-circle" style="--trust-score: ${esc(trustScore)}; --trust-color: ${esc(trustColor)};">
             <div class="trust-circle-inner">
-              <div class="trust-score-value" style="color: ${trustColor};">${trustScore}</div>
+              <div class="trust-score-value" style="color: ${esc(trustColor)};">${esc(trustScore)}</div>
               <div class="trust-score-label">Trust Score</div>
             </div>
           </div>
-          <div class="trust-verdict" style="color: ${trustColor}; border: 1px solid ${trustColor}40;">${verdictRaw}</div>
+          <div class="trust-verdict" style="color: ${esc(trustColor)}; border: 1px solid ${esc(trustColor)}40;">${esc(verdictRaw)}</div>
         </div>
 
         <div class="urlvet-details">
-          <div class="urlvet-verdict-banner ${verdictClass}">
-            <div class="v-icon">${verdictIcon}</div>
+          <div class="urlvet-verdict-banner ${esc(verdictClass)}">
+            <div class="v-icon">${esc(verdictIcon)}</div>
             <div>
-              <strong>${verdictText}</strong>
+              <strong>${esc(verdictText)}</strong>
               <div style="font-size: 12px; opacity: 0.8;">
                 ${redFlags.length > 0 ? redFlags.length + ' red flag(s) detected' : 'No red flags detected'}
               </div>
@@ -588,7 +580,7 @@ function renderResult(scanData, analysisData) {
 
   // 2. الأقسام المحلية الأخرى (Deep Analysis, etc.)
   const localVerdict = analysisData?.verdict || 'unknown';
-  const localScore = analysisData?.security_score || 0;
+  const localScore = ScanUI.score(analysisData?.security_score);
   const urlStructure = analysisData?.url_structure || {};
   const sslInfo = analysisData?.ssl_info || {};
   const dnsRecords = analysisData?.dns_records || {};
@@ -601,8 +593,8 @@ function renderResult(scanData, analysisData) {
   // Local Security Analysis
   extraHTML += `<div class="section-card">
     <div class="section-title">🔒 Local Security Analysis</div>
-    <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)'}">${localScore}/100</span></div>
-    <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${localVerdict.toUpperCase()}</span></div>
+    <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${esc(localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)')}">${esc(localScore)}/100</span></div>
+    <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${esc(localVerdict.toUpperCase())}</span></div>
     ${isShortened ? `<div class="info-row"><span class="info-label">URL Shortener</span><span class="info-value info-warn">⚠️ Detected</span></div>` : ''}
     ${urlStructure?.is_https ? `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-good">✓ Enabled</span></div>` : `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-bad">✗ Not Secure</span></div>`}
     ${urlStructure?.contains_ip ? `<div class="info-row"><span class="info-label">IP Address URL</span><span class="info-value info-bad">⚠️ Suspicious</span></div>` : ''}
@@ -620,18 +612,19 @@ function renderResult(scanData, analysisData) {
   if (sslInfo && sslInfo.valid !== undefined) {
     extraHTML += `<div class="section-card">
       <div class="section-title">🔐 SSL Certificate</div>
-      <div class="info-row"><span class="info-label">Status</span><span class="info-value ${sslInfo.valid ? 'info-good' : 'info-bad'}">${sslInfo.valid ? 'Valid' : 'Invalid'}</span></div>
-      <div class="info-row"><span class="info-label">Days Remaining</span><span class="info-value">${sslInfo.days_remaining || 0} days</span></div>
-      <div class="info-row"><span class="info-label">Issuer</span><span class="info-value">${sslInfo.issuer || 'N/A'}</span></div>
-      <div class="info-row"><span class="info-label">TLS Version</span><span class="info-value">${sslInfo.tls_version || 'N/A'}</span></div>
+      <div class="info-row"><span class="info-label">Status</span><span class="info-value ${esc(sslInfo.valid ? 'info-good' : 'info-bad')}">${esc(sslInfo.valid ? 'Valid' : 'Invalid')}</span></div>
+      <div class="info-row"><span class="info-label">Days Remaining</span><span class="info-value">${esc(sslInfo.days_remaining || 0)} days</span></div>
+      <div class="info-row"><span class="info-label">Issuer</span><span class="info-value">${esc(sslInfo.issuer || 'N/A')}</span></div>
+      <div class="info-row"><span class="info-label">TLS Version</span><span class="info-value">${esc(sslInfo.tls_version || 'N/A')}</span></div>
     </div>`;
   }
 
   // Screenshot from url.vet
-  if (urlvet.screenshot) {
+  const screenshotURL = ScanUI.webURL(urlvet.screenshot);
+  if (screenshotURL) {
     extraHTML += `<div class="section-card">
       <div class="section-title">📸 Website Screenshot (url.vet)</div>
-      <img src="${urlvet.screenshot}" alt="Screenshot" class="screenshot-img" onerror="this.parentElement.style.display='none'">
+      <img src="${esc(screenshotURL)}" alt="Screenshot" class="screenshot-img">
     </div>`;
   }
 
@@ -639,9 +632,9 @@ function renderResult(scanData, analysisData) {
   if (dnsRecords && (dnsRecords.a_records?.length > 0 || dnsRecords.mx_records?.length > 0)) {
     extraHTML += `<div class="section-card">
       <div class="section-title">🌐 DNS Records</div>
-      <div class="info-row"><span class="info-label">A Records</span><span class="info-value">${(dnsRecords.a_records || []).join(', ') || 'None'}</span></div>
-      <div class="info-row"><span class="info-label">SPF Record</span><span class="info-value ${dnsRecords.has_spf ? 'info-good' : 'info-bad'}">${dnsRecords.has_spf ? '✓ Configured' : '✗ Missing'}</span></div>
-      <div class="info-row"><span class="info-label">DMARC Record</span><span class="info-value ${dnsRecords.has_dmarc ? 'info-good' : 'info-bad'}">${dnsRecords.has_dmarc ? '✓ Configured' : '✗ Missing'}</span></div>
+      <div class="info-row"><span class="info-label">A Records</span><span class="info-value">${esc((dnsRecords.a_records || []).join(', ') || 'None')}</span></div>
+      <div class="info-row"><span class="info-label">SPF Record</span><span class="info-value ${esc(dnsRecords.has_spf ? 'info-good' : 'info-bad')}">${esc(dnsRecords.has_spf ? '✓ Configured' : '✗ Missing')}</span></div>
+      <div class="info-row"><span class="info-label">DMARC Record</span><span class="info-value ${esc(dnsRecords.has_dmarc ? 'info-good' : 'info-bad')}">${esc(dnsRecords.has_dmarc ? '✓ Configured' : '✗ Missing')}</span></div>
     </div>`;
   }
 
@@ -658,6 +651,8 @@ function renderResult(scanData, analysisData) {
   document.getElementById('verdict-area').innerHTML = mainHTML;
   
   document.getElementById('extra-sections').innerHTML = extraHTML;
+  const screenshot = document.querySelector('#extra-sections .screenshot-img');
+  if (screenshot) screenshot.addEventListener('error', () => { screenshot.parentElement.style.display = 'none'; });
 
   // Deep Analysis Section (إذا موجود)
   if (analysisData && analysisData.deep_analysis) {
@@ -670,8 +665,8 @@ function renderResult(scanData, analysisData) {
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">📄 Page Content Analysis</h4>
         <div class="info-row"><span class="info-label">Title</span><span class="info-value">${esc(content.title || 'N/A')}</span></div>
-        <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${content.has_login_form ? 'info-bad' : 'info-good'}">${content.has_login_form ? '⚠️ Yes' : 'No'}</span></div>
-        <div class="info-row"><span class="info-label">Content Risk Score</span><span class="info-value" style="color:${content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${content.content_risk_score || 0}%</span></div>
+        <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${esc(content.has_login_form ? 'info-bad' : 'info-good')}">${esc(content.has_login_form ? '⚠️ Yes' : 'No')}</span></div>
+        <div class="info-row"><span class="info-label">Content Risk Score</span><span class="info-value" style="color:${esc(content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(content.content_risk_score || 0)}%</span></div>
       </div>
     `;
 
@@ -679,9 +674,9 @@ function renderResult(scanData, analysisData) {
     document.getElementById('behavior-analysis').innerHTML = `
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">🔄 Behavioral Analysis</h4>
-        <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${behavior.is_shortened ? 'info-warn' : 'info-good'}">${behavior.is_shortened ? '⚠️ Yes' : 'No'}</span></div>
-        <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${behavior.redirect_count || 0}</span></div>
-        <div class="info-row"><span class="info-label">Behavior Risk Score</span><span class="info-value" style="color:${behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${behavior.behavior_risk_score || 0}%</span></div>
+        <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${esc(behavior.is_shortened ? 'info-warn' : 'info-good')}">${esc(behavior.is_shortened ? '⚠️ Yes' : 'No')}</span></div>
+        <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${esc(behavior.redirect_count || 0)}</span></div>
+        <div class="info-row"><span class="info-label">Behavior Risk Score</span><span class="info-value" style="color:${esc(behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(behavior.behavior_risk_score || 0)}%</span></div>
       </div>
     `;
 
@@ -689,9 +684,9 @@ function renderResult(scanData, analysisData) {
     document.getElementById('whois-deep-analysis').innerHTML = `
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
-        <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${esc(whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A')}</span></div>
         <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${esc(whoisDeep.registrar || 'N/A')}</span></div>
-        <div class="info-row"><span class="info-label">WHOIS Risk Score</span><span class="info-value" style="color:${whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${whoisDeep.whois_risk_score || 0}%</span></div>
+        <div class="info-row"><span class="info-label">WHOIS Risk Score</span><span class="info-value" style="color:${esc(whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(whoisDeep.whois_risk_score || 0)}%</span></div>
       </div>
     `;
 
@@ -699,8 +694,8 @@ function renderResult(scanData, analysisData) {
     document.getElementById('osint-analysis').innerHTML = `
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">🛡️ OSINT Threat Intelligence</h4>
-        <div class="info-row"><span class="info-label">URLhaus Detection</span><span class="info-value ${osint.urlhaus ? 'info-bad' : 'info-good'}">${osint.urlhaus ? '⚠️ Found' : '✅ Clean'}</span></div>
-        <div class="info-row"><span class="info-label">OSINT Risk Score</span><span class="info-value" style="color:${osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)'}">${osint.osint_risk_score || 0}%</span></div>
+        <div class="info-row"><span class="info-label">URLhaus Detection</span><span class="info-value ${esc(osint.urlhaus ? 'info-bad' : 'info-good')}">${esc(osint.urlhaus ? '⚠️ Found' : '✅ Clean')}</span></div>
+        <div class="info-row"><span class="info-label">OSINT Risk Score</span><span class="info-value" style="color:${esc(osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(osint.osint_risk_score || 0)}%</span></div>
       </div>
     `;
   }

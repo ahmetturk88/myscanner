@@ -5,3 +5,7 @@ __pycache__
 
 # Runtime logs are generated locally and must not be committed.
 logs/
+
+# Generated scanner caches stay local.
+/cache/
+/file_cache/

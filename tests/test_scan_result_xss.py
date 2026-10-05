@@ -35,7 +35,7 @@ class TemplateRenderingTests(unittest.TestCase):
                 result = self.env.get_template(name).render(scan=SimpleNamespace(id=1,status='pending',url='https://example.invalid'))
                 soup = BeautifulSoup(result,'html.parser')
                 # url_for is stubbed, so verify the real base template reference.
-                self.assertIn("filename='scan_ui.js'", (ROOT / 'templates/base.html').read_text())
+                self.assertIn("filename='scan_ui.js'", (ROOT / 'templates/base.html').read_text(encoding='utf-8'))
                 self.assertTrue(soup.find('script',src='/test'))
                 self.assertIsNotNone(soup.find('main'))
 

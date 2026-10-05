@@ -12,8 +12,10 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
+      - key: APP_ENV
+        value: production
       - key: SECRET_KEY
-        value: your-secret-key-here-change-it
+        sync: false
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: ABSTRACT_API_KEY
@@ -73,8 +75,10 @@ services:
         fromDatabase:
           name: myscanner-db
           property: connectionString
+      - key: APP_ENV
+        value: production
       - key: SECRET_KEY
-        value: your-secret-key-here-change-it
+        sync: false
       - key: ABSTRACT_API_KEY
         value: your-abstract-api-key
       - key: ABUSEIPDB_API_KEY
@@ -100,8 +104,10 @@ services:
         fromDatabase:
           name: myscanner-db
           property: connectionString
+      - key: APP_ENV
+        value: production
       - key: SECRET_KEY
-        value: your-secret-key-here-change-it
+        sync: false
 
   # ================================================================
   # 4. خدمة Flower

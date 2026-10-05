@@ -4,12 +4,13 @@ $(document).ready(function() {
         responsive: true,
         data: [],
         columns: [
-            { data: 'id' },
+            { data: 'id', render: ScanUI.escape },
             { 
                 data: 'url', 
                 render: function(data) {
                     let displayUrl = data.length > 50 ? data.substring(0, 47) + '...' : data;
-                    return `<a href="${data}" target="_blank" rel="noopener">${displayUrl}</a>`;
+                    const href = ScanUI.webURL(data);
+                    return href ? `<a href="${ScanUI.escape(href)}" target="_blank" rel="noopener noreferrer">${ScanUI.escape(displayUrl)}</a>` : ScanUI.escape(displayUrl);
                 }
             },
             { 
@@ -26,14 +27,14 @@ $(document).ready(function() {
                 render: function(d) {
                     if (!d) return '-';
                     let clean = d.replace(/https?:\/\/[^\s]+/g, '[URL]');
-                    return clean.length > 250 ? clean.substring(0, 247) + '...' : clean;
+                    return ScanUI.escape(clean.length > 250 ? clean.substring(0, 247) + '...' : clean);
                 }
             },
-            { data: 'date' },
+            { data: 'date', render: ScanUI.escape },
             { 
                 data: null, 
                 render: function(data, type, row) {
-                    return `<button class="view-btn" data-id="${row.id}">Show</button>`;
+                    return `<button class="view-btn" data-id="${ScanUI.escape(row.id)}">Show</button>`;
                 }
             }
         ],

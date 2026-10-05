@@ -84,6 +84,8 @@
 </div>
 
 <script>
+const escapeHtml = ScanUI.escape;
+
 let lastResult = null;
 
 async function scanSite() {
@@ -132,7 +134,7 @@ function showError(message) {
     <div class="error-message">
       <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
       <h3>Scan Failed</h3>
-      <p>${message}</p>
+      <p>${escapeHtml(message)}</p>
     </div>
   `;
   resultCard.style.display = 'block';
@@ -147,7 +149,7 @@ function renderResult(d) {
   };
   
   const v = verdicts[d.verdict] || verdicts.moderate;
-  const score = d.security_score || 0;
+  const score = ScanUI.score(d.security_score);
   const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
   
   // SSL data with safe defaults
@@ -167,72 +169,72 @@ function renderResult(d) {
   const recommendations = d.recommendations || [];
   
   const html = `
-    <div class="verdict-banner ${v.cls}">
-      <div class="v-icon">${v.icon}</div>
-      <div><h3>${v.title}</h3><p>${v.subtitle}</p></div>
+    <div class="verdict-banner ${escapeHtml(v.cls)}">
+      <div class="v-icon">${escapeHtml(v.icon)}</div>
+      <div><h3>${escapeHtml(v.title)}</h3><p>${escapeHtml(v.subtitle)}</p></div>
     </div>
     
     <div class="score-bar">
-      <div class="score-label"><span>🔒 SECURITY SCORE</span><span>${score} / 100</span></div>
-      <div class="score-bg"><div class="score-fill" style="width:${score}%; background:${color}"></div></div>
+      <div class="score-label"><span>🔒 SECURITY SCORE</span><span>${escapeHtml(score)} / 100</span></div>
+      <div class="score-bg"><div class="score-fill" style="width:${escapeHtml(score)}%; background:${escapeHtml(color)}"></div></div>
     </div>
     
     <div class="grid-2col">
       <!-- SSL Section -->
       <div class="section-card">
         <div class="section-title">🔐 SSL Certificate</div>
-        <div class="info-row"><span>Status</span><span class="${ssl.valid ? 'badge-good' : 'badge-bad'}">${ssl.valid ? 'Valid' : 'Invalid'}</span></div>
-        <div class="info-row"><span>Issuer</span><span>${ssl.issuer || 'N/A'}</span></div>
-        <div class="info-row"><span>Days Remaining</span><span class="${ssl.days_remaining > 30 ? 'badge-good' : 'badge-warn'}">${ssl.days_remaining || 0} days</span></div>
-        <div class="info-row"><span>TLS Version</span><span>${ssl.tls_version || 'N/A'}</span></div>
-        <div class="info-row"><span>Grade</span><span class="badge-good">${ssl.grade || 'N/A'}</span></div>
+        <div class="info-row"><span>Status</span><span class="${escapeHtml(ssl.valid ? 'badge-good' : 'badge-bad')}">${escapeHtml(ssl.valid ? 'Valid' : 'Invalid')}</span></div>
+        <div class="info-row"><span>Issuer</span><span>${escapeHtml(ssl.issuer || 'N/A')}</span></div>
+        <div class="info-row"><span>Days Remaining</span><span class="${escapeHtml(ssl.days_remaining > 30 ? 'badge-good' : 'badge-warn')}">${escapeHtml(ssl.days_remaining || 0)} days</span></div>
+        <div class="info-row"><span>TLS Version</span><span>${escapeHtml(ssl.tls_version || 'N/A')}</span></div>
+        <div class="info-row"><span>Grade</span><span class="badge-good">${escapeHtml(ssl.grade || 'N/A')}</span></div>
       </div>
       
       <!-- Performance Section -->
       <div class="section-card">
         <div class="section-title">⚡ Performance</div>
-        <div class="info-row"><span>Load Time</span><span class="${perf.load_time_ms < 1000 ? 'badge-good' : 'badge-warn'}">${perf.load_time_ms} ms</span></div>
-        <div class="info-row"><span>Grade</span><span>${perf.grade || 'N/A'}</span></div>
-        <div class="info-row"><span>Status Code</span><span>${perf.status_code || 200}</span></div>
-        <div class="info-row"><span>Server</span><span>${perf.server || 'Unknown'}</span></div>
+        <div class="info-row"><span>Load Time</span><span class="${escapeHtml(perf.load_time_ms < 1000 ? 'badge-good' : 'badge-warn')}">${escapeHtml(perf.load_time_ms)} ms</span></div>
+        <div class="info-row"><span>Grade</span><span>${escapeHtml(perf.grade || 'N/A')}</span></div>
+        <div class="info-row"><span>Status Code</span><span>${escapeHtml(perf.status_code || 200)}</span></div>
+        <div class="info-row"><span>Server</span><span>${escapeHtml(perf.server || 'Unknown')}</span></div>
       </div>
     </div>
     
     <!-- Security Headers -->
     <div class="section-card">
       <div class="section-title">🛡️ Security Headers</div>
-      <div class="info-row"><span>Grade</span><span class="badge-${secHeaders.grade === 'A' ? 'good' : 'warn'}">${secHeaders.grade || 'F'}</span></div>
-      <div class="info-row"><span>HSTS</span><span class="${headers.strict_transport_security !== 'Missing' ? 'badge-good' : 'badge-bad'}">${(headers.strict_transport_security || 'Missing').substring(0, 50)}</span></div>
-      <div class="info-row"><span>CSP</span><span class="${headers.content_security_policy !== 'Missing' ? 'badge-good' : 'badge-bad'}">${(headers.content_security_policy || 'Missing').substring(0, 50)}</span></div>
-      <div class="info-row"><span>X-Frame-Options</span><span class="${headers.x_frame_options !== 'Missing' ? 'badge-good' : 'badge-bad'}">${headers.x_frame_options || 'Missing'}</span></div>
+      <div class="info-row"><span>Grade</span><span class="badge-${escapeHtml(secHeaders.grade === 'A' ? 'good' : 'warn')}">${escapeHtml(secHeaders.grade || 'F')}</span></div>
+      <div class="info-row"><span>HSTS</span><span class="${escapeHtml(headers.strict_transport_security !== 'Missing' ? 'badge-good' : 'badge-bad')}">${escapeHtml((headers.strict_transport_security || 'Missing').substring(0, 50))}</span></div>
+      <div class="info-row"><span>CSP</span><span class="${escapeHtml(headers.content_security_policy !== 'Missing' ? 'badge-good' : 'badge-bad')}">${escapeHtml((headers.content_security_policy || 'Missing').substring(0, 50))}</span></div>
+      <div class="info-row"><span>X-Frame-Options</span><span class="${escapeHtml(headers.x_frame_options !== 'Missing' ? 'badge-good' : 'badge-bad')}">${escapeHtml(headers.x_frame_options || 'Missing')}</span></div>
     </div>
     
     <!-- DNS Records -->
     <div class="section-card">
       <div class="section-title">🌐 DNS Records</div>
-      <div class="info-row"><span>A Records</span><span>${(dnsData.a_records || []).join(', ') || 'None'}</span></div>
-      <div class="info-row"><span>MX Records</span><span>${(dnsData.mx_records || []).map(m => `${m.exchange} (${m.preference})`).join(', ') || 'None'}</span></div>
-      <div class="info-row"><span>SPF Record</span><span class="${dnsData.has_spf ? 'badge-good' : 'badge-bad'}">${dnsData.has_spf ? '✓ Configured' : '✗ Missing'}</span></div>
-      <div class="info-row"><span>DMARC Record</span><span class="${dnsData.has_dmarc ? 'badge-good' : 'badge-bad'}">${dnsData.has_dmarc ? '✓ Configured' : '✗ Missing'}</span></div>
+      <div class="info-row"><span>A Records</span><span>${escapeHtml((dnsData.a_records || []).join(', ') || 'None')}</span></div>
+      <div class="info-row"><span>MX Records</span><span>${(dnsData.mx_records || []).map(m => `${escapeHtml(m.exchange)} (${escapeHtml(m.preference)})`).join(', ') || 'None'}</span></div>
+      <div class="info-row"><span>SPF Record</span><span class="${escapeHtml(dnsData.has_spf ? 'badge-good' : 'badge-bad')}">${escapeHtml(dnsData.has_spf ? '✓ Configured' : '✗ Missing')}</span></div>
+      <div class="info-row"><span>DMARC Record</span><span class="${escapeHtml(dnsData.has_dmarc ? 'badge-good' : 'badge-bad')}">${escapeHtml(dnsData.has_dmarc ? '✓ Configured' : '✗ Missing')}</span></div>
     </div>
     
     <!-- SEO Section -->
     <div class="section-card">
       <div class="section-title">📈 SEO Analysis</div>
-      <div class="info-row"><span>SEO Score</span><span class="badge-${seo.seo_score >= 70 ? 'good' : 'warn'}">${seo.seo_score}/100</span></div>
-      <div class="info-row"><span>Title</span><span>${seo.title || 'Missing'}</span></div>
-      <div class="info-row"><span>Description</span><span>${(seo.description || 'Missing').substring(0, 100)}</span></div>
-      <div class="info-row"><span>H1 Tags</span><span>${(seo.h1_tags || []).length} found</span></div>
-      <div class="info-row"><span>Images with Alt</span><span>${seo.images_without_alt ? (seo.total_images - seo.images_without_alt) + '/' + seo.total_images : 'N/A'}</span></div>
-      <div class="info-row"><span>Internal Links</span><span>${seo.internal_links || 0}</span></div>
-      <div class="info-row"><span>External Links</span><span>${seo.external_links || 0}</span></div>
+      <div class="info-row"><span>SEO Score</span><span class="badge-${escapeHtml(seo.seo_score >= 70 ? 'good' : 'warn')}">${escapeHtml(seo.seo_score)}/100</span></div>
+      <div class="info-row"><span>Title</span><span>${escapeHtml(seo.title || 'Missing')}</span></div>
+      <div class="info-row"><span>Description</span><span>${escapeHtml((seo.description || 'Missing').substring(0, 100))}</span></div>
+      <div class="info-row"><span>H1 Tags</span><span>${escapeHtml((seo.h1_tags || []).length)} found</span></div>
+      <div class="info-row"><span>Images with Alt</span><span>${escapeHtml(seo.images_without_alt ? (seo.total_images - seo.images_without_alt) + '/' + seo.total_images : 'N/A')}</span></div>
+      <div class="info-row"><span>Internal Links</span><span>${escapeHtml(seo.internal_links || 0)}</span></div>
+      <div class="info-row"><span>External Links</span><span>${escapeHtml(seo.external_links || 0)}</span></div>
     </div>
     
     <!-- Mobile Friendly -->
     <div class="section-card">
   <div class="section-title">📱 Mobile Friendly</div>
-  <div class="info-row"><span>Status</span><span class="${mobile.has_viewport ? 'badge-good' : 'badge-bad'}">${mobile.has_viewport ? '✓ Mobile Friendly' : '✗ Not Mobile Friendly'}</span></div>
-  <div class="info-row"><span>Viewport</span><span class="${mobile.has_viewport ? 'badge-good' : 'badge-bad'}">${mobile.has_viewport ? '✓ Configured' : '✗ Missing'}</span></div>
+  <div class="info-row"><span>Status</span><span class="${escapeHtml(mobile.has_viewport ? 'badge-good' : 'badge-bad')}">${escapeHtml(mobile.has_viewport ? '✓ Mobile Friendly' : '✗ Not Mobile Friendly')}</span></div>
+  <div class="info-row"><span>Viewport</span><span class="${escapeHtml(mobile.has_viewport ? 'badge-good' : 'badge-bad')}">${escapeHtml(mobile.has_viewport ? '✓ Configured' : '✗ Missing')}</span></div>
    </div>
     
     <!-- Recommendations -->
@@ -240,7 +242,7 @@ function renderResult(d) {
     <div class="section-card">
       <div class="section-title">📋 Recommendations</div>
       <ul class="recommendations-list">
-        ${recommendations.map(r => `<li>${r}</li>`).join('')}
+        ${recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
       </ul>
     </div>
     ` : ''}

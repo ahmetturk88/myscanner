@@ -576,7 +576,8 @@ def login():
         flash(f'Welcome back, {user.username}!', 'success')
         
         next_page = request.args.get('next')
-        return redirect(next_page or url_for('dashboard'))
+        from services.login_redirect import safe_login_redirect
+        return redirect(safe_login_redirect(next_page, url_for('dashboard')))
 
     return render_template('login.html')
 

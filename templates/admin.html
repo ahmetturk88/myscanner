@@ -2,8 +2,6 @@
 {% block title %}Admin Panel{% endblock %}
 
 {% block head_extra %}
-{# CSRF token in meta tag — safe for JS to read, no Jinja inside <script> #}
-<meta name="csrf-token" content="">
 
 {# Flash messages as JSON — read by JS after DOM loads #}
 <script id="flash-data" type="application/json">

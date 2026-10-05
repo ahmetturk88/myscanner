@@ -81,7 +81,8 @@ csrf.init_app(app)
 # ================================================================
 # Config
 # ================================================================
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-key')
+from services.runtime_security import security_settings
+app.config.update(security_settings())
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Allow a 32 MB Sandbox file plus bounded multipart overhead.
@@ -1975,4 +1976,4 @@ with app.app_context():
 # Run
 # ================================================================
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=app.config["DEBUG"])

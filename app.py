@@ -432,6 +432,28 @@ with app.app_context():
 # Auth Routes
 # ================================================================
 
+from services.auth_rate_limit import AuthRateLimited, check_auth_request, check_verification_send
+from sqlalchemy.exc import SQLAlchemyError
+
+
+@app.before_request
+def protect_auth_requests():
+    if request.method == 'POST' and request.endpoint in {'login', 'register'} and not current_user.is_authenticated:
+        try:
+            # Ignore untrusted forwarding headers. Reverse-proxy trust is
+            # configured separately during deployment.
+            check_auth_request(request.endpoint, request.remote_addr or 'unknown',
+                               request.form.get('email', '').strip().lower())
+        except SQLAlchemyError:
+            app.logger.error('Authentication rate-limit storage unavailable')
+            return render_template('auth_rate_limit.html', unavailable=True, retry_after=60), 503, {'Retry-After': '60'}
+
+
+@app.errorhandler(AuthRateLimited)
+def auth_rate_limited(error):
+    return render_template('auth_rate_limit.html', unavailable=False, retry_after=error.retry_after), 429, {'Retry-After': str(error.retry_after)}
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -499,6 +521,7 @@ def register():
         
         db.session.add(user)
         db.session.commit()
+        check_verification_send(user.id)
         send_verification_email(user)
 
         flash('Account created! Please check your email to verify your account before logging in.', 'success')
@@ -559,6 +582,7 @@ def login():
         # بغض النظر عن حالة is_verified، مما كان يمنع أي مستخدم من تسجيل
         # الدخول ويعيد إرسال إيميل التفعيل في كل مرة)
         if not user.is_verified:
+            check_verification_send(user.id)
             flash('Please verify your email address before logging in. A new verification link has been sent to your email.', 'warning')
             send_verification_email(user)  # إعادة إرسال رابط التفعيل
             return redirect(url_for('login'))

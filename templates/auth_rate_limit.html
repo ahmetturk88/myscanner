@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Sign-in temporarily unavailable' if unavailable else 'Please try again shortly' }}{% endblock %}
+{% block head_extra %}
+<style>
+  .auth-notice-wrap { max-width: 600px; margin: 64px auto; padding: 0 20px; }
+  .auth-notice { padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+  .auth-notice-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 20px; border-radius: 12px; color: var(--yellow); background: var(--yellow-dim); font-size: 20px; }
+  .auth-notice h1 { color: var(--text); font-size: 22px; line-height: 1.4; margin: 0 0 12px; }
+  .auth-notice p { color: var(--muted); line-height: 1.7; font-size: 14px; }
+  .auth-notice-link { display: inline-block; margin-top: 20px; color: var(--accent); font-size: 14px; }
+  .auth-notice-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  @media (max-width: 480px) { .auth-notice-wrap { margin: 32px auto; } .auth-notice { padding: 24px; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="auth-notice-wrap">
+  <section class="auth-notice" aria-labelledby="auth-notice-title">
+    <div class="auth-notice-icon" aria-hidden="true"><i class="fas fa-hourglass-half"></i></div>
+    <h1 id="auth-notice-title">{{ 'Sign-in temporarily unavailable' if unavailable else 'Please try again shortly' }}</h1>
+    <p>{% if unavailable %}We could not process this request right now. Please try again in a minute.{% else %}There have been too many requests. Your account has not been permanently locked. Please wait {{ ((retry_after + 59) // 60) }} minute{{ 's' if retry_after > 60 else '' }} before trying again.{% endif %}</p>
+    <a href="{{ url_for('login') }}" class="auth-notice-link">Return to sign in</a>
+  </section>
+</div>
+{% endblock %}

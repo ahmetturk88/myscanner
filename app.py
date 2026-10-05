@@ -365,7 +365,8 @@ def scan_in_background(scan_id, url):
         # استخراج الـ verdict
         # ─────────────────────────────────────────────────────────────
         urlvet = analysis.get('urlvet', {}) or {}
-        verdict = urlvet.get('verdict', 'unknown')
+        from services.url_scan_coverage import url_scan_outcome
+        status, verdict = url_scan_outcome(analysis, deep_analysis)
         
         # دمج النتائج في raw_report
         raw_report = {
@@ -384,7 +385,7 @@ def scan_in_background(scan_id, url):
             if not s:
                 return
             
-            s.status = 'completed'
+            s.status = status
             s.verdict = verdict
             s.result = f"<p>Verdict: {verdict}</p>"
             s.raw_report = json.dumps(raw_report)
@@ -1797,14 +1798,19 @@ def api_url_analysis(scan_id):
     domain = urlparse(url).netloc
     app.logger.info(f'[INFO] Starting URL deep analysis for: {url}')
     
-    # استخدام المحلل المدمج (يحل محل URLAnalyzer و URLDeepAnalyzer)
-    analyzer = URLDeepAnalyzer()
-    
-    # تحليل سريع (بدون جلب محتوى الصفحة)
-    local_analysis = analyzer.comprehensive_analysis(url)
-
-    # تحليل عميق (مع جلب محتوى الصفحة)
-    deep_analysis = analyzer.comprehensive_deep_analysis(url)
+    from services.url_scan_coverage import apply_url_coverage
+    try:
+        saved = json.loads(scan.raw_report or '{}')
+    except (ValueError, TypeError):
+        saved = {}
+    use_saved = isinstance(saved, dict) and isinstance(saved.get('local_analysis'), dict) and isinstance(saved.get('deep_analysis'), dict)
+    if use_saved:
+        local_analysis = apply_url_coverage(saved['local_analysis'])
+        deep_analysis = apply_url_coverage(saved['deep_analysis'])
+    else:
+        analyzer = URLDeepAnalyzer()
+        local_analysis = analyzer.comprehensive_analysis(url)
+        deep_analysis = analyzer.comprehensive_deep_analysis(url)
     app.logger.info(f'[SUCCESS] URL analysis completed for {url} | Score: {local_analysis.get("security_score")} | Verdict: {local_analysis.get("verdict")}')
     log_activity(current_user.username, 'url_analysis', f'Analyzed URL: {url}')
     # تحليلات إضافية
@@ -1826,6 +1832,8 @@ def api_url_analysis(scan_id):
         "dns_records": local_analysis.get("dns", {}),
         "is_shortened": local_analysis.get("is_shortened", False),
         "security_score": local_analysis.get("security_score", 0),
+        "assessment_status": local_analysis.get("assessment_status"),
+        "assessment_warning": local_analysis.get("assessment_warning", ""),
         "verdict": local_analysis.get("verdict", "unknown"),
         "recommendations": local_analysis.get("recommendations", []),
         "urlvet": local_analysis.get("urlvet", {}),
@@ -1841,6 +1849,9 @@ def api_url_analysis(scan_id):
         }
     }
     
+    if use_saved:
+        return jsonify(analysis)
+
     # جمع الـ cookies
     try:
         with PublicHTTPSession() as target_session:

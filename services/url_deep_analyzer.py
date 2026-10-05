@@ -5,6 +5,7 @@
 # =================================================================
 
 import re
+from services.url_scan_coverage import apply_url_coverage, urlvet_available
 import socket
 import ssl
 import dns.resolver
@@ -880,7 +881,7 @@ class URLDeepAnalyzer:
                 results["recommendations"].append(f"🚩 {flag}")
 
         logger.info(f"✅ Quick analysis completed for {url} | Score: {results['security_score']} | Verdict: {results['verdict']}")
-        return results
+        return apply_url_coverage(results)
 
     # ================================================================
     # 13. التحليل العميق الكامل
@@ -897,9 +898,9 @@ class URLDeepAnalyzer:
 
         # التحقق من cache
         cached_result = self._get_cached_result(url)
-        if cached_result:
+        if cached_result and urlvet_available(cached_result.get("urlvet")):
             cached_result['from_cache'] = True
-            return cached_result
+            return apply_url_coverage(cached_result)
 
         result = {
             "url": url,
@@ -982,7 +983,7 @@ class URLDeepAnalyzer:
             risk_score += 10
 
         # دمج url.vet في درجة الخطورة
-        urlvet_trust = result["urlvet"].get("trust_score", 100)
+        urlvet_trust = float(result["urlvet"]["trust_score"]) if urlvet_available(result["urlvet"]) else 100
         if urlvet_trust < 50:
             risk_score += (100 - urlvet_trust) * 0.5
         elif urlvet_trust < 80:
@@ -1062,7 +1063,9 @@ class URLDeepAnalyzer:
         result["recommendations"] = recommendations[:10]
 
         # حفظ في cache
-        self._save_cached_result(url, result)
+        apply_url_coverage(result)
+        if result["assessment_status"] == "completed":
+            self._save_cached_result(url, result)
         logger.info(f"✅ Deep analysis completed for {url} | Risk Score: {result['overall_risk_score']} | Verdict: {result['verdict']}")
         return result
 

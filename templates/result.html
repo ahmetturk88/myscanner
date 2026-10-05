@@ -25,6 +25,20 @@
   .badge-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
   .badge-pending,.badge-running { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
 
+
+  .badge-partial { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); text-transform: none; letter-spacing: .2px; }
+  .coverage-notice { display: flex; align-items: flex-start; gap: 16px; padding: 20px; margin-bottom: 24px; border: 1px solid rgba(255,211,42,.25); border-radius: 12px; background: linear-gradient(120deg, var(--yellow-dim), var(--surface)); }
+  .coverage-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; background: var(--yellow-dim); color: var(--yellow); }
+  .coverage-copy { min-width: 0; }
+  .coverage-copy h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--text); }
+  .coverage-copy p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--text); }
+  .coverage-copy .coverage-hint { margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .urlvet-unavailable .urlvet-title::before { background: var(--yellow); animation: none; }
+  .provider-unavailable { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .provider-unavailable strong { display: block; font-size: 13px; color: var(--text); }
+  .provider-unavailable p { margin: 4px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+  @media (max-width: 480px) { .coverage-notice { padding: 16px; gap: 12px; } .status-card { padding: 18px; } .urlvet-section { padding: 20px; } }
+
   .loading-area { text-align: center; padding: 30px; color: var(--muted); }
   .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -324,7 +338,7 @@
   <div class="status-card">
     <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <span style="font-family:var(--mono);color:var(--muted);">STATUS</span>
-      <span id="status-badge" class="badge badge-{{ scan.status }}">{{ scan.status | upper }}</span>
+      <span id="status-badge" class="badge badge-{{ scan.status }}">{{ 'Limited coverage' if scan.status == 'partial' else scan.status | upper }}</span>
     </div>
 
     <div id="loading-area" class="loading-area">
@@ -361,8 +375,8 @@ let historyChart = null;
 
 function updateBadge(status, verdict) {
   const badge = document.getElementById('status-badge');
-  badge.textContent = status.toUpperCase();
-  badge.className = 'badge badge-' + (verdict || status);
+  badge.textContent = status === 'partial' ? 'Limited coverage' : status.toUpperCase();
+  badge.className = 'badge badge-' + (status === 'partial' ? 'partial' : (verdict || status));
 }
 
 // ================================================================
@@ -371,16 +385,16 @@ function updateBadge(status, verdict) {
 function renderURLVet(urlvet) {
   if (!urlvet || urlvet.error || (urlvet.errors && urlvet.errors.length) || urlvet.trust_score == null || !Number.isFinite(Number(urlvet.trust_score))) {
     return `
-      <div class="urlvet-section">
+      <div class="urlvet-section urlvet-unavailable">
         <div class="urlvet-header">
           <div class="urlvet-title">url.vet Analysis</div>
           <div class="urlvet-source">Source: url.vet</div>
         </div>
-        <div class="urlvet-verdict-banner error">
-          <div class="v-icon">❓</div>
+        <div class="provider-unavailable">
+          <span class="coverage-icon" aria-hidden="true"><i class="fas fa-plug"></i></span>
           <div>
-            <strong>url.vet Analysis Unavailable</strong>
-            <div style="font-size: 12px; opacity: 0.8;">${esc(urlvet?.error || 'No data available')}</div>
+            <strong>Assessment unavailable</strong>
+            <p>This source did not return a complete result for this scan.</p>
           </div>
         </div>
       </div>
@@ -573,7 +587,16 @@ function renderResult(scanData, analysisData) {
   const urlvet = analysisData?.urlvet || {};
 
   // بناء القسم الرئيسي
-  let mainHTML = scanData.status === 'partial' || analysisData?.assessment_status === 'partial' ? '<div><h3>Incomplete scan</h3><p>' + esc(analysisData?.assessment_warning || 'url.vet is unavailable. Local checks alone cannot confirm that this URL is safe.') + '</p></div>' : '';
+  const isPartial = scanData.status === 'partial' || analysisData?.assessment_status === 'partial';
+  let mainHTML = isPartial ? `
+    <aside class="coverage-notice" role="note" aria-labelledby="coverage-title">
+      <span class="coverage-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
+      <div class="coverage-copy">
+        <h2 id="coverage-title">This report has limited coverage</h2>
+        <p>url.vet was unavailable during this scan. Available findings are shown below, but the overall safety of this URL could not be confirmed.</p>
+        <p class="coverage-hint">Run a new scan when the service is available to obtain a complete assessment.</p>
+      </div>
+    </aside>` : '';
 
   // 1. قسم url.vet (الأهم)
   mainHTML += renderURLVet(urlvet);
@@ -585,7 +608,7 @@ function renderResult(scanData, analysisData) {
   const sslInfo = analysisData?.ssl_info || {};
   const dnsRecords = analysisData?.dns_records || {};
   const isShortened = analysisData?.is_shortened || false;
-  const recommendations = analysisData?.recommendations || [];
+  const recommendations = (analysisData?.recommendations || []).filter(r => !isPartial || r !== analysisData?.assessment_warning);
   const phishingIndicators = analysisData?.phishing_indicators || {};
 
   let extraHTML = '';
@@ -593,7 +616,7 @@ function renderResult(scanData, analysisData) {
   // Local Security Analysis
   extraHTML += `<div class="section-card">
     <div class="section-title">🔒 Local Security Analysis</div>
-    <div class="info-row"><span class="info-label">Security Score</span><span class="info-value" style="color:${esc(localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)')}">${esc(localScore)}/100</span></div>
+    <div class="info-row"><span class="info-label">Local Security Score</span><span class="info-value" style="color:${esc(localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)')}">${esc(localScore)}/100</span></div>
     <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${esc(localVerdict.toUpperCase())}</span></div>
     ${isShortened ? `<div class="info-row"><span class="info-label">URL Shortener</span><span class="info-value info-warn">⚠️ Detected</span></div>` : ''}
     ${urlStructure?.is_https ? `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-good">✓ Enabled</span></div>` : `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-bad">✗ Not Secure</span></div>`}

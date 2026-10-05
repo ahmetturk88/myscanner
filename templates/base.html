@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
     <link rel="icon" href="{{ url_for('static', filename='security-scan.png') }}" type="image/png">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="{{ url_for('static', filename='csrf.js') }}"></script>
     <style>
         :root {
             --bg: #080810; --surface: #10101a; --surface2: #18182a; --surface3: #202035;
@@ -73,6 +74,9 @@
             transition:background .2s!important;
         }
         .n-login:hover{ background:#00aad9!important; }
+        .logout-form{ display:inline; }
+        .logout-form button{ font:inherit; cursor:pointer; }
+        .nav-links .n-logout{ font-size:13px; background:transparent; border:0; padding:7px 12px; border-radius:6px; white-space:nowrap; transition:color .18s, background .18s; }
         .n-logout{ color:var(--red)!important; }
         .n-logout:hover{ background:var(--red-dim)!important; color:var(--red)!important; }
 
@@ -615,7 +619,7 @@
                 <a href="{{ url_for('contact') }}">Contact</a>
                 {% if current_user.is_authenticated %}
                     <a href="{{ url_for('profile') }}">👤 {{ current_user.username }}</a>
-                    <a href="{{ url_for('logout') }}" class="n-logout">Logout</a>
+                    <form method="POST" action="{{ url_for('logout') }}" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="n-logout">Logout</button></form>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="n-login">Login →</a>
                 {% endif %}
@@ -788,7 +792,7 @@
                                 <div class="drawer-auth-sub">Signed in</div>
                             </div>
                         </div>
-                        <a href="{{ url_for('logout') }}" class="drawer-auth-logout">Sign Out</a>
+                        <form method="POST" action="{{ url_for('logout') }}" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="drawer-auth-logout">Sign Out</button></form>
                     {% else %}
                         <a href="{{ url_for('login') }}" class="drawer-auth-login">Login →</a>
                     {% endif %}
@@ -964,16 +968,6 @@
 
     {% block body_extra %}{% endblock %}
 
-    <script>
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options = {}) {
-        if (options.method && options.method.toUpperCase() !== 'GET') {
-            options.headers = options.headers || {};
-            options.headers['X-CSRFToken'] = csrfToken;
-        }
-        return originalFetch(url, options);
-    };
-    </script>
+
 </body>
 </html>

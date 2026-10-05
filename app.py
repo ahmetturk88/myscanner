@@ -73,7 +73,7 @@ from logging_config import setup_logging
 # ================================================================
 # CSRF Protection (أضيفي هذا هنا)
 # ================================================================
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 csrf = CSRFProtect()
 csrf.init_app(app)
 
@@ -86,6 +86,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///sit
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Allow a 32 MB Sandbox file plus bounded multipart overhead.
 app.config['MAX_CONTENT_LENGTH'] = 33 * 1024 * 1024
+
+@app.errorhandler(CSRFError)
+def csrf_failure(error):
+    message = 'Your session security token is missing or expired. Refresh the page and try again.'
+    if request.path.startswith(('/api/', '/vulnerability/')) or request.is_json:
+        return jsonify({'error': message, 'code': 'csrf_failed'}), 400
+    return render_template('csrf_error.html', message=message), 400
 
 @app.errorhandler(UnsafeTargetError)
 def unsafe_scan_target(error):
@@ -405,11 +412,9 @@ app.register_blueprint(tip_bp)
 
 from routes.sandbox_routes import sandbox_bp
 app.register_blueprint(sandbox_bp)
-csrf.exempt(sandbox_bp)
 
 from routes.vuln_routes import vuln_bp
 app.register_blueprint(vuln_bp)
-csrf.exempt(vuln_bp)  # إذا واجهت مشاكل مع CSRF
 
 # تهيئة مصادر TIP (مرة واحدة عند بدء التشغيل)
 with app.app_context():
@@ -573,7 +578,7 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
@@ -1918,16 +1923,6 @@ def api_url_analyze():
         return jsonify({"error": str(e)}), 500
 
     
-csrf.exempt(api_scan_file)
-csrf.exempt(api_site_scan)
-csrf.exempt(api_check_email)
-csrf.exempt(api_check_ip)
-csrf.exempt(api_domain_lookup)
-csrf.exempt(api_ssl_checker)
-csrf.exempt(api_scan_qr_url)
-csrf.exempt(api_check_password)
-csrf.exempt(api_subdomain_finder)
-csrf.exempt(api_url_analyze)
 
 
 # ================================================================

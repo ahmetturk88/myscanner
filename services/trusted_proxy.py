@@ -52,6 +52,21 @@ class TrustedProxyMiddleware:
         return self.fixed(environ, start_response)
 
 
+def render_edge_candidate(environ):
+    """Parse a header value, not proof that the sender is a trusted edge."""
+    try:
+        candidate = address(environ.get('HTTP_CF_CONNECTING_IP', '').strip())
+        # Only use the IPv6 companion when Cloudflare supplied a Class E
+        # Pseudo IPv4; a client-provided IPv6 header cannot override normal IPv4.
+        if isinstance(candidate, ipaddress.IPv4Address) and candidate in ipaddress.ip_network('240.0.0.0/4'):
+            candidate = address(environ.get('HTTP_CF_CONNECTING_IPV6', '').strip())
+            if not isinstance(candidate, ipaddress.IPv6Address):
+                return None
+        return str(candidate) if candidate.is_global and not candidate.is_multicast and not candidate.is_reserved else None
+    except ValueError:
+        return None
+
+
 def configure_trusted_proxy(app, environ=None):
     env = os.environ if environ is None else environ
     raw = env.get('TRUSTED_PROXY_CIDRS', '').strip()

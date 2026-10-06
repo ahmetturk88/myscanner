@@ -170,7 +170,8 @@ async function scanSubdomain(subdomain, fullDomain) {
   const modal = document.getElementById('scan-modal');
   const modalStatus = document.getElementById('modal-status');
   modal.style.display = 'flex';
-  modalStatus.innerHTML = `🔍 Scanning ${fullDomain}...`;
+  modalStatus.textContent = `🔍 Scanning ${fullDomain}...`;
+  const displayDomain = ScanUI.escape(fullDomain);
   
   try {
     const response = await fetch('/api/scan-subdomain', {
@@ -181,16 +182,16 @@ async function scanSubdomain(subdomain, fullDomain) {
     const data = await response.json();
     
     if (data.verdict === 'clean') {
-      modalStatus.innerHTML = `✅ ${fullDomain} - CLEAN ✅<br><span style="font-size:12px;color:var(--green);">No threats detected</span>`;
+      modalStatus.innerHTML = `✅ ${displayDomain} - CLEAN ✅<br><span style="font-size:12px;color:var(--green);">No threats detected</span>`;
     } else if (data.verdict === 'suspicious') {
-      modalStatus.innerHTML = `⚠️ ${fullDomain} - SUSPICIOUS ⚠️<br><span style="font-size:12px;color:var(--yellow);">Proceed with caution</span>`;
+      modalStatus.innerHTML = `⚠️ ${displayDomain} - SUSPICIOUS ⚠️<br><span style="font-size:12px;color:var(--yellow);">Proceed with caution</span>`;
     } else if (data.verdict === 'malicious') {
-      modalStatus.innerHTML = `🚨 ${fullDomain} - MALICIOUS 🚨<br><span style="font-size:12px;color:var(--red);">Threat detected!</span>`;
+      modalStatus.innerHTML = `🚨 ${displayDomain} - MALICIOUS 🚨<br><span style="font-size:12px;color:var(--red);">Threat detected!</span>`;
     } else {
-      modalStatus.innerHTML = `❓ ${fullDomain} - Unknown<br><span style="font-size:12px;color:var(--muted);">Could not determine</span>`;
+      modalStatus.innerHTML = `❓ ${displayDomain} - Unknown<br><span style="font-size:12px;color:var(--muted);">Could not determine</span>`;
     }
   } catch (error) {
-    modalStatus.innerHTML = `❌ Error scanning ${fullDomain}`;
+    modalStatus.innerHTML = `❌ Error scanning ${displayDomain}`;
   }
 }
 
@@ -201,26 +202,26 @@ function closeModal() {
 function renderResult(d) {
   const html = `
     <div class="stats-grid">
-      <div class="stat-box"><div class="num">${d.total_checked}</div><div class="label">Checked</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--green);">${d.active_count}</div><div class="label">Active</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--yellow);">${d.redirect_count}</div><div class="label">Redirects</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--muted);">${d.inactive_count}</div><div class="label">Inactive</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--accent);">${d.total_found}</div><div class="label">Total Found</div></div>
+      <div class="stat-box"><div class="num">${ScanUI.escape(d.total_checked)}</div><div class="label">Checked</div></div>
+      <div class="stat-box"><div class="num" style="color:var(--green);">${ScanUI.escape(d.active_count)}</div><div class="label">Active</div></div>
+      <div class="stat-box"><div class="num" style="color:var(--yellow);">${ScanUI.escape(d.redirect_count)}</div><div class="label">Redirects</div></div>
+      <div class="stat-box"><div class="num" style="color:var(--muted);">${ScanUI.escape(d.inactive_count)}</div><div class="label">Inactive</div></div>
+      <div class="stat-box"><div class="num" style="color:var(--accent);">${ScanUI.escape(d.total_found)}</div><div class="label">Total Found</div></div>
     </div>
     
     ${d.subdomains.active.length > 0 ? `
     <div class="subdomain-card">
       <div class="subdomain-header">✅ Active Subdomains (${d.subdomains.active.length})</div>
       <div class="subdomain-list">
-        ${d.subdomains.active.map(s => `
+        ${d.subdomains.active.map((s, index) => `
           <div class="subdomain-item">
             <div>
-              <span class="subdomain-name">${s.full_domain}</span>
-              ${s.ip ? `<span class="subdomain-ip"> (${s.ip})</span>` : ''}
+              <span class="subdomain-name">${ScanUI.escape(s.full_domain)}</span>
+              ${s.ip ? `<span class="subdomain-ip"> (${ScanUI.escape(s.ip)})</span>` : ''}
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
               <span class="subdomain-status status-active">ACTIVE</span>
-              <button class="scan-subdomain" onclick="scanSubdomain('${s.subdomain}', '${s.full_domain}')">🔍 Scan</button>
+              <button class="scan-subdomain" type="button" data-group="active" data-index="${index}">🔍 Scan</button>
             </div>
           </div>
         `).join('')}
@@ -232,15 +233,15 @@ function renderResult(d) {
     <div class="subdomain-card">
       <div class="subdomain-header">🔄 Redirects (${d.subdomains.redirects.length})</div>
       <div class="subdomain-list">
-        ${d.subdomains.redirects.map(s => `
+        ${d.subdomains.redirects.map((s, index) => `
           <div class="subdomain-item">
             <div>
-              <span class="subdomain-name">${s.full_domain}</span>
-              ${s.ip ? `<span class="subdomain-ip"> (${s.ip})</span>` : ''}
+              <span class="subdomain-name">${ScanUI.escape(s.full_domain)}</span>
+              ${s.ip ? `<span class="subdomain-ip"> (${ScanUI.escape(s.ip)})</span>` : ''}
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
               <span class="subdomain-status status-redirect">REDIRECT</span>
-              <button class="scan-subdomain" onclick="scanSubdomain('${s.subdomain}', '${s.full_domain}')">🔍 Scan</button>
+              <button class="scan-subdomain" type="button" data-group="redirects" data-index="${index}">🔍 Scan</button>
             </div>
           </div>
         `).join('')}
@@ -255,8 +256,8 @@ function renderResult(d) {
         ${d.subdomains.inactive.map(s => `
           <div class="subdomain-item">
             <div>
-              <span class="subdomain-name">${s.full_domain}</span>
-              ${s.ip ? `<span class="subdomain-ip"> (${s.ip})</span>` : ''}
+              <span class="subdomain-name">${ScanUI.escape(s.full_domain)}</span>
+              ${s.ip ? `<span class="subdomain-ip"> (${ScanUI.escape(s.ip)})</span>` : ''}
             </div>
             <span class="subdomain-status status-inactive">INACTIVE</span>
           </div>
@@ -271,7 +272,14 @@ function renderResult(d) {
     </div>
   `;
   
-  document.getElementById('result-card').innerHTML = html;
+  const resultCard = document.getElementById('result-card');
+  resultCard.innerHTML = html;
+  resultCard.querySelectorAll('button.scan-subdomain').forEach(button => {
+    const groups = { active: d.subdomains.active, redirects: d.subdomains.redirects };
+    const group = Object.hasOwn(groups, button.dataset.group) ? groups[button.dataset.group] : [];
+    const item = group[Number(button.dataset.index)];
+    if (item) button.addEventListener('click', () => scanSubdomain(item.subdomain, item.full_domain));
+  });
   document.getElementById('result-card').style.display = 'block';
   window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
 }

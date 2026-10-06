@@ -241,6 +241,16 @@
     }
   }
 
+  function addQRAction(container, label, action, className = 'action-btn') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.textContent = label;
+    button.addEventListener('click', action);
+    container.appendChild(button);
+    return button;
+  }
+
   function renderTextResult(text) {
     const badge = document.getElementById('content-type-badge');
     badge.textContent = '📝 TEXT DETECTED';
@@ -250,10 +260,10 @@
     document.getElementById('verdict-banner').style.display = 'none';
     document.getElementById('stats-grid').style.display = 'none';
     
-    document.getElementById('action-buttons').innerHTML = `
-      <button class="action-btn" onclick="copyToClipboard('${text.replace(/'/g, "\\'")}')">📋 Copy Text</button>
-    `;
-    
+    const actions = document.getElementById('action-buttons');
+    actions.replaceChildren();
+    addQRAction(actions, '📋 Copy Text', () => copyToClipboard(text));
+
     document.getElementById('result-card').style.display = 'block';
     window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
   }
@@ -264,7 +274,7 @@
     badge.className = 'content-type-badge type-url';
     badge.style.display = 'inline-block';
     
-    const verdict = data.verdict || 'unknown';
+    const verdict = ['clean', 'malicious', 'suspicious', 'unknown'].includes(data.verdict) ? data.verdict : 'unknown';
     const icons = { clean: '✅', malicious: '🚨', suspicious: '⚠️', unknown: '❓' };
     const titles = { clean: 'URL is Safe', malicious: 'Malicious URL Detected!', suspicious: 'Suspicious URL Detected', unknown: 'Scan Result' };
     const subs = { clean: 'No threats detected. The URL appears legitimate.', malicious: 'This URL was flagged by multiple security engines.', suspicious: 'Some security engines flagged this URL.', unknown: 'Could not determine threat level.' };
@@ -283,20 +293,24 @@
     const undetected = stats.undetected || 0;
     
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-box good"><div class="s-icon">✅</div><div class="s-label">Harmless</div><div class="s-value">${harmless}</div></div>
-      <div class="stat-box bad"><div class="s-icon">🚨</div><div class="s-label">Malicious</div><div class="s-value">${malicious}</div></div>
-      <div class="stat-box warn"><div class="s-icon">⚠️</div><div class="s-label">Suspicious</div><div class="s-value">${suspicious}</div></div>
-      <div class="stat-box"><div class="s-icon">🕵️</div><div class="s-label">Undetected</div><div class="s-value">${undetected}</div></div>
+      <div class="stat-box good"><div class="s-icon">✅</div><div class="s-label">Harmless</div><div class="s-value">${ScanUI.escape(harmless)}</div></div>
+      <div class="stat-box bad"><div class="s-icon">🚨</div><div class="s-label">Malicious</div><div class="s-value">${ScanUI.escape(malicious)}</div></div>
+      <div class="stat-box warn"><div class="s-icon">⚠️</div><div class="s-label">Suspicious</div><div class="s-value">${ScanUI.escape(suspicious)}</div></div>
+      <div class="stat-box"><div class="s-icon">🕵️</div><div class="s-label">Undetected</div><div class="s-value">${ScanUI.escape(undetected)}</div></div>
     `;
     document.getElementById('stats-grid').style.display = 'grid';
     
-    document.getElementById('action-buttons').innerHTML = `
-      <button class="action-btn" onclick="copyToClipboard('${url.replace(/'/g, "\\'")}')">📋 Copy URL</button>
-      <button class="action-btn scan-url-btn" onclick="window.open('${url}', '_blank')">🔗 Open URL</button>
-      <button class="action-btn" onclick="gotoScanner('${url.replace(/'/g, "\\'")}')">🔍 Scan in URL Scanner →</button>
-      <button class="action-btn" onclick="rescanURL('${url.replace(/'/g, "\\'")}')">🔄 Re-scan URL</button>
-    `;
-    
+    const actions = document.getElementById('action-buttons');
+    actions.replaceChildren();
+    addQRAction(actions, '📋 Copy URL', () => copyToClipboard(url));
+    const safeURL = ScanUI.webURL(url);
+    const openButton = addQRAction(actions, '🔗 Open URL', () => window.open(safeURL, '_blank', 'noopener,noreferrer'), 'action-btn scan-url-btn');
+    openButton.disabled = !safeURL;
+    if (safeURL) {
+      addQRAction(actions, '🔍 Scan in URL Scanner →', () => gotoScanner(safeURL));
+      addQRAction(actions, '🔄 Re-scan URL', () => rescanURL(safeURL));
+    }
+
     document.getElementById('result-card').style.display = 'block';
     window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
   }
@@ -306,6 +320,8 @@
     showToast('📋 Content copied to clipboard!');
   }
     async function rescanURL(url) {
+    url = ScanUI.webURL(url);
+    if (!url) { showErr('A valid HTTP or HTTPS URL is required.'); return; }
     document.getElementById('loading-div').style.display = 'block';
     document.getElementById('loading-text').textContent = 'Re-scanning URL with 70+ security engines...';
     document.getElementById('result-card').style.display = 'none';
@@ -329,6 +345,8 @@
     }
   }
   function gotoScanner(url) {
+  url = ScanUI.webURL(url);
+  if (!url) { showErr('A valid HTTP or HTTPS URL is required.'); return; }
   // تخزين الرابط في localStorage
   localStorage.setItem('auto_scan_url', url);
   window.location.href = '/dashboard';

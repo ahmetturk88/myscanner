@@ -40,6 +40,7 @@ from services.ip_analyzer import IPAnalyzer
 from services.domain_analyzer import DomainAnalyzer
 from services.ssl_analyzer import SSLAnalyzer
 from services.qr_analyzer import QRAnalyzer
+from services.web_scan_request import validate_web_scan_request
 from services.file_deep_analyzer import FileDeepAnalyzer  # ✅ صحيح
 from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
@@ -1547,25 +1548,21 @@ def subdomain_finder():
 
 @app.route('/api/subdomain-finder', methods=['POST'])
 @login_required
+@validate_web_scan_request('domain', 'include_ct', domain=True)
 @check_permission('subdomain_finder')
 def api_subdomain_finder():
-    """API لاكتشاف النطاقات الفرعية"""
-    data = request.get_json()
-    domain = data.get('domain', '').strip()
-    
-    if not domain:
-        return jsonify({"error": "No domain provided"}), 400
-    
+    data = request.get_json(silent=True)
     try:
-        finder = SubdomainFinder()
-        result = finder.find_subdomains(domain)
-        log_activity(current_user.username, 'subdomain_finder', f'Found subdomains for: {domain}')
-        return jsonify(result)
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+        result = SubdomainFinder().find_subdomains(data['domain'].strip(), include_ct=data.get('include_ct', True))
+        log_activity(current_user.username, 'subdomain_finder', 'Completed bounded domain discovery')
+        return jsonify(result), 200, {'Cache-Control':'no-store'}
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    except UnsafeTargetError:
+        raise
+    except Exception:
+        app.logger.exception('Domain discovery failed')
+        return jsonify(error='Discovery temporarily unavailable. Please retry.'), 503
 
 
 # ================================================================
@@ -1575,64 +1572,25 @@ def api_subdomain_finder():
 
 @app.route('/api/scan-subdomain', methods=['POST'])
 @login_required
+@validate_web_scan_request('domain', 'include_provider', domain=True)
+@check_permission('subdomain_finder')
 def api_scan_subdomain():
-    """
-    فحص نطاق فرعي باستخدام url.vet + التحليل المحلي
-    (بدلاً من VirusTotal)
-    """
-    from services.url_analyzer import URLDeepAnalyzer
-    
-    data = request.get_json()
-    domain = data.get('domain', '').strip()
-    
-    if not domain:
-        return jsonify({"error": "No domain provided"}), 400
-    
+    from services.subdomain_finder import normalize_domain
+    from services.web_assessment import WebAssessment
+    data = request.get_json(silent=True)
     try:
-        # ─────────────────────────────────────────────────────────────
-        # استخدام url.vet + التحليل المحلي
-        # ─────────────────────────────────────────────────────────────
-        analyzer = URLDeepAnalyzer()
-        analysis = analyzer.comprehensive_analysis(domain)
-        
-        # استخراج url.vet
-        urlvet = analysis.get('urlvet', {}) or {}
-        
-        # استخراج Verdict
-        verdict_raw = urlvet.get('verdict', 'unknown')
-        trust_score = urlvet.get('trust_score', 0)
-        
-        # تحويل الحكم
-        if verdict_raw == 'harmless':
-            verdict = 'clean'
-        elif verdict_raw == 'suspicious':
-            verdict = 'suspicious'
-        elif verdict_raw == 'malicious':
-            verdict = 'malicious'
-        else:
-            verdict = 'unknown'
-        
-        # تسجيل النشاط
-        log_activity(
-            current_user.username,
-            'subdomain_scan',
-            f'Scanned subdomain: {domain} | Verdict: {verdict}'
-        )
-        
-        return jsonify({
-            "verdict": verdict,
-            "trust_score": trust_score,
-            "verdict_raw": verdict_raw,
-            "red_flags": urlvet.get('red_flags', []),
-            "green_flags": urlvet.get('green_flags', []),
-            "source": "url.vet + local_analysis"
-        })
-        
+        domain = normalize_domain(data['domain'].strip())
+        result = WebAssessment().analyze('https://'+domain+'/', include_provider=data.get('include_provider', False))
+        log_activity(current_user.username, 'subdomain_scan', 'Completed read-only hostname assessment')
+        return jsonify(result), 200, {'Cache-Control':'no-store'}
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
     except UnsafeTargetError:
         raise
-    except Exception as e:
-        app.logger.error(f'❌ Subdomain scan failed for {domain}: {e}')
-        return jsonify({"verdict": "unknown", "error": str(e)}), 500    
+    except Exception:
+        app.logger.exception('Hostname assessment failed')
+        return jsonify(error='URL inspection temporarily unavailable. Please retry.'), 503
+
 # ================================================================
 # File Scanner  👈 👈 👈 أضف هنا
 # ================================================================
@@ -1785,40 +1743,22 @@ def qr_scanner():
     return render_template('qr_scanner.html')
 @app.route('/api/scan-qr-url', methods=['POST'])
 @login_required
+@validate_web_scan_request('url', 'include_provider')
 @check_permission('qr_scan')
 def api_scan_qr_url():
-    app.logger.info(f'[INFO] QR scan requested by {current_user.username}')
-
-    data = request.get_json()
-    url = data.get('url', '').strip()
-
-    if not url:
-        app.logger.warning(f'[WARNING] No URL provided by {current_user.username}')
-        return jsonify({"error": "No URL provided"}), 400
-
-    app.logger.info(f'[INFO] Scanning QR URL: {url[:100]} | User: {current_user.username}')
-
+    data = request.get_json(silent=True)
     try:
-        analyzer = QRAnalyzer()
-        result = analyzer.scan_url(url)
-
-        app.logger.info(f'[SUCCESS] QR scan completed for {url[:100]} | Verdict: {result.get("verdict")}')
-        log_activity(
-            current_user.username,
-            'qr_scan',
-            f'Scanned QR URL: {url[:100]} | Verdict: {result.get("verdict")}'
-        )
-
-        return jsonify(result)
-
+        result = QRAnalyzer().scan_url(data['url'], include_provider=data.get('include_provider', False))
+        log_activity(current_user.username, 'qr_scan', 'Completed read-only QR URL assessment')
+        return jsonify(result), 200, {'Cache-Control':'no-store'}
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
     except UnsafeTargetError:
         raise
-    except Exception as e:
-        app.logger.error(f'[ERROR] QR scan failed for {url[:100]}: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Scan error: {str(e)}"}), 500
-    
+    except Exception:
+        app.logger.exception('QR URL assessment failed')
+        return jsonify(error='QR assessment temporarily unavailable. Please retry.'), 503
+
 @app.route('/ssl-checker')
 @login_required
 def ssl_checker():

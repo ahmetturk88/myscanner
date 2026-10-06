@@ -20,6 +20,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import requests
+from services.active_scan_policy import skipped_active_analysis
 from services.safe_http import PublicHTTPSession, UnsafeTargetError, validate_public_url, public_connection
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
@@ -156,7 +157,7 @@ class SiteAnalyzer:
     # ================================================================
     
     def _get_cache_key(self, domain: str) -> str:
-        return hashlib.md5(domain.encode()).hexdigest()
+        return hashlib.md5(('passive-v2:' + domain).encode()).hexdigest()
     
     def _get_cached_result(self, domain: str) -> Optional[dict]:
         cache_key = self._get_cache_key(domain)
@@ -248,64 +249,9 @@ class SiteAnalyzer:
         return result
     
     def scan_vulnerabilities_dynamic(self, url: str) -> Dict[str, Any]:
-        logger.debug(f"Running dynamic vulnerability scan on: {url}")
-        result = {
-            "tested_endpoints": [],
-            "sql_injection_suspected": False,
-            "xss_suspected": False,
-            "risk_score": 0,
-            "details": []
-        }
-        
-        sql_test_payloads = ["'", "' OR '1'='1", "\" OR \"1\"=\"1", "'; DROP TABLE users; --"]
-        xss_test_payloads = ["<script>alert('XSS')</script>", "<img src=x onerror=alert('XSS')>", "javascript:alert('XSS')"]
-        
-        parsed = urlparse(url)
-        test_endpoints = [
-            url,
-            f"{parsed.scheme}://{parsed.netloc}/search?q=test",
-            f"{parsed.scheme}://{parsed.netloc}/?id=1",
-            f"{parsed.scheme}://{parsed.netloc}/page?param=value"
-        ]
-        
-        for endpoint in test_endpoints[:3]:
-            try:
-                for payload in sql_test_payloads:
-                    test_url = f"{endpoint}{payload if '?' in endpoint else '?q=' + payload}"
-                    response = self.session.get(test_url, timeout=10, allow_redirects=True)
-                    
-                    sql_errors = ["sql syntax", "mysql", "odbc", "driver", "unclosed quotation", 
-                                 "microsoft ole db", "postgresql error", "ora-", "sqlite"]
-                    for error in sql_errors:
-                        if error.lower() in response.text.lower():
-                            result["sql_injection_suspected"] = True
-                            result["details"].append(f"SQL error detected: {error} at {test_url[:100]}")
-                            logger.warning(f"Potential SQL injection at {test_url[:100]}")
-                            break
-                
-                for payload in xss_test_payloads:
-                    test_url = f"{endpoint}{payload if '?' in endpoint else '?q=' + payload}"
-                    response = self.session.get(test_url, timeout=10, allow_redirects=True)
-                    
-                    if payload.replace("'", '"') in response.text:
-                        result["xss_suspected"] = True
-                        result["details"].append(f"XSS payload reflected: {payload[:50]} at {test_url[:100]}")
-                        logger.warning(f"Potential XSS at {test_url[:100]}")
-                        break
-                        
-            except UnsafeTargetError:
-                raise
-            except Exception as e:
-                logger.debug(f"Dynamic scan error for {endpoint}: {str(e)}")
-        
-        if result["sql_injection_suspected"]:
-            result["risk_score"] += 50
-        if result["xss_suspected"]:
-            result["risk_score"] += 40
-        
-        result["risk_score"] = min(100, result["risk_score"])
-        return result
-    
+        """Compatibility result only; general site analysis sends no payloads."""
+        return skipped_active_analysis()
+
     # ================================================================
     # 3. تحليل رؤوس الأمان
     # ================================================================
@@ -963,7 +909,7 @@ class SiteAnalyzer:
         # تنفيذ جميع التحليلات
         logger.info(f"[SCAN] Running vulnerability scans for {domain}")
         vulnerabilities_static = self.scan_vulnerabilities_static(html_content, final_url)
-        vulnerabilities_dynamic = self.scan_vulnerabilities_dynamic(final_url)
+        vulnerabilities_dynamic = skipped_active_analysis()
         
         logger.info(f"[HEADERS] Checking security headers for {domain}")
         security_headers = self.check_security_headers(final_url)
@@ -1097,6 +1043,8 @@ class SiteAnalyzer:
             "domain": clean_domain,
             "url": final_url,
             "status": "success",
+            "analysis_mode": "passive",
+            "active_scan_performed": False,
             "from_cache": False,
             "timestamp": datetime.now().isoformat(),
             "vulnerabilities": {

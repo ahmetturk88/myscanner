@@ -459,7 +459,7 @@ function showToast(message, type) {
     toast.style.borderRadius = '8px';
     toast.style.zIndex = '9999';
     toast.style.fontSize = '14px';
-    toast.innerHTML = message;
+    toast.textContent = ScanUI.text(message);
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }
@@ -596,26 +596,26 @@ function showToast(message, type) {
             const data = await res.json();
             
             if (data.success) {
-                totalPages = data.pages;
+                totalPages = ScanUI.number(data.pages, 1, 100000, 1);
                 const tbody = document.getElementById('iocsTableBody');
                 
                 if (!data.iocs || data.iocs.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">📭 No IoCs found</td></tr>';
                 } else {
-                    tbody.innerHTML = data.iocs.map(ioc => `
+                    tbody.innerHTML = ScanUI.list(data.iocs).filter(ioc => ioc && typeof ioc === 'object').map(ioc => `
                         <tr>
                             <td class="tooltip" data-tip="Click to lookup">
                                 <code style="background: #0f0f1a; padding: 0.2rem 0.5rem; border-radius: 6px;">${escapeHtml(ioc.value)}</code>
                             </td>
-                            <td><span class="badge badge-${getTypeBadge(ioc.type)}">${ioc.type}</span></td>
-                            <td><span class="badge badge-${getSeverityClass(ioc.severity)}">${ioc.severity.toUpperCase()}</span></td>
+                            <td><span class="badge badge-${getTypeBadge(ioc.type)}">${escapeHtml(ioc.type)}</span></td>
+                            <td><span class="badge badge-${getSeverityClass(ioc.severity)}">${escapeHtml(ScanUI.text(ioc.severity, 'unknown').toUpperCase())}</span></td>
                             <td>
                                 <div class="confidence-bar">
-                                    <div class="confidence-fill" style="width: ${ioc.confidence}%"></div>
+                                    <div class="confidence-fill" style="width: ${ScanUI.number(ioc.confidence, 0, 100)}%"></div>
                                 </div>
-                                <small>${ioc.confidence}%</small>
+                                <small>${ScanUI.number(ioc.confidence, 0, 100)}%</small>
                             </td>
-                            <td>${ioc.threat_type || '-'}</td>
+                            <td>${escapeHtml(ioc.threat_type || '-')}</td>
                             <td><small>${new Date(ioc.first_seen).toLocaleDateString()}</small></td>
                         </tr>
                     `).join('');
@@ -628,12 +628,12 @@ function showToast(message, type) {
 
     function getSeverityClass(severity) {
         const map = { critical: 'critical', high: 'high', medium: 'medium', low: 'low' };
-        return map[severity] || 'medium';
+        return Object.hasOwn(map, severity) ? map[severity] : 'medium';
     }
 
     function getTypeBadge(type) {
         const map = { ip: 'ip', domain: 'domain', url: 'url', sha256: 'hash' };
-        return map[type] || 'medium';
+        return Object.hasOwn(map, type) ? map[type] : 'medium';
     }
 
     function renderPagination() {
@@ -658,13 +658,8 @@ function showToast(message, type) {
         });
     }
 
-    function escapeHtml(str) {
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
+    function escapeHtml(value) {
+        return ScanUI.escape(ScanUI.text(value, ''));
     }
 
     // Lookup
@@ -689,18 +684,19 @@ function showToast(message, type) {
             });
             const data = await res.json();
             
-            if (data.success && data.result.found) {
+            if (!data.success || !data.result) throw new Error('Threat intelligence lookup is unavailable. Please try again.');
+            if (data.result.found) {
                 const r = data.result;
                 const severityClass = getSeverityClass(r.highest_severity);
                 resultDiv.innerHTML = `
                     <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem;">
-                        <span class="badge badge-${severityClass}" style="font-size: 1rem;">⚠️ ${r.highest_severity.toUpperCase()}</span>
-                        <span><strong>Confidence:</strong> ${r.max_confidence}%</span>
-                        <span><strong>Matches:</strong> ${r.count}</span>
-                        <span><strong>TI Score:</strong> <span style="color: var(--tip-warning);">${r.tip_score}</span></span>
+                        <span class="badge badge-${severityClass}" style="font-size: 1rem;">⚠️ ${escapeHtml(ScanUI.text(r.highest_severity, 'unknown').toUpperCase())}</span>
+                        <span><strong>Confidence:</strong> ${ScanUI.number(r.max_confidence, 0, 100)}%</span>
+                        <span><strong>Matches:</strong> ${ScanUI.number(r.count, 0, 1000000)}</span>
+                        <span><strong>TI Score:</strong> <span style="color: var(--tip-warning);">${ScanUI.number(r.tip_score, 0, 100)}</span></span>
                     </div>
-                    <div><strong>📋 Summary:</strong> ${r.summary}</div>
-                    <div style="margin-top: 0.5rem;"><strong>🏷️ Tags:</strong> ${r.tags?.slice(0,5).join(', ') || '-'}</div>
+                    <div><strong>📋 Summary:</strong> ${escapeHtml(r.summary)}</div>
+                    <div style="margin-top: 0.5rem;"><strong>🏷️ Tags:</strong> ${escapeHtml(ScanUI.list(r.tags).slice(0,5).map(tag => ScanUI.text(tag)).join(', ') || '-')}</div>
                     <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--tip-border);">
                         <i class="fas fa-shield-alt" style="color: var(--tip-danger);"></i> 
                         <strong style="color: var(--tip-danger);">Threat detected!</strong> This indicator is known to be malicious.
@@ -711,12 +707,12 @@ function showToast(message, type) {
                     <div style="text-align: center;">
                         <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--tip-success);"></i>
                         <h3>No threats detected</h3>
-                        <p>${value} appears to be clean based on our threat intelligence feeds.</p>
+                        <p>${escapeHtml(value)} appears to be clean based on our threat intelligence feeds.</p>
                     </div>
                 `;
             }
         } catch(e) {
-            resultDiv.innerHTML = `<div style="color: var(--tip-danger);">❌ Error: ${e.message}</div>`;
+            resultDiv.innerHTML = `<div style="color: var(--tip-danger);">❌ Error: ${escapeHtml(e.message)}</div>`;
         }
     });
 

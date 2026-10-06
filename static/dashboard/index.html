@@ -16,7 +16,7 @@
     body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
     body::after { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(0,200,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.025) 1px, transparent 1px); background-size: 48px 48px; pointer-events: none; z-index: 0; }
     .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; position: relative; z-index: 1; }
-    
+
     .header { text-align: center; margin-bottom: 40px; }
     .header .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,200,255,0.1); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
     .header .badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
@@ -66,7 +66,9 @@
       .charts-grid { grid-template-columns: 1fr; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
     }
-  </style>
+
+.history-id,.history-date{color:var(--muted);font-family:var(--mono);font-size:11px}.history-url{font-family:var(--mono);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history-summary{color:var(--muted);font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
 </head>
 <body>
   <div class="container">
@@ -114,6 +116,7 @@
     </div>
   </div>
 
+  <script src="/static/dashboard_ui.js?v=20261006-1"></script>
   <script>
     let allScans = [];
     let currentFilter = 'all';
@@ -123,7 +126,7 @@
       try {
         const r = await fetch('/api/recent_scans');
         const data = await r.json();
-        allScans = data.scans || [];
+        allScans = DashboardUI.normalizeScans(data && data.scans);
         updateStats();
         renderCharts();
         renderTable();
@@ -135,20 +138,21 @@
       const safe = allScans.filter(s => s.verdict === 'harmless').length;
       const mal = allScans.filter(s => s.verdict === 'malicious').length;
       const sus = allScans.filter(s => s.verdict === 'suspicious').length;
-      
+
       document.getElementById('total-count').textContent = total;
       document.getElementById('safe-count').textContent = safe;
       document.getElementById('mal-count').textContent = mal;
       document.getElementById('sus-count').textContent = sus;
-      
-      document.getElementById('filtered-count').textContent = 
+
+      document.getElementById('filtered-count').textContent =
         (currentFilter === 'all' ? allScans : allScans.filter(s => s.verdict === currentFilter)).length + ' scans';
     }
 
     function renderCharts() {
+      if (typeof Chart === 'undefined') return;
       const ctx1 = document.getElementById('pie-chart').getContext('2d');
       const ctx2 = document.getElementById('bar-chart').getContext('2d');
-      
+
       const safe = allScans.filter(s => s.verdict === 'harmless').length;
       const mal = allScans.filter(s => s.verdict === 'malicious').length;
       const sus = allScans.filter(s => s.verdict === 'suspicious').length;
@@ -186,10 +190,11 @@
     }
 
     function filterBy(verdict) {
-      currentFilter = verdict;
+      const cards = {all:'total', harmless:'safe', malicious:'malicious', suspicious:'suspicious'};
+      currentFilter = Object.hasOwn(cards, verdict) ? verdict : 'all';
       document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-      document.querySelector(`.stat-card.${verdict}`)?.classList.add('active');
-      document.getElementById('filter-select').value = verdict;
+      document.querySelector('.stat-card.' + cards[currentFilter])?.classList.add('active');
+      document.getElementById('filter-select').value = currentFilter;
       updateStats();
       renderTable();
     }
@@ -199,15 +204,7 @@
       let filtered = currentFilter === 'all' ? allScans : allScans.filter(s => s.verdict === currentFilter);
       if (search) filtered = filtered.filter(s => s.url?.toLowerCase().includes(search));
 
-      document.getElementById('table-body').innerHTML = filtered.map(s => `
-        <tr>
-          <td style="color:var(--muted);font-family:var(--mono);font-size:11px;">#${s.id}</td>
-          <td style="font-family:var(--mono);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.url||'N/A'}</td>
-          <td><span class="verdict-badge v-${s.verdict||'unknown'}">${(s.verdict||'unknown').toUpperCase()}</span></td>
-          <td style="color:var(--muted);font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.summary||'–'}</td>
-          <td style="color:var(--muted);font-family:var(--mono);font-size:11px;">${s.date||'–'}</td>
-        </tr>
-      `).join('');
+      DashboardUI.renderRows(document.getElementById('table-body'), filtered);
 
       document.getElementById('filtered-count').textContent = filtered.length + ' scans';
     }

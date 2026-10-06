@@ -1028,7 +1028,7 @@ function renderResults(data) {
   hideProgress();
   document.getElementById('resultsPanel').classList.add('show');
 
-  const v = data.verdict || 'unknown';
+  const v = ['malicious', 'suspicious', 'clean', 'unknown'].includes(data.verdict) ? data.verdict : 'unknown';
   const hero = document.getElementById('verdictHero');
   hero.className = 'verdict-hero ' + (v === 'malicious' ? 'malicious' : v === 'suspicious' ? 'suspicious' : 'clean');
   const icons = { malicious: '🚨', suspicious: '⚠️', clean: '✅', unknown: '❓' };
@@ -1036,7 +1036,7 @@ function renderResults(data) {
   document.getElementById('verdictText').textContent = v.toUpperCase();
   document.getElementById('verdictEnv').textContent = `${data.environment || '—'} · ${new Date().toUTCString()}`;
 
-  const score = Math.round(data.threat_score || 0);
+  const score = Math.round(ScanUI.number(data.threat_score, 0, 100));
   const sc = document.getElementById('scoreCircle');
   sc.style.borderColor = score >= 70 ? '#ff4560' : (score >= 40 ? '#ffd32a' : '#00e676');
   sc.style.color = score >= 70 ? '#ff4560' : (score >= 40 ? '#ffd32a' : '#00e676');
@@ -1046,7 +1046,7 @@ function renderResults(data) {
   const srcRow = document.getElementById('sourcesRow');
   srcRow.innerHTML = '';
   Object.entries(data.sources || {}).forEach(([src, status]) => {
-    srcRow.innerHTML += `<span style="font-family: monospace; font-size: 0.7rem; padding: 0.25rem 0.75rem; border-radius: 20px; border: 1px solid #00c8ff;">${srcLabels[src] || src} · ${status}</span>`;
+    srcRow.innerHTML += `<span style="font-family: monospace; font-size: 0.7rem; padding: 0.25rem 0.75rem; border-radius: 20px; border: 1px solid #00c8ff;">${escapeHtml(Object.hasOwn(srcLabels, src) ? srcLabels[src] : src)} · ${escapeHtml(status)}</span>`;
   });
 
   const mbData = data.mb_data || {};
@@ -1064,7 +1064,7 @@ function renderResults(data) {
     <div class="hash-row"><span style="width: 60px;">SHA1</span><span style="flex:1;word-break:break-all;">${escapeHtml(data.sha1 || '—')}</span></div>
   `;
 
-  const dets = data.vt_detections || [];
+  const dets = ScanUI.list(data.vt_detections).filter(item => item && typeof item === 'object');
   document.getElementById('vtCount').textContent = dets.length;
   if (dets.length === 0) {
     document.getElementById('vtBody').innerHTML = '<div class="empty-state">No detections from MalwareBazaar</div>';
@@ -1074,21 +1074,21 @@ function renderResults(data) {
 
   const beh = data.behavior || {};
   const behKeys = ['registry_keys', 'files_created', 'mutexes'];
-  const hasBeh = behKeys.some(k => beh[k]?.length > 0);
+  const hasBeh = behKeys.some(k => ScanUI.list(beh[k]).length > 0);
   if (!hasBeh) {
     document.getElementById('behaviorBody').innerHTML = '<div class="empty-state">No behavioral data available</div>';
   } else {
-    document.getElementById('behaviorBody').innerHTML = `<div class="behavior-grid">${behKeys.filter(k => beh[k]?.length > 0).map(k => `<div class="behavior-card"><div class="behavior-card-title">${k.toUpperCase()}</div><ul class="behavior-list">${beh[k].slice(0,10).map(i => `<li>${escapeHtml(typeof i === 'string' ? i : JSON.stringify(i))}</li>`).join('')}</ul></div>`).join('')}</div>`;
+    document.getElementById('behaviorBody').innerHTML = `<div class="behavior-grid">${behKeys.filter(k => ScanUI.list(beh[k]).length > 0).map(k => `<div class="behavior-card"><div class="behavior-card-title">${k.toUpperCase()}</div><ul class="behavior-list">${ScanUI.list(beh[k]).slice(0,10).map(i => `<li>${escapeHtml(typeof i === 'string' ? i : JSON.stringify(i))}</li>`).join('')}</ul></div>`).join('')}</div>`;
   }
 
   const net = data.network || {};
-  if (!net.domains?.length) {
+  if (!ScanUI.list(net.domains).length) {
     document.getElementById('networkBody').innerHTML = '<div class="empty-state">No network activity detected</div>';
   } else {
-    document.getElementById('networkBody').innerHTML = `<div class="network-tags">${net.domains.slice(0,20).map(d => `<span class="net-tag">${escapeHtml(d)}</span>`).join('')}</div>`;
+    document.getElementById('networkBody').innerHTML = `<div class="network-tags">${ScanUI.list(net.domains).slice(0,20).map(d => `<span class="net-tag">${escapeHtml(d)}</span>`).join('')}</div>`;
   }
 
-  const mitres = data.mitre_attacks || [];
+  const mitres = ScanUI.list(data.mitre_attacks).filter(item => item && typeof item === 'object');
   document.getElementById('mitreCount').textContent = mitres.length;
   if (!mitres.length) {
     document.getElementById('mitreBody').innerHTML = '<div class="empty-state">No MITRE ATT&amp;CK techniques identified</div>';
@@ -1096,19 +1096,19 @@ function renderResults(data) {
     document.getElementById('mitreBody').innerHTML = `<div class="mitre-grid">${mitres.map(m => `<div class="mitre-card"><div class="mitre-id">${escapeHtml(m.attck_id || '—')}</div><div class="mitre-technique">${escapeHtml(m.technique || '—')}</div><div class="mitre-tactic">${escapeHtml(m.tactic || '—')}</div></div>`).join('')}</div>`;
   }
 
-  const sigs = data.signatures || [];
+  const sigs = ScanUI.list(data.signatures).filter(item => item && typeof item === 'object');
   document.getElementById('sigCount').textContent = sigs.length;
   if (!sigs.length) {
     document.getElementById('sigsBody').innerHTML = '<div class="empty-state">No behavioral signatures triggered</div>';
   } else {
-    document.getElementById('sigsBody').innerHTML = `<div class="sig-list">${sigs.map(s => `<div class="sig-item ${s.severity === 'malicious' ? 'malicious' : ''}"><div><div class="sig-name">${escapeHtml(s.name || '—')}</div><div class="sig-desc">${escapeHtml(s.description || '—')}</div></div><span class="badge">${(s.severity || 'info').toUpperCase()}</span></div>`).join('')}</div>`;
+    document.getElementById('sigsBody').innerHTML = `<div class="sig-list">${sigs.map(s => `<div class="sig-item ${s.severity === 'malicious' ? 'malicious' : ''}"><div><div class="sig-name">${escapeHtml(s.name || '—')}</div><div class="sig-desc">${escapeHtml(s.description || '—')}</div></div><span class="badge">${escapeHtml(ScanUI.text(s.severity, 'info').toUpperCase())}</span></div>`).join('')}</div>`;
   }
 
   const st = data.static_analysis;
   if (!st) {
     document.getElementById('staticBody').innerHTML = '<div class="empty-state">Static analysis not performed</div>';
   } else {
-    document.getElementById('staticBody').innerHTML = `<div class="stats-grid"><div class="stat-card"><div class="stat-label">STATIC SCORE</div><div class="stat-value">${st.security_score || 0}/100</div></div></div>${st.indicators?.length ? `<div class="indicator-list">${st.indicators.slice(0,5).map(i => `<div class="indicator"><div class="indicator-dot"></div>${escapeHtml(typeof i === 'string' ? i : i.description)}</div>`).join('')}</div>` : ''}`;
+    document.getElementById('staticBody').innerHTML = `<div class="stats-grid"><div class="stat-card"><div class="stat-label">STATIC SCORE</div><div class="stat-value">${ScanUI.number(st.security_score, 0, 100)}/100</div></div></div>${ScanUI.list(st.indicators).length ? `<div class="indicator-list">${ScanUI.list(st.indicators).filter(i => i != null).slice(0,5).map(i => `<div class="indicator"><div class="indicator-dot"></div>${escapeHtml(typeof i === 'string' ? i : i.description)}</div>`).join('')}</div>` : ''}`;
   }
 
   document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth' });
@@ -1155,14 +1155,9 @@ function formatBytes(b) {
   return parseFloat((b / Math.pow(1024, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function escapeHtml(str) {
-  if (!str) return '—';
-  return String(str).replace(/[&<>]/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    return m;
-  });
+function escapeHtml(value) {
+  return ScanUI.escape(ScanUI.text(value, '—'));
 }
+
 </script>
 {% endblock %}

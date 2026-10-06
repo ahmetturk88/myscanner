@@ -83,7 +83,7 @@ csrf.init_app(app)
 # ================================================================
 from services.runtime_security import security_settings
 app.config.update(security_settings())
-from services.trusted_proxy import configure_trusted_proxy
+from services.trusted_proxy import configure_trusted_proxy, render_edge_candidate
 trusted_proxy = configure_trusted_proxy(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -1075,6 +1075,16 @@ def batch_scan():
 # Admin
 # ================================================================
 
+@app.route('/admin/proxy-check')
+@login_required
+def admin_proxy_check():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Forbidden'}), 403
+    response = app.make_response(render_template('proxy_check.html'))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/admin/proxy-info')
 @login_required
 def admin_proxy_info():
@@ -1088,6 +1098,10 @@ def admin_proxy_info():
         'forwarded_proto': request.headers.get('X-Forwarded-Proto', '')[:100],
         'configured': trusted_proxy is not None,
         'applied': request.environ.get('myscanner.proxy_applied', False),
+        'identity_source': request.environ.get('myscanner.identity_source', 'trusted-proxy' if request.environ.get('myscanner.proxy_applied') else 'direct'),
+        'cf_connecting_ip': request.headers.get('CF-Connecting-IP', '')[:100],
+        'cf_connecting_ipv6': request.headers.get('CF-Connecting-IPv6', '')[:100],
+        'edge_candidate': render_edge_candidate(request.environ),
     })
     response.headers['Cache-Control'] = 'no-store'
     return response

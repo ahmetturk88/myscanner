@@ -142,6 +142,7 @@ class ProxyDiagnosticsTests(unittest.TestCase):
         from extensions import db
         from models import User
         self.assertEqual(self.client.get('/admin/proxy-info').status_code, 302)
+        self.assertEqual(self.client.get('/admin/proxy-check').status_code, 302)
         with self.app.app_context():
             user = db.session.get(User, self.user_id)
             user.is_admin = False
@@ -150,6 +151,7 @@ class ProxyDiagnosticsTests(unittest.TestCase):
             session['_user_id'] = str(self.user_id)
             session['_fresh'] = True
         self.assertEqual(self.client.get('/admin/proxy-info').status_code, 403)
+        self.assertEqual(self.client.get('/admin/proxy-check').status_code, 403)
 
     def test_admin_can_inspect_only_proxy_metadata_without_caching(self):
         with self.client.session_transaction() as session:
@@ -158,5 +160,14 @@ class ProxyDiagnosticsTests(unittest.TestCase):
         response = self.client.get('/admin/proxy-info', headers={'X-Forwarded-For': '198.51.100.8'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
-        self.assertEqual(set(response.get_json()), {'peer_ip','client_ip','scheme','forwarded_for','forwarded_proto','configured','applied'})
+        self.assertEqual(set(response.get_json()), {'peer_ip','client_ip','scheme','forwarded_for','forwarded_proto','configured','applied','identity_source','cf_connecting_ip','cf_connecting_ipv6','edge_candidate'})
         self.assertFalse(response.get_json()['applied'])
+
+    def test_admin_check_page_is_available_without_caching(self):
+        with self.client.session_transaction() as session:
+            session['_user_id'] = str(self.user_id)
+            session['_fresh'] = True
+        response = self.client.get('/admin/proxy-check')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        self.assertIn(b'proxy_check.js', response.data)

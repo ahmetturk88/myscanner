@@ -1,5 +1,6 @@
 """ZAP context preparation only: HTTP API and target DNS are mocked."""
 import re
+from contextlib import nullcontext
 import time
 import unittest
 from unittest.mock import Mock, patch
@@ -151,7 +152,7 @@ class ZAPContextTests(unittest.TestCase):
         client.wait_for_completion.return_value=False
         orchestrator.zap_client=client
         record=SimpleNamespace(id=1,user_id=self.owner_id)
-        with patch('services.vulnerability_scanner.scan_orchestrator.require_verified_target'), patch('services.active_scan_policy.prepare_verified_target',return_value=Mock()):
+        with patch('services.vulnerability_scanner.scan_orchestrator.require_verified_target'), patch('services.active_scan_policy.prepare_verified_target',return_value=Mock()), patch('services.vulnerability_scanner.zap_job.isolated_zap_job', return_value=nullcontext(client)):
             with self.assertRaises(RuntimeError):
                 orchestrator._run_zap_scan('https://example.com',record,{'active_scan':False})
         client.get_alerts.assert_not_called()
@@ -167,7 +168,7 @@ class ZAPContextTests(unittest.TestCase):
         client.get_alerts.return_value=[]
         orchestrator.zap_client=client
         record=SimpleNamespace(id=1,user_id=self.owner_id)
-        with patch('services.vulnerability_scanner.scan_orchestrator.require_verified_target'), patch('services.active_scan_policy.prepare_verified_target',return_value=Mock()):
+        with patch('services.vulnerability_scanner.scan_orchestrator.require_verified_target'), patch('services.active_scan_policy.prepare_verified_target',return_value=Mock()), patch('services.vulnerability_scanner.zap_job.isolated_zap_job', return_value=nullcontext(client)):
             self.assertEqual(orchestrator._run_zap_scan('https://example.com',record,{'active_scan':False}),[])
         client.get_all_alerts_no_filter.assert_not_called()
         client.remove_verified_context.assert_called_once()

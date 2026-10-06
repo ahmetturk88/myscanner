@@ -48,8 +48,9 @@ console.log('Dashboard malicious data, text fidelity, verdict vocabulary and ref
   context.fetch=async()=>({ok:true,json:async()=>({scans:[{id:1,url:payload,summary:payload,date:payload,verdict:'<img>'},{id:2,url:'https://good.example/a',verdict:'harmless'}]})});
   context.setInterval=()=>{};
   context.console=console;
-  const template=fs.readFileSync(path.join(__dirname,'../templates/dashboard-v2.html'),'utf8');
-  const script=template.match(/\{% block body_extra %\}[\s\S]*?<script>([\s\S]*?)<\/script>/)[1];
+  const staticPage=process.argv.includes('--static');
+  const template=fs.readFileSync(path.join(__dirname,staticPage?'../static/dashboard/index.html':'../templates/dashboard-v2.html'),'utf8');
+  const script=staticPage ? [...template.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1] : template.match(/\{% block body_extra %\}[\s\S]*?<script>([\s\S]*?)<\/script>/)[1];
   vm.runInContext(script,context);
   await vm.runInContext('loadData()',context);
   assert.equal(ids['table-body'].children.length,2);

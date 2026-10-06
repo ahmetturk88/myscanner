@@ -3,7 +3,7 @@
 
 {% block head_extra %}
 <script id="flash-data" type="application/json">
-  [{% with messages = get_flashed_messages(with_categories=true) %}{% for cat, msg in messages %}{"cat":"{{ cat }}","msg":"{{ msg | e }}"}{% if not loop.last %},{% endif %}{% endfor %}{% endwith %}]
+  [{% with messages = get_flashed_messages(with_categories=true) %}{% for cat, msg in messages %}{"cat":{{ cat | tojson }},"msg":{{ msg | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}{% endwith %}]
 </script>
 <style>
   /* ─── Base ─── */

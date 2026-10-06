@@ -2,6 +2,8 @@
 {% block title %}Subdomain Finder - Discover Subdomains{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='web_assessment.css') }}">
+<script src="{{ url_for('static', filename='web_assessment_ui.js') }}"></script>
 <style>
   .scanner-wrap { max-width: 1200px; margin: 0 auto; padding: 56px 24px 100px; }
   .page-head { text-align: center; margin-bottom: 44px; }
@@ -102,7 +104,7 @@
   <div class="page-head">
     <div class="label">Discovery Tool</div>
     <h1>Subdomain <span>Finder</span></h1>
-    <p>Discover all subdomains of any domain and scan them for security threats</p>
+    <p>Combine certificate names and DNS discovery. Inspect observed web responses, certificates and wildcard matches.</p>
   </div>
   
   <div class="search-box">
@@ -110,17 +112,20 @@
     <button id="scan-btn" onclick="findSubdomains()">Find Subdomains →</button>
   </div>
   
-  <div id="loading-div"><span class="spin"></span>Scanning for subdomains (this may take a few minutes)...</div>
+  <label class="provider-choice"><input type="checkbox" id="include-ct" checked> Query the public crt.sh certificate index with this domain name. Certificate history may be incomplete or unavailable.</label>
+  <div id="discovery-error" class="report-error" role="alert" hidden></div>
+  <div id="loading-div"><span class="spin"></span>Looking up certificate names and DNS; inspecting a bounded set of web hosts...</div>
   
   <div class="result-card" id="result-card"></div>
 </div>
 
 <!-- Modal for scan result -->
-<div id="scan-modal" class="modal">
-  <div class="modal-content">
+<div id="scan-modal" class="modal" role="dialog" aria-modal="true" aria-label="Domain URL assessment">
+  <div class="modal-content evidence-modal">
     <div id="modal-status" style="margin-bottom: 16px;">🔍 Scanning...</div>
+    <label class="provider-choice"><input type="checkbox" id="include-provider"> Include url.vet in the next URL inspection. The hostname URL is sent to the configured analyzer.</label>
     <div class="modal-buttons">
-      <button onclick="closeModal()" class="btn btn-outline" style="padding:8px 20px;">Close</button>
+      <button id="close-modal" onclick="closeModal()" class="btn btn-outline" style="padding:8px 20px;">Close</button>
     </div>
   </div>
 </div>
@@ -133,10 +138,11 @@ async function findSubdomains() {
   const btn = document.getElementById('scan-btn');
   
   if (!domain) {
-    alert('Please enter a domain name');
+    showDiscoveryError('Please enter a domain name');
     return;
   }
   
+  document.getElementById('discovery-error').hidden = true;
   document.getElementById('result-card').style.display = 'none';
   document.getElementById('loading-div').style.display = 'block';
   btn.disabled = true;
@@ -145,13 +151,13 @@ async function findSubdomains() {
     const response = await fetch('/api/subdomain-finder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain })
+      body: JSON.stringify({ domain, include_ct: document.getElementById('include-ct').checked })
     });
     const data = await response.json();
     document.getElementById('loading-div').style.display = 'none';
     
-    if (data.error) {
-      alert('Error: ' + data.error);
+    if (!response.ok || data.error) {
+      showDiscoveryError(data.error || 'Discovery could not be completed');
       return;
     }
     
@@ -160,147 +166,61 @@ async function findSubdomains() {
     
   } catch (error) {
     document.getElementById('loading-div').style.display = 'none';
-    alert('Network error: ' + error.message);
+    showDiscoveryError('Discovery could not be completed. Please retry.');
   } finally {
     btn.disabled = false;
   }
 }
 
+let previousFocus = null;
+let inspectionGeneration = 0;
+function showDiscoveryError(message) {
+  const box = document.getElementById('discovery-error'); box.textContent = message; box.hidden = false;
+}
 async function scanSubdomain(subdomain, fullDomain) {
+  const generation = ++inspectionGeneration;
+  previousFocus = document.activeElement;
   const modal = document.getElementById('scan-modal');
-  const modalStatus = document.getElementById('modal-status');
+  const status = document.getElementById('modal-status');
   modal.style.display = 'flex';
-  modalStatus.textContent = `🔍 Scanning ${fullDomain}...`;
-  const displayDomain = ScanUI.escape(fullDomain);
-  
+  status.textContent = 'Inspecting ' + fullDomain + '…';
+  document.getElementById('close-modal').focus();
   try {
     const response = await fetch('/api/scan-subdomain', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: fullDomain })
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({domain:fullDomain, include_provider:document.getElementById('include-provider').checked})
     });
     const data = await response.json();
-    
-    if (data.verdict === 'clean') {
-      modalStatus.innerHTML = `✅ ${displayDomain} - CLEAN ✅<br><span style="font-size:12px;color:var(--green);">No threats detected</span>`;
-    } else if (data.verdict === 'suspicious') {
-      modalStatus.innerHTML = `⚠️ ${displayDomain} - SUSPICIOUS ⚠️<br><span style="font-size:12px;color:var(--yellow);">Proceed with caution</span>`;
-    } else if (data.verdict === 'malicious') {
-      modalStatus.innerHTML = `🚨 ${displayDomain} - MALICIOUS 🚨<br><span style="font-size:12px;color:var(--red);">Threat detected!</span>`;
-    } else {
-      modalStatus.innerHTML = `❓ ${displayDomain} - Unknown<br><span style="font-size:12px;color:var(--muted);">Could not determine</span>`;
-    }
-  } catch (error) {
-    modalStatus.innerHTML = `❌ Error scanning ${displayDomain}`;
+    if (generation !== inspectionGeneration) return;
+    if (!response.ok) throw new Error(data.error || 'Inspection unavailable');
+    WebAssessmentUI.render(status,data);
+  } catch(error) {
+    if (generation !== inspectionGeneration) return;
+    status.textContent = 'The URL inspection could not be completed. ' + error.message;
   }
 }
-
 function closeModal() {
+  inspectionGeneration++;
   document.getElementById('scan-modal').style.display = 'none';
+  if(previousFocus && previousFocus.focus) previousFocus.focus();
 }
-
-function renderResult(d) {
-  const html = `
-    <div class="stats-grid">
-      <div class="stat-box"><div class="num">${ScanUI.escape(d.total_checked)}</div><div class="label">Checked</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--green);">${ScanUI.escape(d.active_count)}</div><div class="label">Active</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--yellow);">${ScanUI.escape(d.redirect_count)}</div><div class="label">Redirects</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--muted);">${ScanUI.escape(d.inactive_count)}</div><div class="label">Inactive</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--accent);">${ScanUI.escape(d.total_found)}</div><div class="label">Total Found</div></div>
-    </div>
-    
-    ${d.subdomains.active.length > 0 ? `
-    <div class="subdomain-card">
-      <div class="subdomain-header">✅ Active Subdomains (${d.subdomains.active.length})</div>
-      <div class="subdomain-list">
-        ${d.subdomains.active.map((s, index) => `
-          <div class="subdomain-item">
-            <div>
-              <span class="subdomain-name">${ScanUI.escape(s.full_domain)}</span>
-              ${s.ip ? `<span class="subdomain-ip"> (${ScanUI.escape(s.ip)})</span>` : ''}
-            </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <span class="subdomain-status status-active">ACTIVE</span>
-              <button class="scan-subdomain" type="button" data-group="active" data-index="${index}">🔍 Scan</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    ` : ''}
-    
-    ${d.subdomains.redirects.length > 0 ? `
-    <div class="subdomain-card">
-      <div class="subdomain-header">🔄 Redirects (${d.subdomains.redirects.length})</div>
-      <div class="subdomain-list">
-        ${d.subdomains.redirects.map((s, index) => `
-          <div class="subdomain-item">
-            <div>
-              <span class="subdomain-name">${ScanUI.escape(s.full_domain)}</span>
-              ${s.ip ? `<span class="subdomain-ip"> (${ScanUI.escape(s.ip)})</span>` : ''}
-            </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <span class="subdomain-status status-redirect">REDIRECT</span>
-              <button class="scan-subdomain" type="button" data-group="redirects" data-index="${index}">🔍 Scan</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    ` : ''}
-    
-    ${d.subdomains.inactive.length > 0 ? `
-    <div class="subdomain-card">
-      <div class="subdomain-header">❌ Inactive Subdomains (${d.subdomains.inactive.length})</div>
-      <div class="subdomain-list">
-        ${d.subdomains.inactive.map(s => `
-          <div class="subdomain-item">
-            <div>
-              <span class="subdomain-name">${ScanUI.escape(s.full_domain)}</span>
-              ${s.ip ? `<span class="subdomain-ip"> (${ScanUI.escape(s.ip)})</span>` : ''}
-            </div>
-            <span class="subdomain-status status-inactive">INACTIVE</span>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    ` : ''}
-    
-    <div class="export-buttons">
-      <button class="export-btn" onclick="exportJSON()">📄 Export JSON</button>
-      <button class="export-btn" onclick="exportList()">📋 Copy List</button>
-    </div>
-  `;
-  
-  const resultCard = document.getElementById('result-card');
-  resultCard.innerHTML = html;
-  resultCard.querySelectorAll('button.scan-subdomain').forEach(button => {
-    const groups = { active: d.subdomains.active, redirects: d.subdomains.redirects };
-    const group = Object.hasOwn(groups, button.dataset.group) ? groups[button.dataset.group] : [];
-    const item = group[Number(button.dataset.index)];
-    if (item) button.addEventListener('click', () => scanSubdomain(item.subdomain, item.full_domain));
-  });
-  document.getElementById('result-card').style.display = 'block';
-  window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
-}
-
-function exportJSON() {
-  if (!lastResult) return;
-  const dataStr = JSON.stringify(lastResult, null, 2);
-  const blob = new Blob([dataStr], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `subdomains-${lastResult.domain}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function exportList() {
-  if (!lastResult) return;
-  const list = lastResult.all_subdomains.join('\n');
-  navigator.clipboard.writeText(list);
-  showToast('✅ Subdomain list copied to clipboard!', 'success');
+document.addEventListener('keydown', event => {
+  const modal = document.getElementById('scan-modal');
+  if(modal.style.display !== 'flex') return;
+  if(event.key === 'Escape') closeModal();
+  if(event.key === 'Tab') {
+    const items=modal.querySelectorAll('button:not(:disabled),input,a[href],select');
+    if(!items.length) return;
+    const first=items[0],last=items[items.length-1];
+    if(event.shiftKey && document.activeElement===first) {event.preventDefault();last.focus();}
+    else if(!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();}
+  }
+});
+function renderResult(data) {
+  const root = document.getElementById('result-card');
+  WebAssessmentUI.renderDiscovery(root,data,scanSubdomain);
+  root.style.display = 'block';
+  window.scrollTo({top:root.offsetTop-20,behavior:'smooth'});
 }
 
 document.getElementById('domain-input').addEventListener('keypress', (e) => {

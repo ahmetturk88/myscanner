@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import ipaddress
 import re
 import socket
+import time
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -102,6 +103,11 @@ def public_connection(domain, port=443, timeout=10):
 
 
 class PublicHTTPAdapter(HTTPAdapter):
+    def __init__(self, *args, response_limit=5 * 1024 * 1024, deadline=None, **kwargs):
+        self.response_limit = response_limit
+        self.deadline = deadline
+        super().__init__(*args, **kwargs)
+
     def _pool(self, url, pool_kwargs=None, proxies=None):
         if proxies and any(proxies.values()):
             raise UnsafeTargetError('Proxies are disabled for public target scans')
@@ -134,8 +140,10 @@ class PublicHTTPAdapter(HTTPAdapter):
             content = bytearray()
             for chunk in response.iter_content(65536):
                 content.extend(chunk)
-                if len(content) > 5 * 1024 * 1024:
-                    raise UnsafeTargetError('The target response exceeds the 5 MB scan limit')
+                if self.deadline is not None and time.monotonic() >= self.deadline:
+                    raise UnsafeTargetError('The response exceeded the scan time budget')
+                if len(content) > self.response_limit:
+                    raise UnsafeTargetError('The target response exceeds the scan size limit')
             response._content = bytes(content)
             response._content_consumed = True
             return response
@@ -144,12 +152,12 @@ class PublicHTTPAdapter(HTTPAdapter):
 
 
 class PublicHTTPSession(requests.Session):
-    def __init__(self):
+    def __init__(self, response_limit=5 * 1024 * 1024, deadline=None):
         super().__init__()
         self.trust_env = False
         self.max_redirects = 5
-        self.mount('http://', PublicHTTPAdapter())
-        self.mount('https://', PublicHTTPAdapter())
+        self.mount('http://', PublicHTTPAdapter(response_limit=response_limit, deadline=deadline))
+        self.mount('https://', PublicHTTPAdapter(response_limit=response_limit, deadline=deadline))
 
     def request(self, method, url, **kwargs):
         return super().request(method, normalize_url(url), **kwargs)

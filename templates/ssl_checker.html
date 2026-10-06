@@ -37,6 +37,8 @@
   .grade-a { background: var(--green-dim); color: var(--green); border: 4px solid var(--green); }
   .grade-b { background: rgba(0,230,118,0.08); color: #00cc66; border: 4px solid #00cc66; }
   .grade-c { background: var(--yellow-dim); color: var(--yellow); border: 4px solid var(--yellow); }
+  .grade-d { background: var(--yellow-dim); color: var(--yellow); border: 4px solid var(--yellow); }
+  .grade-unknown { background: var(--surface2); color: var(--muted); border: 4px solid var(--border); }
   .grade-f { background: var(--red-dim); color: var(--red); border: 4px solid var(--red); }
   
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
@@ -134,7 +136,7 @@
 
   function calculateSecurityScore(d) {
     if (!d.valid) return 0;
-    const days = d.days_remaining || 0;
+    const days = ScanUI.number(d.days_remaining, -365000, 365000);
     let score = days > 365 ? 100 : days > 180 ? 95 : days > 90 ? 85 : days > 60 ? 75 : days > 30 ? 60 : days > 7 ? 40 : days > 0 ? 20 : 0;
     if (d.grade === 'A+') score = Math.min(100, score + 5);
     else if (d.grade === 'B') score = Math.max(0, score - 10);
@@ -144,8 +146,9 @@
   }
 
   function renderResult(d) {
-    const grade = d.grade || 'N/A';
-    const days = d.days_remaining || 0;
+    const grade = ['A+', 'A', 'B', 'C', 'D', 'F'].includes(d.grade) ? d.grade : 'N/A';
+    const gradeClass = {'A+':'grade-a','A':'grade-a','B':'grade-b','C':'grade-c','D':'grade-d','F':'grade-f'}[grade] || 'grade-unknown';
+    const days = ScanUI.number(d.days_remaining, -365000, 365000);
     const securityScore = calculateSecurityScore(d);
     const scoreColor = securityScore >= 80 ? 'var(--green)' : securityScore >= 50 ? 'var(--yellow)' : 'var(--red)';
     
@@ -155,7 +158,7 @@
     else if (days < 90) { bannerClass = 'banner-expiring'; icon = '⚠️'; title = 'Certificate Expiring'; }
     
     const html = `
-      <div class="grade-circle grade-${grade.toLowerCase()}">${grade}</div>
+      <div class="grade-circle ${gradeClass}">${grade}</div>
       
       <div class="verdict-banner ${bannerClass}">
         <div class="v-icon">${icon}</div>
@@ -171,17 +174,17 @@
         <div class="stat-box ${d.valid ? 'good' : 'bad'}"><div class="s-icon">🔒</div><div class="s-label">Status</div><div class="s-value">${d.valid ? 'Valid' : 'Invalid'}</div></div>
         <div class="stat-box ${days > 90 ? 'good' : days > 0 ? 'warn' : 'bad'}"><div class="s-icon">📅</div><div class="s-label">Days Left</div><div class="s-value">${days}</div></div>
         <div class="stat-box ${grade === 'A' ? 'good' : 'warn'}"><div class="s-icon">📊</div><div class="s-label">Grade</div><div class="s-value">${grade}</div></div>
-        <div class="stat-box"><div class="s-icon">🏢</div><div class="s-label">Issuer</div><div class="s-value">${d.issuer || 'N/A'}</div></div>
-        <div class="stat-box"><div class="s-icon">📅</div><div class="s-label">Expiry Date</div><div class="s-value">${d.expiry_date || 'N/A'}</div></div>
-        <div class="stat-box"><div class="s-icon">🔄</div><div class="s-label">TLS Version</div><div class="s-value">${d.tls_version || 'N/A'}</div></div>
+        <div class="stat-box"><div class="s-icon">🏢</div><div class="s-label">Issuer</div><div class="s-value">${ScanUI.escape(d.issuer || 'N/A')}</div></div>
+        <div class="stat-box"><div class="s-icon">📅</div><div class="s-label">Expiry Date</div><div class="s-value">${ScanUI.escape(d.expiry_date || 'N/A')}</div></div>
+        <div class="stat-box"><div class="s-icon">🔄</div><div class="s-label">TLS Version</div><div class="s-value">${ScanUI.escape(d.tls_version || 'N/A')}</div></div>
       </div>
       
       <table class="details-table">
-        <tr><td>DOMAIN</td><td>${d.domain}</td></tr>
-        <tr><td>ISSUER</td><td>${d.issuer || 'N/A'}</td></tr>
-        <tr><td>VALID FROM</td><td>${d.valid_from || 'N/A'}</td></tr>
-        <tr><td>VALID UNTIL</td><td>${d.valid_until || 'N/A'}</td></tr>
-        <tr><td>SERIAL NUMBER</td><td style="font-size:11px;">${d.serial_number || 'N/A'}</td></tr>
+        <tr><td>DOMAIN</td><td>${ScanUI.escape(d.domain)}</td></tr>
+        <tr><td>ISSUER</td><td>${ScanUI.escape(d.issuer || 'N/A')}</td></tr>
+        <tr><td>VALID FROM</td><td>${ScanUI.escape(d.valid_from || 'N/A')}</td></tr>
+        <tr><td>VALID UNTIL</td><td>${ScanUI.escape(d.valid_until || 'N/A')}</td></tr>
+        <tr><td>SERIAL NUMBER</td><td style="font-size:11px;">${ScanUI.escape(d.serial_number || 'N/A')}</td></tr>
       </table>
       
       <div class="export-buttons">

@@ -244,7 +244,7 @@
   }
 
   function renderResult(d) {
-    const vc = VC[d.verdict] || VC.unknown;
+    const vc = Object.hasOwn(VC, d.verdict) ? VC[d.verdict] : VC.unknown;
     const banner = document.getElementById('verdict-banner');
     banner.className = 'verdict-banner ' + vc.cls;
     document.getElementById('v-icon').textContent = vc.icon;
@@ -257,32 +257,32 @@
     document.getElementById('score-fill').style.background = scoreColor;
     document.getElementById('score-num').textContent = securityScore + ' / 100';
 
-    const flag = d.country_code ? `https://flagcdn.com/24x18/${d.country_code.toLowerCase()}.png` : '';
+    const flag = ScanUI.countryFlag(d.country_code);
 
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-box"><div class="s-icon">🌐</div><div class="s-label">IP ADDRESS</div><div class="s-value">${d.ip||'—'}</div></div>
-      <div class="stat-box"><div class="s-icon">${flag ? `<img src="${flag}" style="border-radius:2px;width:20px;">` : '🌍'}</div><div class="s-label">COUNTRY</div><div class="s-value">${d.country||'—'}</div></div>
-      <div class="stat-box"><div class="s-icon">🏙️</div><div class="s-label">CITY</div><div class="s-value">${d.city||'—'}</div></div>
-      <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${d.isp||'—'}</div></div>
+      <div class="stat-box"><div class="s-icon">🌐</div><div class="s-label">IP ADDRESS</div><div class="s-value">${ScanUI.escape(d.ip||'—')}</div></div>
+      <div class="stat-box"><div class="s-icon">${flag ? `<img src="${flag}" style="border-radius:2px;width:20px;">` : '🌍'}</div><div class="s-label">COUNTRY</div><div class="s-value">${ScanUI.escape(d.country||'—')}</div></div>
+      <div class="stat-box"><div class="s-icon">🏙️</div><div class="s-label">CITY</div><div class="s-value">${ScanUI.escape(d.city||'—')}</div></div>
+      <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.isp||'—')}</div></div>
       <div class="stat-box ${d.is_proxy ? 'bad' : 'good'}"><div class="s-icon">🔒</div><div class="s-label">PROXY/VPN</div><div class="s-value">${d.is_proxy ? '⚠️ Yes' : 'No'}</div></div>
       <div class="stat-box ${d.is_hosting ? 'warn' : 'good'}"><div class="s-icon">🖥️</div><div class="s-label">HOSTING</div><div class="s-value">${d.is_hosting ? 'Yes' : 'No'}</div></div>
       <div class="stat-box"><div class="s-icon">📱</div><div class="s-label">MOBILE</div><div class="s-value">${d.is_mobile ? 'Yes' : 'No'}</div></div>
-      <div class="stat-box ${(d.blacklist_count||0) > 0 ? 'bad' : 'good'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLISTS</div><div class="s-value">${d.blacklist_count||0}</div></div>
+      <div class="stat-box ${(d.blacklist_count||0) > 0 ? 'bad' : 'good'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLISTS</div><div class="s-value">${ScanUI.number(d.blacklist_count, 0, 1000000)}</div></div>
     `;
 
     document.getElementById('details-table').innerHTML = `
-      <tr><td>IP ADDRESS</td><td>${d.ip||'—'}</td></tr>
-      <tr><td>COUNTRY</td><td>${d.country||'—'} ${d.country_code ? '('+d.country_code+')' : ''}</td></tr>
-      <tr><td>REGION</td><td>${d.region||'—'}</td></tr>
-      <tr><td>CITY</td><td>${d.city||'—'}</td></tr>
-      <tr><td>TIMEZONE</td><td>${d.timezone||'—'}</td></tr>
-      <tr><td>ISP</td><td>${d.isp||'—'}</td></tr>
-      <tr><td>ORGANIZATION</td><td>${d.org||'—'}</td></tr>
-      <tr>。<td>PROXY / VPN</td><td>${yn(d.is_proxy)}</td></tr>
-      <tr>。<td>HOSTING SERVER</td><td>${yn(d.is_hosting)}</td></tr>
-      <tr>。<td>MOBILE NETWORK</td><td>${yn(d.is_mobile)}</td></tr>
-      <tr>。<td>BLACKLIST COUNT</td><td>${d.blacklist_count||0}</td></tr>
-      <tr>。<td>COORDINATES</td><td>${d.lat || '—'}, ${d.lon || '—'}</td></tr>
+      <tr><td>IP ADDRESS</td><td>${ScanUI.escape(d.ip||'—')}</td></tr>
+      <tr><td>COUNTRY</td><td>${ScanUI.escape(d.country||'—')} ${d.country_code ? '('+ScanUI.escape(d.country_code)+')' : ''}</td></tr>
+      <tr><td>REGION</td><td>${ScanUI.escape(d.region||'—')}</td></tr>
+      <tr><td>CITY</td><td>${ScanUI.escape(d.city||'—')}</td></tr>
+      <tr><td>TIMEZONE</td><td>${ScanUI.escape(d.timezone||'—')}</td></tr>
+      <tr><td>ISP</td><td>${ScanUI.escape(d.isp||'—')}</td></tr>
+      <tr><td>ORGANIZATION</td><td>${ScanUI.escape(d.org||'—')}</td></tr>
+      <tr><td>PROXY / VPN</td><td>${yn(d.is_proxy)}</td></tr>
+      <tr><td>HOSTING SERVER</td><td>${yn(d.is_hosting)}</td></tr>
+      <tr><td>MOBILE NETWORK</td><td>${yn(d.is_mobile)}</td></tr>
+      <tr><td>BLACKLIST COUNT</td><td>${ScanUI.number(d.blacklist_count, 0, 1000000)}</td></tr>
+      <tr><td>COORDINATES</td><td>${ScanUI.escape(d.lat || '—')}, ${ScanUI.escape(d.lon || '—')}</td></tr>
     `;
 
     document.getElementById('result-card').style.display = 'block';
@@ -290,8 +290,8 @@
   }
 
   function renderBlacklist(d) {
-    const bl = d.blacklist_results || [];
-    const count = d.blacklist_count || 0;
+    const bl = ScanUI.list(d.blacklist_results).filter(item => item && typeof item === 'object');
+    const count = ScanUI.number(d.blacklist_count, 0, 1000000);
     const badge = document.getElementById('bl-badge');
 
     if (count === 0) {
@@ -311,7 +311,7 @@
       `;
       document.getElementById('bl-list').innerHTML = bl.map(b => `
         <div class="bl-entry">
-          <span class="bl-name">🚫 ${b.name}</span>
+          <span class="bl-name">🚫 ${ScanUI.escape(b.name)}</span>
           <span class="bl-status ${b.listed ? 'listed' : 'clean'}">${b.listed ? '⚠️ LISTED' : '✅ CLEAN'}</span>
         </div>
       `).join('');
@@ -320,12 +320,12 @@
   }
 
   function renderMap(d) {
-    if (!d.lat || !d.lon) return;
-    const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${d.lon-0.05},${d.lat-0.05},${d.lon+0.05},${d.lat+0.05}&layer=mapnik&marker=${d.lat},${d.lon}`;
+    const mapUrl = ScanUI.mapURL(d.lat, d.lon);
     document.getElementById('map-frame').src = mapUrl;
+    document.getElementById('map-card').style.display = mapUrl ? 'block' : 'none';
+    if (!mapUrl) return;
     document.getElementById('coord-lat').textContent = d.lat;
     document.getElementById('coord-lon').textContent = d.lon;
-    document.getElementById('map-card').style.display = 'block';
   }
 
   function exportJSON() {

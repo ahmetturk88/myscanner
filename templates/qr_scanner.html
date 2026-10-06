@@ -2,6 +2,8 @@
 {% block title %}QR Code Scanner - Scan QR Codes for Threats{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='web_assessment.css') }}">
+<script src="{{ url_for('static', filename='web_assessment_ui.js') }}"></script>
 <style>
   .qr-wrap { max-width: 1000px; margin: 0 auto; padding: 56px 24px 100px; }
   .page-head { text-align: center; margin-bottom: 44px; }
@@ -86,7 +88,7 @@
   <div class="page-head">
     <div class="label">Security Tool</div>
     <h1>QR Code <span>Scanner</span></h1>
-    <p>Upload a QR code image to decode the hidden URL and scan it for threats</p>
+    <p>Decode QR content locally, then inspect URLs through DNS, TLS, redirects and read-only page analysis.</p>
   </div>
 
   <div class="upload-zone" id="upload-zone" onclick="document.getElementById('qr-file-input').click()">
@@ -94,7 +96,7 @@
     <div class="uz-title">Click to upload QR code image</div>
     <div class="uz-sub">PNG, JPG, GIF, WEBP accepted</div>
   </div>
-  <input type="file" id="qr-file-input" accept="image/*" onchange="fileSelected(this.files[0])">
+  <input type="file" id="qr-file-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="fileSelected(this.files[0])">
 
   <div class="file-selected" id="file-selected">
     <span>📷</span>
@@ -103,6 +105,7 @@
 
   <button class="scan-btn" id="scan-btn" onclick="decodeAndScan()" style="display:none;">🔍 Decode & Scan QR Code</button>
 
+  <label class="provider-choice"><input type="checkbox" id="include-provider"> Include optional url.vet analysis. This sends the decoded URL, including its query parameters, to the configured analyzer. Leave off for local checks only.</label>
   <div id="error-div">❌ <span id="error-msg"></span></div>
   <div id="loading-div"><span class="spin"></span> <span id="loading-text">Decoding QR code...</span></div>
 
@@ -121,6 +124,7 @@
     
     <div class="stats-grid" id="stats-grid" style="display:none;"></div>
     
+    <div id="assessment-details" aria-live="polite"></div>
     <div class="action-buttons" id="action-buttons"></div>
   </div>
 </div>
@@ -135,6 +139,7 @@
   let selectedFile = null;
   let lastDecodedData = null;
   let lastScanResult = null;
+  let scanInFlight = false;
 
   function showToast(message) {
     const toast = document.getElementById('toast');
@@ -149,6 +154,12 @@
 
   function fileSelected(file) {
     if (!file) return;
+    if (scanInFlight) { showErr('Wait for the current assessment to finish.'); return; }
+    if (!['image/png','image/jpeg','image/gif','image/webp'].includes(file.type) || file.size > 5*1024*1024) {
+      selectedFile = null;
+      document.getElementById('scan-btn').style.display = 'none';
+      showErr('Choose a PNG, JPG, GIF or WEBP image up to 5 MB.'); return;
+    }
     selectedFile = file;
     document.getElementById('fs-name').textContent = file.name;
     document.getElementById('file-selected').style.display = 'flex';
@@ -171,11 +182,13 @@
   }
 
   async function decodeAndScan() {
+    if (scanInFlight) return;
     if (!selectedFile) {
       showErr('Please select a QR code image first.');
       return;
     }
     
+    scanInFlight = true;
     const btn = document.getElementById('scan-btn');
     document.getElementById('error-div').style.display = 'none';
     document.getElementById('result-card').style.display = 'none';
@@ -183,16 +196,18 @@
     document.getElementById('loading-text').textContent = 'Decoding QR code...';
     btn.disabled = true;
 
+    let imageURL = null;
     try {
       const img = new Image();
-      const url = URL.createObjectURL(selectedFile);
+      imageURL = URL.createObjectURL(selectedFile);
       
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = () => reject('Failed to load image');
-        img.src = url;
+        img.src = imageURL;
       });
 
+      if (img.width * img.height > 16000000) throw new Error('Image is too large. Use an image under 16 megapixels.');
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
@@ -202,7 +217,8 @@
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(imageData.data, canvas.width, canvas.height);
       
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(imageURL);
+      imageURL = null;
 
       if (!code) {
         document.getElementById('loading-div').style.display = 'none';
@@ -215,15 +231,16 @@
       document.getElementById('decoded-content').textContent = code.data;
       
       // Check if it's a URL
-      if (code.data.startsWith('http://') || code.data.startsWith('https://')) {
-        document.getElementById('loading-text').textContent = 'Scanning URL with 70+ security engines...';
+      if (/^https?:\/\//i.test(code.data)) {
+        document.getElementById('loading-text').textContent = 'Inspecting DNS, redirects, TLS and page evidence...';
         
         const response = await fetch('/api/scan-qr-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: code.data })
+          body: JSON.stringify({ url: code.data, include_provider: document.getElementById('include-provider').checked })
         });
         const scanData = await response.json();
+        if (!response.ok) throw new Error(scanData.error || 'The assessment could not be completed.');
         lastScanResult = scanData;
         
         document.getElementById('loading-div').style.display = 'none';
@@ -237,6 +254,8 @@
       document.getElementById('loading-div').style.display = 'none';
       showErr('Error: ' + e);
     } finally { 
+      if (imageURL) URL.revokeObjectURL(imageURL);
+      scanInFlight = false;
       btn.disabled = false;
     }
   }
@@ -259,6 +278,7 @@
     
     document.getElementById('verdict-banner').style.display = 'none';
     document.getElementById('stats-grid').style.display = 'none';
+    document.getElementById('assessment-details').replaceChildren();
     
     const actions = document.getElementById('action-buttons');
     actions.replaceChildren();
@@ -274,31 +294,9 @@
     badge.className = 'content-type-badge type-url';
     badge.style.display = 'inline-block';
     
-    const verdict = ['clean', 'malicious', 'suspicious', 'unknown'].includes(data.verdict) ? data.verdict : 'unknown';
-    const icons = { clean: '✅', malicious: '🚨', suspicious: '⚠️', unknown: '❓' };
-    const titles = { clean: 'URL is Safe', malicious: 'Malicious URL Detected!', suspicious: 'Suspicious URL Detected', unknown: 'Scan Result' };
-    const subs = { clean: 'No threats detected. The URL appears legitimate.', malicious: 'This URL was flagged by multiple security engines.', suspicious: 'Some security engines flagged this URL.', unknown: 'Could not determine threat level.' };
-    const banners = { clean: 'banner-clean', malicious: 'banner-malicious', suspicious: 'banner-suspicious', unknown: 'banner-text' };
-
-    document.getElementById('verdict-banner').style.display = 'flex';
-    document.getElementById('v-icon').textContent = icons[verdict] || '❓';
-    document.getElementById('v-title').textContent = titles[verdict] || 'Scan Result';
-    document.getElementById('v-sub').textContent = subs[verdict] || '';
-    document.getElementById('verdict-banner').className = 'verdict-banner ' + (banners[verdict] || 'banner-text');
-    
-    const stats = data.stats || {};
-    const malicious = stats.malicious || 0;
-    const suspicious = stats.suspicious || 0;
-    const harmless = stats.harmless || 0;
-    const undetected = stats.undetected || 0;
-    
-    document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-box good"><div class="s-icon">✅</div><div class="s-label">Harmless</div><div class="s-value">${ScanUI.escape(harmless)}</div></div>
-      <div class="stat-box bad"><div class="s-icon">🚨</div><div class="s-label">Malicious</div><div class="s-value">${ScanUI.escape(malicious)}</div></div>
-      <div class="stat-box warn"><div class="s-icon">⚠️</div><div class="s-label">Suspicious</div><div class="s-value">${ScanUI.escape(suspicious)}</div></div>
-      <div class="stat-box"><div class="s-icon">🕵️</div><div class="s-label">Undetected</div><div class="s-value">${ScanUI.escape(undetected)}</div></div>
-    `;
-    document.getElementById('stats-grid').style.display = 'grid';
+    document.getElementById('stats-grid').style.display = 'none';
+    document.getElementById('verdict-banner').style.display = 'none';
+    WebAssessmentUI.render(document.getElementById('assessment-details'), data);
     
     const actions = document.getElementById('action-buttons');
     actions.replaceChildren();
@@ -315,24 +313,27 @@
     window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
   }
 
-  function copyToClipboard(text) {
-    navigator.clipboard.writeText(text);
-    showToast('📋 Content copied to clipboard!');
+  async function copyToClipboard(text) {
+    try { await navigator.clipboard.writeText(text); showToast('Content copied to clipboard'); }
+    catch { showErr('Clipboard access unavailable. Select and copy the decoded content manually.'); }
   }
     async function rescanURL(url) {
+    if (scanInFlight) return;
     url = ScanUI.webURL(url);
     if (!url) { showErr('A valid HTTP or HTTPS URL is required.'); return; }
     document.getElementById('loading-div').style.display = 'block';
-    document.getElementById('loading-text').textContent = 'Re-scanning URL with 70+ security engines...';
+    scanInFlight = true;
+    document.getElementById('loading-text').textContent = 'Refreshing URL evidence...';
     document.getElementById('result-card').style.display = 'none';
     
     try {
       const response = await fetch('/api/scan-qr-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url })
+        body: JSON.stringify({ url: url, include_provider: document.getElementById('include-provider').checked })
       });
       const scanData = await response.json();
+        if (!response.ok) throw new Error(scanData.error || 'The assessment could not be completed.');
       lastScanResult = scanData;
       
       document.getElementById('loading-div').style.display = 'none';
@@ -342,7 +343,7 @@
     } catch(e) {
       document.getElementById('loading-div').style.display = 'none';
       showErr('Error re-scanning URL: ' + e);
-    }
+    } finally { scanInFlight = false; }
   }
   function gotoScanner(url) {
   url = ScanUI.webURL(url);

@@ -19,6 +19,7 @@ class TemplateTests(unittest.TestCase):
                 soup=BeautifulSoup(env.get_template(name).render(),'html.parser')
                 self.assertIsNotNone(soup.find('script',src='/static/scan_ui.js'))
                 self.assertIsNotNone(soup.select_one('#result-card'))
+                self.assertIsNotNone(soup.find('script',src='/static/web_assessment_ui.js'))
 
     def test_dynamic_button_values_are_not_embedded_in_event_attributes(self):
         qr=(ROOT/'templates/qr_scanner.html').read_text(encoding='utf-8')
@@ -27,7 +28,7 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn('onclick="window.open(',qr)
         self.assertNotIn('onclick="scanSubdomain(',sub)
         self.assertIn("button.addEventListener('click'",qr)
-        self.assertIn("button.addEventListener('click'",sub)
+        self.assertIn("node.addEventListener('click'",(ROOT/'static/web_assessment_ui.js').read_text(encoding='utf-8'))
         self.assertIn("'noopener,noreferrer'",qr)
 
 @unittest.skipUnless(shutil.which('node'),'Node.js is required for QR/subdomain JavaScript execution tests')

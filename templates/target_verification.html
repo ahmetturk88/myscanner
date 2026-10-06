@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Verified targets{% endblock %}
+{% block head_extra %}
+<style>
+.targets-wrap{max-width:1000px;margin:36px auto;padding:0 24px 60px}.targets-wrap h1{font-size:28px;margin-bottom:12px}.targets-lead,.target-note{color:var(--muted);line-height:1.7}.target-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-top:24px}.target-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.target-input{flex:1;min-width:200px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px}.target-btn{border:1px solid var(--accent);border-radius:8px;padding:11px 18px;background:var(--accent-dim);color:var(--accent);font-weight:600;cursor:pointer}.target-btn:focus-visible,.target-input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.target-revoke{border-color:var(--red);color:var(--red);background:var(--red-dim)}.target-status{font-size:12px;border:1px solid var(--border);border-radius:20px;padding:5px 10px;color:var(--yellow)}.target-status.verified{color:var(--green);background:var(--green-dim)}.target-record{margin:16px 0}.target-record dt{color:var(--muted);font-size:13px;margin-top:12px}.target-record dd{margin:6px 0;padding:12px;background:var(--surface2);border-radius:8px;font-family:var(--mono);font-size:13px;overflow-wrap:anywhere}.target-origin{font-size:17px;overflow-wrap:anywhere}.target-error{border-left:3px solid var(--red);padding:16px;color:var(--text);background:var(--red-dim);border-radius:8px}.target-actions{display:flex;gap:12px;flex-wrap:wrap}@media(max-width:540px){.targets-wrap{padding:0 16px 40px}.target-panel{padding:18px}.target-row>*{width:100%}.target-input{min-width:0}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="targets-wrap">
+<h1>Verify your target domain</h1>
+<p class="targets-lead">Add a DNS TXT record to confirm control of an exact web origin. Verification is linked to your account and expires after 24 hours.</p>
+<p class="target-note">Active scanning remains temporarily unavailable while authorized scan scope and execution limits are being added. Verification does not grant access to subdomains, other schemes or ports, and does not replace permission from the target owner.</p>
+{% if verification_error %}<p class="target-error" role="alert">{{ verification_error }}</p><a href="{{ url_for('vuln.verified_targets') }}">Back to your targets</a>{% endif %}
+<section class="target-panel">
+<h2 style="font-size:18px;margin-bottom:16px">Add or renew a target</h2>
+<form method="post" action="{{ url_for('vuln.create_target_challenge') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="target-origin">Domain or origin</label>
+<div class="target-row" style="margin-top:8px"><input class="target-input" id="target-origin" name="origin" placeholder="https://example.com" required maxlength="300" autocomplete="off"><button class="target-btn" type="submit">Generate DNS record</button></div>
+<p class="target-note" style="margin-top:12px">Generating a new record for the same origin replaces its previous verification. Each challenge is valid for 24 hours.</p>
+</form>
+</section>
+{% for target in targets %}
+<section class="target-panel" aria-label="Target verification">
+<div class="target-row" style="justify-content:space-between"><h2 class="target-origin">{{ target.origin }}</h2><span class="target-status {{ target.status }}">{{ target.status|capitalize }}</span></div>
+<p class="target-note" style="margin-top:12px">In your DNS provider, create a <strong>TXT</strong> record using the full name and value below. If the provider appends your domain, enter only the name before that domain. Then select Check DNS record.</p>
+<dl class="target-record"><dt>Record name</dt><dd>{{ target.record_name }}</dd><dt>TXT value</dt><dd>{{ target.record_value }}</dd></dl>
+<div class="target-actions">
+{% if target.status not in ['revoked','expired'] %}<form method="post" action="{{ url_for('vuln.verify_target_challenge', target_id=target.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="target-btn" type="submit">Check DNS record</button></form>{% endif %}
+{% if target.status != 'revoked' %}<form method="post" action="{{ url_for('vuln.revoke_target_challenge', target_id=target.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="target-btn target-revoke" type="submit">Revoke verification</button></form>{% endif %}
+</div>
+</section>
+{% else %}<p class="target-note" style="margin-top:24px">No target records to show.</p>{% endfor %}
+<p style="margin-top:24px"><a href="{{ url_for('vuln.vuln_dashboard') }}" style="color:var(--accent)">Back to vulnerability reports &rarr;</a></p>
+</div>
+{% endblock %}

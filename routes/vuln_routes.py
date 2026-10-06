@@ -3,7 +3,7 @@
 مسارات API لميزة فحص الثغرات المتقدم
 """
 
-from flask import Blueprint, render_template, request, jsonify, session, send_file
+from flask import Blueprint, render_template, request, jsonify, session, send_file, redirect, url_for, flash, make_response
 from flask_login import login_required, current_user
 from functools import wraps
 import logging
@@ -15,6 +15,12 @@ from services.active_scan_policy import ACTIVE_SCAN_NOTICE
 from services.vulnerability_scanner.scan_orchestrator import get_orchestrator
 from services.vulnerability_scanner.report_generator import get_report_generator
 import json
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from models.verified_target import VerifiedTarget
+from services.target_verification import (issue_challenge, verify_challenge,
+    serialize_target, TargetProofError)
+from services.auth_rate_limit import consume_limit, AuthRateLimited
+
 logger = logging.getLogger(__name__)
 
 # إنشاء Blueprint
@@ -316,3 +322,102 @@ def get_stats():
             'low': sum(s.low_count for s in scans)
         }
     })
+
+# Target verification is preparatory only; /start remains closed.
+
+
+def verified_account_required(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        if not current_user.is_verified:
+            return jsonify({'error': 'Verify your account email before adding targets.'}), 403
+        return function(*args, **kwargs)
+    return wrapped
+
+
+def _target_response(data, status=200):
+    if request.is_json:
+        return jsonify(data), status
+    if status < 400:
+        flash(data.get('message', 'Target verification updated.'), 'success')
+        return redirect(url_for('vuln.verified_targets'), code=303)
+    return render_template('target_verification.html', targets=[],
+                           verification_error=data['error']), status
+
+
+@vuln_bp.route('/targets', methods=['GET'])
+@login_required
+@verified_account_required
+def verified_targets():
+    targets = VerifiedTarget.query.filter_by(user_id=current_user.id).order_by(VerifiedTarget.origin).all()
+    return render_template('target_verification.html', targets=[serialize_target(item) for item in targets])
+
+
+@vuln_bp.route('/targets', methods=['POST'])
+@login_required
+@verified_account_required
+def create_target_challenge():
+    data = request.get_json(silent=True) if request.is_json else request.form
+    if not hasattr(data, 'get'):
+        return _target_response({'error': 'A target origin is required.'}, 400)
+    try:
+        consume_limit('target-challenge-hour', str(current_user.id), 10, 3600)
+        target = issue_challenge(current_user.id, data.get('origin'))
+        return _target_response({'target': serialize_target(target), 'message': 'DNS challenge created. Add the TXT record below, then verify.'}, 201)
+    except AuthRateLimited as error:
+        response = _target_response({'error': 'Too many target requests. Try again later.'}, 429)
+        response = make_response(response)
+        response.headers['Retry-After'] = str(error.retry_after)
+        return response
+    except TargetProofError as error:
+        return _target_response({'error': str(error)}, 400)
+    except IntegrityError:
+        db.session.rollback()
+        return _target_response({'error': 'The target changed during this request. Refresh and try again.'}, 409)
+    except SQLAlchemyError:
+        db.session.rollback()
+        return _target_response({'error': 'Target verification storage is unavailable. Try again later.'}, 503)
+
+
+@vuln_bp.route('/targets/<target_id>/verify', methods=['POST'])
+@login_required
+@verified_account_required
+def verify_target_challenge(target_id):
+    target = VerifiedTarget.query.filter_by(id=target_id, user_id=current_user.id).first()
+    if target is None:
+        return _target_response({'error': 'Target not found.'}, 404)
+    try:
+        consume_limit('target-verify-hour', str(current_user.id), 20, 3600)
+        consume_limit('target-verify-minute', str(current_user.id), 5, 60)
+        target = verify_challenge(target, current_user.id)
+        return _target_response({'target': serialize_target(target), 'message': 'Domain control verified for 24 hours. Active scans remain unavailable until scan scope enforcement is ready.'})
+    except AuthRateLimited as error:
+        response = make_response(_target_response({'error': 'Too many verification attempts. Try again later.'}, 429))
+        response.headers['Retry-After'] = str(error.retry_after)
+        return response
+    except TargetProofError as error:
+        return _target_response({'error': str(error)}, 400)
+    except SQLAlchemyError:
+        db.session.rollback()
+        return _target_response({'error': 'Target verification storage is unavailable. Try again later.'}, 503)
+
+
+@vuln_bp.route('/targets/<target_id>/revoke', methods=['POST'])
+@login_required
+@verified_account_required
+def revoke_target_challenge(target_id):
+    target = VerifiedTarget.query.filter_by(id=target_id, user_id=current_user.id).first()
+    if target is None:
+        return _target_response({'error': 'Target not found.'}, 404)
+    target.revoked = True
+    target.verified_until = None
+    db.session.commit()
+    return _target_response({'message': 'Target verification revoked.'})
+
+
+@vuln_bp.after_request
+def prevent_target_cache(response):
+    if request.endpoint in {'vuln.verified_targets', 'vuln.create_target_challenge',
+                            'vuln.verify_target_challenge', 'vuln.revoke_target_challenge'}:
+        response.headers['Cache-Control'] = 'no-store'
+    return response

@@ -11,6 +11,7 @@ from io import BytesIO
 
 from models.vulnerability import VulnerabilityScan, ScanConfig
 from extensions import db
+from services.active_scan_policy import ACTIVE_SCAN_NOTICE
 from services.vulnerability_scanner.scan_orchestrator import get_orchestrator
 from services.vulnerability_scanner.report_generator import get_report_generator
 import json
@@ -65,46 +66,9 @@ def vuln_dashboard():
 @vuln_bp.route('/start', methods=['POST'])
 @login_required
 def start_scan():
-    """بدء مسح جديد"""
-    try:
-        data = request.get_json()
-        
-        target = data.get('target')
-        scan_type = data.get('scan_type', 'web_application')
-        
-        if not target:
-            return jsonify({'error': 'Target is required'}), 400
-        
-        # التحقق من صحة الهدف
-        if scan_type in ['web_application', 'full']:
-            if not target.startswith(('http://', 'https://')):
-                target = 'https://' + target
-        
-        # إعدادات إضافية
-        config = {
-            'active_scan': data.get('active_scan', True),
-            'depth': data.get('depth', 5),
-            'timeout': data.get('timeout', 3600)
-        }
-        
-        # بدء المسح
-        orchestrator = get_orchestrator()
-        scan = orchestrator.start_scan(
-            target=target,
-            scan_type=scan_type,
-            user_id=current_user.id,
-            config=config
-        )
-        
-        return jsonify({
-            'success': True,
-            'scan_uuid': scan.scan_uuid,
-            'message': f'Scan started successfully for {target}'
-        }), 202
-        
-    except Exception as e:
-        logger.error(f"Failed to start scan: {e}")
-        return jsonify({'error': str(e)}), 500
+    """No scanner dispatch before server-side target authorization exists."""
+    return jsonify({'error': ACTIVE_SCAN_NOTICE,
+                    'code': 'target_authorization_required'}), 403
 
 
 @vuln_bp.route('/status/<scan_uuid>')

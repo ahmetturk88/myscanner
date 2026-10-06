@@ -472,6 +472,7 @@
         <div role="status" style="padding: 20px; margin-bottom: 24px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 12px; background: var(--surface2); line-height: 1.7;">
             <strong>Target authorization required</strong>
             <p style="margin: 8px 0 0; color: var(--text);">Active scanning is temporarily unavailable while verified target access is being added. Your previous reports remain available.</p>
+            <a href="{{ url_for('vuln.verified_targets') }}" style="display: inline-block; margin-top: 12px; margin-right: 20px; color: var(--accent);">Verify a target domain &rarr;</a>
             <a href="{{ url_for('site_scanner') }}" style="display: inline-block; margin-top: 12px; color: var(--accent);">Open Site Scanner for general analysis &rarr;</a>
         </div>
         <form id="scanForm">

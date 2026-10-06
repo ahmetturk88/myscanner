@@ -45,19 +45,19 @@ class User(db.Model, UserMixin):
         return bcrypt.check_password_hash(self.password_hash, password) 
 
     def can_scan(self):
-        today = datetime.now(timezone.utc).date()
-        if self.scans_reset_date.date() != today:
-            self.remaining_scans = 20 if self.role == 'user' else 999999
-            self.scans_reset_date = _now()
-            db.session.commit()
-        if self.remaining_scans <= 0:
-            return False, "Daily scan limit reached!"
-        return True, "OK"
+        # Compatibility check only: dispatch must still reserve atomically.
+        from services.daily_quota import remaining_quota
+        allowed = remaining_quota(self.id, 'url_analyzer') > 0
+        return allowed, 'OK' if allowed else 'Daily scan limit reached!'
 
     def increment_scan_count(self):
-        if self.remaining_scans > 0:
-            self.remaining_scans -= 1
-            db.session.commit()
+        from services.daily_quota import consume_quota, DailyQuotaExceeded
+        try:
+            consume_quota(self.id, 'url_analyzer')
+            db.session.expire(self, ['url_analyzer_remaining', 'scans_reset_date'])
+            return True
+        except DailyQuotaExceeded:
+            return False
 
 # ================================================================
 # TIP Models (Threat Intelligence Platform)

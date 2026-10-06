@@ -47,7 +47,7 @@ from celery.result import AsyncResult
 from celery_config import celery
 import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task
-from services.permissions import check_permission
+from services.permissions import check_permission, reserve_request_quota
 from models.async_scan_task import AsyncScanTask
 from services.safe_http import PublicHTTPSession, UnsafeTargetError
 from services.task_dispatch import enqueue_owned_task
@@ -163,28 +163,10 @@ with app.app_context():
     from apscheduler.schedulers.background import BackgroundScheduler
 
 def reset_daily_scans():
+    from services.permissions import reset_daily_scans as reset_expired
     with app.app_context():
-        from services.permissions import DAILY_LIMITS
-        users = User.query.all()
-        for user in users:
-            role = user.role if user.role in DAILY_LIMITS else 'user'
-            limits = DAILY_LIMITS[role]
-            
-            user.site_scan_remaining = limits.get('site_scan', 10)
-            user.file_scan_remaining = limits.get('file_scan', 5)
-            user.url_analyzer_remaining = limits.get('url_analyzer', 20)
-            user.email_check_remaining = limits.get('email_check', 15)
-            user.ip_check_remaining = limits.get('ip_check', 15)
-            user.domain_lookup_remaining = limits.get('domain_lookup', 15)
-            user.ssl_check_remaining = limits.get('ssl_check', 15)
-            user.qr_scan_remaining = limits.get('qr_scan', 15)
-            user.subdomain_finder_remaining = limits.get('subdomain_finder', 5)
-            user.password_check_remaining = limits.get('password_check', 20)
-            user.sandbox_remaining = limits.get('sandbox_analysis', 5)
-            user.scans_reset_date = datetime.now(timezone.utc)
-        
-        db.session.commit()
-        print("[SCHEDULER] Daily scans reset for all services!")
+        return reset_expired()
+
 # ================================================================
 # Email Helper (Resend API)
 # ================================================================
@@ -335,14 +317,13 @@ info@myscanners.com
 
 
 # ================================================================
-# URL Scan in Background - الإصدار الجديد (بدون VirusTotal)
+# URL Scan in Background - الإصدار الجديد
 # يستخدم: URLDeepAnalyzer + url.vet
 # ================================================================
 
 def scan_in_background(scan_id, url):
     """
     فحص URL في الخلفية باستخدام url.vet + التحليل المحلي
-    (بدلاً من VirusTotal)
     """
     from services.url_analyzer import URLDeepAnalyzer
     
@@ -513,14 +494,14 @@ def register():
         # تعيين الحدود الافتراضية للمستخدم الجديد
         user.site_scan_remaining = 10
         user.file_scan_remaining = 5
-        user.url_analyzer_remaining = 20
+        user.url_analyzer_remaining = 3
         user.email_check_remaining = 15
         user.ip_check_remaining = 15
         user.domain_lookup_remaining = 15
         user.ssl_check_remaining = 15
         user.qr_scan_remaining = 15
         user.subdomain_finder_remaining = 5
-        user.password_check_remaining = 20
+        user.password_check_remaining = 3
         
         db.session.add(user)
         db.session.commit()
@@ -689,16 +670,26 @@ def dashboard():
         if not url:
             return redirect(url_for('dashboard'))
         
-        # ← التحقق من الفحوصات المتبقية (حقل قديم)
-        if current_user.remaining_scans <= 0:
-            flash('You have reached your daily scan limit.', 'warning')
+        from services.safe_http import normalize_url
+        try:
+            if len(url) > 2048:
+                raise ValueError('URL too long')
+            normalize_url(url)
+        except (ValueError, UnsafeTargetError):
+            flash('Please provide a valid HTTP or HTTPS URL.', 'warning')
             return redirect(url_for('dashboard'))
-        
+
+        failure = reserve_request_quota('url_analyzer')
+        if failure is not None:
+            response, status = failure
+            if status == 429:
+                flash('You have reached your daily URL scan limit.', 'warning')
+                return redirect(url_for('dashboard'))
+            return failure
+
         new_scan = Scan(url=url, verdict='pending', result='Pending...', user_id=current_user.id)
         db.session.add(new_scan)
         
-        # ← خصم فحص
-        current_user.remaining_scans -= 1
         db.session.commit()
         
         t = threading.Thread(target=scan_in_background, args=(new_scan.id, url), daemon=True)
@@ -788,19 +779,18 @@ def api_recent_scans():
 @login_required
 def api_bulk_email_check():
     """فحص عدة إيميلات دفعة واحدة (Bulk Check)"""
-    data = request.get_json()
-    emails = data.get('emails', [])
-    
-    if not emails or not isinstance(emails, list):
-        return jsonify({"error": "Please provide a list of emails"}), 400
-    
-    if len(emails) > 100:
-        return jsonify({"error": "Maximum 100 emails per bulk request"}), 400
-    
+    data = request.get_json(silent=True)
+    emails = data.get('emails') if isinstance(data, dict) else None
+    if not isinstance(emails, list) or not 1 <= len(emails) <= 20 or any(not isinstance(email, str) or not email.strip() or len(email) > 254 for email in emails):
+        return jsonify(error='Provide 1-20 valid email strings'), 400
+    failure = reserve_request_quota('email_check', len(emails))
+    if failure is not None:
+        return failure
+
     checker = AdvancedEmailChecker(redis_client)
     results = []
     
-    for email in emails[:20]:  # حد أقصى 20 في الطلب الواحد لتجنب التأخير
+    for email in emails:  # Every accepted item is processed and charged once.
         result = checker.check_all(email.strip())
         results.append({
             "email": result.get("email", email),
@@ -831,18 +821,17 @@ def api_bulk_email_check():
 # ================================================================
 
 # ================================================================
-# File Scanner API - الإصدار الجديد (بدون VirusTotal)
+# File Scanner API - الإصدار الجديد
 # ================================================================
 
 from services.file_threat_intel import get_file_threat_intel
 
 @app.route('/api/scan-file', methods=['POST'])
 @login_required
-@check_permission('file_scan')
 def api_scan_file():
     """
     API الموحد لفحص الملفات
-    يستخدم: FileDeepAnalyzer + MalwareBazaar (بدلاً من VirusTotal)
+    يستخدم: FileDeepAnalyzer + MalwareBazaar
     """
     
     app.logger.info(f'📁 File scan requested by {current_user.username}')
@@ -853,12 +842,15 @@ def api_scan_file():
     filename, file_content = read_validated_upload(
         request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
     )
+    failure = reserve_request_quota('file_scan')
+    if failure is not None:
+        return failure
     file_size = len(file_content)
     try:
         app.logger.info(f'📄 Processing file: {filename} ({file_size} bytes)')
         
         # ─────────────────────────────────────────────────────────────
-        # الفحص الشامل (بدون VirusTotal)
+        # الفحص الشامل
         # ─────────────────────────────────────────────────────────────
         scanner = get_file_threat_intel()
         result = scanner.comprehensive_file_scan(file_content, filename)
@@ -897,6 +889,9 @@ def api_file_deep_analysis():
     filename, file_content = read_validated_upload(
         request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
     )
+    failure = reserve_request_quota('file_scan')
+    if failure is not None:
+        return failure
     try:
         # ✅ التعديل هنا: إضافة use_exiftool=True
         analyzer = FileDeepAnalyzer(use_exiftool=True)
@@ -923,6 +918,9 @@ def async_scan_file():
     filename, file_content = read_validated_upload(
         request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
     )
+    failure = reserve_request_quota('file_scan')
+    if failure is not None:
+        return failure
     temp_path = save_temporary_upload(file_content, filename, UPLOAD_FOLDER)
     try:
         task_id = enqueue_owned_task(
@@ -1010,13 +1008,21 @@ def task_status(task_id):
 def async_scan_site():
     app.logger.info(f'[INFO] Site scan requested by {current_user.username}')
     
-    data = request.get_json()
-    domain = data.get('domain', '').strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('domain'), str):
+        return jsonify(error='Provide a valid domain'), 400
+    domain = data['domain'].strip()
     
     if not domain:
         app.logger.warning(f'⚠️ No domain provided by {current_user.username}')
         return jsonify({"error": "No domain provided"}), 400
     
+    if len(domain) > 253:
+        return jsonify(error='Domain exceeds the allowed length'), 400
+    failure = reserve_request_quota('site_scan')
+    if failure is not None:
+        return failure
+
     app.logger.info(f'[INFO] Starting async scan for domain: {domain}')
     
     # إنشاء سجل فحص جديد
@@ -1055,12 +1061,20 @@ def batch_scan():
     """
     فحص مجموعة من الروابط دفعة واحدة
     """
-    data = request.get_json()
-    urls = data.get('urls', [])
-    
-    if not urls or len(urls) > 20:
-        return jsonify({"error": "Provide 1-20 URLs"}), 400
-    
+    data = request.get_json(silent=True)
+    urls = data.get('urls') if isinstance(data, dict) else None
+    if not isinstance(urls, list) or not 1 <= len(urls) <= 20 or any(not isinstance(url, str) or not url.strip() or len(url) > 2048 for url in urls):
+        return jsonify(error='Provide 1-20 valid URL strings'), 400
+    from services.safe_http import normalize_url
+    try:
+        for url in urls:
+            normalize_url(url)
+    except (ValueError, UnsafeTargetError):
+        return jsonify(error='Provide valid HTTP or HTTPS URLs'), 400
+    failure = reserve_request_quota('url_analyzer', len(urls))
+    if failure is not None:
+        return failure
+
     task_id = enqueue_owned_task(batch_scan_task, (urls, current_user.id), current_user.id)
     
     return jsonify({
@@ -1441,10 +1455,15 @@ def download_pdf(scan_id):
         flash('Access denied.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # الحصول على نتائج التحليل
-    analyzer = URLDeepAnalyzer()
-    analysis = analyzer.comprehensive_analysis(scan.url)
-    
+    try:
+        saved = json.loads(scan.raw_report or '{}')
+    except (ValueError, TypeError):
+        saved = {}
+    if not isinstance(saved, dict) or not isinstance(saved.get('local_analysis'), dict):
+        return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
+    from services.url_scan_coverage import apply_url_coverage
+    analysis = apply_url_coverage(saved['local_analysis'])
+
     # توليد PDF
     buffer = generate_vulnerability_report(scan, analysis, current_user.username)
     
@@ -1566,7 +1585,7 @@ def api_subdomain_finder():
 
 
 # ================================================================
-# Subdomain Scan API - الإصدار الجديد (بدون VirusTotal)
+# Subdomain Scan API - الإصدار الجديد
 # يستخدم: url.vet + التحليل المحلي
 # ================================================================
 
@@ -1796,7 +1815,7 @@ def api_url_analysis(scan_id):
     
     url = scan.url
     domain = urlparse(url).netloc
-    app.logger.info(f'[INFO] Starting URL deep analysis for: {url}')
+    app.logger.info(f'[INFO] Reading saved URL analysis for scan #{scan_id}')
     
     from services.url_scan_coverage import apply_url_coverage
     try:
@@ -1804,15 +1823,12 @@ def api_url_analysis(scan_id):
     except (ValueError, TypeError):
         saved = {}
     use_saved = isinstance(saved, dict) and isinstance(saved.get('local_analysis'), dict) and isinstance(saved.get('deep_analysis'), dict)
-    if use_saved:
-        local_analysis = apply_url_coverage(saved['local_analysis'])
-        deep_analysis = apply_url_coverage(saved['deep_analysis'])
-    else:
-        analyzer = URLDeepAnalyzer()
-        local_analysis = analyzer.comprehensive_analysis(url)
-        deep_analysis = analyzer.comprehensive_deep_analysis(url)
-    app.logger.info(f'[SUCCESS] URL analysis completed for {url} | Score: {local_analysis.get("security_score")} | Verdict: {local_analysis.get("verdict")}')
-    log_activity(current_user.username, 'url_analysis', f'Analyzed URL: {url}')
+    if not use_saved:
+        return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
+    local_analysis = apply_url_coverage(saved['local_analysis'])
+    deep_analysis = apply_url_coverage(saved['deep_analysis'])
+    app.logger.info(f'[SUCCESS] Saved URL analysis loaded for scan #{scan_id}')
+    log_activity(current_user.username, 'url_analysis', f'Read saved URL report #{scan_id}')
     # تحليلات إضافية
     analysis = {
         "redirect_chain": [],
@@ -1848,64 +1864,6 @@ def api_url_analysis(scan_id):
             "deep_recommendations": deep_analysis.get("recommendations", [])
         }
     }
-    
-    if use_saved:
-        return jsonify(analysis)
-
-    # جمع الـ cookies
-    try:
-        with PublicHTTPSession() as target_session:
-            resp = target_session.get(url, timeout=15, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
-        for r in resp.history:
-            analysis["redirect_chain"].append({"url": r.url, "status_code": r.status_code})
-        analysis["final_url"] = resp.url
-        
-        for cookie in resp.cookies:
-            analysis["cookies"].append({
-                "name": cookie.name,
-                "secure": bool(cookie.secure),
-                "domain": cookie.domain or 'N/A'
-            })
-    except UnsafeTargetError:
-        raise
-    except:
-        pass
-    
-    # WHOIS (إضافي)
-    try:
-        whois_resp = requests.get(f"https://www.whoisxmlapi.com/whoisserver/WhoisService?domainName={domain}&apiKey=at_free_demo_key&outputFormat=JSON", timeout=10)
-        if whois_resp.status_code == 200:
-            w = whois_resp.json().get("WhoisRecord", {})
-            analysis["whois"] = {
-                "registrar": w.get("registrarName", "N/A"),
-                "created": (w.get("createdDate") or "N/A")[:10],
-                "expires": (w.get("expiresDate") or "N/A")[:10],
-            }
-    except UnsafeTargetError:
-        raise
-    except:
-        pass
-    
-    # Geo
-    try:
-        geo_resp = requests.get(f"http://ip-api.com/json/{domain}", timeout=10)
-        if geo_resp.status_code == 200:
-            g = geo_resp.json()
-            if g.get("status") != "fail":
-                analysis["geo"] = {"lat": g.get("lat"), "lon": g.get("lon"), "city": g.get("city", ""), "country": g.get("country", "")}
-    except UnsafeTargetError:
-        raise
-    except:
-        pass
-    
-    # History Scans
-    try:
-        history = Scan.query.filter(Scan.url.contains(domain)).order_by(Scan.date_posted.desc()).limit(10).all()
-        analysis["history_scans"] = [{"id": s.id, "verdict": s.verdict, "date": s.date_posted.strftime("%Y-%m-%d")} for s in history]
-    except UnsafeTargetError:
-        raise
-    except:
-        pass
     
     return jsonify(analysis)
 # ================================================================

@@ -1,6 +1,6 @@
 # routes/sandbox_routes.py
 # ================================================================
-# Sandbox Analysis Routes — Hybrid Analysis + VirusTotal + Static
+# Sandbox Analysis Routes — Hybrid Analysis + Static
 # ================================================================
 
 from flask import Blueprint, render_template, request, jsonify, current_app
@@ -10,7 +10,7 @@ import os, hashlib, json
 from datetime import datetime
 
 from services.hybrid_analysis import HybridAnalysisService
-from services.permissions import check_permission
+from services.permissions import check_permission, reserve_request_quota
 from services.safe_http import UnsafeTargetError
 from services.upload_validation import read_validated_upload
 from logging_config import log_activity
@@ -43,13 +43,15 @@ def sandbox_page():
 # ──────────────────────────────────────────────
 @sandbox_bp.route('/api/sandbox/analyze-file', methods=['POST'])
 @login_required
-@check_permission('file_scan')
 def api_sandbox_analyze_file():
     current_app.logger.info(f'[SANDBOX] File analysis requested by {current_user.username}')
 
     filename, file_content = read_validated_upload(
         request.files.get('file'), ALLOWED_EXTENSIONS, MAX_SIZE
     )
+    failure = reserve_request_quota('file_scan')
+    if failure is not None:
+        return failure
     environment_id = request.form.get('environment_id', '300')
 
     try:
@@ -58,7 +60,7 @@ def api_sandbox_analyze_file():
         static_analyzer = FileDeepAnalyzer(use_exiftool=True)
         static_result = static_analyzer.comprehensive_analysis(file_content, filename)
 
-        # ── Hybrid Analysis + VirusTotal ──
+        # ── Hybrid Analysis ──
         sandbox = HybridAnalysisService()
         sandbox_result = sandbox.comprehensive_analysis(file_content, filename, environment_id)
 
@@ -104,11 +106,16 @@ def api_sandbox_analyze_file():
 @sandbox_bp.route('/api/sandbox/hash-lookup', methods=['POST'])
 @login_required
 def api_sandbox_hash_lookup():
-    data = request.get_json()
-    file_hash = (data.get('hash', '') or '').strip()
-
-    if not file_hash or len(file_hash) not in (32, 40, 64):
-        return jsonify({'error': 'Provide a valid MD5/SHA1/SHA256 hash'}), 400
+    data = request.get_json(silent=True)
+    value = data.get('hash') if isinstance(data, dict) else None
+    if not isinstance(value, str):
+        return jsonify(error='Provide a valid MD5/SHA1/SHA256 hash'), 400
+    file_hash = value.strip()
+    if len(file_hash) not in (32, 40, 64) or any(c not in '0123456789abcdefABCDEF' for c in file_hash):
+        return jsonify(error='Provide a valid MD5/SHA1/SHA256 hash'), 400
+    failure = reserve_request_quota('file_scan')
+    if failure is not None:
+        return failure
 
     try:
         sandbox = HybridAnalysisService()

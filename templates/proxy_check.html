@@ -25,7 +25,7 @@
     <button id="proxy-run" class="proxy-button" type="button">Run identity check</button>
     <p id="proxy-status" class="proxy-status" role="status" aria-live="polite">Ready to check. Hosting settings will remain unchanged.</p>
     <details><summary>Request details</summary><pre id="proxy-details" class="proxy-details">No results yet.</pre></details>
-    <p class="proxy-note">This check sends two read-only requests, including one with test IP headers. It does not change permissions, accounts, or hosting settings. Results help verify this route; they do not replace checking the provider's trust boundary.</p>
+    <p class="proxy-note">This check sends one normal request and two separate read-only requests with test IP headers. Cloudflare may reject a test request; the normal result remains available. It does not change permissions, accounts, or hosting settings. Results help verify this route; they do not replace checking the provider's trust boundary.</p>
   </section>
 </div>
 {% endblock %}

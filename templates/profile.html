@@ -319,7 +319,7 @@
             <tr>
               <td style="color:var(--muted); font-family:var(--mono); font-size:11px;">{{ scan.id }}</td>
               <td>
-                <a href="{{ scan.url }}" target="_blank" rel="noopener"
+                <a data-web-url="{{ scan.url }}" target="_blank" rel="noopener"
                    style="color:var(--accent); text-decoration:none; font-size:12px; font-family:var(--mono);
                           max-width:280px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                   {{ scan.url }}

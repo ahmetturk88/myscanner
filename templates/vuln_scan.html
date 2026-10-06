@@ -582,7 +582,7 @@
                             {% if scan.status == 'completed' %}
                             <a href="{{ url_for('vuln.view_results', scan_uuid=scan.scan_uuid) }}" class="view-btn">View</a>
                             {% elif scan.status == 'running' %}
-                            <button onclick="checkStatus('{{ scan.scan_uuid }}')" class="view-btn">Check</button>
+                            <button type="button" data-check-scan="{{ scan.scan_uuid }}" class="view-btn">Check</button>
                             {% else %}
                             <span style="color: var(--muted);">-</span>
                             {% endif %}
@@ -719,7 +719,7 @@
     }
 
     function updateProgressModal(data) {
-        const progress = data.progress || 0;
+        const progress = ScanUI.number(data.progress, 0, 100);
         const fill = document.getElementById('progressFill');
         const percent = document.getElementById('progressPercent');
         const statusText = document.getElementById('progressStatus');

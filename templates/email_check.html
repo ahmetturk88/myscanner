@@ -209,16 +209,20 @@
   function showSuggestions(suggestions) {
     const box = document.getElementById('suggestion-box');
     const list = document.getElementById('suggestions-list');
-    list.innerHTML = suggestions.map(s => `
-      <div class="suggestion-item">
-        <div>
-          <span class="original">${s.original}</span> → 
-          <span class="corrected">${s.suggested}</span>
-          <span class="suggestions-tag">${s.type === 'domain_typo' ? 'Typo' : 'Similar'}</span>
-        </div>
-        <button class="use-btn" onclick="useSuggestion('${s.suggested}')">Use →</button>
-      </div>
-    `).join('');
+    list.replaceChildren();
+    ScanUI.list(suggestions).forEach(suggestion => {
+      if (!suggestion || typeof suggestion.suggested !== 'string') return;
+      const row = document.createElement('div'); row.className = 'suggestion-item';
+      const values = document.createElement('div');
+      const original = document.createElement('span'); original.className = 'original'; original.textContent = ScanUI.text(suggestion.original);
+      const arrow = document.createElement('span'); arrow.textContent = ' → ';
+      const corrected = document.createElement('span'); corrected.className = 'corrected'; corrected.textContent = suggestion.suggested;
+      const tag = document.createElement('span'); tag.className = 'suggestions-tag'; tag.textContent = suggestion.type === 'domain_typo' ? 'Typo' : 'Similar';
+      values.appendChild(original); values.appendChild(arrow); values.appendChild(corrected); values.appendChild(tag);
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'use-btn'; button.textContent = 'Use →';
+      button.addEventListener('click', () => useSuggestion(suggestion.suggested));
+      row.appendChild(values); row.appendChild(button); list.appendChild(row);
+    });
     box.style.display = 'block';
   }
   
@@ -246,14 +250,14 @@
   }
 
   function renderMain(d) {
-    const vc = VC[d.verdict] || VC.moderate_risk;
+    const vc = Object.hasOwn(VC, d.verdict) ? VC[d.verdict] : VC.moderate_risk;
     const banner = document.getElementById('verdict-banner');
     banner.className = 'verdict-banner ' + vc.cls;
     document.getElementById('v-icon').textContent = vc.icon;
     document.getElementById('v-title').textContent = vc.title;
     document.getElementById('v-sub').textContent = vc.sub;
 
-    const score = Math.round((d.quality_score || 0) * 100);
+    const score = Math.round(ScanUI.number(d.quality_score, 0, 1) * 100);
     const col = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
     document.getElementById('q-bar').style.width = score + '%';
     document.getElementById('q-bar').style.background = col;
@@ -266,12 +270,14 @@
       <div class="stat-box ${d.is_smtp ? 'good':'bad'}"><div class="s-icon">🔌</div><div class="s-label">SMTP</div><div class="s-value">${d.is_smtp ? 'Valid':'Invalid'}</div></div>
       <div class="stat-box ${!d.is_disposable ? 'good':'bad'}"><div class="s-icon">🗑️</div><div class="s-label">DISPOSABLE</div><div class="s-value">${d.is_disposable ? '⚠️ Yes' : 'Clean'}</div></div>
       <div class="stat-box ${!d.is_free ? 'good':'warn'}"><div class="s-icon">🆓</div><div class="s-label">EMAIL TYPE</div><div class="s-value">${d.is_free ? 'Personal/Free' : 'Business'}</div></div>
-      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERABILITY</div><div class="s-value" style="font-size:11px;">${d.deliverability}</div></div>
-      <div class="stat-box ${!d.blacklisted ? 'good':'bad'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLIST</div><div class="s-value">${d.blacklisted ? `⚠️ ${d.blacklist_count} lists` : 'Clean'}</div></div>
+      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERABILITY</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.deliverability)}</div></div>
+      <div class="stat-box ${!d.blacklisted ? 'good':'bad'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLIST</div><div class="s-value">${d.blacklisted ? `⚠️ ${ScanUI.escape(d.blacklist_count)} lists` : 'Clean'}</div></div>
       <div class="stat-box ${d.spf_valid ? 'good':'bad'}"><div class="s-icon">🛡️</div><div class="s-label">SPF</div><div class="s-value">${d.spf_valid ? 'Valid' : 'Missing'}</div></div>
       <div class="stat-box ${d.dmarc_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">DMARC</div><div class="s-value">${d.dmarc_valid ? 'Valid' : 'Missing'}</div></div>
     `;
 
+    document.getElementById('quality-breakdown').style.display = 'none';
+    document.getElementById('smtp-details').style.display = 'none';
     // Quality breakdown
     if (d.quality_breakdown) {
       document.getElementById('quality-breakdown').style.display = 'block';
@@ -286,37 +292,37 @@
     }
 
     // SMTP Details
-    if (d.smtp_details && d.smtp_details.mx_servers && d.smtp_details.mx_servers.length > 0) {
+    if (d.smtp_details && ScanUI.list(d.smtp_details.mx_servers).length > 0) {
       document.getElementById('smtp-details').style.display = 'block';
-      document.getElementById('mx-servers').innerHTML = d.smtp_details.mx_servers.map(mx => `
+      document.getElementById('mx-servers').innerHTML = ScanUI.list(d.smtp_details.mx_servers).filter(mx => mx && typeof mx === 'object').map(mx => `
         <div class="mx-server">
-          <span class="mx-pref">Priority ${mx.preference}</span>
-          <span style="font-family:monospace">${mx.server}</span>
+          <span class="mx-pref">Priority ${ScanUI.escape(mx.preference)}</span>
+          <span style="font-family:monospace">${ScanUI.escape(mx.server)}</span>
         </div>
       `).join('');
       document.getElementById('smtp-result').innerHTML = `
         <div style="margin-top:12px; padding:8px; background:var(--surface); border-radius:8px;">
-          <strong>SMTP Check:</strong> ${d.smtp_details.message}
+          <strong>SMTP Check:</strong> ${ScanUI.escape(d.smtp_details.message)}
         </div>
       `;
     }
 
     // Details Table
     document.getElementById('details-table').innerHTML = `
-      <tr><td>📧 EMAIL ADDRESS</td><td>${d.email}</td></tr>
-      <tr><td>🌐 DOMAIN</td><td>${d.domain}</td></tr>
+      <tr><td>📧 EMAIL ADDRESS</td><td>${ScanUI.escape(d.email)}</td></tr>
+      <tr><td>🌐 DOMAIN</td><td>${ScanUI.escape(d.domain)}</td></tr>
       <tr><td>✓ VALID FORMAT</td><td>${yn(d.is_valid)}</td></tr>
       <tr><td>📡 MX RECORDS</td><td>${yn(d.is_mx)}</td></tr>
       <tr><td>🔌 SMTP VALID</td><td>${yn(d.is_smtp)}</td></tr>
       <tr><td>🗑️ DISPOSABLE</td><td>${yn(!d.is_disposable)}</td></tr>
       <tr><td>🆓 FREE PROVIDER</td><td>${d.is_free ? 'Yes (Personal)' : 'No (Business/Custom)'}</td></tr>
-      <tr><td>📬 DELIVERABILITY</td><td><span class="${d.deliverability === 'DELIVERABLE' ? 'good' : 'bad'}">${d.deliverability}</span></td></tr>
-      <tr><td>⚠️ RISK LEVEL</td><td><span class="${d.verdict === 'safe' ? 'good' : 'bad'}">${(d.address_risk || d.verdict).toUpperCase()}</span></td></tr>
-      <tr><td>🛡️ SPF RECORD</td><td>${yn(d.spf_valid)}${d.spf_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${d.spf_record.substring(0, 80)}${d.spf_record.length > 80 ? '...' : ''}</span>` : ''}</td></tr>
-      <tr><td>📋 DMARC RECORD</td><td>${yn(d.dmarc_valid)}${d.dmarc_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${d.dmarc_record.substring(0, 80)}</span>` : ''}</td></tr>
-      <tr><td>🚫 BLACKLISTED</td><td>${d.blacklisted ? `Yes (${d.blacklist_count} lists)` : 'No'}</td></tr>
-      <tr><td>🏢 REGISTRAR</td><td>${d.registrar || 'N/A'}</td></tr>
-      <tr><td>📅 DOMAIN AGE</td><td>${d.domain_age ? d.domain_age + ' days' + (d.domain_age < 30 ? ' ⚠️ New domain' : '') : 'N/A'}</td></tr>
+      <tr><td>📬 DELIVERABILITY</td><td><span class="${d.deliverability === 'DELIVERABLE' ? 'good' : 'bad'}">${ScanUI.escape(d.deliverability)}</span></td></tr>
+      <tr><td>⚠️ RISK LEVEL</td><td><span class="${d.verdict === 'safe' ? 'good' : 'bad'}">${ScanUI.escape(ScanUI.text(d.address_risk || d.verdict, 'unknown').toUpperCase())}</span></td></tr>
+      <tr><td>🛡️ SPF RECORD</td><td>${yn(d.spf_valid)}${d.spf_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${ScanUI.escape(ScanUI.text(d.spf_record).substring(0, 80))}${d.spf_record.length > 80 ? '...' : ''}</span>` : ''}</td></tr>
+      <tr><td>📋 DMARC RECORD</td><td>${yn(d.dmarc_valid)}${d.dmarc_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${ScanUI.escape(ScanUI.text(d.dmarc_record).substring(0, 80))}</span>` : ''}</td></tr>
+      <tr><td>🚫 BLACKLISTED</td><td>${d.blacklisted ? `Yes (${ScanUI.escape(d.blacklist_count)} lists)` : 'No'}</td></tr>
+      <tr><td>🏢 REGISTRAR</td><td>${ScanUI.escape(d.registrar || 'N/A')}</td></tr>
+      <tr><td>📅 DOMAIN AGE</td><td>${d.domain_age ? ScanUI.escape(d.domain_age) + ' days' + (d.domain_age < 30 ? ' ⚠️ New domain' : '') : 'N/A'}</td></tr>
       <tr><td>🎯 QUALITY SCORE</td><td><strong style="color:${col}">${score} / 100</strong></td></tr>
     `;
 

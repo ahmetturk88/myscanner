@@ -185,11 +185,11 @@
     else score -= 20;
     
     // وجود MX records
-    const hasMX = (d.dns || []).some(r => r.type === 'MX');
+    const hasMX = ScanUI.list(d.dns).filter(r => r && typeof r === 'object').some(r => r.type === 'MX');
     if (hasMX) score += 10;
     
     // وجود SPF (TXT record with v=spf1)
-    const hasSPF = (d.dns || []).some(r => r.type === 'TXT' && r.value.includes('v=spf1'));
+    const hasSPF = ScanUI.list(d.dns).filter(r => r && typeof r === 'object').some(r => r.type === 'TXT' && ScanUI.text(r.value, '').includes('v=spf1'));
     if (hasSPF) score += 10;
     
     // عمر المجال (إذا كان عندنا تاريخ الإنشاء)
@@ -226,20 +226,21 @@
     document.getElementById('v-sub').textContent = quality.sub;
 
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-box"><div class="s-icon">🏢</div><div class="s-label">Registrar</div><div class="s-value">${d.registrar || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">📅</div><div class="s-label">Created</div><div class="s-value">${d.created || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">⏰</div><div class="s-label">Expires</div><div class="s-value">${d.expires || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">🖥️</div><div class="s-label">IP Address</div><div class="s-value">${d.ip || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">🌍</div><div class="s-label">Country</div><div class="s-value">${d.country || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">🔒</div><div class="s-label">Nameservers</div><div class="s-value">${(d.nameservers || []).length || 0}</div></div>
-      <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${d.isp || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">🔄</div><div class="s-label">Status</div><div class="s-value" style="font-size:11px;">${d.status || 'N/A'}</div></div>
-      <div class="stat-box"><div class="s-icon">📋</div><div class="s-label">Updated</div><div class="s-value" style="font-size:11px;">${d.whois_updated || 'N/A'}</div></div>
+      <div class="stat-box"><div class="s-icon">🏢</div><div class="s-label">Registrar</div><div class="s-value">${ScanUI.escape(d.registrar || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">📅</div><div class="s-label">Created</div><div class="s-value">${ScanUI.escape(d.created || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">⏰</div><div class="s-label">Expires</div><div class="s-value">${ScanUI.escape(d.expires || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">🖥️</div><div class="s-label">IP Address</div><div class="s-value">${ScanUI.escape(d.ip || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">🌍</div><div class="s-label">Country</div><div class="s-value">${ScanUI.escape(d.country || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">🔒</div><div class="s-label">Nameservers</div><div class="s-value">${ScanUI.list(d.nameservers).length}</div></div>
+      <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.isp || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">🔄</div><div class="s-label">Status</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.status || 'N/A')}</div></div>
+      <div class="stat-box"><div class="s-icon">📋</div><div class="s-label">Updated</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.whois_updated || 'N/A')}</div></div>
     `;
 
     // Group DNS by type
-    const dnsGroups = {};
-    (d.dns || []).forEach(record => {
+    const dnsGroups = Object.create(null);
+    ScanUI.list(d.dns).forEach(record => {
+      if (!record || typeof record.type !== 'string') return;
       if (!dnsGroups[record.type]) dnsGroups[record.type] = [];
       dnsGroups[record.type].push(record.value);
     });
@@ -249,21 +250,16 @@
     for (const type of typeOrder) {
       if (dnsGroups[type] && dnsGroups[type].length > 0) {
         dnsGroups[type].forEach(value => {
-          dnsHTML += `<div class="dns-item"><span class="dns-type">${type}</span><span class="dns-value">${value}</span></div>`;
+          dnsHTML += `<div class="dns-item"><span class="dns-type">${type}</span><span class="dns-value">${ScanUI.escape(value)}</span></div>`;
         });
       }
     }
 
     document.getElementById('dns-list').innerHTML = dnsHTML || '<div class="dns-item"><span class="dns-type">—</span><span class="dns-value">No DNS records found</span></div>';
 
-    // Map if coordinates available
-    if (d.lat && d.lon) {
-      const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${d.lon-0.05},${d.lat-0.05},${d.lon+0.05},${d.lat+0.05}&layer=mapnik&marker=${d.lat},${d.lon}`;
-      document.getElementById('map-frame').src = mapUrl;
-      document.getElementById('map-card').style.display = 'block';
-    } else {
-      document.getElementById('map-card').style.display = 'none';
-    }
+    const mapUrl = ScanUI.mapURL(d.lat, d.lon);
+    document.getElementById('map-frame').src = mapUrl;
+    document.getElementById('map-card').style.display = mapUrl ? 'block' : 'none';
 
     document.getElementById('result-card').style.display = 'block';
     window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });

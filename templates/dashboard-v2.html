@@ -41,6 +41,9 @@
   th { text-align: left; padding: 9px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
   td { padding: 9px 10px; border-bottom: 1px solid rgba(42,42,69,0.3); color: var(--text); }
   tr:hover td { background: var(--surface2); }
+  .history-id, .history-date { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .history-url { font-family: var(--mono); font-size: 11px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-summary { color: var(--muted); font-size: 11px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .verdict-badge { padding: 2px 8px; border-radius: 10px; font-family: var(--mono); font-size: 9px; font-weight: 700; text-transform: uppercase; }
   .v-harmless { color: var(--green); background: rgba(0,230,118,0.1); }
   .v-malicious { color: var(--red); background: rgba(255,69,96,0.1); }
@@ -90,6 +93,7 @@
 {% endblock %}
 
 {% block body_extra %}
+<script src="{{ url_for('static', filename='dashboard_ui.js') }}"></script>
 <script>
   let allScans = [];
   let currentFilter = 'all';
@@ -97,11 +101,12 @@
   async function loadData() {
     try {
       const r = await fetch('/api/recent_scans');
+      if (!r.ok) throw new Error('Scan history could not be loaded.');
       const data = await r.json();
-      allScans = data.scans || [];
+      allScans = DashboardUI.normalizeScans(data && data.scans);
       updateStats();
-      renderCharts();
       renderTable();
+      if (typeof Chart !== 'undefined') renderCharts();
     } catch(e) { console.error(e); }
   }
   function updateStats() {
@@ -134,10 +139,11 @@
     barChart = new Chart(ctx2, { type: 'bar', data: { labels: days, datasets: [{ data: counts, backgroundColor: '#00c8ff', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } }, y: { ticks: { color: '#6a6a90' }, grid: { color: '#2a2a45' } } } } });
   }
   function filterBy(verdict) {
-    currentFilter = verdict;
+    const cards = { all: 'total', harmless: 'safe', malicious: 'malicious', suspicious: 'suspicious' };
+    currentFilter = Object.hasOwn(cards, verdict) ? verdict : 'all';
     document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-    document.querySelector(`.stat-card.${verdict}`)?.classList.add('active');
-    document.getElementById('filter-select').value = verdict;
+    document.querySelector('.stat-card.' + cards[currentFilter])?.classList.add('active');
+    document.getElementById('filter-select').value = currentFilter;
     updateStats();
     renderTable();
   }
@@ -145,7 +151,7 @@
     const search = document.getElementById('search-input').value.toLowerCase();
     let filtered = currentFilter === 'all' ? allScans : allScans.filter(s => s.verdict === currentFilter);
     if (search) filtered = filtered.filter(s => s.url?.toLowerCase().includes(search));
-    document.getElementById('table-body').innerHTML = filtered.map(s => `<tr><td style="color:var(--muted);font-family:var(--mono);font-size:10px;">#${s.id}</td><td style="font-family:var(--mono);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.url||'N/A'}</td><td><span class="verdict-badge v-${s.verdict||'unknown'}">${(s.verdict||'unknown').toUpperCase()}</span></td><td style="color:var(--muted);font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.summary||'–'}</td><td style="color:var(--muted);font-family:var(--mono);font-size:10px;">${s.date||'–'}</td></tr>`).join('');
+    DashboardUI.renderRows(document.getElementById('table-body'), filtered);
     document.getElementById('filtered-count').textContent = filtered.length + ' scans';
   }
   loadData();

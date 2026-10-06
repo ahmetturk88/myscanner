@@ -741,7 +741,14 @@ function loadResult() {
   Promise.all([
     fetch('/api/scan_result/' + scanId).then(r => r.json()),
     fetch('/api/url-analysis/' + scanId).then(r => r.json()).catch(() => null)
-  ]).then(([scanData, analysisData]) => { renderResult(scanData, analysisData); })
+  ]).then(([scanData, analysisData]) => {
+    if (analysisData && analysisData.error) {
+      document.getElementById('loading-text').textContent = ScanUI.text(analysisData.error, 'Saved analysis is unavailable. Start a new URL scan.');
+      updateBadge('error', 'error');
+      return;
+    }
+    renderResult(scanData, analysisData);
+  })
   .catch(() => { document.getElementById('loading-text').textContent = 'Failed to load results. Refresh page.'; updateBadge('error','error'); });
 }
 

@@ -23,3 +23,11 @@ This verifies observed domain control, not legal permission to attack a service 
 The new table has migration `c291ed857a40`, following `a6b738de2104`; it tolerates the existing startup create_all behavior. Migration tests run on isolated SQLite; full migration-chain and PostgreSQL staging checks remain readiness tasks. No migration command against production was run by this change.
 
 Active scans remain closed even after DNS verification. Before reopening, connect a valid account-bound proof to dispatch, revalidate public DNS and scope immediately before execution, contain all redirects/crawls to the authorized exact origin, and add worker resource limits and restart-safe state. The current proof helper is preparatory and is not called to bypass the active-scan gate. Readiness item 6 remains open.
+
+## Stage 3: exact-origin HTTP transport (preparation)
+
+`prepare_verified_target` checks a current account-specific proof, confirmed account email, and public DNS before returning an exact-origin scope. The new `VerifiedTargetSession` checks proof again before each HTTP request, including redirects, and rejects other hosts, subdomains, schemes, credentials and nondefault ports before transport. Paths and queries on the same origin are allowed. The existing public HTTP adapter revalidates DNS when selecting the connection pool and connects to a validated IP with the original TLS hostname. Preflight DNS results alone are never sufficient to authorize an unpinned later connection.
+
+Scalar database queries avoid reusing a stale ORM proof object after revocation. Storage failures propagate and do not grant access. Proof checks cannot cancel a request already in flight; a concurrent expiry or revocation can happen after a check. Resource deadlines and cancellation still need worker integration.
+
+This transport is preparatory and does not protect traffic emitted by ZAP, OpenVAS, browser engines, or other processes. Those clients must have independently enforced scope and network isolation before activation. `/vulnerability/start` and direct orchestrator dispatch remain closed. Stage 3 introduces no production scan requests or UI behavior change. Tests mock HTTP and DNS; live scanner and PostgreSQL deployment validation remain pending.

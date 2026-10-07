@@ -64,6 +64,9 @@ class CeleryProcessTests(unittest.TestCase):
         env=dict(os.environ)
         for key in ['APP_ENV','RENDER','REDIS_URL','CELERY_BROKER_URL','CELERY_RESULT_BACKEND']:env.pop(key,None)
         env.update(overrides)
+        # Child tracebacks include Unicode Windows paths; match the parent's decoder.
+        env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUTF8'] = '1'
         return subprocess.run([sys.executable,'-c',code],cwd=ROOT,env=env,capture_output=True,text=True,encoding='utf-8',timeout=20)
     def test_tasks_aliases_registry_and_compatibility_binding_share_identity(self):
         r=self.run_child("import celery_app,celery_config,tasks; from flask import Flask; c=celery_app.celery; c.finalize(); assert c is celery_config.celery is tasks.celery; app=Flask('test'); assert celery_app.make_celery(app) is c; assert app.extensions['celery'] is c; assert all(c.tasks[n].app is c for n in celery_app.SCAN_TASKS+celery_app.TIP_TASKS); print('shared')",{'APP_ENV':'testing','CELERY_BROKER_URL':'memory://','CELERY_RESULT_BACKEND':'cache+memory://'})

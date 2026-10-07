@@ -103,12 +103,15 @@ def run(command):
     require_local_stack()
     if command == 'init-db':
         dependencies_ready()
-        from app import app
-        from extensions import db
-        with app.app_context():
-            # Only the disposable local database: production migrations remain a separate task.
-            db.create_all()
-        print('Isolated local database initialized.')
+        import sqlalchemy as sa
+        from services.schema_migrations import upgrade_database, initialize_sources
+        engine = sa.create_engine(os.environ['DATABASE_URL'])
+        try:
+            upgrade_database(engine)
+        finally:
+            engine.dispose()
+        initialize_sources()
+        print('Isolated local database migrated and sources initialized.')
     elif command == 'create-user':
         dependencies_ready()
         create_local_user()

@@ -160,9 +160,6 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
-with app.app_context():
-    db.create_all()
-    from apscheduler.schedulers.background import BackgroundScheduler
 
 def reset_daily_scans():
     from services.permissions import reset_daily_scans as reset_expired
@@ -334,16 +331,6 @@ app.register_blueprint(sandbox_bp)
 from routes.vuln_routes import vuln_bp
 app.register_blueprint(vuln_bp)
 
-# تهيئة مصادر TIP (مرة واحدة عند بدء التشغيل)
-with app.app_context():
-    try:
-        from services.tip_collector import TIPCollector
-        collector = TIPCollector()
-        collector.initialize_default_sources()
-        print("[TIP] Default sources initialized")
-    except Exception as e:
-        print(f"[TIP] Init error: {e}")
-        
 # ================================================================
 # Auth Routes
 # ================================================================
@@ -1844,41 +1831,6 @@ def api_url_analyze():
     
 
 
-# ================================================================
-# Fix missing database columns for production (Render/PostgreSQL only)
-# ================================================================
-with app.app_context():
-    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-    if 'postgresql' in db_uri or 'postgres' in db_uri:
-        from sqlalchemy import text
-        cols = [
-            ('last_login', 'TIMESTAMP'),
-            ("role", "VARCHAR(20) DEFAULT 'user'"),
-            ('remaining_scans', 'INTEGER DEFAULT 20'),
-            ('scans_reset_date', 'TIMESTAMP'),
-            ('site_scan_remaining', 'INTEGER DEFAULT 10'),
-            ('file_scan_remaining', 'INTEGER DEFAULT 10'),
-            ('url_analyzer_remaining', 'INTEGER DEFAULT 20'),
-            ('email_check_remaining', 'INTEGER DEFAULT 15'),
-            ('ip_check_remaining', 'INTEGER DEFAULT 15'),
-            ('domain_lookup_remaining', 'INTEGER DEFAULT 15'),
-            ('ssl_check_remaining', 'INTEGER DEFAULT 15'),
-            ('qr_scan_remaining', 'INTEGER DEFAULT 15'),
-            ('subdomain_finder_remaining', 'INTEGER DEFAULT 5'),
-            ('password_check_remaining', 'INTEGER DEFAULT 20'),
-            ('sandbox_remaining', 'INTEGER DEFAULT 5'),
-            ('is_admin', 'BOOLEAN DEFAULT FALSE'),
-        ]
-        for col, typ in cols:
-            try:
-                db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {col} {typ}'))
-                print(f'[DB] OK: {col}')
-            except Exception as e:
-                print(f'[DB] SKIP {col}: {e}')
-        db.session.commit()
-        print('[DB] PostgreSQL columns check done!')
-
-        
 # ================================================================
 # Run
 # ================================================================

@@ -23,3 +23,9 @@ This is bounded failure recovery, not guaranteed delivery or automatic continuat
 `python -m unittest discover -s tests -p test_celery_runtime.py -v`
 
 Tests use isolated SQLite and mocked analyzers/publishing, plus memory-transport message routing. They check committed ownership before publish, duplicate/wrong-owner/wrong-target/task-ID rejection, durable large Unicode reports, partial coverage, database/publish/provider failure, deadline expiration, protected reads and worker cleanup. They do not prove real Redis persistence, process termination, PostgreSQL concurrency, provider behavior or Linux time-limit enforcement. Live restart, broker persistence and quota/load checks are mandatory before deployment.
+
+## Contradictory phishing evidence
+
+Provider numeric scores are preserved as source data, not used as the final safety verdict. A reported database entry with verified=false is unverified evidence: a harmless provider verdict becomes unknown/partial, with an explicit explanation. A reported entry with verified=true overrides a high score and is treated as a provider-reported malicious finding. Existing suspicious/malicious findings are retained. Missing or malformed flags are never displayed as a clean PhishTank result. Fresh provider parsing, saved-report reading and queued report storage apply this policy. This does not independently verify a PhishTank entry; the original provider verdict is retained in verdict_reported and the scores remain unchanged. Old scan metadata and raw historical reports are not rewritten; start a new scan for consistent persisted metadata.
+
+Local user validation on 7 October: Compose configuration tests (17), image build, healthy web/worker/PostgreSQL/Redis, real broker-to-worker DB expiration, and Beat minute scheduling succeeded. Actual URL report rendering exposed conflicting provider evidence and led to this correction. The corrected image and interface still need user verification before merging.

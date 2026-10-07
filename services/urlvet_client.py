@@ -1,3 +1,4 @@
+from services.url_scan_coverage import apply_phishing_evidence
 # services/urlvet_client.py
 # =================================================================
 # URLVET CLIENT - عميل التواصل مع url.vet API
@@ -139,7 +140,7 @@ class URLVetClient:
         else:
             my_verdict = 'unknown'
 
-        return {
+        return apply_phishing_evidence({
             'source': 'url.vet',
             'url': url,
             'verdict': my_verdict,
@@ -192,8 +193,8 @@ class URLVetClient:
 
             # Phishing (PhishTank)
             'phishing': {
-                'in_database': phishing.get('in_database', False),
-                'verified': phishing.get('verified', False),
+                'in_database': phishing.get('in_database'),
+                'verified': phishing.get('verified'),
                 'target': phishing.get('target', ''),
                 'source': phishing.get('source', 'phishtank')
             },
@@ -251,7 +252,7 @@ class URLVetClient:
 
             # الطابع الزمني
             'analyzed_at': datetime.utcnow().isoformat()
-        }
+        })
 
     # ================================================================
     # 3. استجابة الخطأ

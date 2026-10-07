@@ -64,7 +64,7 @@ services:
     name: celery-worker
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A tasks worker --loglevel=info --pool=solo
+    startCommand: celery -A celery_worker:celery worker --loglevel=info --pool=prefork --concurrency=1 -Q scans,tip,celery
     envVars:
       - key: REDIS_URL
         fromService:
@@ -93,7 +93,7 @@ services:
     name: celery-beat
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A tasks beat --loglevel=info
+    startCommand: celery -A celery_worker:celery beat --loglevel=info
     envVars:
       - key: REDIS_URL
         fromService:

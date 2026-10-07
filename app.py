@@ -1,3 +1,8 @@
+import os
+from dotenv import load_dotenv
+if os.getenv('APP_ENV', '').lower() != 'production' and os.getenv('RENDER', '').lower() != 'true':
+    load_dotenv()
+
 from extensions import db, login_manager, bcrypt
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
@@ -17,9 +22,7 @@ import requests
 import threading
 import time
 import json
-import os
 import hashlib
-from dotenv import load_dotenv
 import re
 import socket
 import dns.resolver
@@ -44,7 +47,7 @@ from services.web_scan_request import validate_web_scan_request
 from services.file_deep_analyzer import FileDeepAnalyzer  # ✅ صحيح
 from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
-from celery_config import celery
+from celery_app import celery, make_celery
 import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task
 from services.permissions import check_permission, reserve_request_quota
@@ -63,7 +66,6 @@ import resend
 from typing import Optional
 from services.pdf_report_generator import generate_vulnerability_report
 
-load_dotenv()
 
 # ================================================================
 # Initialization
@@ -144,7 +146,7 @@ setup_logging(app)
 # ==============================================================
 
 db.init_app(app)
-from tasks import celery
+make_celery(app)
 from flask_migrate import Migrate    
 migrate = Migrate(app, db)        
 login_manager.init_app(app)

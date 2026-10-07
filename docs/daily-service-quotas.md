@@ -64,3 +64,7 @@ reads. They never use the developer's configured production database.
 PostgreSQL concurrency, deployed multi-process/worker behavior, clock skew, queue
 idempotency and resource-volume limits still need staging checks. SQLite busy or
 storage errors fail closed; there is no local-memory fallback.
+
+## Administrator exemption
+
+Accounts with is_admin=true or role=admin have no daily service quota. Reservations check current database privileges atomically and do not debit administrator counters, even when counters are zero or cost exceeds the old numeric cap. None/null represents an unlimited allowance; get_user_limits exposes unlimited=true. Promotion applies immediately; demotion restores normal quota enforcement. Ordinary and premium policies are unchanged. Authentication throttles, request validation, upload/batch limits, target ownership and worker resource limits still apply.

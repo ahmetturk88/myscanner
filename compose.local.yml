@@ -1,0 +1,142 @@
+name: myscanner-local
+
+x-application: &application
+  image: myscanner-local:dev
+  build:
+    context: .
+    dockerfile: Dockerfile.local
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 1g
+  cpus: 1.0
+  environment: &app-environment
+    APP_ENV: development
+    FLASK_DEBUG: "0"
+    RENDER: ""
+    SECRET_KEY: ${LOCAL_SECRET_KEY:?Run scripts/init_local_stack.py first}
+    DATABASE_URL: postgresql+psycopg2://myscanner_local:${LOCAL_DB_PASSWORD:?Run scripts/init_local_stack.py first}@postgres:5432/myscanner_local
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CELERY_RESULT_BACKEND: redis://redis:6379/1
+    URLVET_URL: http://host.docker.internal:8080
+    LOCAL_STACK: "1"
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  networks: [data, outbound]
+  tmpfs:
+    - /tmp:size=128m,mode=1777
+  volumes:
+    - uploads:/app/temp_uploads
+    - logs:/app/logs
+    - reports:/app/reports
+    - cache:/app/cache
+    - file-cache:/app/file_cache
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: myscanner_local
+      POSTGRES_USER: myscanner_local
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?Run scripts/init_local_stack.py first}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U myscanner_local -d myscanner_local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    volumes:
+      - redis-data:/data
+    networks: [data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  init-db:
+    <<: *application
+    restart: "no"
+    command: [python, scripts/local_runtime.py, init-db]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  web:
+    <<: *application
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      init-db: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, scripts/local_runtime.py, web-health]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    <<: *application
+    command: [celery, -A, "celery_worker:celery", worker, --loglevel=info, --pool=prefork, --concurrency=1, -Q, "scans,tip,celery", --hostname, "local-worker@%h"]
+    stop_grace_period: 60s
+    depends_on:
+      init-db: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, scripts/local_runtime.py, worker-health]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  beat:
+    <<: *application
+    command: [celery, -A, "celery_worker:celery", beat, --loglevel=info, --schedule, /state/celerybeat-schedule, --pidfile, /tmp/celerybeat.pid]
+    depends_on:
+      init-db: {condition: service_completed_successfully}
+    volumes:
+      - beat-state:/state
+      - uploads:/app/temp_uploads
+      - logs:/app/logs
+      - reports:/app/reports
+      - cache:/app/cache
+      - file-cache:/app/file_cache
+
+networks:
+  data: {internal: true}
+  outbound: {}
+
+volumes:
+  postgres-data: {}
+  redis-data: {}
+  uploads: {}
+  logs: {}
+  reports: {}
+  cache: {}
+  file-cache: {}
+  beat-state: {}

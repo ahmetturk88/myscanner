@@ -85,5 +85,25 @@ for(const column of tableOptions.columns) {
 assert(!tableOptions.columns[1].render('javascript:alert(1)').includes('href='));
 assert(tableOptions.columns[1].render('https://example.com/?a=1&b=2').includes('a=1&amp;b=2'));
 for(const output of outputs) assert(!output.html.includes('<svg'),output.name);
+// Conflicting and verified evidence must override even a perfect numeric score.
+const conflicting = url.ctx.renderURLVet({trust_score:100, verdict:'harmless', phishing:{in_database:true,verified:false}});
+assert(conflicting.includes('Assessment needs review'));
+assert(conflicting.includes('Reported entry — unverified'));
+assert(!conflicting.includes('Safe — Trusted'));
+const verified = url.ctx.renderURLVet({trust_score:100, verdict:'harmless', phishing:{in_database:true,verified:true,valid:true}});
+assert(verified.includes('Risky — Likely unsafe'));
+assert(verified.includes('Verified phishing entry'));
+const missing = url.ctx.renderURLVet({trust_score:100, verdict:'unknown'});
+assert(missing.includes('Not assessed'));
+assert(missing.includes('Assessment unavailable'));
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {assessment_status:'partial',assessment_warning:'Conflicting evidence '+payload,urlvet:{trust_score:100,verdict:'unknown',evidence_warning:'Conflicting evidence',phishing:{in_database:true,verified:false}}});
+const notice = url.elements['verdict-area'].innerHTML;
+assert(notice.includes('This assessment needs review'));
+assert(!notice.includes('url.vet was unavailable'));
+assert(!notice.includes('<svg'));
+outputs.push({name:'conflict coverage notice',html:notice});
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {assessment_status:'partial',assessment_warning:'Source unavailable',urlvet:{error:'offline'}});
+assert(url.elements['verdict-area'].innerHTML.includes('This report has limited coverage'));
+assert(url.elements['verdict-area'].innerHTML.includes('Source unavailable'));
 if(process.argv.includes('--json')) console.log(JSON.stringify(outputs));
 else console.log(`${outputs.length} result sections rendered safely with malicious fixtures; helper and normal-display checks passed`);

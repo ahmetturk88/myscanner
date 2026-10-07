@@ -25,6 +25,9 @@ def _clock(now=None):
     now = now.astimezone(timezone.utc).replace(tzinfo=None)
     return now, now.replace(hour=0, minute=0, second=0, microsecond=0)
 
+def _admin():
+    return or_(User.is_admin.is_(True), User.role == 'admin')
+
 def _limit(service):
     return case((User.is_admin.is_(True), DAILY_LIMITS['admin'][service]),
                 (User.role == 'admin', DAILY_LIMITS['admin'][service]),
@@ -63,17 +66,20 @@ def consume_quota(user_id, service, cost=1, now=None):
     available, expired = _available(service, midnight)
     values = _reset_values(expired, instant)
     values[service + '_remaining'] = available - cost
+    # Check current database privileges in the same atomic statement, not a cached user.
+    values = {name: case((_admin(), getattr(User, name)), else_=value) for name, value in values.items()}
     try:
         with db.engine.begin() as connection:
-            accepted = connection.execute(update(User).where(User.id == user_id, available >= cost).values(**values)).rowcount == 1
-            remaining = connection.execute(select(available).where(User.id == user_id)).scalar_one_or_none()
+            accepted = connection.execute(update(User).where(User.id == user_id, or_(_admin(), available >= cost)).values(**values)).rowcount == 1
+            row = connection.execute(select(_admin(), available).where(User.id == user_id)).first()
+            remaining = row[1] if row is not None else None
     except SQLAlchemyError as error:
         raise DailyQuotaUnavailable('Daily quota storage unavailable.') from error
     if remaining is None:
         raise QuotaUserMissing()
     if not accepted:
         raise DailyQuotaExceeded(service, remaining)
-    return int(remaining)
+    return None if row[0] else int(remaining)
 
 def remaining_quota(user_id, service, now=None):
     _validate(service)
@@ -81,11 +87,11 @@ def remaining_quota(user_id, service, now=None):
     available, expired = _available(service, midnight)
     try:
         with db.engine.begin() as connection:
-            connection.execute(update(User).where(User.id == user_id, expired).values(**_reset_values(expired, instant)))
-            value = connection.execute(select(available).where(User.id == user_id)).scalar_one_or_none()
+            connection.execute(update(User).where(User.id == user_id, expired, ~_admin()).values(**_reset_values(expired, instant)))
+            row = connection.execute(select(_admin(), available).where(User.id == user_id)).first()
     except SQLAlchemyError as error:
         raise DailyQuotaUnavailable('Daily quota storage unavailable.') from error
-    return int(value) if value is not None else 0
+    return None if row is not None and row[0] else int(row[1]) if row is not None else 0
 
 def reset_expired_quotas(now=None):
     """Idempotent compatibility hook; never replenish today's reservations."""

@@ -79,7 +79,24 @@ class AtomicDailyQuotaTests(unittest.TestCase):
         user=db.session.get(User,self.uid);user.role='typo';user.scans_reset_date=self.now-timedelta(days=1);db.session.commit()
         self.assertEqual(consume_quota(self.uid,'url_analyzer',now=self.now),2)
         db.session.expire_all();user=db.session.get(User,self.uid);user.is_admin=True;user.scans_reset_date=self.now-timedelta(days=1);db.session.commit()
-        self.assertEqual(consume_quota(self.uid,'url_analyzer',now=self.now),999998)
+        self.assertIsNone(consume_quota(self.uid,'url_analyzer',now=self.now))
+    def test_admin_has_no_daily_limit_even_when_existing_balance_is_zero(self):
+        from services.daily_quota import SERVICES
+        for privileges in [{'is_admin':True,'role':'user'},{'is_admin':False,'role':'admin'}]:
+            user=db.session.get(User,self.uid)
+            for key,value in privileges.items():setattr(user,key,value)
+            for service in SERVICES:setattr(user,service+'_remaining',0)
+            user.scans_reset_date=self.now;db.session.commit()
+            for service in SERVICES:
+                self.assertIsNone(consume_quota(self.uid,service,2000000,now=self.now))
+                self.assertIsNone(remaining_quota(self.uid,service,now=self.now))
+                self.assertEqual(self.balance(service),0)
+    def test_demoted_admin_is_limited_immediately_even_with_cached_user(self):
+        user=db.session.get(User,self.uid);user.is_admin=True;user.url_analyzer_remaining=0;db.session.commit()
+        self.assertIsNone(consume_quota(self.uid,'url_analyzer',now=self.now))
+        from sqlalchemy import update
+        with db.engine.begin() as conn:conn.execute(update(User).where(User.id==self.uid).values(is_admin=False,role='user'))
+        with self.assertRaises(DailyQuotaExceeded):consume_quota(self.uid,'url_analyzer',now=self.now)
     def test_database_failure_blocks_reservation(self):
         with patch.object(db.engine,'begin',side_effect=SQLAlchemyError('private-db-error')):
             with self.assertRaises(DailyQuotaUnavailable):consume_quota(self.uid,'url_analyzer',now=self.now)
@@ -138,7 +155,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
             r=self.client.post('/api/check-password',json={'password':'example'});self.assertEqual(r.status_code,503);self.assertNotIn('secret',r.json['error']);analyzer.assert_not_called()
     def test_dashboard_form_shares_url_allowance_with_batch(self):
         db.session.get(User,self.owner).url_analyzer_remaining=0;db.session.commit()
-        with patch.object(self.production.threading,'Thread') as thread:
+        with patch('services.url_scan_storage.enqueue_url_scan') as thread:
             r=self.client.post('/dashboard',data={'url':'https://example.invalid'});self.assertEqual(r.status_code,302);thread.assert_not_called()
     def test_report_reads_never_start_new_analysis_or_consume_quota(self):
         import json

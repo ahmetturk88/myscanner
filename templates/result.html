@@ -23,7 +23,7 @@
   .badge-harmless { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .badge-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   .badge-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .badge-pending,.badge-running { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
+  .badge-queued,.badge-pending,.badge-running { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
 
 
   .badge-partial { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); text-transform: none; letter-spacing: .2px; }
@@ -375,7 +375,7 @@ let historyChart = null;
 
 function updateBadge(status, verdict) {
   const badge = document.getElementById('status-badge');
-  badge.textContent = status === 'partial' ? 'Limited coverage' : status.toUpperCase();
+  badge.textContent = status === 'partial' ? 'Limited coverage' : status === 'queued' ? 'Queued' : status.toUpperCase();
   badge.className = 'badge badge-' + (status === 'partial' ? 'partial' : (verdict || status));
 }
 
@@ -403,26 +403,34 @@ function renderURLVet(urlvet) {
 
   const trustScore = ScanUI.score(urlvet.trust_score);
   const finalScore = ScanUI.score(urlvet.final_score ?? trustScore);
-  const verdict = urlvet.verdict || 'unknown';
-  const verdictRaw = urlvet.verdict_raw || verdict;
+  const evidence = urlvet.phishing || {};
+  const reportedEntry = evidence.in_database === true;
+  const verifiedEntry = reportedEntry && evidence.verified === true && evidence.valid === true;
+  const rejectedEntry = reportedEntry && evidence.verified === true && evidence.valid === false;
+  const conflict = reportedEntry && !verifiedEntry && !rejectedEntry;
+  const verdict = verifiedEntry ? 'malicious' : conflict && !['malicious', 'suspicious'].includes(urlvet.verdict) ? 'unknown' : urlvet.verdict || 'unknown';
+  const verdictRaw = verdict === 'harmless' ? 'No threat reported' : verdict;
+  const phishingLabel = verifiedEntry ? 'Verified phishing entry' : rejectedEntry ? 'Verified as not phishing' : conflict ? 'Reported entry — unverified' : evidence.in_database === false && evidence.verified === false ? 'No match reported' : 'Not assessed';
+  const phishingTone = verifiedEntry ? 'bad' : conflict ? 'warn' : '';
+  const evidenceWarning = urlvet.evidence_warning || (conflict ? 'The provider reported an unverified database entry. Safety cannot be confirmed.' : '');
 
   // لون الدائرة حسب الدرجة
   let trustColor = '#6a6a90';
   let verdictClass = 'error';
   let verdictIcon = '❓';
-  let verdictText = 'Unknown';
+  let verdictText = conflict ? 'Assessment needs review' : 'Assessment unavailable';
 
-  if (trustScore >= 80) {
+  if (verdict === 'harmless') {
     trustColor = '#00e676';
     verdictClass = 'safe';
     verdictIcon = '✅';
-    verdictText = 'Safe — Trusted';
-  } else if (trustScore >= 50) {
+    verdictText = 'No threat reported';
+  } else if (verdict === 'suspicious') {
     trustColor = '#ffd32a';
     verdictClass = 'suspicious';
     verdictIcon = '⚠️';
     verdictText = 'Suspicious — Proceed with caution';
-  } else if (trustScore > 0) {
+  } else if (verdict === 'malicious') {
     trustColor = '#ff4560';
     verdictClass = 'malicious';
     verdictIcon = '🚨';
@@ -528,7 +536,7 @@ function renderURLVet(urlvet) {
       <div class="tech-row"><span class="tech-label">Redirected</span><span class="tech-value ${esc(analysis.is_redirected ? 'warn' : 'good')}">${esc(analysis.is_redirected ? '⚠️ Yes (' + (analysis.chain_length || 0) + ')' : '✓ No')}</span></div>
       <div class="tech-row"><span class="tech-label">HTTP Status</span><span class="tech-value">${esc(analysis.http_status || 'N/A')}</span></div>
       <div class="tech-row"><span class="tech-label">HSTS</span><span class="tech-value ${esc(analysis.hsts_supported ? 'good' : 'warn')}">${esc(analysis.hsts_supported ? '✓ Yes' : '✗ No')}</span></div>
-      <div class="tech-row"><span class="tech-label">PhishTank</span><span class="tech-value ${esc(phishing.in_database ? 'bad' : 'good')}">${esc(phishing.in_database ? '⚠️ Listed' : '✓ Clean')}</span></div>
+      <div class="tech-row"><span class="tech-label">PhishTank</span><span class="tech-value ${esc(phishingTone)}">${esc(phishingLabel)}</span></div>
       <div class="tech-row"><span class="tech-label">Typosquatting</span><span class="tech-value ${esc(typosquatting.is_suspicious ? 'bad' : 'good')}">${esc(typosquatting.is_suspicious ? '⚠️ Detected' : '✓ Clean')}</span></div>
     </div>
   `;
@@ -547,7 +555,7 @@ function renderURLVet(urlvet) {
           <div class="trust-circle" style="--trust-score: ${esc(trustScore)}; --trust-color: ${esc(trustColor)};">
             <div class="trust-circle-inner">
               <div class="trust-score-value" style="color: ${esc(trustColor)};">${esc(trustScore)}</div>
-              <div class="trust-score-label">Trust Score</div>
+              <div class="trust-score-label">Provider Score</div>
             </div>
           </div>
           <div class="trust-verdict" style="color: ${esc(trustColor)}; border: 1px solid ${esc(trustColor)}40;">${esc(verdictRaw)}</div>
@@ -559,7 +567,7 @@ function renderURLVet(urlvet) {
             <div>
               <strong>${esc(verdictText)}</strong>
               <div style="font-size: 12px; opacity: 0.8;">
-                ${redFlags.length > 0 ? redFlags.length + ' red flag(s) detected' : 'No red flags detected'}
+                ${esc(evidenceWarning || (redFlags.length > 0 ? redFlags.length + ' red flag(s) reported' : 'No additional flags reported'))}
               </div>
             </div>
           </div>
@@ -588,13 +596,17 @@ function renderResult(scanData, analysisData) {
 
   // بناء القسم الرئيسي
   const isPartial = scanData.status === 'partial' || analysisData?.assessment_status === 'partial';
+  const evidenceNeedsReview = Boolean(urlvet.evidence_warning);
+  const coverageTitle = evidenceNeedsReview ? 'This assessment needs review' : 'This report has limited coverage';
+  const coverageMessage = analysisData?.assessment_warning || 'Available findings are shown below, but the overall safety of this URL could not be confirmed.';
+  const coverageHint = evidenceNeedsReview ? 'Review the reported evidence before relying on this assessment. A provider score alone does not confirm safety.' : 'Run a new scan when the source is available to obtain a complete assessment.';
   let mainHTML = isPartial ? `
     <aside class="coverage-notice" role="note" aria-labelledby="coverage-title">
       <span class="coverage-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
       <div class="coverage-copy">
-        <h2 id="coverage-title">This report has limited coverage</h2>
-        <p>url.vet was unavailable during this scan. Available findings are shown below, but the overall safety of this URL could not be confirmed.</p>
-        <p class="coverage-hint">Run a new scan when the service is available to obtain a complete assessment.</p>
+        <h2 id="coverage-title">${esc(coverageTitle)}</h2>
+        <p>${esc(coverageMessage)}</p>
+        <p class="coverage-hint">${esc(coverageHint)}</p>
       </div>
     </aside>` : '';
 
@@ -742,6 +754,25 @@ function loadResult() {
     fetch('/api/scan_result/' + scanId).then(r => r.json()),
     fetch('/api/url-analysis/' + scanId).then(r => r.json()).catch(() => null)
   ]).then(([scanData, analysisData]) => {
+    if (scanData.status === 'error') {
+      document.getElementById('loading-area').style.display = 'none';
+      const failureArea = document.getElementById('verdict-area');
+      failureArea.style.display = 'block';
+      const notice = document.createElement('aside');
+      notice.className = 'coverage-notice';
+      notice.setAttribute('role', 'alert');
+      const copy = document.createElement('div');
+      copy.className = 'coverage-copy';
+      const title = document.createElement('h2');
+      title.textContent = 'Analysis could not be completed';
+      const message = document.createElement('p');
+      message.textContent = ScanUI.text(scanData.raw_report?.error, 'URL analysis could not finish. Please start a new scan.');
+      copy.append(title, message);
+      notice.append(copy);
+      failureArea.replaceChildren(notice);
+      updateBadge('error', 'unknown');
+      return;
+    }
     if (analysisData && analysisData.error) {
       document.getElementById('loading-text').textContent = ScanUI.text(analysisData.error, 'Saved analysis is unavailable. Start a new URL scan.');
       updateBadge('error', 'error');
@@ -755,7 +786,7 @@ function loadResult() {
 function pollStatus() {
   fetch('/api/scan_status/' + scanId).then(r => r.json()).then(data => {
     updateBadge(data.status, data.verdict);
-    document.getElementById('loading-text').textContent = 'Analyzing... ' + data.status;
+    document.getElementById('loading-text').textContent = data.status === 'queued' ? 'Your scan is queued. Analysis will start when a worker is available.' : 'Analyzing your URL…';
     if (data.status === 'completed' || data.status === 'partial' || data.status === 'error') { loadResult(); return; }
     setTimeout(pollStatus, 1500);
   }).catch(() => { document.getElementById('loading-text').textContent = 'Connection error.'; });

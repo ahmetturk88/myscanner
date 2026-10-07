@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONUTF8=1
+WORKDIR /app
+COPY requirements.txt /tmp/requirements-source.txt
+# The repository lock file has a Windows UTF-16 BOM. Normalize only inside this image.
+RUN python -c "from pathlib import Path; p=Path('/tmp/requirements-source.txt'); b=p.read_bytes(); Path('/tmp/requirements.txt').write_text(b.decode('utf-16') if b.startswith((b'\\xff\\xfe', b'\\xfe\\xff')) else b.decode('utf-8-sig'), encoding='utf-8')" \
+    && pip install --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements-source.txt /tmp/requirements.txt \
+    && groupadd --gid 10001 myscanner \
+    && useradd --uid 10001 --gid 10001 --create-home myscanner
+COPY app.py extensions.py logging_config.py celery_app.py celery_config.py celery_worker.py tasks.py make_admin.py ./
+COPY models/ ./models/
+COPY constants/ ./constants/
+COPY services/ ./services/
+COPY routes/ ./routes/
+COPY migrations/ ./migrations/
+COPY templates/ ./templates/
+COPY static/ ./static/
+COPY scripts/local_runtime.py ./scripts/local_runtime.py
+RUN mkdir -p cache file_cache temp_uploads logs reports instance /state \
+    && chown -R 10001:10001 /app /state
+USER 10001:10001
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "1", "--no-control-socket", "--timeout", "120", "--worker-tmp-dir", "/tmp", "--access-logfile", "-"]

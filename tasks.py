@@ -10,6 +10,48 @@ from datetime import datetime
 import json
 from services.upload_validation import FILE_MAX_SIZE, remove_temporary_upload
 
+@celery.task(bind=True, name='scan_url_task', soft_time_limit=1200, time_limit=1260)
+def scan_url_task(self, url, user_id, scan_id, task_id):
+    from app import app
+    from services.url_scan_storage import claim_url_scan, save_url_scan, fail_url_scan
+    claimed = False
+    analyzer = None
+    try:
+        with app.app_context():
+            claimed = claim_url_scan(scan_id, user_id, url, task_id)
+        if not claimed:
+            return {'status': 'failed', 'error': 'URL scan is not eligible for processing.'}
+        from services.url_analyzer import URLDeepAnalyzer
+        analyzer = URLDeepAnalyzer()
+        local = analyzer.comprehensive_analysis(url)
+        deep = analyzer.comprehensive_deep_analysis(url)
+        with app.app_context():
+            return save_url_scan(scan_id, user_id, url, local, deep)
+    except Exception:
+        app.logger.error('URL scan failed; scan_id=%s', scan_id)
+        if claimed:
+            try:
+                with app.app_context():
+                    fail_url_scan(scan_id, user_id, url)
+            except Exception:
+                app.logger.error('URL failure could not be persisted; scan_id=%s', scan_id)
+        return {'status': 'failed', 'error': 'URL analysis could not finish. Please start a new scan.'}
+    finally:
+        if analyzer is not None:
+            try:
+                analyzer.session.close()
+            except Exception:
+                app.logger.warning('URL analyzer cleanup failed; scan_id=%s', scan_id)
+
+
+@celery.task(name='expire_url_scan_jobs')
+def expire_url_scan_jobs():
+    from app import app
+    from services.url_scan_storage import expire_url_scans
+    with app.app_context():
+        return {'expired': expire_url_scans()}
+
+
 @celery.task(bind=True, name='scan_site_task')
 def scan_site_task(self, domain, user_id, scan_id):
     """Persist the complete site report before returning a success state."""

@@ -64,7 +64,8 @@ def check_permission_manual(service_name):
     if not current_user.is_authenticated:
         return False, 'Authentication required', 0
     remaining = remaining_quota(current_user.id, service_name)
-    return remaining > 0, 'OK' if remaining > 0 else 'Daily scan limit reached.', remaining
+    allowed = remaining is None or remaining > 0
+    return allowed, 'OK' if allowed else 'Daily scan limit reached.', remaining
 
 
 def deduct_scan(service_name):
@@ -81,6 +82,6 @@ def get_user_limits():
     if not current_user.is_authenticated:
         return {}
     role = 'admin' if current_user.is_admin else current_user.role if current_user.role in DAILY_LIMITS else 'user'
-    limits = {name: DAILY_LIMITS[role][name] for name in SERVICES}
+    limits = {name: None if role == 'admin' else DAILY_LIMITS[role][name] for name in SERVICES}
     limits.update({name + '_remaining': get_remaining_scans(name) for name in SERVICES})
-    return {'role':role, 'limits':limits, 'is_premium':role == 'premium', 'is_admin':role == 'admin'}
+    return {'role':role, 'limits':limits, 'is_premium':role == 'premium', 'is_admin':role == 'admin', 'unlimited':role == 'admin'}

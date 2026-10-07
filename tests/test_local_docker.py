@@ -110,12 +110,15 @@ class ComposeConfigurationTests(unittest.TestCase):
     def test_application_security_and_resource_limits(self):
         for name in ['web','worker','beat','init-db']:
             service=self.config['services'][name];self.assertTrue(service['read_only']);self.assertIn('ALL',service['cap_drop'])
-            self.assertTrue(service['init']);self.assertGreater(service['mem_limit'],0);self.assertGreater(service['pids_limit'],0)
+            self.assertTrue(service['init'])
+            # Compose versions expose byte counts as either numbers or strings.
+            self.assertIn(str(service['mem_limit']).lower(), {'1073741824', '1g', '1024m'})
+            self.assertGreater(int(service['pids_limit']),0)
     def test_database_network_is_internal_and_worker_queues_are_explicit(self):
         self.assertTrue(self.config['networks']['data']['internal'])
         for name in ['postgres','redis']:self.assertEqual(set(self.config['services'][name]['networks']),{'data'})
         command=self.config['services']['worker']['command']
-        self.assertIn('celery_worker:celery',command);self.assertIn('scans,tip,celery',command);self.assertIn('prefork',command)
+        self.assertIn('celery_worker:celery',command);self.assertIn('scans,tip,celery',command);self.assertIn('--pool=prefork',command)
     def test_upload_volume_is_shared_between_web_and_worker(self):
         services=self.config['services']
         sources=[]

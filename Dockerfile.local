@@ -20,4 +20,4 @@ COPY scripts/local_runtime.py ./scripts/local_runtime.py
 RUN mkdir -p cache file_cache temp_uploads logs reports instance /state \
     && chown -R 10001:10001 /app /state
 USER 10001:10001
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "1", "--timeout", "120", "--worker-tmp-dir", "/tmp", "--access-logfile", "-"]
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "1", "--no-control-socket", "--timeout", "120", "--worker-tmp-dir", "/tmp", "--access-logfile", "-"]

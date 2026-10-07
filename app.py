@@ -49,7 +49,7 @@ from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
 from celery_app import celery, make_celery
 import uuid
-from tasks import scan_file_task, scan_site_task, batch_scan_task
+from tasks import scan_file_task, scan_site_task, batch_scan_task, scan_url_task
 from services.permissions import check_permission, reserve_request_quota
 from models.async_scan_task import AsyncScanTask
 from services.safe_http import PublicHTTPSession, UnsafeTargetError
@@ -323,76 +323,6 @@ info@myscanners.com
 # يستخدم: URLDeepAnalyzer + url.vet
 # ================================================================
 
-def scan_in_background(scan_id, url):
-    """
-    فحص URL في الخلفية باستخدام url.vet + التحليل المحلي
-    """
-    from services.url_analyzer import URLDeepAnalyzer
-    
-    with app.app_context():
-        s = db.session.get(Scan, scan_id)
-        if not s:
-            return
-        s.status = 'running'
-        db.session.commit()
-    
-    try:
-        # ─────────────────────────────────────────────────────────────
-        # التحليل الكامل (url.vet + المحلي)
-        # ─────────────────────────────────────────────────────────────
-        analyzer = URLDeepAnalyzer()
-        
-        # التحليل السريع
-        analysis = analyzer.comprehensive_analysis(url)
-        
-        # التحليل العميق
-        deep_analysis = analyzer.comprehensive_deep_analysis(url)
-        
-        # ─────────────────────────────────────────────────────────────
-        # استخراج الـ verdict
-        # ─────────────────────────────────────────────────────────────
-        urlvet = analysis.get('urlvet', {}) or {}
-        from services.url_scan_coverage import url_scan_outcome
-        status, verdict = url_scan_outcome(analysis, deep_analysis)
-        
-        # دمج النتائج في raw_report
-        raw_report = {
-            'urlvet': urlvet,
-            'local_analysis': analysis,
-            'deep_analysis': deep_analysis,
-            'scanned_at': datetime.utcnow().isoformat(),
-            'sources': ['url.vet', 'local_analysis']
-        }
-        
-        # ─────────────────────────────────────────────────────────────
-        # حفظ النتائج في قاعدة البيانات
-        # ─────────────────────────────────────────────────────────────
-        with app.app_context():
-            s = db.session.get(Scan, scan_id)
-            if not s:
-                return
-            
-            s.status = status
-            s.verdict = verdict
-            s.result = f"<p>Verdict: {verdict}</p>"
-            s.raw_report = json.dumps(raw_report)
-            db.session.commit()
-            
-            app.logger.info(f'✅ Background scan completed for {url} | Verdict: {verdict}')
-            
-    except Exception as e:
-        app.logger.error(f'❌ Background scan failed for {url}: {e}')
-        import traceback
-        traceback.print_exc()
-        
-        with app.app_context():
-            s = db.session.get(Scan, scan_id)
-            if s:
-                s.status = 'error'
-                s.verdict = 'error'
-                s.result = f"<p>❌ {str(e)}</p>"
-                s.raw_report = json.dumps({'error': str(e)})
-                db.session.commit()
 
 
 from routes.tip_routes import tip_bp
@@ -674,11 +604,18 @@ def dashboard():
         
         from services.safe_http import normalize_url
         try:
-            if len(url) > 2048:
+            if len(url) > 500:
                 raise ValueError('URL too long')
             normalize_url(url)
         except (ValueError, UnsafeTargetError):
             flash('Please provide a valid HTTP or HTTPS URL.', 'warning')
+            return redirect(url_for('dashboard'))
+
+        from celery_app import require_broker
+        try:
+            require_broker(celery)
+        except RuntimeError:
+            flash('URL analysis is temporarily unavailable. Please try again later.', 'warning')
             return redirect(url_for('dashboard'))
 
         failure = reserve_request_quota('url_analyzer')
@@ -689,14 +626,15 @@ def dashboard():
                 return redirect(url_for('dashboard'))
             return failure
 
-        new_scan = Scan(url=url, verdict='pending', result='Pending...', user_id=current_user.id)
-        db.session.add(new_scan)
-        
-        db.session.commit()
-        
-        t = threading.Thread(target=scan_in_background, args=(new_scan.id, url), daemon=True)
-        t.start()
-        return redirect(url_for('result_page', scan_id=new_scan.id))
+        from services.url_scan_storage import enqueue_url_scan
+        try:
+            scan_id = enqueue_url_scan(scan_url_task, url, current_user.id)
+        except Exception:
+            db.session.rollback()
+            app.logger.error('URL scan could not be queued')
+            flash('URL analysis is temporarily unavailable. Please try again later.', 'warning')
+            return redirect(url_for('dashboard'))
+        return redirect(url_for('result_page', scan_id=scan_id))
 
     return render_template('index.html')
 

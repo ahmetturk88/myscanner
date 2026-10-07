@@ -17,7 +17,7 @@ def production_mode(env):
 if not production_mode(os.environ):
     load_dotenv()
 
-SCAN_TASKS = ('scan_site_task', 'scan_file_task', 'batch_scan_task', 'scan_large_file_task')
+SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'scan_site_task', 'scan_file_task', 'batch_scan_task', 'scan_large_file_task')
 TIP_TASKS = ('fetch_ioc_source_task', 'fetch_all_ioc_sources', 'cleanup_expired_iocs',
              'misp_pull_task', 'misp_push_task', 'initialize_tip_sources')
 
@@ -72,6 +72,7 @@ def celery_settings(environ=None):
         'task_routes': {**{name: {'queue': 'scans'} for name in SCAN_TASKS},
                         **{name: {'queue': 'tip'} for name in TIP_TASKS}},
         'beat_schedule': {
+            'expire-url-scan-jobs': {'task': 'expire_url_scan_jobs', 'schedule': 60, 'options': {'queue': 'scans'}},
             'fetch-ioc-sources-hourly': {'task': 'fetch_all_ioc_sources', 'schedule': 3600, 'options': {'queue': 'tip'}},
             'cleanup-expired-iocs-daily': {'task': 'cleanup_expired_iocs', 'schedule': 86400, 'options': {'queue': 'tip'}},
             'misp-pull-daily': {'task': 'misp_pull_task', 'schedule': 86400, 'kwargs': {'days_back': 7}, 'options': {'queue': 'tip'}},

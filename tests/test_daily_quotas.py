@@ -138,7 +138,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
             r=self.client.post('/api/check-password',json={'password':'example'});self.assertEqual(r.status_code,503);self.assertNotIn('secret',r.json['error']);analyzer.assert_not_called()
     def test_dashboard_form_shares_url_allowance_with_batch(self):
         db.session.get(User,self.owner).url_analyzer_remaining=0;db.session.commit()
-        with patch.object(self.production.threading,'Thread') as thread:
+        with patch('services.url_scan_storage.enqueue_url_scan') as thread:
             r=self.client.post('/dashboard',data={'url':'https://example.invalid'});self.assertEqual(r.status_code,302);thread.assert_not_called()
     def test_report_reads_never_start_new_analysis_or_consume_quota(self):
         import json

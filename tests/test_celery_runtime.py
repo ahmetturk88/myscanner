@@ -44,8 +44,11 @@ class CeleryConfigurationTests(unittest.TestCase):
         for name in SCAN_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'scans')
         for name in TIP_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'tip')
     def test_schedule_uses_registered_tip_routes_and_has_no_quota_reset(self):
-        c=celery_settings({});self.assertEqual(len(c['beat_schedule']),3)
-        for entry in c['beat_schedule'].values():self.assertIn(entry['task'],TIP_TASKS);self.assertEqual(entry['options']['queue'],'tip')
+        c=celery_settings({});self.assertEqual(len(c['beat_schedule']),4)
+        for name,entry in c['beat_schedule'].items():
+            if name == 'expire-url-scan-jobs':
+                self.assertEqual(entry['task'],'expire_url_scan_jobs');self.assertEqual(entry['options']['queue'],'scans');self.assertEqual(entry['schedule'],60)
+            else:self.assertIn(entry['task'],TIP_TASKS);self.assertEqual(entry['options']['queue'],'tip')
         self.assertEqual(c['beat_schedule']['fetch-ioc-sources-hourly']['schedule'],3600)
         self.assertEqual(c['beat_schedule']['misp-pull-daily']['kwargs'],{'days_back':7})
     def test_serialization_limits_and_ack_policy_are_explicit(self):
@@ -75,7 +78,7 @@ class CeleryProcessTests(unittest.TestCase):
         code="""from celery_app import celery
 import tasks
 from kombu import Connection
-for task,queue,args in [(tasks.scan_site_task,'scans',('example.invalid',1,9)),(tasks.fetch_ioc_source_task,'tip',(7,))]:
+for task,queue,args in [(tasks.scan_url_task,'scans',('https://example.invalid',1,9,'owned-job')),(tasks.scan_site_task,'scans',('example.invalid',1,9)),(tasks.fetch_ioc_source_task,'tip',(7,))]:
     result=task.apply_async(args=args)
     with celery.connection_for_read() as connection:
         q=connection.SimpleQueue(queue)

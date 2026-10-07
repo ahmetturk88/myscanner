@@ -23,7 +23,7 @@
   .badge-harmless { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
   .badge-malicious { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
   .badge-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .badge-pending,.badge-running { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
+  .badge-queued,.badge-pending,.badge-running { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,200,255,.3); }
 
 
   .badge-partial { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); text-transform: none; letter-spacing: .2px; }
@@ -375,7 +375,7 @@ let historyChart = null;
 
 function updateBadge(status, verdict) {
   const badge = document.getElementById('status-badge');
-  badge.textContent = status === 'partial' ? 'Limited coverage' : status.toUpperCase();
+  badge.textContent = status === 'partial' ? 'Limited coverage' : status === 'queued' ? 'Queued' : status.toUpperCase();
   badge.className = 'badge badge-' + (status === 'partial' ? 'partial' : (verdict || status));
 }
 
@@ -742,6 +742,25 @@ function loadResult() {
     fetch('/api/scan_result/' + scanId).then(r => r.json()),
     fetch('/api/url-analysis/' + scanId).then(r => r.json()).catch(() => null)
   ]).then(([scanData, analysisData]) => {
+    if (scanData.status === 'error') {
+      document.getElementById('loading-area').style.display = 'none';
+      const failureArea = document.getElementById('verdict-area');
+      failureArea.style.display = 'block';
+      const notice = document.createElement('aside');
+      notice.className = 'coverage-notice';
+      notice.setAttribute('role', 'alert');
+      const copy = document.createElement('div');
+      copy.className = 'coverage-copy';
+      const title = document.createElement('h2');
+      title.textContent = 'Analysis could not be completed';
+      const message = document.createElement('p');
+      message.textContent = ScanUI.text(scanData.raw_report?.error, 'URL analysis could not finish. Please start a new scan.');
+      copy.append(title, message);
+      notice.append(copy);
+      failureArea.replaceChildren(notice);
+      updateBadge('error', 'unknown');
+      return;
+    }
     if (analysisData && analysisData.error) {
       document.getElementById('loading-text').textContent = ScanUI.text(analysisData.error, 'Saved analysis is unavailable. Start a new URL scan.');
       updateBadge('error', 'error');
@@ -755,7 +774,7 @@ function loadResult() {
 function pollStatus() {
   fetch('/api/scan_status/' + scanId).then(r => r.json()).then(data => {
     updateBadge(data.status, data.verdict);
-    document.getElementById('loading-text').textContent = 'Analyzing... ' + data.status;
+    document.getElementById('loading-text').textContent = data.status === 'queued' ? 'Your scan is queued. Analysis will start when a worker is available.' : 'Analyzing your URL…';
     if (data.status === 'completed' || data.status === 'partial' || data.status === 'error') { loadResult(); return; }
     setTimeout(pollStatus, 1500);
   }).catch(() => { document.getElementById('loading-text').textContent = 'Connection error.'; });

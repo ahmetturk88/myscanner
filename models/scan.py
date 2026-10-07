@@ -7,7 +7,7 @@ class Scan(db.Model):
     
     id          = db.Column(db.Integer, primary_key=True)
     url         = db.Column(db.String(500), nullable=False)
-    result      = db.Column(db.String(1000))
+    result      = db.Column(db.Text)
     raw_report  = db.Column(db.Text)
     verdict     = db.Column(db.String(50))
     status      = db.Column(db.String(20), default='pending')

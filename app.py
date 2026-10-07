@@ -976,12 +976,21 @@ def task_status(task_id):
             'progress': task.info.get('progress', 0)
         }
     elif task.state == 'SUCCESS':
-        response = {
-            'state': 'SUCCESS',
-            'status': 'Task completed successfully',
-            'result': task.result,
-            'progress': 100
-        }
+        result = task.result
+        outcome = result.get('status') if isinstance(result, dict) else None
+        if isinstance(outcome, str) and outcome in {'failed', 'error'}:
+            response = {'state': 'FAILURE', 'outcome': 'failed',
+                        'status': 'Task did not complete successfully',
+                        'error': 'Analysis failed. Please retry.', 'progress': 0}
+        else:
+            messages = {'partial': 'Analysis finished with incomplete coverage',
+                        'unavailable': 'Analysis unavailable'}
+            response = {
+                'state': 'SUCCESS',
+                'outcome': outcome if isinstance(outcome, str) and outcome in messages else 'completed',
+                'status': messages.get(outcome, 'Task completed successfully') if isinstance(outcome, str) else 'Task completed successfully',
+                'result': result, 'progress': 100
+            }
     elif task.state == 'FAILURE':
         response = {
             'state': 'FAILURE',

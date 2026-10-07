@@ -5,27 +5,10 @@ import os
 # أضف مسار المشروع إلى sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from celery import Celery
+from celery_app import celery
 from datetime import datetime
 import json
 from services.upload_validation import FILE_MAX_SIZE, remove_temporary_upload
-
-# إعداد Celery
-celery = Celery(
-    'myscanner',
-    broker='redis://localhost:6379/0',
-    backend='redis://localhost:6379/0'
-)
-
-celery.conf.update(
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='UTC',
-    enable_utc=True,
-    task_track_started=True,
-)
-
 
 @celery.task(bind=True, name='scan_site_task')
 def scan_site_task(self, domain, user_id, scan_id):
@@ -274,24 +257,3 @@ def initialize_tip_sources(self):
 
     except Exception as e:
         return {'status': 'failed', 'error': str(e)}
-
-
-# ================================================================
-# Celery Beat Schedule — أضف هذا لملف celery_config.py أو app.py
-# ================================================================
-#
-# celery.conf.beat_schedule = {
-#     'fetch-ioc-sources-hourly': {
-#         'task':     'fetch_all_ioc_sources',
-#         'schedule': 3600,    # كل ساعة
-#     },
-#     'cleanup-expired-iocs-daily': {
-#         'task':     'cleanup_expired_iocs',
-#         'schedule': 86400,   # يومياً
-#     },
-#     'misp-pull-daily': {
-#         'task':     'misp_pull_task',
-#         'schedule': 86400,   # يومياً
-#         'kwargs':   {'days_back': 7},
-#     },
-# }

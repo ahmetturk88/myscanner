@@ -1529,31 +1529,32 @@ def password_check():
 
 @app.route('/api/check-password', methods=['POST'])
 @login_required
-@check_permission('password_check')
 def api_check_password():
-    data = request.get_json()
-    password = data.get('password', '')
-    
-    if not password:
-        return jsonify({"error": "No password provided"}), 400
-    
-    show_password = data.get('show_password', False)
-    
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('password'), str) or not data['password'].strip() or len(data['password']) > 1024:
+        return jsonify(error='Provide a password of 1-1024 characters'), 400
+    password = data['password']
+    check_breaches = data.get('check_breaches', False)
+    if not isinstance(check_breaches, bool):
+        return jsonify(error='check_breaches must be true or false'), 400
+    failure = reserve_request_quota('password_check')
+    if failure is not None:
+        return failure
+    analyzer = None
     try:
         analyzer = PasswordAnalyzer()
-        result = analyzer.comprehensive_analysis(password)
-        
+        result = analyzer.comprehensive_analysis(password, check_breaches=check_breaches)
         if "error" in result:
             return jsonify({"error": result["error"]}), 400
-        
         result.pop('password', None)
-        log_activity(current_user.username, 'password_check', f'Checked password strength')
+        log_activity(current_user.username, 'password_check', 'Checked password strength')
         return jsonify(result)
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Analysis error: {str(e)}"}), 500  # ← داخل الـ except
+    except Exception:
+        app.logger.error('Password analysis unavailable')
+        return jsonify(error='Password analysis is temporarily unavailable. Please retry later.'), 503
+    finally:
+        if analyzer is not None:
+            analyzer.close()
 
 # ================================================================
 # Subdomain Finder

@@ -2,7 +2,7 @@
 import re
 import hashlib
 import requests
-from datetime import datetime
+from time import monotonic
 from typing import Dict, Any, List
 import math
 import logging
@@ -106,7 +106,7 @@ class PasswordAnalyzer:
         # كلمة مرور شائعة
         if password.lower() in self.COMMON_PASSWORDS:
             issues.append(f"Common password - easily guessable")
-            logger.warning(f"Common password detected: {password[:3]}***")
+            logger.warning("Common password pattern detected")
 
         score = max(0, 100 - (len(issues) * 15) - (len(minor_issues) * 5))
 
@@ -150,30 +150,61 @@ class PasswordAnalyzer:
         
         return {"entropy_bits": round(entropy, 2), "crack_time": crack_time, "score": score}
     
+    @staticmethod
+    def breach_result(status, count=None):
+        messages = {
+            'found': 'This password appears in the Pwned Passwords dataset. Replace it.',
+            'not_found': 'No match in the checked dataset. This does not prove the password is safe.',
+            'unavailable': 'Breach lookup could not be completed. Exposure remains unknown.',
+            'skipped': 'Breach lookup was not requested. Exposure remains unknown.',
+        }
+        return {'status': status, 'is_pwned': True if status == 'found' else False if status == 'not_found' else None,
+                'count': count, 'source': 'Have I Been Pwned — Pwned Passwords', 'message': messages[status]}
+
     def check_pwned(self, password: str) -> Dict[str, Any]:
-        logger.debug("Checking if password has been pwned")
+        """Send only a five-character hash prefix; never turn failure into a negative match."""
+        response = None
         try:
-            sha1_hash = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
-            prefix, suffix = sha1_hash[:5], sha1_hash[5:]
-            
+            digest = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+            prefix, suffix = digest[:5], digest[5:]
+            deadline = monotonic() + 12
             response = self.session.get(
-                f"https://api.pwnedpasswords.com/range/{prefix}", timeout=10
+                f'https://api.pwnedpasswords.com/range/{prefix}',
+                headers={'Add-Padding': 'true'}, timeout=(3, 5),
+                allow_redirects=False, stream=True,
             )
-            
-            if response.status_code == 200:
-                for line in response.text.splitlines():
-                    if line.split(':')[0] == suffix:
-                        count = int(line.split(':')[1])
-                        logger.warning(f"Password found in pwned database! Count: {count}")
-                        return {"is_pwned": True, "count": count,
-                                "message": f"Found in {count} data breaches!"}
-            
-            return {"is_pwned": False, "count": 0, "message": "Not found in known breaches"}
-            
-        except Exception as e:
-            logger.error(f"Error checking pwned password: {str(e)}")
-            return {"is_pwned": False, "count": 0, "message": "Could not check breaches (API error)"}
-    
+            if response.status_code != 200:
+                return self.breach_result('unavailable')
+            body = bytearray()
+            for chunk in response.iter_content(chunk_size=8192):
+                if monotonic() > deadline or len(body) + len(chunk) > 262144:
+                    return self.breach_result('unavailable')
+                body.extend(chunk)
+            lines = body.decode('ascii').splitlines()
+            if not lines or len(lines) > 5000:
+                return self.breach_result('unavailable')
+            records = {}
+            for line in lines:
+                if not re.fullmatch(r'[0-9A-F]{35}:[0-9]{1,12}', line):
+                    return self.breach_result('unavailable')
+                record_suffix, raw_count = line.split(':')
+                if record_suffix in records:
+                    return self.breach_result('unavailable')
+                records[record_suffix] = int(raw_count)
+            # Padding records have count zero and are not evidence of exposure.
+            count = records.get(suffix, 0)
+            return self.breach_result('found', count) if count > 0 else self.breach_result('not_found', 0)
+        except Exception:
+            # Request errors can contain URLs/hash prefixes; keep them out of logs/results.
+            logger.warning('Password breach lookup unavailable')
+            return self.breach_result('unavailable')
+        finally:
+            if response is not None:
+                response.close()
+
+    def close(self):
+        self.session.close()
+
     def calculate_final_score(self, results: Dict[str, Any]) -> Dict[str, Any]:
         logger.debug("Calculating final score")
 
@@ -241,12 +272,15 @@ class PasswordAnalyzer:
         if results.get('pwned', {}).get('is_pwned', False):
             recommendations.append("⚠️ This password has been exposed in data breaches! Change it immediately.")
         
+        if results.get('pwned', {}).get('status') in {'unavailable', 'skipped'}:
+            recommendations.append("Breach exposure is unknown; local strength is not proof of safety.")
+
         if not recommendations:
             recommendations.append("✅ Your password is strong! Consider using a password manager.")
         
         return recommendations[:6]
     
-    def comprehensive_analysis(self, password: str) -> Dict[str, Any]:
+    def comprehensive_analysis(self, password: str, check_breaches: bool = False) -> Dict[str, Any]:
         logger.info(f"🔍 Starting comprehensive password analysis (length: {len(password)})")
         
         if not password:
@@ -259,11 +293,14 @@ class PasswordAnalyzer:
             "variety":  self.check_character_variety(password),
             "patterns": self.check_common_patterns(password),
             "entropy":  self.check_entropy(password),
-            "pwned":    self.check_pwned(password)
+            "pwned":    self.check_pwned(password) if check_breaches is True else self.breach_result('skipped')
         }
         
         final = self.calculate_final_score(results)
         results['final'] = final
+        results['coverage'] = {'local_strength': 'completed', 'breach_lookup': results['pwned']['status']}
+        results['status'] = 'partial' if results['pwned']['status'] == 'unavailable' else 'completed'
+        final['scope'] = 'Strength estimate with confirmed exposure penalty; not a safety verdict'
         results['recommendations'] = self.generate_recommendations(results)
         results['examples'] = [
             "C0mpl3x!P@ssw0rd2024",

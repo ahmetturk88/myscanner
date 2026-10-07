@@ -1,0 +1,13 @@
+# Durable site reports and expanded result text
+
+Addresses part of audit items 11 and 15. The site worker previously assigned `security_score` and `completed_at` as unmapped Python attributes, then serialized a potentially large report into `Scan.result` (VARCHAR(1000)). SQLite did not enforce that length, hiding a PostgreSQL failure.
+
+`Scan.result` is now Text. Migration `d4e52098ab61` widens existing result storage without discarding reports, tolerates a table already created with Text, and deliberately retains Text on downgrade to avoid truncation. It requires an existing scan table; it does not repair the original empty baseline migration. Apply migrations through the deployment's migration step (`flask --app app db upgrade`) against the intended database, after backup and staging validation. Startup `create_all` does not widen existing PostgreSQL columns. No new columns are required for this worker change.
+
+The site worker saves the complete analysis, normalized status/verdict/score and UTC completion timestamp in the existing Text `raw_report` column. `result` holds a short plain-text summary. The saved API response and subsequent DB reads therefore preserve the report and its metadata rather than relying on transient attributes. The existing `/api/scan_result/<id>` exposes raw_report with its owner/admin check.
+
+A conditional owner/target/state transition claims the queued row before analysis. A duplicate delivery, wrong owner/target or terminal scan does not start analysis. Completion only updates the exact running row; failure updates eligible rows with a generic error, without overwriting a cancelled/completed scan. Errors returned by the analyzer or persistence are not presented as successful completion. Partial/unavailable status is preserved when supplied by the analyzer, but this does not prove provider coverage for every SiteAnalyzer check.
+
+Remaining: PostgreSQL migration and large-report integration validation, full baseline migrations, long URL contract, a unified Celery factory, crash recovery for workers left running, cancellation/resource isolation and consistent contracts for other scan types. Database storage failure can prevent saving an error; the task still returns failed rather than completed. Tests use SQLite and mocked analyzers, not a live broker.
+
+The task-status API distinguishes successful Celery delivery from a successful analysis: a returned failed/error body maps to FAILURE with a generic error, while partial/unavailable reports retain explicit outcomes. Twenty-five new tests cover storage, claims, worker failures, API outcomes and migration behavior.

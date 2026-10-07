@@ -4,7 +4,7 @@ import math
 PARTIAL_WARNING = 'Scan incomplete: url.vet did not provide a complete assessment. Local checks alone cannot confirm that this URL is safe.'
 
 
-EVIDENCE_WARNING = 'Conflicting provider evidence: a phishing database entry was reported without a verified phishing finding. Safety cannot be confirmed.'
+EVIDENCE_WARNING = 'Unverified phishing database submission: a database entry alone does not establish phishing. Overall safety has not been confirmed.'
 
 
 def apply_phishing_evidence(provider):
@@ -15,13 +15,15 @@ def apply_phishing_evidence(provider):
     if not isinstance(phishing, dict):
         provider['phishing_status'] = 'unavailable'
         return provider
-    listed, verified = phishing.get('in_database'), phishing.get('verified')
-    if listed is True and verified is True:
+    listed, verified, valid = phishing.get('in_database'), phishing.get('verified'), phishing.get('valid')
+    if listed is True and verified is True and valid is True:
         provider['phishing_status'] = 'verified'
         provider.setdefault('verdict_reported', provider.get('verdict'))
         provider['verdict'] = 'malicious'
         provider['evidence_warning'] = 'The provider reports a verified phishing entry. A high provider score does not override this finding.'
-    elif listed is True or verified is True or (listed is not None and type(listed) is not bool) or (verified is not None and type(verified) is not bool):
+    elif listed is True and verified is True and valid is False:
+        provider['phishing_status'] = 'not_phishing'
+    elif listed is True or verified is True or (listed is not None and type(listed) is not bool) or (verified is not None and type(verified) is not bool) or (valid is not None and type(valid) is not bool):
         provider['phishing_status'] = 'unverified' if listed is True and verified is False else 'unknown'
         provider.setdefault('verdict_reported', provider.get('verdict'))
         if provider.get('verdict') not in ('malicious', 'suspicious'):

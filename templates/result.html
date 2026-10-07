@@ -405,11 +405,12 @@ function renderURLVet(urlvet) {
   const finalScore = ScanUI.score(urlvet.final_score ?? trustScore);
   const evidence = urlvet.phishing || {};
   const reportedEntry = evidence.in_database === true;
-  const verifiedEntry = reportedEntry && evidence.verified === true;
-  const conflict = reportedEntry && !verifiedEntry;
+  const verifiedEntry = reportedEntry && evidence.verified === true && evidence.valid === true;
+  const rejectedEntry = reportedEntry && evidence.verified === true && evidence.valid === false;
+  const conflict = reportedEntry && !verifiedEntry && !rejectedEntry;
   const verdict = verifiedEntry ? 'malicious' : conflict && !['malicious', 'suspicious'].includes(urlvet.verdict) ? 'unknown' : urlvet.verdict || 'unknown';
   const verdictRaw = verdict === 'harmless' ? 'No threat reported' : verdict;
-  const phishingLabel = verifiedEntry ? 'Verified phishing entry' : conflict ? 'Reported entry — unverified' : evidence.in_database === false && evidence.verified === false ? 'No match reported' : 'Not assessed';
+  const phishingLabel = verifiedEntry ? 'Verified phishing entry' : rejectedEntry ? 'Verified as not phishing' : conflict ? 'Reported entry — unverified' : evidence.in_database === false && evidence.verified === false ? 'No match reported' : 'Not assessed';
   const phishingTone = verifiedEntry ? 'bad' : conflict ? 'warn' : '';
   const evidenceWarning = urlvet.evidence_warning || (conflict ? 'The provider reported an unverified database entry. Safety cannot be confirmed.' : '');
 

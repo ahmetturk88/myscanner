@@ -7,7 +7,7 @@ from services.urlvet_client import URLVetClient
 
 def provider(listed=True, verified=False, verdict='harmless'):
     return {'verdict': verdict, 'trust_score': 100, 'final_score': 98,
-            'phishing': {'in_database': listed, 'verified': verified}}
+            'phishing': {'in_database': listed, 'verified': verified, 'valid': verified}}
 
 
 class EvidenceTests(unittest.TestCase):
@@ -33,17 +33,24 @@ class EvidenceTests(unittest.TestCase):
         apply_url_coverage(result);first=copy.deepcopy(result);apply_url_coverage(result)
         self.assertEqual(result,first);self.assertEqual(result['verdict'],'unknown')
         self.assertEqual(result['assessment_status'],'partial')
-        self.assertIn('Conflicting',result['assessment_warning'])
+        self.assertIn('Unverified',result['assessment_warning'])
     def test_queue_outcome_preserves_verified_deep_threat_with_missing_local_provider(self):
         self.assertEqual(url_scan_outcome({'verdict':'safe','urlvet':{}},{'verdict':'safe','urlvet':provider(verified=True)}),('partial','malicious'))
     def test_queue_outcome_never_saves_conflict_as_harmless(self):
         r={'verdict':'safe','urlvet':provider()}
         self.assertEqual(url_scan_outcome(r,copy.deepcopy(r)),('partial','unknown'))
+    def test_verified_non_phishing_is_not_a_malicious_finding(self):
+        p=provider(verified=True);p['phishing']['valid']=False
+        self.assertEqual(apply_phishing_evidence(p)['phishing_status'],'not_phishing')
+        self.assertEqual(p['verdict'],'harmless')
+    def test_missing_valid_cannot_confirm_phishing(self):
+        p=provider(verified=True);p['phishing'].pop('valid')
+        self.assertEqual(apply_phishing_evidence(p)['verdict'],'unknown')
     def test_real_provider_parser_preserves_missing_evidence_and_normalizes_conflict(self):
         client=URLVetClient()
         try:
-            p=client._parse_response('https://example.invalid',{'result':{'verdict':'Safe','trust_score':100},'phishing':{'in_database':True,'verified':False}})
-            self.assertEqual(p['verdict'],'unknown')
+            p=client._parse_response('https://example.invalid',{'result':{'verdict':'Safe','trust_score':100},'phishing':{'in_database':True,'verified':False,'valid':False}})
+            self.assertEqual(p['verdict'],'unknown');self.assertIs(p['phishing']['valid'],False)
             empty=client._parse_response('https://example.invalid',{'result':{'verdict':'Safe','trust_score':100}})
             self.assertIsNone(empty['phishing']['in_database']);self.assertEqual(empty['phishing_status'],'unavailable')
         finally:client.session.close()

@@ -195,6 +195,8 @@ class URLVetClient:
             'phishing': {
                 'in_database': phishing.get('in_database'),
                 'verified': phishing.get('verified'),
+                'valid': phishing.get('valid'),
+                'phish_id': phishing.get('phish_id'),
                 'target': phishing.get('target', ''),
                 'source': phishing.get('source', 'phishtank')
             },

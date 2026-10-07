@@ -90,7 +90,7 @@ const conflicting = url.ctx.renderURLVet({trust_score:100, verdict:'harmless', p
 assert(conflicting.includes('Assessment needs review'));
 assert(conflicting.includes('Reported entry — unverified'));
 assert(!conflicting.includes('Safe — Trusted'));
-const verified = url.ctx.renderURLVet({trust_score:100, verdict:'harmless', phishing:{in_database:true,verified:true}});
+const verified = url.ctx.renderURLVet({trust_score:100, verdict:'harmless', phishing:{in_database:true,verified:true,valid:true}});
 assert(verified.includes('Risky — Likely unsafe'));
 assert(verified.includes('Verified phishing entry'));
 const missing = url.ctx.renderURLVet({trust_score:100, verdict:'unknown'});

@@ -50,5 +50,12 @@ const password=setup('password_check.html');
 password.ctx.renderResult({final:{color:'constructor',icon:payload,strength:payload,score:payload},password_length:payload,length:{status:payload},variety:{},entropy:{entropy_bits:payload,crack_time:payload},pwned:{is_pwned:true,count:payload},patterns:{has_issues:true,issues:[payload]},recommendations:[payload]});
 assert(password.elements['result-card'].innerHTML.includes('width:0%'));assert(!password.elements['result-card'].innerHTML.includes('background: function'));collect(password,'password');
 password.ctx.renderResult({final:{score:200},patterns:{has_issues:true,issues:{}},recommendations:{}});assert(password.elements['result-card'].innerHTML.includes('width:100%'));
+for(const [data,label] of [[{},'Lookup unavailable'],[{status:'unavailable',is_pwned:null},'Lookup unavailable'],[{status:'skipped',is_pwned:null},'Not checked'],[{status:'not_found',is_pwned:false},'No dataset match'],[{status:'found',is_pwned:true,count:42},'Exposure detected']]) {
+ password.ctx.renderResult({pwned:data});const html=password.elements['result-card'].innerHTML;assert(html.includes(label));assert(!html.includes('Clean'));
+ assert.equal(password.ctx.breachPresentation(data).label,label);
+}
+let copied='';password.ctx.navigator.clipboard.writeText=value=>{copied=value;return Promise.resolve();};
+vm.runInContext('lastResult = {final:{},variety:{},entropy:{},pwned:{status:"unavailable",is_pwned:null}}',password.ctx);
+password.ctx.copyReport();assert(copied.includes('Lookup unavailable'));assert(copied.includes('unknown'));assert(!copied.includes('Clean'));
 password.ctx.renderResult({});
 console.log(JSON.stringify({payload,sections}));

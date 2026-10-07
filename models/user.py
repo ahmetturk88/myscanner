@@ -47,7 +47,8 @@ class User(db.Model, UserMixin):
     def can_scan(self):
         # Compatibility check only: dispatch must still reserve atomically.
         from services.daily_quota import remaining_quota
-        allowed = remaining_quota(self.id, 'url_analyzer') > 0
+        remaining = remaining_quota(self.id, 'url_analyzer')
+        allowed = remaining is None or remaining > 0
         return allowed, 'OK' if allowed else 'Daily scan limit reached!'
 
     def increment_scan_count(self):

@@ -595,13 +595,17 @@ function renderResult(scanData, analysisData) {
 
   // بناء القسم الرئيسي
   const isPartial = scanData.status === 'partial' || analysisData?.assessment_status === 'partial';
+  const evidenceNeedsReview = Boolean(urlvet.evidence_warning);
+  const coverageTitle = evidenceNeedsReview ? 'This assessment needs review' : 'This report has limited coverage';
+  const coverageMessage = analysisData?.assessment_warning || 'Available findings are shown below, but the overall safety of this URL could not be confirmed.';
+  const coverageHint = evidenceNeedsReview ? 'Review the reported evidence before relying on this assessment. A provider score alone does not confirm safety.' : 'Run a new scan when the source is available to obtain a complete assessment.';
   let mainHTML = isPartial ? `
     <aside class="coverage-notice" role="note" aria-labelledby="coverage-title">
       <span class="coverage-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
       <div class="coverage-copy">
-        <h2 id="coverage-title">This report has limited coverage</h2>
-        <p>url.vet was unavailable during this scan. Available findings are shown below, but the overall safety of this URL could not be confirmed.</p>
-        <p class="coverage-hint">Run a new scan when the service is available to obtain a complete assessment.</p>
+        <h2 id="coverage-title">${esc(coverageTitle)}</h2>
+        <p>${esc(coverageMessage)}</p>
+        <p class="coverage-hint">${esc(coverageHint)}</p>
       </div>
     </aside>` : '';
 

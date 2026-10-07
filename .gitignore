@@ -9,3 +9,6 @@ logs/
 # Generated scanner caches stay local.
 /cache/
 /file_cache/
+
+# Generated isolated Docker test credentials.
+/.env.docker.local

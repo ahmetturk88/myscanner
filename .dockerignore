@@ -1,0 +1,35 @@
+# Allow only application source into the build context.
+**
+!Dockerfile
+!Dockerfile.local
+!requirements.txt
+!app.py
+!extensions.py
+!logging_config.py
+!celery_app.py
+!celery_config.py
+!celery_worker.py
+!tasks.py
+!make_admin.py
+!models/
+!models/**
+!constants/
+!constants/**
+!services/
+!services/**
+!routes/
+!routes/**
+!migrations/
+!migrations/**
+!templates/
+!templates/**
+!static/
+!static/**
+!scripts/
+!scripts/local_runtime.py
+# Override directory allowances for generated or sensitive files.
+**/__pycache__/**
+**/*.pyc
+**/.env*
+**/*.db
+**/*.log

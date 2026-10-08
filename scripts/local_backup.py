@@ -17,6 +17,9 @@ def invoke(arguments, input_text=None):
     result = subprocess.run(COMPOSE + arguments, input=input_text, capture_output=True,
                             text=True, encoding='utf-8', errors='replace', timeout=600)
     if result.returncode:
+        for line in result.stdout.splitlines():
+            if line.startswith(('CHECK ERROR TYPE:', 'CHECK SQLSTATE:', 'CHECK FRAME:')):
+                print(line)
         raise RuntimeError('Local Docker operation failed; database contents and credentials were not printed.')
     return result.stdout
 
@@ -109,9 +112,16 @@ try:
     if differences: raise RuntimeError("Restored schema does not match models")
     print("PASS: archive restored and migrated; all restored table data unchanged.")
     print("Users:",after["user"][0],"Scans:",after["scan"][0])
+except Exception as error:
+    import traceback
+    print("CHECK ERROR TYPE:", type(error).__name__)
+    print("CHECK SQLSTATE:", getattr(getattr(error,"orig",None),"pgcode",None))
+    for frame in traceback.extract_tb(error.__traceback__):
+        print("CHECK FRAME:",frame.filename,"line",frame.lineno,"in",frame.name)
+    raise SystemExit(1)
 finally:
     engine.dispose()
-'''
+''' 
 
 
 def restore_check(path):

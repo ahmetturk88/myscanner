@@ -1,0 +1,78 @@
+# Apply after compose.vps.yml. No provider ports are published.
+services:
+  web:
+    environment:
+      URLVET_URL: http://urlvet:8080
+    networks:
+      urlvet-api: {}
+  worker:
+    environment:
+      URLVET_URL: http://urlvet:8080
+    networks:
+      urlvet-api: {}
+  urlvet:
+    image: myscanner-urlvet:657a8daf
+    build:
+      context: ./deploy
+      dockerfile: urlvet.Dockerfile
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ['/tmp:uid=10001,gid=10001,mode=1770']
+    mem_limit: 768m
+    pids_limit: 128
+    restart: unless-stopped
+    environment:
+      CACHE_ADDR: urlvet-cache:6379
+      PORT: '8080'
+      CHROME_URL: ws://urlvet-browser:9222
+      REPORTS_FILE: /app/data/reports.jsonl
+      GIN_MODE: release
+      CORS_ALLOWED_ORIGINS: https://localhost:8443
+    secrets: [urlvet_cache_password, urlvet_jwt_secret]
+    volumes: [urlvet-reports:/app/data, urlvet-screenshots:/app/tmp]
+    networks: [urlvet-api, urlvet-cache-net, urlvet-browser-net, urlvet-outbound]
+    depends_on:
+      urlvet-cache: {condition: service_healthy}
+      urlvet-browser: {condition: service_started}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  urlvet-cache:
+    image: valkey/valkey:8.0
+    restart: unless-stopped
+    secrets: [urlvet_cache_password, urlvet_cache_config]
+    command: [valkey-server, /run/secrets/urlvet_cache_config]
+    volumes: [urlvet-cache-data:/data]
+    networks: [urlvet-cache-net]
+    healthcheck:
+      test: [CMD-SHELL, "REDISCLI_AUTH=$$(tr -d '\\r\\n' < /run/secrets/urlvet_cache_password) valkey-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  urlvet-browser:
+    image: chromedp/headless-shell:latest
+    init: true
+    restart: unless-stopped
+    shm_size: 256m
+    mem_limit: 1g
+    pids_limit: 256
+    security_opt: [no-new-privileges:true]
+    networks: [urlvet-browser-net, urlvet-outbound]
+networks:
+  urlvet-api: {internal: true}
+  urlvet-cache-net: {internal: true}
+  urlvet-browser-net: {internal: true}
+  urlvet-outbound: {}
+volumes:
+  urlvet-reports: {}
+  urlvet-screenshots: {}
+  urlvet-cache-data: {}
+secrets:
+  urlvet_cache_password: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlvet_cache_password'}
+  urlvet_jwt_secret: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlvet_jwt_secret'}
+  urlvet_cache_config: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlvet_cache_config'}

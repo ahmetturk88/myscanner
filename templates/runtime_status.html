@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.runtime-panel{max-width:960px;margin:48px auto;padding:28px;border:1px solid #303048;border-radius:18px;background:#11111c;color:#eeeef8}.runtime-panel h1{font-size:26px;margin:0 0 12px}.runtime-panel p{color:#aaaac4;line-height:1.6}.runtime-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:24px 0}.runtime-card{padding:20px;background:#191928;border:1px solid #303048;border-radius:12px}.runtime-card h2{font-size:16px;margin:0 0 14px}.runtime-state{display:inline-block;padding:6px 10px;border-radius:8px;background:#30281b;color:#ffd18b}.runtime-state.ok{background:#17352d;color:#8be5bd}.runtime-panel a{display:inline-block;padding:10px 16px;border:1px solid #505070;border-radius:8px;color:#fff;text-decoration:none}
+</style>
+<section class="runtime-panel">
+<h1>Scan service readiness</h1>
+<p>This check shows whether background URL scans can be accepted by the current deployment. Saved reports can remain available when background scanning is unavailable.</p>
+{% set reasons={'ready':'Background scan infrastructure is ready.','database_unavailable':'The database is unavailable.','queue_not_configured':'No production queue is configured. Configure a broker, result backend and scan worker before accepting new scans.','broker_unavailable':'The configured queue cannot be reached.','result_backend_unavailable':'The task result store cannot be reached.','scan_worker_unavailable':'No responding worker was found consuming the scans queue.'} %}
+<strong>{{ reasons.get(report.reason, 'Readiness could not be confirmed.') }}</strong>
+<div class="runtime-grid">
+{% set labels={'database':'Database','broker':'Task queue','result_backend':'Task result store','scan_worker':'Scan worker'} %}
+{% for key,value in report.checks.items() %}
+<div class="runtime-card"><h2>{{ labels.get(key,key) }}</h2><span class="runtime-state{% if value=='available' %} ok{% endif %}">{{ value.replace('_',' ').title() }}</span></div>
+{% endfor %}
+</div>
+<p>{{ report.scope }} Results are cached for up to five seconds. Worker status is a point-in-time observation.</p>
+<a href="{{ url_for('runtime_health.runtime_page') }}">Refresh checks</a>
+</section>
+{% endblock %}

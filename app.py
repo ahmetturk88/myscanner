@@ -331,6 +331,9 @@ app.register_blueprint(sandbox_bp)
 from routes.vuln_routes import vuln_bp
 app.register_blueprint(vuln_bp)
 
+from services.runtime_health import health_bp
+app.register_blueprint(health_bp)
+
 # ================================================================
 # Auth Routes
 # ================================================================

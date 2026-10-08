@@ -137,7 +137,7 @@ def run(command):
         check_runtime_permissions()
     elif command == 'web-health':
         import urllib.request
-        with urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3) as response:
+        with urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3) as response:
             if response.status != 200:
                 raise RuntimeError('Web is unavailable')
         dependencies_ready()

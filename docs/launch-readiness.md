@@ -104,5 +104,14 @@ Render roles are unchanged.
 
 `scripts/local_backup.py` now creates custom-format archives with integrity
 manifests and checks restoration plus migration in a separate random database.
-Unit checks pass; Docker execution remains pending. Production scheduling,
+Nine unit checks and actual local and Render archive restore/migration rehearsals passed. Production scheduling,
 encrypted off-host storage, retention and Render backup remain open.
+
+
+### Runtime readiness and administrator diagnosis — Docker checks pending
+
+Health endpoints distinguish process liveness from complete scan infrastructure
+readiness. Administrator checks explain missing queue configuration, unreachable
+Redis, database failures and absent scan workers. Unit checks pass; local worker
+failure/recovery checks remain required before merge. Provider health and full
+production monitoring remain separate work.

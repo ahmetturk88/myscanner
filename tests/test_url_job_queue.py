@@ -35,8 +35,10 @@ class URLQueueTests(unittest.TestCase):
         task_id=task.apply_async.call_args.kwargs['task_id']
         return sid,task_id
     def reports(self, available=True):
-        provider={'verdict':'harmless','trust_score':100} if available else {'error':'unavailable'}
-        return ({'urlvet':provider,'verdict':'safe','details':'العربية '*15000}, {'urlvet':provider,'verdict':'safe'})
+        provider={'verdict':'harmless','trust_score':100,'phishing':{'in_database':False,'verified':False,'valid':False}} if available else {'error':'unavailable'}
+        local={'urlvet':provider,'verdict':'safe','details':'العربية '*15000,'structure':{'is_https':True},'ssl':{'valid':True},'security_headers':{'score':100},'phishing':{'risk_score':0}}
+        deep={'urlvet':provider,'verdict':'safe','structure':{'is_https':True},'ssl':{'valid':True},'page_content':{'title':'Example','content_risk_score':0},'behavior':{'behavior_risk_score':0},'osint':{'urlhaus_status':'not_found'}}
+        return local,deep
     def test_publish_sees_committed_owner_scan_and_exact_id(self):
         task=Mock()
         def inspect(**kwargs):
@@ -104,6 +106,24 @@ class URLQueueTests(unittest.TestCase):
         for local,deep in [(None,{}),({'error':'secret'},{}),({'urlvet':None},{}),({'bad':float('nan')},{})]:
             sid,tid=self.job();claim_url_scan(sid,self.owner,'https://example.invalid',tid)
             with self.assertRaises((ValueError,AttributeError)):save_url_scan(sid,self.owner,'https://example.invalid',local,deep)
+    def test_saved_aggregate_api_and_pdf_agree_without_new_analysis(self):
+        from io import BytesIO
+        self.app.add_url_rule('/api/url-analysis/<int:scan_id>','api_url_analysis',self.production.api_url_analysis)
+        self.app.add_url_rule('/report/pdf/<int:scan_id>','download_pdf',self.production.download_pdf)
+        sid,tid=self.job();claim_url_scan(sid,self.owner,'https://example.invalid',tid)
+        local,deep=self.reports();deep['page_content']['content_risk_score']=80
+        save_url_scan(sid,self.owner,'https://example.invalid',local,deep);db.session.expire_all()
+        saved=json.loads(db.session.get(Scan,sid).raw_report)
+        with patch.object(self.production,'URLDeepAnalyzer') as analyzer,patch.object(self.production,'generate_vulnerability_report',return_value=BytesIO(b'%PDF-test')) as pdf:
+            response=self.client.get(f'/api/url-analysis/{sid}')
+            self.assertEqual(response.status_code,200)
+            aggregate=response.json['aggregate_assessment']
+            self.assertEqual(aggregate,saved['aggregate_assessment'])
+            self.assertEqual(aggregate['score'],80)
+            self.assertEqual(self.client.get(f'/report/pdf/{sid}').status_code,200)
+            self.assertEqual(pdf.call_args.args[1]['aggregate_assessment'],aggregate)
+            analyzer.assert_not_called()
+
     def test_dashboard_dispatches_queue_without_thread_or_analyzer(self):
         with patch.object(self.production.scan_url_task,'apply_async') as dispatch,patch.object(self.production.threading,'Thread') as thread,patch.object(self.production,'URLDeepAnalyzer') as analyzer:
             response=self.client.post('/dashboard',data={'url':'https://example.invalid'})

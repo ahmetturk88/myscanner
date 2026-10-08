@@ -36,7 +36,7 @@ site.ctx.renderResult({security_score:payload, verdict:'secure',
     seo:{title:payload,description:payload,seo_score:payload,internal_links:payload,external_links:payload}, recommendations:[payload]});
 outputs.push({name:'site results',html:site.elements['result-card'].innerHTML});
 const url = context('result.html');
-const analysis = {security_score:payload,verdict:payload,
+const analysis = {security_score:payload,verdict:payload,aggregate_assessment:{score:payload,verdict:payload,coverage:payload,provisional:true,reasons:[{message:payload,code:payload}],missing_checks:[payload]},
     urlvet:{trust_score:payload,verdict_raw:payload,red_flags:[payload],green_flags:[payload],neutral_reasons:[payload],
         domain_info:{age_human:payload,registrar:payload},ssl_info:{has_tls:true,issuer:payload,not_after:payload},
         url_features:{subdomain_count:payload,has_keywords:true,keywords_found:[payload]},

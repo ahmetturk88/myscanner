@@ -47,9 +47,13 @@ def claim_url_scan(scan_id, user_id, url, task_id):
 def save_url_scan(scan_id, user_id, url, local, deep):
     if any(not isinstance(value, dict) or value.get('error') for value in (local, deep)):
         raise ValueError('URL analysis did not return a usable report')
-    status, verdict = url_scan_outcome(local, deep)
+    from services.url_assessment import assess_url
+    aggregate = assess_url(local, deep)
+    if aggregate['assessed_categories'] == 0:
+        raise ValueError('URL analysis did not contain usable evidence')
+    status, verdict = aggregate['coverage'], aggregate['verdict']
     report = {'urlvet': local.get('urlvet') or {}, 'local_analysis': local,
-              'deep_analysis': deep, 'scanned_at': datetime.now(timezone.utc).isoformat(),
+              'deep_analysis': deep, 'aggregate_assessment': aggregate, 'scanned_at': datetime.now(timezone.utc).isoformat(),
               'sources': ['url.vet', 'local_analysis']}
     raw = json.dumps(report, ensure_ascii=False, allow_nan=False)
     with db.engine.begin() as connection:
@@ -83,3 +87,4 @@ def expire_url_scans(now=None):
         ).values(status='error', verdict='unknown', result=FAILURE,
                  raw_report=json.dumps({'status': 'failed', 'error': FAILURE})))
         return result.rowcount
+

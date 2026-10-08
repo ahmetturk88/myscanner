@@ -354,10 +354,10 @@ def draw_cover(c, ctx):
         c.arc(cx - r, gy - r, cx + r, gy + r, 90 - sweep, sweep)
 
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, gy + 36, 'TRUST SCORE', 'Helvetica-Bold', 8, 2.5)
+    draw_spaced(c, cx, gy + 36, 'OVERALL SCORE', 'Helvetica-Bold', 8, 2.5)
     c.setFillColor(vcol)
     c.setFont('Helvetica-Bold', 50)
-    c.drawCentredString(cx, gy - 16, str(ctx['trust']))
+    c.drawCentredString(cx, gy - 16, ctx.get('score_display', str(ctx['trust'])))
     c.setFillColor(COLORS['muted'])
     draw_spaced(c, cx, gy - 35, 'OUT OF 100', 'Helvetica', 7.5, 2)
 
@@ -944,8 +944,15 @@ def generate_vulnerability_report(scan, analysis, username):
     ssl_local = analysis.get('ssl', {}) or {}
     dns_records = analysis.get('dns', {}) or {}
 
-    vkey = resolve_verdict(trust, phishing)
-    vcol, vlabel, vdesc = VERDICTS[vkey]
+    from services.url_assessment import assess_url
+    aggregate = analysis.get('aggregate_assessment') or assess_url(analysis, analysis.get('deep_analysis', {}))
+    overall = to_num(aggregate.get('score') or 0)
+    vkey = {'harmless':'safe','high_risk':'suspicious'}.get(aggregate.get('verdict'), aggregate.get('verdict','unknown'))
+    if vkey in VERDICTS:
+        vcol, vlabel, vdesc = VERDICTS[vkey]
+    else:
+        vkey = 'unknown'
+        vcol, vlabel, vdesc = COLORS['yellow'], 'UNKNOWN', 'Available evidence does not confirm safety. Review coverage limitations.' 
 
     try:
         report_id = f'MYS-{int(scan.id):06d}'
@@ -957,7 +964,7 @@ def generate_vulnerability_report(scan, analysis, username):
     username = str(username or 'N/A')
 
     ctx = {
-        'trust': trust, 'vcolor': vcol, 'vlabel': vlabel, 'url': url,
+        'trust': overall, 'score_display': str(aggregate['score']) if aggregate.get('score') is not None else 'N/A', 'vcolor': vcol, 'vlabel': vlabel, 'url': url,
         'date': date_str, 'report_id': report_id, 'username': username,
     }
 
@@ -995,20 +1002,21 @@ def generate_vulnerability_report(scan, analysis, username):
         f'<font color="{hx(COLORS["accent"])}"><b>{esc(url)}</b></font>, conducted by '
         f"MyScanner's advanced threat detection engine. The analysis combines "
         f'<b>url.vet</b> (33 security signals across 18 analyzers) with the '
-        f'<b>MyScanner local security engine</b> to provide a complete assessment '
+        f'<b>MyScanner local security engine</b> and deep content checks to provide an evidence assessment '
         f"of the target's security posture.", st['body_url']))
+    E.append(Paragraph('Coverage: '+esc(aggregate['coverage'])+'; '+esc('; '.join(aggregate['missing_checks'])), st['body']))
     E.append(Spacer(1, 14))
     E.append(verdict_banner(vcol, vlabel, vdesc))
     E.append(Spacer(1, 12))
     E.append(StatCards([
-        ('TRUST SCORE', trust, 'out of 100', score_color(trust)),
+        ('OVERALL SCORE', aggregate.get('score') if aggregate.get('score') is not None else 'N/A', 'provisional' if aggregate.get('provisional') else 'out of 100', score_color(overall)),
         ('LOCAL SCORE', local, 'out of 100', score_color(local)),
         ('RED FLAGS', len(red_flags), 'threat indicators',
          COLORS['red'] if red_flags else COLORS['green']),
         ('GREEN FLAGS', len(green_flags), 'positive signals', COLORS['green']),
     ]))
     E.append(Spacer(1, 12))
-    E.append(RiskMeter(trust))
+    E.append(RiskMeter(overall))
     E.append(Spacer(1, 16))
 
     E.append(SubHeader('Scan Overview', COLORS['accent']))
@@ -1144,7 +1152,7 @@ def generate_vulnerability_report(scan, analysis, username):
     E.append(Spacer(1, 22))
     E.append(SectionHeader(5, 'Security Recommendations', 'Suggested actions based on the findings'))
     E.append(Spacer(1, 12))
-    rec_items = recs if recs else DEFAULT_RECOMMENDATIONS[vkey]
+    rec_items = recs if recs else DEFAULT_RECOMMENDATIONS.get(vkey, ['Do not treat incomplete checks as confirmation of safety. Verify the destination independently.'])
     E.append(numbered_table(rec_items))
 
     # ═════════════════════════════════════════════════════════════
@@ -1156,9 +1164,10 @@ def generate_vulnerability_report(scan, analysis, username):
     E.append(Spacer(1, 12))
     E.append(Paragraph(
         'Scores range from 0 to 100, where a higher value indicates a more '
-        'trustworthy target. The verdict is derived from the url.vet trust '
-        'score and is overridden to <b>MALICIOUS</b> if the target is listed '
-        'in a phishing database.', st['body']))
+        'favorable evidence index. The overall score combines capped transport, identity, '
+        'content, behavior and reputation categories, counting duplicate signals once. '
+        'Verified threat matches override high source scores. Unverified reports '
+        'and unavailable checks prevent confirmation of safety.', st['body']))
     E.append(Spacer(1, 10))
     E.append(legend_table())
     E.append(Spacer(1, 12))

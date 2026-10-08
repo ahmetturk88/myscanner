@@ -16,6 +16,7 @@ def scan_url_task(self, url, user_id, scan_id, task_id):
     from services.url_scan_storage import claim_url_scan, save_url_scan, fail_url_scan
     claimed = False
     analyzer = None
+    stage = 'claim'
     try:
         with app.app_context():
             claimed = claim_url_scan(scan_id, user_id, url, task_id)
@@ -23,12 +24,17 @@ def scan_url_task(self, url, user_id, scan_id, task_id):
             return {'status': 'failed', 'error': 'URL scan is not eligible for processing.'}
         from services.url_analyzer import URLDeepAnalyzer
         analyzer = URLDeepAnalyzer()
+        stage = 'local_analysis'
         local = analyzer.comprehensive_analysis(url)
+        stage = 'deep_analysis'
         deep = analyzer.comprehensive_deep_analysis(url)
+        stage = 'save_report'
         with app.app_context():
             return save_url_scan(scan_id, user_id, url, local, deep)
-    except Exception:
-        app.logger.error('URL scan failed; scan_id=%s', scan_id)
+    except Exception as error:
+        from services.url_failure_diagnostic import failure_diagnostic
+        diagnostic = failure_diagnostic(error, stage)
+        app.logger.error('URL scan failed; scan_id=%s; diagnostic=%s', scan_id, diagnostic)
         if claimed:
             try:
                 with app.app_context():
@@ -299,3 +305,4 @@ def initialize_tip_sources(self):
 
     except Exception as e:
         return {'status': 'failed', 'error': str(e)}
+

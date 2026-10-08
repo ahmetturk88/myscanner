@@ -506,6 +506,7 @@ class URLDeepAnalyzer:
         """فحص الرابط ضد URLhaus API"""
         result = {
             "is_malicious": False,
+            "coverage_status": "unavailable",
             "urlhaus_id": None,
             "first_seen": None,
             "last_seen": None,
@@ -525,6 +526,7 @@ class URLDeepAnalyzer:
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get('query_status') == 'ok':
+                    result['coverage_status'] = 'matched'
                     result["is_malicious"] = True
                     result["urlhaus_id"] = data.get('id')
                     result["first_seen"] = data.get('firstseen')
@@ -540,6 +542,7 @@ class URLDeepAnalyzer:
                     domain = urlparse(url).netloc
                     self._save_phishing_cache(domain)
                 elif data.get('query_status') == 'no_results':
+                    result['coverage_status'] = 'not_found'
                     result["details"] = "URL not found in URLhaus database"
                 else:
                     result["details"] = f"Query status: {data.get('query_status')}"
@@ -566,6 +569,7 @@ class URLDeepAnalyzer:
 
         # فحص URLhaus
         urlhaus_result = self.check_urlhaus(url)
+        result["urlhaus_status"] = urlhaus_result.get("coverage_status", "unavailable")
         if urlhaus_result["is_malicious"]:
             result["urlhaus"] = True
             result["urlhaus_details"] = {

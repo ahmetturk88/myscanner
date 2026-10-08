@@ -547,7 +547,7 @@ function renderURLVet(urlvet) {
     <div class="urlvet-section">
       <div class="urlvet-header">
         <div class="urlvet-title">url.vet Advanced Analysis</div>
-        <div class="urlvet-source">Source: url.vet · 33 signals</div>
+        <div class="urlvet-source">Source: url.vet · source details</div>
       </div>
 
       <div class="urlvet-main">
@@ -583,13 +583,30 @@ function renderURLVet(urlvet) {
 // ================================================================
 // Render Result (النسخة الجديدة)
 // ================================================================
+function renderAggregate(assessment) {
+  if (!assessment) return '<div class="section-card"><div class="section-title">Overall assessment unavailable</div></div>';
+  const score = assessment.score == null ? 'N/A' : `${ScanUI.score(assessment.score)}/100`;
+  return `<section class="section-card" aria-label="Overall URL assessment">
+    <div class="section-title">Overall Safety Assessment</div>
+    <div class="info-row"><span class="info-label">Overall Safety Score</span><strong class="info-value" style="font-size:32px">${esc(score)}</strong></div>
+    <div class="info-row"><span class="info-label">Combined Verdict</span><span class="info-value">${esc(String(assessment.verdict || 'unknown').toUpperCase())}</span></div>
+    <div class="info-row"><span class="info-label">Coverage</span><span class="info-value">${esc(assessment.coverage)}${assessment.provisional ? ' · Provisional score' : ''}</span></div>
+    <p>${esc(assessment.warning)}</p>
+    ${assessment.threat_override ? '<p>A reported threat caps the overall score at 10/100 regardless of other positive checks.</p>' : ''}
+    <p>Combines URLVet, local checks and Deep Content evidence. Repeated evidence is counted once; source scores are shown separately below.</p>
+    ${(assessment.reasons || []).map(reason => `<div class="info-row"><span class="info-label">${esc(reason.message)}</span><span class="info-value">${esc(reason.code)} · −${esc(reason.deduction)} points</span></div>`).join('')}
+    ${(assessment.missing_checks || []).map(message => `<div class="info-row"><span class="info-label">Not covered</span><span class="info-value">${esc(message)}</span></div>`).join('')}
+  </section>`;
+}
+
 function renderResult(scanData, analysisData) {
   document.getElementById('loading-area').style.display = 'none';
   const verdictArea = document.getElementById('verdict-area');
   verdictArea.style.display = 'block';
   allData = { scan: scanData, analysis: analysisData };
 
-  updateBadge(scanData.status, scanData.verdict);
+  const combined = analysisData?.aggregate_assessment;
+  updateBadge(combined?.coverage || scanData.status, combined?.verdict || scanData.verdict);
 
   // استخراج بيانات url.vet
   const urlvet = analysisData?.urlvet || {};
@@ -600,7 +617,8 @@ function renderResult(scanData, analysisData) {
   const coverageTitle = evidenceNeedsReview ? 'This assessment needs review' : 'This report has limited coverage';
   const coverageMessage = analysisData?.assessment_warning || 'Available findings are shown below, but the overall safety of this URL could not be confirmed.';
   const coverageHint = evidenceNeedsReview ? 'Review the reported evidence before relying on this assessment. A provider score alone does not confirm safety.' : 'Run a new scan when the source is available to obtain a complete assessment.';
-  let mainHTML = isPartial ? `
+  let mainHTML = renderAggregate(combined);
+  mainHTML += isPartial ? `
     <aside class="coverage-notice" role="note" aria-labelledby="coverage-title">
       <span class="coverage-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
       <div class="coverage-copy">
@@ -614,7 +632,7 @@ function renderResult(scanData, analysisData) {
   mainHTML += renderURLVet(urlvet);
 
   // 2. الأقسام المحلية الأخرى (Deep Analysis, etc.)
-  const localVerdict = analysisData?.verdict || 'unknown';
+  const localVerdict = analysisData?.local_verdict || 'unknown';
   const localScore = ScanUI.score(analysisData?.security_score);
   const urlStructure = analysisData?.url_structure || {};
   const sslInfo = analysisData?.ssl_info || {};

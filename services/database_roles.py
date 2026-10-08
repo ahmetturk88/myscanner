@@ -33,10 +33,12 @@ def apply_runtime_grants(connection):
         connection.exec_driver_sql('REVOKE ALL ON public.alembic_version FROM myscanner_app')
         connection.exec_driver_sql('GRANT SELECT ON public.alembic_version TO myscanner_app')
 
-def provision_roles(engine, application_password, migration_password):
+def provision_roles(engine, application_password, migration_password, database=DATABASE, administrator=DATABASE):
     validate_passwords(application_password, migration_password)
+    if (database, administrator) not in {(DATABASE, DATABASE), ('myscanner_vps', 'myscanner_bootstrap')}:
+        raise RuntimeError('Unexpected database provisioning profile.')
     if (engine.url.drivername != 'postgresql+psycopg2' or engine.url.host != 'postgres'
-            or engine.url.database != DATABASE or engine.url.username != DATABASE):
+            or engine.url.database != database or engine.url.username != administrator):
         raise RuntimeError('Role provisioning requires the isolated local administrator.')
     with engine.begin() as connection:
         # Serialize cooperating initializers and suppress credential-bearing DDL logs.
@@ -44,7 +46,7 @@ def provision_roles(engine, application_password, migration_password):
         connection.exec_driver_sql("SET LOCAL log_statement = 'none'")
         connection.exec_driver_sql("SET LOCAL log_min_error_statement = 'panic'")
         identity = connection.exec_driver_sql('SELECT current_user, current_database()').one()
-        if identity != (DATABASE, DATABASE):
+        if identity != (administrator, database):
             raise RuntimeError('Unexpected local database identity.')
         for name, login in [(OWNER, False), (MIGRATOR, True), (APPLICATION, True)]:
             role = connection.execute(sa.text('SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolcanlogin FROM pg_roles WHERE rolname=:name'), {'name': name}).first()
@@ -61,18 +63,18 @@ def provision_roles(engine, application_password, migration_password):
         connection.exec_driver_sql('GRANT myscanner_schema_owner TO myscanner_migrator')
         connection.exec_driver_sql('ALTER SCHEMA public OWNER TO myscanner_schema_owner')
         objects = connection.exec_driver_sql("SELECT c.relname, c.relkind, r.rolname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relkind IN ('r','p','S','v','m','f')").all()
-        transfer_object_ownership(connection, objects)
-        connection.exec_driver_sql('REVOKE ALL ON DATABASE myscanner_local FROM PUBLIC, myscanner_app, myscanner_migrator')
-        connection.exec_driver_sql('GRANT CONNECT ON DATABASE myscanner_local TO myscanner_app, myscanner_migrator')
+        transfer_object_ownership(connection, objects, administrator)
+        connection.exec_driver_sql('REVOKE ALL ON DATABASE ' + database + ' FROM PUBLIC, myscanner_app, myscanner_migrator')
+        connection.exec_driver_sql('GRANT CONNECT ON DATABASE ' + database + ' TO myscanner_app, myscanner_migrator')
         connection.exec_driver_sql('SET LOCAL ROLE myscanner_schema_owner')
         apply_runtime_grants(connection)
 
 
-def transfer_object_ownership(connection, objects):
+def transfer_object_ownership(connection, objects, administrator=DATABASE):
     # ALTER TABLE transfers its serial/identity sequences automatically. PostgreSQL
     # refuses an independent ALTER SEQUENCE OWNER for those dependent sequences.
     for name, kind, owner in objects:
-        if owner not in (DATABASE, OWNER) or kind not in ('r', 'p', 'S'):
+        if owner not in (administrator, OWNER) or kind not in ('r', 'p', 'S'):
             raise RuntimeError('Unexpected public object or ownership; review required.')
     for name, kind, owner in sorted(objects, key=lambda item: item[1] == 'S'):
         quoted = connection.dialect.identifier_preparer.quote(name)

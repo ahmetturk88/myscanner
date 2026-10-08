@@ -18,7 +18,7 @@ x-application: &application
     FLASK_DEBUG: "0"
     RENDER: ""
     SECRET_KEY: ${LOCAL_SECRET_KEY:?Run scripts/init_local_stack.py first}
-    DATABASE_URL: postgresql+psycopg2://myscanner_local:${LOCAL_DB_PASSWORD:?Run scripts/init_local_stack.py first}@postgres:5432/myscanner_local
+    DATABASE_URL: postgresql+psycopg2://myscanner_app:${LOCAL_APP_DB_PASSWORD:?Run scripts/init_local_stack.py first}@postgres:5432/myscanner_local
     CELERY_BROKER_URL: redis://redis:6379/0
     CELERY_RESULT_BACKEND: redis://redis:6379/1
     URLVET_URL: http://host.docker.internal:8080
@@ -80,11 +80,29 @@ services:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
 
+  bootstrap-roles:
+    <<: *application
+    restart: "no"
+    command: [python, scripts/local_runtime.py, provision-roles]
+    networks: [data]
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg2://myscanner_local:${LOCAL_DB_PASSWORD:?Run scripts/init_local_stack.py first}@postgres:5432/myscanner_local
+      LOCAL_APP_DB_PASSWORD: ${LOCAL_APP_DB_PASSWORD:?Run scripts/init_local_stack.py first}
+      LOCAL_MIGRATION_DB_PASSWORD: ${LOCAL_MIGRATION_DB_PASSWORD:?Run scripts/init_local_stack.py first}
+    depends_on:
+      postgres: {condition: service_healthy}
+
   init-db:
     <<: *application
     restart: "no"
     command: [python, scripts/local_runtime.py, init-db]
+    environment:
+      <<: *app-environment
+      MIGRATION_DATABASE_URL: postgresql+psycopg2://myscanner_migrator:${LOCAL_MIGRATION_DB_PASSWORD:?Run scripts/init_local_stack.py first}@postgres:5432/myscanner_local
+      MIGRATION_ROLE: myscanner_schema_owner
     depends_on:
+      bootstrap-roles: {condition: service_completed_successfully}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
 

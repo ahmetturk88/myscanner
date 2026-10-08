@@ -12,3 +12,5 @@ logs/
 
 # Generated isolated Docker test credentials.
 /.env.docker.local
+
+/.env.docker.local.*

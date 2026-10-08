@@ -8,12 +8,12 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-def require_local_stack(environ=None):
+def require_local_stack(environ=None, administrator=False):
     env = os.environ if environ is None else environ
     url = urlsplit(env.get('DATABASE_URL', ''))
     if (env.get('LOCAL_STACK') != '1' or env.get('APP_ENV') != 'development'
             or url.scheme != 'postgresql+psycopg2' or url.hostname != 'postgres'
-            or url.username != 'myscanner_local' or url.path != '/myscanner_local'):
+            or url.username != ('myscanner_local' if administrator else 'myscanner_app') or url.path != '/myscanner_local'):
         raise RuntimeError('This command is limited to the isolated local Docker database.')
 
 
@@ -100,14 +100,28 @@ def smoke_queue():
 
 
 def run(command):
-    require_local_stack()
-    if command == 'init-db':
+    require_local_stack(administrator=command == 'provision-roles')
+    if command == 'provision-roles':
+        import sqlalchemy as sa
+        from services.database_roles import provision_roles
+        engine = sa.create_engine(os.environ['DATABASE_URL'], hide_parameters=True)
+        try:
+            provision_roles(engine, os.environ.get('LOCAL_APP_DB_PASSWORD'), os.environ.get('LOCAL_MIGRATION_DB_PASSWORD'))
+        finally:
+            engine.dispose()
+        print('Local database roles provisioned; no credentials printed.')
+    elif command == 'init-db':
         dependencies_ready()
         import sqlalchemy as sa
         from services.schema_migrations import upgrade_database, initialize_sources
-        engine = sa.create_engine(os.environ['DATABASE_URL'])
+        migration_url = sa.engine.make_url(os.environ.get('MIGRATION_DATABASE_URL', ''))
+        if (migration_url.drivername != 'postgresql+psycopg2' or migration_url.host != 'postgres'
+                or migration_url.username != 'myscanner_migrator' or migration_url.database != 'myscanner_local'
+                or os.environ.get('MIGRATION_ROLE') != 'myscanner_schema_owner'):
+            raise RuntimeError('Isolated migration credentials are required.')
+        engine = sa.create_engine(migration_url, hide_parameters=True)
         try:
-            upgrade_database(engine)
+            upgrade_database(engine, schema_role='myscanner_schema_owner')
         finally:
             engine.dispose()
         initialize_sources()
@@ -118,6 +132,9 @@ def run(command):
     elif command == 'smoke-queue':
         dependencies_ready()
         smoke_queue()
+    elif command == 'role-check':
+        from services.database_role_check import check_runtime_permissions
+        check_runtime_permissions()
     elif command == 'web-health':
         import urllib.request
         with urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3) as response:
@@ -134,7 +151,7 @@ def run(command):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['init-db', 'web-health', 'worker-health', 'create-user', 'smoke-queue'])
+    parser.add_argument('command', choices=['provision-roles', 'role-check', 'init-db', 'web-health', 'worker-health', 'create-user', 'smoke-queue'])
     args = parser.parse_args()
     try:
         run(args.command)

@@ -61,14 +61,35 @@ def provision_roles(engine, application_password, migration_password):
         connection.exec_driver_sql('GRANT myscanner_schema_owner TO myscanner_migrator')
         connection.exec_driver_sql('ALTER SCHEMA public OWNER TO myscanner_schema_owner')
         objects = connection.exec_driver_sql("SELECT c.relname, c.relkind, r.rolname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relkind IN ('r','p','S','v','m','f')").all()
-        for name, kind, owner in objects:
-            if owner not in (DATABASE, OWNER):
-                raise RuntimeError('Public object ownership requires review.')
-            if kind not in ('r', 'p', 'S'):
-                raise RuntimeError('Unexpected public object; no automatic ownership transfer.')
-            quoted = connection.dialect.identifier_preparer.quote(name)
-            connection.exec_driver_sql(('ALTER SEQUENCE ' if kind == 'S' else 'ALTER TABLE ') + 'public.' + quoted + ' OWNER TO myscanner_schema_owner')
+        transfer_object_ownership(connection, objects)
         connection.exec_driver_sql('REVOKE ALL ON DATABASE myscanner_local FROM PUBLIC, myscanner_app, myscanner_migrator')
         connection.exec_driver_sql('GRANT CONNECT ON DATABASE myscanner_local TO myscanner_app, myscanner_migrator')
         connection.exec_driver_sql('SET LOCAL ROLE myscanner_schema_owner')
         apply_runtime_grants(connection)
+
+
+def transfer_object_ownership(connection, objects):
+    # ALTER TABLE transfers its serial/identity sequences automatically. PostgreSQL
+    # refuses an independent ALTER SEQUENCE OWNER for those dependent sequences.
+    for name, kind, owner in objects:
+        if owner not in (DATABASE, OWNER) or kind not in ('r', 'p', 'S'):
+            raise RuntimeError('Unexpected public object or ownership; review required.')
+    for name, kind, owner in sorted(objects, key=lambda item: item[1] == 'S'):
+        quoted = connection.dialect.identifier_preparer.quote(name)
+        if kind == 'S':
+            parent = connection.execute(sa.text("""
+                SELECT owner.rolname FROM pg_depend d
+                JOIN pg_class sequence ON sequence.oid=d.objid
+                JOIN pg_namespace n ON n.oid=sequence.relnamespace
+                JOIN pg_class parent ON parent.oid=d.refobjid
+                JOIN pg_roles owner ON owner.oid=parent.relowner
+                WHERE d.classid='pg_class'::regclass
+                  AND d.refclassid='pg_class'::regclass AND d.deptype IN ('a','i')
+                  AND n.nspname='public' AND sequence.relname=:name
+            """), {'name': name}).scalar()
+            if parent is not None:
+                if parent != OWNER:
+                    raise RuntimeError('Dependent sequence parent ownership requires review.')
+                continue
+        connection.exec_driver_sql(('ALTER SEQUENCE ' if kind == 'S' else 'ALTER TABLE ')
+                                   + 'public.' + quoted + ' OWNER TO myscanner_schema_owner')

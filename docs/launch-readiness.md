@@ -92,9 +92,17 @@
 
 المستخدم اختار تجنب اشتراكات Render الإضافية وتجربة التشغيل محليًا أولًا. compose.local.yml يخصص مشروع myscanner-local وقاعدة myscanner_local جديدة ومفاتيح يولدها scripts/init_local_stack.py؛ لا يقرأ .env المحلي ولا ينسخ قاعدة Render. PostgreSQL وRedis دون منافذ host، والموقع على 127.0.0.1:8000؛ url.vet الموجود على 8080 عبر host.docker.internal. تفاصيل الخطوات والحدود في docs/local-docker.md. لم تتوفر Docker في بيئة المساعد؛ الاختبارات الثابتة ليست إثبات build أو تشغيل الحاويات، ويجب تنفيذ smoke-queue على جهاز المستخدم قبل الدمج.
 
-### Database privilege separation — validation pending
+### Database privilege separation — local validation passed
 
 Local Docker now separates administrator, migration and runtime credentials.
 Runtime permission checks are available with `local_runtime.py role-check`.
-Unit and migration checks pass; actual PostgreSQL permission and queue checks
-must pass on the local Docker stack before merge. Render roles are unchanged.
+Unit, migration and Compose checks passed. On local PostgreSQL 18, role provisioning,
+migrations, permission denials and the real queue/worker/database smoke test passed.
+Render roles are unchanged.
+
+### Repeatable local backup and restore rehearsal
+
+`scripts/local_backup.py` now creates custom-format archives with integrity
+manifests and checks restoration plus migration in a separate random database.
+Unit checks pass; Docker execution remains pending. Production scheduling,
+encrypted off-host storage, retention and Render backup remain open.

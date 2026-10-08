@@ -8,7 +8,7 @@ x-app: &app
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
-  tmpfs: [/tmp:uid=10001,gid=10001,mode=1770]
+  tmpfs: ['/tmp:uid=10001,gid=10001,mode=1770']
   mem_limit: 1g
   pids_limit: 128
   environment: &environment

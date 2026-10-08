@@ -51,6 +51,9 @@ class DeploymentTests(unittest.TestCase):
             if name!='proxy':self.assertNotIn('ports',service)
         for name in ('redis','postgres','migrate','bootstrap-roles','beat'):
             self.assertEqual(self.config['services'][name]['networks'],['data'])
+    def test_tmpfs_options_remain_one_absolute_mount(self):
+        for name in ('web','worker','beat','seed','migrate','bootstrap-roles'):
+            self.assertEqual(self.config['services'][name]['tmpfs'],['/tmp:uid=10001,gid=10001,mode=1770'])
     def test_ordered_migration_before_runtime(self):
         services=self.config['services']
         for child,parent in [('migrate','bootstrap-roles'),('seed','migrate'),('web','seed'),('worker','seed'),('beat','seed')]:

@@ -28,7 +28,9 @@ The command rejects altered/mismatched archives before database creation. It cre
 a new database with a random `myscanner_rehearsal_` name, restores with
 `--single-transaction --exit-on-error --no-owner --no-privileges`, and runs explicit
 migrations there. Hashes compare all restored public table rows before and after
-migration; the final schema must match the application models. Only success and
+migration; the final schema must match the application models except for the explicitly
+retained legacy `user.sandbox_remaining` column. Its contents are preserved and
+compared too; all other schema differences fail validation. Only success and
 user/scan counts are printed. The rehearsal database is dropped in cleanup even
 if restoration or validation fails. Only this invocation's generated database name
 is used for DROP; callers cannot provide a database destination.

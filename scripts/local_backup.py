@@ -1,6 +1,7 @@
 """Local Docker backups and isolated restore rehearsals; never targets hosting."""
 import argparse
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -78,7 +79,20 @@ def create_backup():
         invoke(['exec','-T','postgres','rm','-f',remote])
 
 
-RESTORE_CHECK = '''
+def unexpected_schema_differences(differences):
+    unexpected=[]
+    for group in differences:
+        for item in (group if isinstance(group,list) else [group]):
+            # This obsolete allowance column exists in legacy local databases.
+            # Keep it and its contents; never silently accept other schema drift.
+            retained=(len(item)==4 and item[0]=='remove_column'
+                      and item[1] in (None,'public') and item[2]=='user'
+                      and getattr(item[3],'name',None)=='sandbox_remaining')
+            if not retained:unexpected.append(item)
+    return unexpected
+
+
+RESTORE_CHECK = inspect.getsource(unexpected_schema_differences) + '''
 import os, sys, re, hashlib, json
 import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
@@ -109,8 +123,9 @@ try:
     if any(after.get(name)!=value for name,value in before.items()): raise RuntimeError("Restored data changed")
     with engine.connect() as connection:
         differences=compare_metadata(MigrationContext.configure(connection),application_metadata())
-    if differences:
-        for group in differences:
+    unexpected=unexpected_schema_differences(differences)
+    if unexpected:
+        for group in unexpected:
             for item in (group if isinstance(group,list) else [group]):
                 operation=item[0]
                 table=item[2] if len(item)>2 and isinstance(item[2],str) else "-"

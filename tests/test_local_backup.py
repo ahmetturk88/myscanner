@@ -7,6 +7,18 @@ from unittest.mock import patch
 from scripts import local_backup as backup
 
 class BackupTests(unittest.TestCase):
+    def test_only_known_legacy_allowance_column_is_retained(self):
+        from types import SimpleNamespace
+        legacy=('remove_column',None,'user',SimpleNamespace(name='sandbox_remaining'))
+        other=('remove_column',None,'user',SimpleNamespace(name='unexpected'))
+        missing=('add_column',None,'user',SimpleNamespace(name='email'))
+        nullable=('modify_nullable',None,'user','email',{},True,False)
+        self.assertEqual(backup.unexpected_schema_differences([legacy]),[])
+        self.assertEqual(backup.unexpected_schema_differences([legacy,other,missing,[nullable]]),[other,missing,nullable])
+    def test_legacy_name_in_another_table_is_not_accepted(self):
+        from types import SimpleNamespace
+        change=('remove_column',None,'scan',SimpleNamespace(name='sandbox_remaining'))
+        self.assertEqual(backup.unexpected_schema_differences([change]),[change])
     def archive(self,directory):
         path=Path(directory,'test.dump');path.write_bytes(b'PGDMP-test')
         path.with_suffix('.dump.json').write_text(json.dumps({'format':'postgresql-custom-local-v1','filename':path.name,'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}))

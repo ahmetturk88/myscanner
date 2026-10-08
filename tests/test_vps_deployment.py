@@ -51,6 +51,9 @@ class DeploymentTests(unittest.TestCase):
             if name!='proxy':self.assertNotIn('ports',service)
         for name in ('redis','postgres','migrate','bootstrap-roles','beat'):
             self.assertEqual(self.config['services'][name]['networks'],['data'])
+    def test_redis_health_strips_windows_line_endings(self):
+        command=self.config['services']['redis']['healthcheck']['test'][1]
+        self.assertIn("tr -d '\\r\\n'",command)
     def test_tmpfs_options_remain_one_absolute_mount(self):
         for name in ('web','worker','beat','seed','migrate','bootstrap-roles'):
             self.assertEqual(self.config['services'][name]['tmpfs'],['/tmp:uid=10001,gid=10001,mode=1770'])

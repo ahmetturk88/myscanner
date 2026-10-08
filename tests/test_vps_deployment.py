@@ -69,6 +69,10 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn('header_up X-Forwarded-For {remote_host}',caddy)
         self.assertIn('header_up -CF-Connecting-IP',caddy)
         self.assertEqual(self.config['services']['proxy']['networks']['frontend']['ipv4_address']+'/32',self.config['services']['web']['environment']['TRUSTED_PROXY_CIDRS'])
+    def test_queue_smoke_requires_explicit_rehearsal(self):
+        spec=importlib.util.spec_from_file_location('vps_smoke',ROOT/'scripts/vps_runtime.py');runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
+        with patch.dict('os.environ',{},clear=True):
+            with self.assertRaisesRegex(RuntimeError,'Explicit rehearsal'):runtime.smoke_queue()
     def test_production_guard_runs_before_secret_read(self):
         spec=importlib.util.spec_from_file_location('vps_runtime',ROOT/'scripts/vps_runtime.py');runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
         with patch.dict('os.environ',{},clear=True),patch.object(runtime,'secret') as read:

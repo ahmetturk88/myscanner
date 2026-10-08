@@ -18,7 +18,7 @@ def invoke(arguments, input_text=None):
                             text=True, encoding='utf-8', errors='replace', timeout=600)
     if result.returncode:
         for line in result.stdout.splitlines():
-            if line.startswith(('CHECK ERROR TYPE:', 'CHECK SQLSTATE:', 'CHECK FRAME:')):
+            if line.startswith(('CHECK ERROR TYPE:', 'CHECK SQLSTATE:', 'CHECK FRAME:', 'CHECK SCHEMA:')):
                 print(line)
         raise RuntimeError('Local Docker operation failed; database contents and credentials were not printed.')
     return result.stdout
@@ -109,7 +109,14 @@ try:
     if any(after.get(name)!=value for name,value in before.items()): raise RuntimeError("Restored data changed")
     with engine.connect() as connection:
         differences=compare_metadata(MigrationContext.configure(connection),application_metadata())
-    if differences: raise RuntimeError("Restored schema does not match models")
+    if differences:
+        for group in differences:
+            for item in (group if isinstance(group,list) else [group]):
+                operation=item[0]
+                table=item[2] if len(item)>2 and isinstance(item[2],str) else "-"
+                column=getattr(item[3],"name",item[3] if isinstance(item[3],str) else "-") if len(item)>3 else "-"
+                print("CHECK SCHEMA:",operation,"table",table,"column",column)
+        raise RuntimeError("Restored schema does not match models")
     print("PASS: archive restored and migrated; all restored table data unchanged.")
     print("Users:",after["user"][0],"Scans:",after["scan"][0])
 except Exception as error:

@@ -46,7 +46,7 @@ class AssessmentTests(unittest.TestCase):
         self.assertTrue(r['threat_override'])
     def test_unverified_is_not_confirmation(self):
         local,deep=reports();deep['urlvet']['phishing']={'in_database':True,'verified':False,'valid':False}
-        r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['coverage'],'partial');self.assertIsNone(r['score'])
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['coverage'],'partial');self.assertLess(r['score'],100)
     def test_missing_or_failed_content_cannot_confirm_safety(self):
         for content in ({},{'content_risk_score':0},{'title':'','content_risk_score':0,'error':'timeout'}):
             local,deep=reports();deep['page_content']=content;r=assess_url(local,deep)
@@ -61,10 +61,19 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(assess_url(local,deep)['coverage'],'partial')
     def test_legacy_false_urlhaus_does_not_mean_checked(self):
         local,deep=reports();deep['osint']={'urlhaus':False}
-        r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown');self.assertIsNone(r['score']);self.assertEqual(r['evidence_score'],100)
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['score'],95);self.assertEqual(r['coverage_penalty'],5);self.assertEqual(r['evidence_score'],100)
     def test_reported_threat_survives_unavailable_source(self):
         local,deep=reports();local.update(verdict='malicious',urlvet={'error':'offline'})
-        r=assess_url(local,deep);self.assertEqual((r['verdict'],r['coverage']),('malicious','partial'));self.assertIsNone(r['score']);self.assertLessEqual(r['evidence_score'],10)
+        r=assess_url(local,deep);self.assertEqual((r['verdict'],r['coverage']),('malicious','partial'));self.assertLessEqual(r['score'],10);self.assertLessEqual(r['evidence_score'],10)
+    def test_missing_content_loses_its_category_weight(self):
+        local,deep=reports();deep['page_content']={}
+        r=assess_url(local,deep);self.assertEqual(r['score'],75);self.assertEqual(r['coverage_deductions']['content'],25)
+    def test_risk_and_coverage_deductions_are_both_applied(self):
+        local,deep=reports();deep['osint']={};deep['page_content']['content_risk_score']=80
+        r=assess_url(local,deep);self.assertEqual(r['score'],75);self.assertEqual(r['evidence_score'],80);self.assertEqual(r['coverage_penalty'],5)
+    def test_duplicated_source_gap_counts_once(self):
+        local,deep=reports();local['urlvet']=deep['urlvet']={'error':'offline'}
+        r=assess_url(local,deep);self.assertEqual(r['coverage_penalty'],5)
     def test_failure_diagnostic_does_not_contain_exception_text(self):
         try:raise RuntimeError('postgresql://user:SECRET@host/private?token=SECRET')
         except RuntimeError as error:r=failure_diagnostic(error,'local_analysis')

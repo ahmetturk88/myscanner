@@ -572,7 +572,7 @@ function renderURLVet(urlvet) {
 // ================================================================
 function renderAggregate(assessment) {
   if (!assessment) return '<div class="section-card">Overall assessment unavailable. No score can be confirmed.</div>';
-  const numeric = !assessment.provisional && assessment.coverage !== 'partial' && typeof assessment.score === 'number' && Number.isFinite(assessment.score);
+  const numeric = typeof assessment.score === 'number' && Number.isFinite(assessment.score);
   const score = numeric ? ScanUI.score(assessment.score) : null;
   const verdict = assessment.verdict || 'unknown';
   const labels = {harmless:'No threat indicated',unknown:'Needs verification',suspicious:'Suspicious indicators',high_risk:'High risk',malicious:'Threat reported'};
@@ -585,16 +585,16 @@ function renderAggregate(assessment) {
   return `<section class="assessment-hero tone-${tone}" aria-label="Overall URL assessment">
     <div class="hero-copy"><div class="report-eyebrow">COMBINED ASSESSMENT</div>
       <h2>${esc(labels[verdict] || 'Needs verification')}</h2>
-      <p>${assessment.provisional ? 'Some checks could not be verified, so no final safety score is shown. Review the available findings and coverage gaps below.' : 'URL, connection, content and reputation evidence assessed together. Review the findings before deciding to visit.'}</p>
+      <p>${assessment.provisional ? 'Some sources could not be verified. Their coverage deductions are included in this score, separately from detected risk indicators.' : 'URL, connection, content and reputation evidence assessed together. Review the findings before deciding to visit.'}</p>
       <div class="hero-tags"><span>${assessment.provisional ? 'Limited coverage' : 'Assessment complete'}</span><span>${esc(count)} of 5 evidence categories assessed</span></div>
       ${assessment.threat_override ? '<p class="threat-callout">A reported threat overrides positive findings. Incomplete coverage does not cancel that finding.</p>' : ''}
     </div>
-    <div class="overall-score"><span class="score-caption">${score === null ? 'ASSESSMENT STATUS' : 'OVERALL SAFETY SCORE'}</span>
-      ${score === null ? '<div class="score-incomplete">Assessment<br>incomplete</div><span class="score-note">No final safety score is available.</span>' : `<div class="score-number">${esc(score)}<span>/100</span></div><div class="score-track" aria-hidden="true"><span style="width:${score}%"></span></div><span class="score-note">Combined evidence index</span>`}</div>
+    <div class="overall-score"><span class="score-caption">${score === null ? 'ASSESSMENT STATUS' : 'OVERALL ASSESSMENT SCORE'}</span>
+      ${score === null ? '<div class="score-incomplete">Assessment<br>incomplete</div><span class="score-note">No final safety score is available.</span>' : `<div class="score-number">${esc(score)}<span>/100</span></div><div class="score-track" aria-hidden="true"><span style="width:${score}%"></span></div><span class="score-note">Evidence + coverage index</span>`}</div>
   </section>
   <div class="category-grid" aria-label="Evidence categories">${Object.entries(categories).map(([key,label])=>{
     const c = components[key] || {}; const checked=c.status==='assessed'; const deduction=typeof c.deduction==='number' ? c.deduction : 0;
-    return `<div class="category-card"><span class="category-marker ${checked ? 'assessed' : 'unavailable'}"></span><h3>${esc(label)}</h3><p>${checked ? deduction>0 ? 'Risk indicators present' : 'No scored indicators' : 'Not verified'}</p><small>${checked ? '−'+esc(deduction)+' points' : 'Coverage gap'}</small></div>`;
+    return `<div class="category-card"><span class="category-marker ${checked ? 'assessed' : 'unavailable'}"></span><h3>${esc(label)}</h3><p>${checked ? deduction>0 ? 'Risk indicators present' : 'No scored indicators' : 'Not verified'}</p><small>${checked ? 'Risk −'+esc(deduction)+' · Coverage −'+esc((assessment.coverage_deductions || {})[key] || 0) : 'Coverage gap'}</small></div>`;
   }).join('')}</div>
   <div class="assessment-detail-grid">
     <section class="evidence-panel"><div class="panel-heading"><h3>Why this result</h3><span>${esc(reasons.length)} findings</span></div>
@@ -602,7 +602,7 @@ function renderAggregate(assessment) {
     </section>
     <section class="evidence-panel coverage-panel"><div class="panel-heading"><h3>Coverage &amp; limitations</h3><span>${assessment.provisional ? 'Incomplete' : 'Complete'}</span></div>
       ${missing.length ? `<ul class="coverage-list">${missing.map(message=>`<li><span aria-hidden="true">!</span>${esc(message)}</li>`).join('')}</ul>` : '<p class="empty-evidence">All checks required by this assessment policy were recorded.</p>'}
-      <p class="method-note">Heuristic evidence index, not a probability or a guarantee of safety. Repeated findings are counted once.</p>
+      <p class="method-note">Coverage deduction: −${esc(assessment.coverage_penalty || 0)} points. Heuristic evidence index, not a probability or a guarantee of safety. Repeated findings are counted once.</p>
     </section>
   </div>`;
 }

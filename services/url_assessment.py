@@ -3,7 +3,7 @@ import copy
 import math
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v2'
+POLICY_VERSION = 'url-evidence-v3'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 
 
@@ -119,7 +119,8 @@ def assess_url(local, deep):
     # Legacy reports did not preserve URLhaus availability: never infer success
     # from their default false/zero values.
     if osint.get('urlhaus_status') not in ('matched','not_found'):
-        missing.append('URLhaus check unavailable or not recorded')
+        reason={'not_configured':'authentication is not configured','authentication_rejected':'authentication was rejected','rate_limited':'provider rate limit reached','configuration_error':'credential configuration could not be read','connection_or_response_error':'connection or response failed','http_error':'provider returned an HTTP error'}.get(osint.get('urlhaus_reason'),'check unavailable or not recorded')
+        missing.append('URLhaus: '+reason)
     elif osint.get('urlhaus_status')=='not_found':assessed('reputation')
     reported=[data.get('verdict') for data in (local,deep)]
     reported += [(mapping(data.get('urlvet'))).get('verdict') for data in (local,deep) if isinstance(mapping(data.get('urlvet')),dict)]
@@ -138,7 +139,24 @@ def assess_url(local, deep):
         verdict='high_risk' if score<40 else 'suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
-    return {'policy_version':POLICY_VERSION,'score':None if missing else score,
+    # Coverage deductions are separate from threat evidence. Missing categories
+    # use their full weight; missing checks within an assessed category cost 5
+    # each, deduplicated across quick/deep sources and capped by that category.
+    coverage_codes={key:set() for key in WEIGHTS}
+    for message in missing:
+        normalized=message.removeprefix('local ').removeprefix('deep ')
+        key='transport' if 'certificate' in message or 'header' in message else 'content' if 'content' in message else 'behavior' if 'Redirect' in message else 'reputation'
+        if normalized in ('analysis unavailable','evidence unavailable') or 'confirmation details' in message:
+            continue
+        coverage_codes[key].add(normalized)
+    coverage_deductions={}
+    for key,component in components.items():
+        requested=component['weight'] if component['status']=='unavailable' else 5*len(coverage_codes[key])
+        coverage_deductions[key]=min(max(0,component['weight']-component['deduction']),requested)
+    coverage_penalty=sum(coverage_deductions.values())
+    final_score=max(0,score-coverage_penalty) if score is not None else None
+    return {'policy_version':POLICY_VERSION,'score':final_score,
+            'coverage_penalty':coverage_penalty,'coverage_deductions':coverage_deductions,
             'evidence_score':score,'verdict':verdict,
             'coverage':'partial' if missing else 'completed','provisional':bool(missing),
             'assessed_categories':count,'total_categories':len(WEIGHTS),

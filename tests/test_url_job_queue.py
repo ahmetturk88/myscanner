@@ -124,7 +124,7 @@ class URLQueueTests(unittest.TestCase):
             self.assertEqual(pdf.call_args.args[1]['aggregate_assessment'],aggregate)
             analyzer.assert_not_called()
 
-    def test_partial_saved_report_has_no_final_score_in_api_and_pdf(self):
+    def test_partial_saved_report_has_coverage_deduction_in_api_and_pdf(self):
         from io import BytesIO
         self.app.add_url_rule('/api/url-analysis/<int:scan_id>','api_url_analysis',self.production.api_url_analysis)
         self.app.add_url_rule('/report/pdf/<int:scan_id>','download_pdf',self.production.download_pdf)
@@ -134,7 +134,7 @@ class URLQueueTests(unittest.TestCase):
         with patch.object(self.production,'generate_vulnerability_report',return_value=BytesIO(b'%PDF-test')) as pdf:
             response=self.client.get(f'/api/url-analysis/{sid}')
             aggregate=response.json['aggregate_assessment']
-            self.assertIsNone(aggregate['score']);self.assertEqual(aggregate['evidence_score'],100)
+            self.assertEqual(aggregate['score'],95);self.assertEqual(aggregate['evidence_score'],100);self.assertEqual(aggregate['coverage_penalty'],5)
             exported=self.client.get(f'/api/scan_result/{sid}').json['raw_report']['aggregate_assessment']
             self.assertEqual(exported,aggregate)
             self.assertEqual((aggregate['verdict'],aggregate['coverage']),('unknown','partial'))

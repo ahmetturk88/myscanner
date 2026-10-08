@@ -9,6 +9,9 @@ class ProviderDeploymentTests(unittest.TestCase):
         self.assertTrue(all('.env' not in line and 'COPY . .' not in line for line in copies))
         self.assertIn('657a8dafeb9c9109a339087ea07cf922aaddc52a',source)
         self.assertIn('USER 10001:10001',source)
+    def test_image_normalizes_windows_entrypoint_line_endings(self):
+        source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
+        self.assertIn("sed -i 's/\\r$//' /app/entrypoint.sh",source)
     def test_secrets_are_read_from_files_without_echo(self):
         entry=(ROOT/'deploy/urlvet-entrypoint.sh').read_text()
         self.assertIn('/run/secrets/urlvet_cache_password',entry)

@@ -10,6 +10,6 @@ WORKDIR /app
 COPY --from=builder /urlvet /app/urlvet
 COPY --from=builder /source/server/assets /app/assets
 COPY urlvet-entrypoint.sh /app/entrypoint.sh
-RUN chmod 755 /app/entrypoint.sh && mkdir -p /app/data /app/tmp && chown -R 10001:10001 /app
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod 755 /app/entrypoint.sh && mkdir -p /app/data /app/tmp && chown -R 10001:10001 /app
 USER 10001:10001
 ENTRYPOINT ["/app/entrypoint.sh"]

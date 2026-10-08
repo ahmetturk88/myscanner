@@ -56,3 +56,8 @@ docker compose --env-file .env.docker.local -f compose.local.yml stop
 تهيئة القاعدة أصبحت خطوة Alembic منفصلة؛ الموقع والعامل لا ينشئان الجداول ولا يعدّلانها أثناء الاستيراد. يجب اختبار الترحيل على PostgreSQL جديد وعلى نسخة مستعادة قبل الإنتاج؛ راجع docs/database-migrations.md. النسخ الاحتياطي والاستعادة وTLS والإلغاء وoutbox/retries ورفع العينات والتنظيف بعد SIGKILL وعزل ZAP/OpenVAS لم تُغلق. الأدوات الثقيلة والاعتماديات الاختيارية غير مضافة بهذه البيئة؛ حدود 1GB للعامل ليست وعدًا بكفايتها لكل خدمة. لا تدمج #35 وتنشره على Render دون تجهيز عامل وطابور هناك؛ المشروع المحلي لا يقدم طابورًا إلى Render.
 
 المراجع: Docker Compose startup order وbuild context، وثائق صورة postgres الرسمية (18: volume /var/lib/postgresql)، ووثائق Celery Redis/key eviction. لا يوجد Docker daemon في بيئة المساعد؛ نجاح build والتشغيل ينتظر اختبار المستخدم.
+
+Database accounts are now separate. Run the configuration generator again before
+Compose: it preserves the existing administrator password and session secret and
+adds independent application and migration passwords. See
+[database-runtime-roles.md](database-runtime-roles.md) for the backup-first transition.

@@ -17,11 +17,16 @@ def application_metadata():
     import models
     return db.metadata
 
-def upgrade_database(engine):
+def upgrade_database(engine, schema_role=None):
     """Upgrade a fresh or compatible legacy schema; never blindly stamp it."""
+    if schema_role is not None and (schema_role != 'myscanner_schema_owner' or engine.dialect.name != 'postgresql'):
+        raise RuntimeError('Unexpected schema deployment role.')
     metadata = application_metadata()
     config = migration_config()
     with engine.begin() as connection:
+        if schema_role is not None:
+            connection.exec_driver_sql('SELECT pg_advisory_xact_lock(67384021)')
+            connection.exec_driver_sql('SET LOCAL ROLE myscanner_schema_owner')
         inspector = sa.inspect(connection)
         existing = set(inspector.get_table_names())
         for name, table in metadata.tables.items():
@@ -52,6 +57,9 @@ def upgrade_database(engine):
         inspector = sa.inspect(connection)
         if not set(metadata.tables).issubset(inspector.get_table_names()):
             raise RuntimeError('Migration did not establish all application tables.')
+        if schema_role is not None:
+            from services.database_roles import apply_runtime_grants
+            apply_runtime_grants(connection)
 
 def initialize_sources():
     from app import app

@@ -23,3 +23,8 @@ After that restore check, rebuild the application image and run the dedicated lo
 Use a single migration process under a dedicated schema-owner credential, separate from the everyday application role. Hold application processes until migrations complete. Validate a backup restore and apply migrations to that copy first; compare account and report data afterward. The current change does not provision those roles, execute a Render migration, provide a backup tool, or prove PostgreSQL compatibility by itself.
 
 Tests cover a fresh database, a complete unversioned legacy database, original stamped history, widening old report storage, preserved large Unicode reports, rejected incomplete/unknown schemas, and application imports that never access the database. SQLite tests pass; real PostgreSQL deployment and backup/restore remain launch blockers.
+
+Local initialization now uses a separate migration connection and assumes the
+non-login schema owner. Runtime processes receive only application credentials.
+See [database-runtime-roles.md](database-runtime-roles.md). Provider deployment
+and production role provisioning remain separate work.

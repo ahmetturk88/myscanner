@@ -14,7 +14,7 @@ from scripts.local_runtime import require_local_stack, main
 
 ROOT = Path(__file__).resolve().parents[1]
 VALID = {'LOCAL_STACK':'1','APP_ENV':'development',
-         'DATABASE_URL':'postgresql+psycopg2://myscanner_local:private@postgres:5432/myscanner_local'}
+         'DATABASE_URL':'postgresql+psycopg2://myscanner_app:private@postgres:5432/myscanner_local'}
 
 class LocalSetupTests(unittest.TestCase):
     def test_credentials_are_random_and_existing_file_is_preserved(self):
@@ -76,14 +76,14 @@ class ComposeConfigurationTests(unittest.TestCase):
         cls.tmp=tempfile.TemporaryDirectory();initialize(cls.tmp.name)
         cls.addClassCleanup(cls.tmp.cleanup)
         env=dict(os.environ)
-        for key in ['LOCAL_SECRET_KEY','LOCAL_DB_PASSWORD']:env.pop(key,None)
+        for key in ['LOCAL_SECRET_KEY','LOCAL_DB_PASSWORD','LOCAL_APP_DB_PASSWORD','LOCAL_MIGRATION_DB_PASSWORD']:env.pop(key,None)
         result=subprocess.run([shutil.which('docker'),'compose','--env-file',str(Path(cls.tmp.name,'.env.docker.local')),
             '-f',str(ROOT/'compose.local.yml'),'config','--format','json'],capture_output=True,text=True,encoding='utf-8',env=env,timeout=20)
         if result.returncode:raise AssertionError('Docker Compose could not normalize the local configuration; no secrets printed.')
         cls.config=json.loads(result.stdout)
     def test_only_loopback_web_port_is_published(self):
         services=self.config['services']
-        for name in ['postgres','redis','worker','beat','init-db']:self.assertFalse(services[name].get('ports'))
+        for name in ['postgres','redis','worker','beat','init-db','bootstrap-roles']:self.assertFalse(services[name].get('ports'))
         port=services['web']['ports'][0]
         self.assertEqual(port['host_ip'],'127.0.0.1');self.assertEqual(str(port['published']),'8000');self.assertEqual(port['target'],8000)
     def test_all_application_processes_share_isolated_database_and_queue(self):
@@ -93,6 +93,18 @@ class ComposeConfigurationTests(unittest.TestCase):
             self.assertEqual(env['CELERY_BROKER_URL'],'redis://redis:6379/0');self.assertEqual(env['CELERY_RESULT_BACKEND'],'redis://redis:6379/1')
             values.append((env['DATABASE_URL'],env['SECRET_KEY']))
         self.assertEqual(len(set(values)),1)
+    def test_migration_credentials_are_absent_from_runtime_processes(self):
+        services=self.config['services']
+        for name in ['web','worker','beat']:
+            env=services[name]['environment']
+            self.assertNotIn('MIGRATION_DATABASE_URL',env)
+            self.assertNotIn('LOCAL_DB_PASSWORD',env)
+            self.assertNotIn('LOCAL_MIGRATION_DB_PASSWORD',env)
+        env=services['init-db']['environment']
+        self.assertIn('myscanner_migrator:',env['MIGRATION_DATABASE_URL'])
+        self.assertEqual(env['MIGRATION_ROLE'],'myscanner_schema_owner')
+        self.assertEqual(set(services['bootstrap-roles']['networks']),{'data'})
+        self.assertEqual(services['init-db']['depends_on']['bootstrap-roles']['condition'],'service_completed_successfully')
     def test_existing_urlvet_service_uses_host_gateway_without_new_8080_binding(self):
         for name in ['web','worker','beat']:
             service=self.config['services'][name];self.assertEqual(service['environment']['URLVET_URL'],'http://host.docker.internal:8080')

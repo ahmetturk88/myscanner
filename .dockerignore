@@ -33,3 +33,6 @@
 **/.env*
 **/*.db
 **/*.log
+
+!Dockerfile.vps
+!scripts/vps_runtime.py

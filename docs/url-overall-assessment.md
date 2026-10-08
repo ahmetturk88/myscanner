@@ -1,6 +1,6 @@
 # Overall URL assessment
 
-The report, saved JSON, API and PDF use one deterministic evidence index (`url-evidence-v1`). It combines URLVet, local checks and Deep Content. It is a heuristic index, not a probability or a guarantee of safety. Source scores remain visible as source details and are not averaged.
+The report, saved JSON, API and PDF use one deterministic evidence index (`url-evidence-v1`). It combines URLVet, local checks and Deep Content. It is a heuristic index, not a probability or a guarantee of safety. Source scores remain in saved data and are not averaged. The web report presents one primary combined score; provider, connection and deep evidence sit in native expandable sections.
 
 | Evidence category | Maximum deduction |
 | --- | ---: |
@@ -15,3 +15,5 @@ The index starts at 100 and subtracts evidence deductions, capped within each ca
 Coverage is displayed separately from score. A high provisional score only describes the evidence that was assessed. Historical reports are recalculated from saved evidence when read, without sending new requests; legacy reports missing source availability remain partial. The original source evidence stays in the saved JSON.
 
 Worker failure diagnostics expose only a fixed stage, an allowed exception class and known project module/line locations. They omit exception text, target URLs and credentials. The shortened-link failure still requires a reproduction on the Docker worker; this change does not bypass SSRF, redirect or TLS protections.
+
+The web layout separates the main verdict, category observations, scored findings and coverage gaps. Unknown source outcomes use “Not verified”, not “Clean”. Source subtotals in expanded evidence are labeled as heuristic subtotals rather than probabilities.

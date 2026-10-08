@@ -2,9 +2,6 @@
 {% block title %}Scan Result #{{ scan.id }}{% endblock %}
 
 {% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   .result-wrap { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
@@ -106,77 +103,6 @@
   }
   @media (max-width: 768px) {
     .urlvet-main { grid-template-columns: 1fr; }
-  }
-
-  /* Trust Score Circle */
-  .trust-circle-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background: var(--surface);
-    border-radius: 16px;
-    border: 1px solid var(--border);
-  }
-  .trust-circle {
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    margin-bottom: 12px;
-  }
-  .trust-circle::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    padding: 6px;
-    background: conic-gradient(
-      var(--trust-color) calc(var(--trust-score) * 1%),
-      var(--surface3) calc(var(--trust-score) * 1%)
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-  .trust-circle-inner {
-    width: 100%;
-    height: 100%;
-    background: var(--surface);
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 1;
-  }
-  .trust-score-value {
-    font-family: var(--mono);
-    font-size: 42px;
-    font-weight: 700;
-    color: var(--trust-color);
-    line-height: 1;
-  }
-  .trust-score-label {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 4px;
-  }
-  .trust-verdict {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    padding: 6px 16px;
-    border-radius: 20px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
   }
 
   /* Verdict Details */
@@ -318,6 +244,81 @@
   @media (max-width: 768px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
+  /* Unified evidence report: one primary score, progressive source details. */
+  .result-wrap { max-width:1200px; padding:40px 28px 72px; font-family:Arial,Helvetica,sans-serif; color:#e9edf6; }
+  .page-head h1 { font-family:inherit; font-size:30px; letter-spacing:-.8px; margin:6px 0 0; }
+  .page-head .label { font-family:inherit; color:#97a8c3; font-size:11px; letter-spacing:1.8px; }
+  .page-head .url-text { font-family:inherit; font-size:14px; color:#b8c4d8; line-height:1.6; }
+  .status-card { background:transparent; border:0; padding:0; border-radius:0; }
+  .status-card > div:first-child > span:first-child { font-family:inherit!important; font-size:12px; letter-spacing:1px; }
+  .assessment-hero { display:grid; grid-template-columns:minmax(0,1fr) 250px; gap:40px; align-items:center; padding:36px; border:1px solid #35405b; background:linear-gradient(110deg,#192238,#111827); border-radius:20px; }
+  .report-eyebrow { color:#9baeca; font-size:11px; font-weight:700; letter-spacing:1.8px; }
+  .hero-copy h2 { font-size:32px; font-weight:700; letter-spacing:-.7px; margin:12px 0; line-height:1.15; }
+  .hero-copy > p { max-width:570px; color:#c2ccde; font-size:15px; line-height:1.7; margin:0; }
+  .hero-tags { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+  .hero-tags span { padding:7px 11px; border-radius:7px; background:#283247; color:#d9e2f2; font-size:12px; }
+  .hero-tags span:first-child { background:#473b24; color:#f6d893; }
+  .tone-clear .hero-tags span:first-child { background:#183e34; color:#a4e7c7; }
+  .tone-danger .hero-tags span:first-child { background:#512735; color:#ffb9c7; }
+  .overall-score { border-left:1px solid #39445b; padding-left:32px; }
+  .score-caption { color:#b9c8dd; font-size:11px; font-weight:700; letter-spacing:1.3px; }
+  .score-number { font-size:72px; font-weight:700; letter-spacing:-4px; line-height:1.3; color:#f7f9ff; }
+  .score-number > span { font-size:22px; font-weight:400; color:#9fadc4; letter-spacing:0; padding-left:7px; }
+  .score-track { height:5px; background:#334058; border-radius:5px; overflow:hidden; margin:6px 0 12px; }
+  .score-track span { display:block; height:100%; background:#f0c875; }
+  .tone-clear .score-track span { background:#82dcb7; }.tone-danger .score-track span { background:#fc839f; }
+  .score-note { font-size:12px; color:#b9c5d8; }
+  .hero-copy .threat-callout { margin-top:15px; color:#ffb9c7; }
+  .category-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin:18px 0 26px; }
+  .category-card { position:relative; background:#131b2b; border:1px solid #303c52; padding:19px 16px; border-radius:12px; }
+  .category-marker { display:block; width:20px; height:3px; background:#d3ad68; margin-bottom:15px; border-radius:3px; }
+  .category-marker.assessed { background:#8ba7dc; }
+  .category-card h3 { color:#e8eef9; font-size:13px; font-weight:600; margin:0 0 8px; line-height:1.4; }
+  .category-card p { margin:0 0 10px; color:#b7c4da; font-size:12px; line-height:1.4; }
+  .category-card small { color:#cbd7e9; font-size:11px; }
+  .assessment-detail-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:18px; }
+  .evidence-panel { background:#121a29; border:1px solid #303b50; border-radius:14px; padding:24px; }
+  .panel-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  .panel-heading h3 { font-size:16px; color:#eff3fb; margin:0; }.panel-heading > span { color:#b7c6dc; font-size:11px; }
+  .finding-list,.coverage-list { list-style:none; padding:0; margin:0; }
+  .finding-list li { display:flex; gap:12px; align-items:flex-start; padding:16px 0; border-top:1px solid #2a3549; }
+  .finding-dot { flex:0 0 6px; height:6px; margin-top:7px; border-radius:50%; background:#ecc583; }
+  .finding-list li > div { flex:1; min-width:0; }.finding-list p { margin:0; font-size:14px; color:#dce5f3; line-height:1.6; }
+  .finding-list small { display:block; color:#aebdd4; margin-top:7px; font-size:11px; }.deduction { color:#f2d090; font-size:12px; white-space:nowrap; padding-top:3px; }
+  .coverage-list li { display:flex; gap:10px; color:#c7d3e6; font-size:13px; line-height:1.6; padding:9px 0; }
+  .coverage-list li > span { flex:0 0 18px; height:18px; border-radius:50%; text-align:center; background:#493b28; color:#efd297; font-size:11px; margin-top:2px; }
+  .method-note { border-top:1px solid #2b3549; padding-top:15px; margin:18px 0 0; color:#aebbd1; font-size:12px; line-height:1.7; }
+  .empty-evidence { color:#bfcbdf; font-size:14px; line-height:1.7; margin:0; }
+  .next-steps { margin-top:18px; }
+  .evidence-heading { margin:34px 0 16px; }.evidence-heading h2 { font-family:inherit; font-size:20px; margin:0 0 7px; color:#e7edf9; }.evidence-heading p { margin:0; font-size:13px; color:#b4c2d7; }
+  .report-disclosure { background:#121a29; border:1px solid #303c52; border-radius:12px; margin-bottom:12px; }
+  .report-disclosure summary { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px 24px; cursor:pointer; list-style:none; }
+  .report-disclosure summary::-webkit-details-marker { display:none; }
+  .report-disclosure summary strong { display:block; font-size:15px; color:#e9eef8; font-weight:600; }
+  .report-disclosure summary small { display:block; color:#b2c1d8; font-size:12px; margin-top:6px; line-height:1.5; }
+  .disclosure-action { color:#b2c9f0; font-size:12px; white-space:nowrap; }.disclosure-action::after { content:' +'; font-size:17px; margin-left:10px; }
+  .report-disclosure[open] .disclosure-action::after { content:' −'; }
+  .report-disclosure summary:hover { background:#1b2537; border-radius:12px; }
+  .report-disclosure summary:focus-visible,.btn:focus-visible { outline:2px solid #a6c5ff; outline-offset:3px; }
+  .disclosure-body { padding:24px; border-top:1px solid #303c52; }
+  .connection-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  .section-card { background:#172132; border:1px solid #354057; border-radius:10px; padding:20px; margin-bottom:0; }
+  .section-title { color:#dfe9fb; font-family:inherit; font-size:15px; margin-bottom:15px; }
+  .info-row { gap:20px; padding:11px 0; line-height:1.5; font-size:13px; border-bottom:1px solid #303c50; }
+  .info-label { font-family:inherit; font-size:13px; color:#b9c6dc; }.info-value { color:#ecf2fc; font-weight:500; overflow-wrap:anywhere; word-break:normal; }
+  .urlvet-section { background:none; border:0; padding:0; margin:0; }.urlvet-header { display:none; }
+  .urlvet-main { display:block; }.urlvet-details { width:100%; }.urlvet-title,.tech-title,.flag-title { font-family:inherit; }
+  .urlvet-tech-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.tech-card { background:#172132; border-color:#354057; }
+  .tech-label { color:#b9c6dc; font-family:inherit; font-size:12px; }.tech-value { font-family:inherit; font-size:13px; overflow-wrap:anywhere; }
+  .flags-card li { font-family:inherit; font-size:13px; line-height:1.7; }.flags-card { background:#172132; }.flags-card h4,.tech-card h4 { font-family:inherit; font-size:13px; color:#c4d2e8; text-transform:none; letter-spacing:0; }.urlvet-verdict-banner.error { color:#cbd6e9; }.urlvet-section::before { display:none; }.tech-row { gap:16px; padding:10px 0; }
+  .recommendations-list li { color:#d3def0; font-size:13px; line-height:1.6; }
+  #deep-analysis-section .disclosure-body { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+  #deep-analysis-section h4 { color:#dfe9fb!important; font-size:15px; font-family:inherit; }
+  .export-btns { justify-content:flex-end; }.btn { font-family:inherit; padding:11px 17px; border-radius:9px; font-size:13px; }
+  .btn-danger { background:#28456e; }.btn-success { background:#28456e; color:#eef4ff; }
+  @media(max-width:900px) { .category-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }.assessment-hero { gap:24px; padding:26px; grid-template-columns:minmax(0,1fr) 210px; }.overall-score { padding-left:24px; }.hero-copy h2 { font-size:27px; } }
+  @media(max-width:640px) { .result-wrap { padding:24px 16px 48px; }.page-head h1 { font-size:25px; }.assessment-hero { grid-template-columns:1fr; gap:24px; padding:24px; }.overall-score { border-left:0; border-top:1px solid #39445b; padding:20px 0 0; }.score-number { font-size:62px; }.category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.assessment-detail-grid,.connection-grid,.urlvet-tech-grid,.flags-grid,#deep-analysis-section .disclosure-body { grid-template-columns:1fr; }.report-disclosure summary { padding:18px; }.disclosure-body { padding:18px; }.disclosure-action { font-size:0; }.disclosure-action::after { font-size:20px; }.evidence-panel { padding:20px; }.panel-heading { flex-wrap:wrap; } }
+
 </style>
 {% endblock %}
 
@@ -326,7 +327,7 @@
   <div class="page-head">
     <div>
       <div class="label">SCAN REPORT · #{{ scan.id }}</div>
-      <h1>Advanced Security Analysis</h1>
+      <h1>URL Security Report</h1>
       <div class="url-text">{{ scan.url[:100] }}{% if scan.url|length > 100 %}...{% endif %}</div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -352,14 +353,16 @@
   </div>
 
   <!-- Deep Analysis Section -->
-  <div id="deep-analysis-section" class="section-card" style="display:none; margin-top:20px;">
-    <div class="section-title">🔍 Deep Content Analysis</div>
+  <details id="deep-analysis-section" class="report-disclosure" style="display:none;">
+    <summary><span><strong>Content &amp; destination</strong><small>Page content, redirects and threat intelligence</small></span><span class="disclosure-action">View evidence</span></summary>
+    <div class="disclosure-body">
     <div id="page-content-analysis"></div>
     <div id="behavior-analysis"></div>
     <div id="whois-deep-analysis"></div>
     <div id="osint-analysis"></div>
     <div id="deep-recommendations"></div>
-  </div>
+    </div>
+  </details>
 </div>
 {% endblock %}
 
@@ -371,7 +374,6 @@ function esc(value) { return ScanUI.escape(value); }
 const scanId = {{ scan.id | tojson }};
 const initStatus = {{ scan.status | tojson }};
 let allData = null;
-let historyChart = null;
 
 function updateBadge(status, verdict) {
   const badge = document.getElementById('status-badge');
@@ -401,8 +403,6 @@ function renderURLVet(urlvet) {
     `;
   }
 
-  const trustScore = ScanUI.score(urlvet.trust_score);
-  const finalScore = ScanUI.score(urlvet.final_score ?? trustScore);
   const evidence = urlvet.phishing || {};
   const reportedEntry = evidence.in_database === true;
   const verifiedEntry = reportedEntry && evidence.verified === true && evidence.valid === true;
@@ -415,23 +415,19 @@ function renderURLVet(urlvet) {
   const evidenceWarning = urlvet.evidence_warning || (conflict ? 'The provider reported an unverified database entry. Safety cannot be confirmed.' : '');
 
   // لون الدائرة حسب الدرجة
-  let trustColor = '#6a6a90';
   let verdictClass = 'error';
   let verdictIcon = '❓';
   let verdictText = conflict ? 'Assessment needs review' : 'Assessment unavailable';
 
   if (verdict === 'harmless') {
-    trustColor = '#00e676';
     verdictClass = 'safe';
     verdictIcon = '✅';
     verdictText = 'No threat reported';
   } else if (verdict === 'suspicious') {
-    trustColor = '#ffd32a';
     verdictClass = 'suspicious';
     verdictIcon = '⚠️';
     verdictText = 'Suspicious — Proceed with caution';
   } else if (verdict === 'malicious') {
-    trustColor = '#ff4560';
     verdictClass = 'malicious';
     verdictIcon = '🚨';
     verdictText = 'Risky — Likely unsafe';
@@ -546,21 +542,11 @@ function renderURLVet(urlvet) {
   return `
     <div class="urlvet-section">
       <div class="urlvet-header">
-        <div class="urlvet-title">url.vet Advanced Analysis</div>
+        <div class="urlvet-title">URLVet observations</div>
         <div class="urlvet-source">Source: url.vet · source details</div>
       </div>
 
       <div class="urlvet-main">
-        <div class="trust-circle-wrap">
-          <div class="trust-circle" style="--trust-score: ${esc(trustScore)}; --trust-color: ${esc(trustColor)};">
-            <div class="trust-circle-inner">
-              <div class="trust-score-value" style="color: ${esc(trustColor)};">${esc(trustScore)}</div>
-              <div class="trust-score-label">Provider Score</div>
-            </div>
-          </div>
-          <div class="trust-verdict" style="color: ${esc(trustColor)}; border: 1px solid ${esc(trustColor)}40;">${esc(verdictRaw)}</div>
-        </div>
-
         <div class="urlvet-details">
           <div class="urlvet-verdict-banner ${esc(verdictClass)}">
             <div class="v-icon">${esc(verdictIcon)}</div>
@@ -584,19 +570,41 @@ function renderURLVet(urlvet) {
 // Render Result (النسخة الجديدة)
 // ================================================================
 function renderAggregate(assessment) {
-  if (!assessment) return '<div class="section-card"><div class="section-title">Overall assessment unavailable</div></div>';
-  const score = assessment.score == null ? 'N/A' : `${ScanUI.score(assessment.score)}/100`;
-  return `<section class="section-card" aria-label="Overall URL assessment">
-    <div class="section-title">Overall Safety Assessment</div>
-    <div class="info-row"><span class="info-label">Overall Safety Score</span><strong class="info-value" style="font-size:32px">${esc(score)}</strong></div>
-    <div class="info-row"><span class="info-label">Combined Verdict</span><span class="info-value">${esc(String(assessment.verdict || 'unknown').toUpperCase())}</span></div>
-    <div class="info-row"><span class="info-label">Coverage</span><span class="info-value">${esc(assessment.coverage)}${assessment.provisional ? ' · Provisional score' : ''}</span></div>
-    <p>${esc(assessment.warning)}</p>
-    ${assessment.threat_override ? '<p>A reported threat caps the overall score at 10/100 regardless of other positive checks.</p>' : ''}
-    <p>Combines URLVet, local checks and Deep Content evidence. Repeated evidence is counted once; source scores are shown separately below.</p>
-    ${(assessment.reasons || []).map(reason => `<div class="info-row"><span class="info-label">${esc(reason.message)}</span><span class="info-value">${esc(reason.code)} · −${esc(reason.deduction)} points</span></div>`).join('')}
-    ${(assessment.missing_checks || []).map(message => `<div class="info-row"><span class="info-label">Not covered</span><span class="info-value">${esc(message)}</span></div>`).join('')}
-  </section>`;
+  if (!assessment) return '<div class="section-card">Overall assessment unavailable. No score can be confirmed.</div>';
+  const numeric = typeof assessment.score === 'number' && Number.isFinite(assessment.score);
+  const score = numeric ? ScanUI.score(assessment.score) : null;
+  const verdict = assessment.verdict || 'unknown';
+  const labels = {harmless:'No threat indicated',unknown:'Needs verification',suspicious:'Suspicious indicators',high_risk:'High risk',malicious:'Threat reported'};
+  const tone = ['malicious','high_risk'].includes(verdict) ? 'danger' : verdict === 'harmless' && !assessment.provisional ? 'clear' : 'review';
+  const categories = {transport:'Connection security',identity:'URL & domain identity',content:'Page content',behavior:'Redirect behavior',reputation:'Threat intelligence'};
+  const components = assessment.components || {};
+  const reasons = assessment.reasons || [];
+  const missing = assessment.missing_checks || [];
+  const count = Object.values(components).filter(c=>c.status==='assessed').length;
+  return `<section class="assessment-hero tone-${tone}" aria-label="Overall URL assessment">
+    <div class="hero-copy"><div class="report-eyebrow">COMBINED ASSESSMENT</div>
+      <h2>${esc(labels[verdict] || 'Needs verification')}</h2>
+      <p>${assessment.provisional ? 'Some checks could not be verified. The score reflects the available evidence; it does not confirm this destination is safe.' : 'URL, connection, content and reputation evidence assessed together. Review the findings before deciding to visit.'}</p>
+      <div class="hero-tags"><span>${assessment.provisional ? 'Limited coverage' : 'Assessment complete'}</span><span>${esc(count)} of 5 evidence categories assessed</span></div>
+      ${assessment.threat_override ? '<p class="threat-callout">A reported threat overrides positive findings and caps the score at 10.</p>' : ''}
+    </div>
+    <div class="overall-score"><span class="score-caption">OVERALL SAFETY SCORE</span><div class="score-number">${score === null ? '—' : esc(score)}<span>/100</span></div>
+      <div class="score-track" aria-hidden="true"><span style="width:${score === null ? 0 : score}%"></span></div>
+      <span class="score-note">${assessment.provisional ? 'Provisional evidence index' : 'Combined evidence index'}</span></div>
+  </section>
+  <div class="category-grid" aria-label="Evidence categories">${Object.entries(categories).map(([key,label])=>{
+    const c = components[key] || {}; const checked=c.status==='assessed'; const deduction=typeof c.deduction==='number' ? c.deduction : 0;
+    return `<div class="category-card"><span class="category-marker ${checked ? 'assessed' : 'unavailable'}"></span><h3>${esc(label)}</h3><p>${checked ? deduction>0 ? 'Risk indicators present' : 'No scored indicators' : 'Not verified'}</p><small>${checked ? '−'+esc(deduction)+' points' : 'Coverage gap'}</small></div>`;
+  }).join('')}</div>
+  <div class="assessment-detail-grid">
+    <section class="evidence-panel"><div class="panel-heading"><h3>Why this result</h3><span>${esc(reasons.length)} findings</span></div>
+      ${reasons.length ? `<ul class="finding-list">${reasons.map(reason=>`<li><span class="finding-dot"></span><div><p>${esc(reason.message)}</p><small>${esc(categories[reason.category] || 'Evidence')}</small></div><span class="deduction">−${esc(reason.deduction)} pts</span></li>`).join('')}</ul>` : '<p class="empty-evidence">No scored risk indicators were identified in the available checks. This does not guarantee safety.</p>'}
+    </section>
+    <section class="evidence-panel coverage-panel"><div class="panel-heading"><h3>Coverage &amp; limitations</h3><span>${assessment.provisional ? 'Incomplete' : 'Complete'}</span></div>
+      ${missing.length ? `<ul class="coverage-list">${missing.map(message=>`<li><span aria-hidden="true">!</span>${esc(message)}</li>`).join('')}</ul>` : '<p class="empty-evidence">All checks required by this assessment policy were recorded.</p>'}
+      <p class="method-note">Heuristic evidence index, not a probability or a guarantee of safety. Repeated findings are counted once.</p>
+    </section>
+  </div>`;
 }
 
 function renderResult(scanData, analysisData) {
@@ -611,29 +619,12 @@ function renderResult(scanData, analysisData) {
   // استخراج بيانات url.vet
   const urlvet = analysisData?.urlvet || {};
 
-  // بناء القسم الرئيسي
-  const isPartial = scanData.status === 'partial' || analysisData?.assessment_status === 'partial';
-  const evidenceNeedsReview = Boolean(urlvet.evidence_warning);
-  const coverageTitle = evidenceNeedsReview ? 'This assessment needs review' : 'This report has limited coverage';
-  const coverageMessage = analysisData?.assessment_warning || 'Available findings are shown below, but the overall safety of this URL could not be confirmed.';
-  const coverageHint = evidenceNeedsReview ? 'Review the reported evidence before relying on this assessment. A provider score alone does not confirm safety.' : 'Run a new scan when the source is available to obtain a complete assessment.';
+  const isPartial = combined?.provisional || scanData.status === 'partial';
   let mainHTML = renderAggregate(combined);
-  mainHTML += isPartial ? `
-    <aside class="coverage-notice" role="note" aria-labelledby="coverage-title">
-      <span class="coverage-icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
-      <div class="coverage-copy">
-        <h2 id="coverage-title">${esc(coverageTitle)}</h2>
-        <p>${esc(coverageMessage)}</p>
-        <p class="coverage-hint">${esc(coverageHint)}</p>
-      </div>
-    </aside>` : '';
-
-  // 1. قسم url.vet (الأهم)
-  mainHTML += renderURLVet(urlvet);
+  mainHTML += `<div class="evidence-heading"><div><h2>Explore the evidence</h2><p>Source observations behind the combined result.</p></div></div>`;
+  mainHTML += `<details class="report-disclosure"><summary><span><strong>Provider observations</strong><small>URLVet · domain, TLS and reputation signals</small></span><span class="disclosure-action">View evidence</span></summary><div class="disclosure-body">${renderURLVet(urlvet)}</div></details>`;
 
   // 2. الأقسام المحلية الأخرى (Deep Analysis, etc.)
-  const localVerdict = analysisData?.local_verdict || 'unknown';
-  const localScore = ScanUI.score(analysisData?.security_score);
   const urlStructure = analysisData?.url_structure || {};
   const sslInfo = analysisData?.ssl_info || {};
   const dnsRecords = analysisData?.dns_records || {};
@@ -643,14 +634,10 @@ function renderResult(scanData, analysisData) {
 
   let extraHTML = '';
 
-  // Local Security Analysis
-  extraHTML += `<div class="section-card">
-    <div class="section-title">🔒 Local Security Analysis</div>
-    <div class="info-row"><span class="info-label">Local Security Score</span><span class="info-value" style="color:${esc(localScore >= 70 ? 'var(--green)' : localScore >= 40 ? 'var(--yellow)' : 'var(--red)')}">${esc(localScore)}/100</span></div>
-    <div class="info-row"><span class="info-label">Local Verdict</span><span class="info-value">${esc(localVerdict.toUpperCase())}</span></div>
-    ${isShortened ? `<div class="info-row"><span class="info-label">URL Shortener</span><span class="info-value info-warn">⚠️ Detected</span></div>` : ''}
-    ${urlStructure?.is_https ? `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-good">✓ Enabled</span></div>` : `<div class="info-row"><span class="info-label">HTTPS</span><span class="info-value info-bad">✗ Not Secure</span></div>`}
-    ${urlStructure?.contains_ip ? `<div class="info-row"><span class="info-label">IP Address URL</span><span class="info-value info-bad">⚠️ Suspicious</span></div>` : ''}
+  extraHTML += `<div class="section-card"><div class="section-title">URL identity</div>
+    <div class="info-row"><span class="info-label">HTTPS</span><span class="info-value">${esc(typeof urlStructure.is_https === 'boolean' ? urlStructure.is_https ? 'Used by original URL' : 'Not used' : 'Not recorded')}</span></div>
+    <div class="info-row"><span class="info-label">Shortened URL</span><span class="info-value">${esc(isShortened ? 'Detected' : 'Not reported')}</span></div>
+    <div class="info-row"><span class="info-label">IP address in URL</span><span class="info-value">${esc(typeof urlStructure.contains_ip === 'boolean' ? urlStructure.contains_ip ? 'Present' : 'Not present' : 'Not recorded')}</span></div>
   </div>`;
 
   // Phishing Indicators
@@ -691,19 +678,14 @@ function renderResult(scanData, analysisData) {
     </div>`;
   }
 
-  // Recommendations
   if (recommendations.length > 0) {
-    extraHTML += `<div class="section-card">
-      <div class="section-title">📋 Security Recommendations</div>
-      <ul class="recommendations-list">
-        ${recommendations.map(r => `<li>${esc(r)}</li>`).join('')}
-      </ul>
-    </div>`;
+    const nextSteps = `<section class="evidence-panel next-steps"><div class="panel-heading"><h3>Suggested next steps</h3></div><ul class="recommendations-list">${recommendations.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></section>`;
+    mainHTML = mainHTML.replace('<div class="evidence-heading">',nextSteps+'<div class="evidence-heading">');
   }
   // ⚡ إضافة قسم url.vet إلى الصفحة
   document.getElementById('verdict-area').innerHTML = mainHTML;
   
-  document.getElementById('extra-sections').innerHTML = extraHTML;
+  document.getElementById('extra-sections').innerHTML = `<details class="report-disclosure"><summary><span><strong>Connection &amp; DNS</strong><small>Original URL, certificate and DNS records</small></span><span class="disclosure-action">View evidence</span></summary><div class="disclosure-body connection-grid">${extraHTML}</div></details>`;
   const screenshot = document.querySelector('#extra-sections .screenshot-img');
   if (screenshot) screenshot.addEventListener('error', () => { screenshot.parentElement.style.display = 'none'; });
 
@@ -719,7 +701,7 @@ function renderResult(scanData, analysisData) {
         <h4 style="color:var(--accent); margin-bottom:10px;">📄 Page Content Analysis</h4>
         <div class="info-row"><span class="info-label">Title</span><span class="info-value">${esc(content.title || 'N/A')}</span></div>
         <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${esc(content.has_login_form ? 'info-bad' : 'info-good')}">${esc(content.has_login_form ? '⚠️ Yes' : 'No')}</span></div>
-        <div class="info-row"><span class="info-label">Content Risk Score</span><span class="info-value" style="color:${esc(content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(content.content_risk_score || 0)}%</span></div>
+        <div class="info-row"><span class="info-label">Content heuristic subtotal</span><span class="info-value" style="color:${esc(content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(content.error || !('title' in content) ? 'Not verified' : ScanUI.score(content.content_risk_score)+'/100')}</span></div>
       </div>
     `;
 
@@ -729,7 +711,7 @@ function renderResult(scanData, analysisData) {
         <h4 style="color:var(--accent); margin-bottom:10px;">🔄 Behavioral Analysis</h4>
         <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${esc(behavior.is_shortened ? 'info-warn' : 'info-good')}">${esc(behavior.is_shortened ? '⚠️ Yes' : 'No')}</span></div>
         <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${esc(behavior.redirect_count || 0)}</span></div>
-        <div class="info-row"><span class="info-label">Behavior Risk Score</span><span class="info-value" style="color:${esc(behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(behavior.behavior_risk_score || 0)}%</span></div>
+        <div class="info-row"><span class="info-label">Behavior heuristic subtotal</span><span class="info-value" style="color:${esc(behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(behavior.error || typeof behavior.behavior_risk_score !== 'number' ? 'Not verified' : ScanUI.score(behavior.behavior_risk_score)+'/100')}</span></div>
       </div>
     `;
 
@@ -739,7 +721,7 @@ function renderResult(scanData, analysisData) {
         <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
         <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${esc(whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A')}</span></div>
         <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${esc(whoisDeep.registrar || 'N/A')}</span></div>
-        <div class="info-row"><span class="info-label">WHOIS Risk Score</span><span class="info-value" style="color:${esc(whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(whoisDeep.whois_risk_score || 0)}%</span></div>
+        <div class="info-row"><span class="info-label">Domain history subtotal</span><span class="info-value" style="color:${esc(whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(whoisDeep.error || typeof whoisDeep.whois_risk_score !== 'number' ? 'Not verified' : ScanUI.score(whoisDeep.whois_risk_score)+'/100')}</span></div>
       </div>
     `;
 
@@ -747,8 +729,8 @@ function renderResult(scanData, analysisData) {
     document.getElementById('osint-analysis').innerHTML = `
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">🛡️ OSINT Threat Intelligence</h4>
-        <div class="info-row"><span class="info-label">URLhaus Detection</span><span class="info-value ${esc(osint.urlhaus ? 'info-bad' : 'info-good')}">${esc(osint.urlhaus ? '⚠️ Found' : '✅ Clean')}</span></div>
-        <div class="info-row"><span class="info-label">OSINT Risk Score</span><span class="info-value" style="color:${esc(osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(osint.osint_risk_score || 0)}%</span></div>
+        <div class="info-row"><span class="info-label">URLhaus Detection</span><span class="info-value ${esc(osint.urlhaus ? 'info-bad' : 'info-good')}">${esc(osint.urlhaus === true ? 'Reported match' : osint.urlhaus_status === 'not_found' ? 'Not found in dataset' : 'Not verified')}</span></div>
+        <div class="info-row"><span class="info-label">Source heuristic subtotal</span><span class="info-value" style="color:${esc(osint.osint_risk_score > 50 ? 'var(--red)' : osint.osint_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(['matched','not_found'].includes(osint.urlhaus_status) ? ScanUI.score(osint.osint_risk_score)+'/100' : 'Not verified')}</span></div>
       </div>
     `;
   }

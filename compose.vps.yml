@@ -77,7 +77,10 @@ services:
     <<: *app
     command: [web]
     restart: unless-stopped
-    networks: [data, outbound, frontend]
+    networks:
+      data: {}
+      outbound: {}
+      frontend: {ipv4_address: 172.31.240.3}
     depends_on:
       seed: {condition: service_completed_successfully}
     healthcheck:

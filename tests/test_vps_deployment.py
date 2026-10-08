@@ -61,6 +61,9 @@ class DeploymentTests(unittest.TestCase):
         services=self.config['services']
         for child,parent in [('migrate','bootstrap-roles'),('seed','migrate'),('web','seed'),('worker','seed'),('beat','seed')]:
             self.assertEqual(services[child]['depends_on'][parent]['condition'],'service_completed_successfully')
+    def test_frontend_static_addresses_cannot_collide(self):
+        addresses=[self.config['services'][name]['networks']['frontend']['ipv4_address'] for name in ('proxy','web')]
+        self.assertEqual(addresses,['172.31.240.2','172.31.240.3'])
     def test_proxy_replaces_untrusted_headers(self):
         caddy=(ROOT/'deploy/Caddyfile').read_text()
         self.assertIn('header_up X-Forwarded-For {remote_host}',caddy)

@@ -43,7 +43,7 @@ services:
       retries: 5
       start_period: 30s
   urlvet-cache:
-    image: valkey/valkey:8.0
+    image: valkey/valkey@sha256:4436c94fc34ce4af0354b9379d433a1f258998fb955f995c89822f98c14a8cab
     restart: unless-stopped
     secrets: [urlvet_cache_password, urlvet_cache_config]
     command: [valkey-server, /run/secrets/urlvet_cache_config]
@@ -55,7 +55,7 @@ services:
       timeout: 3s
       retries: 10
   urlvet-browser:
-    image: chromedp/headless-shell:latest
+    image: chromedp/headless-shell@sha256:2d349b544a1ea6b5b5fd7c0fe99215ff662339c57407ee2e8c0a11af93516b04
     init: true
     restart: unless-stopped
     shm_size: 256m

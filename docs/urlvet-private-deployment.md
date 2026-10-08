@@ -16,8 +16,8 @@ python -m unittest discover -s tests -p test_urlvet_deployment.py -v
 docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlvet.yml config --quiet
 ```
 
-The browser and Valkey images must be locked to reviewed image digests before
-production. The initial draft uses the current user deployment's image tags;
+The browser and Valkey images are locked to the digests reported from the user's
+existing deployment. This fixes reproducibility, not image security clearance;
 actual merged configuration/build/startup must still be tested. URLVet's admin
 UI is not deployed and no admin password is provided to this backend.
 

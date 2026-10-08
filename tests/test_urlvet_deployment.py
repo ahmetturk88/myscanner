@@ -21,6 +21,11 @@ class ProviderDeploymentTests(unittest.TestCase):
         self.assertNotIn('DATABASE_URL',source)
         self.assertNotIn('db_app_password',source)
         self.assertEqual(source.count('URLVET_URL: http://urlvet:8080'),2)
+    def test_cache_and_browser_images_are_digest_locked(self):
+        source=(ROOT/'compose.urlvet.yml').read_text()
+        self.assertIn('valkey/valkey@sha256:4436c94fc34ce4af0354b9379d433a1f258998fb955f995c89822f98c14a8cab',source)
+        self.assertIn('chromedp/headless-shell@sha256:2d349b544a1ea6b5b5fd7c0fe99215ff662339c57407ee2e8c0a11af93516b04',source)
+        self.assertNotIn(':latest',source)
     def test_build_context_excludes_host_files(self):
         source=(ROOT/'deploy/.dockerignore').read_text().splitlines()
         self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh'])

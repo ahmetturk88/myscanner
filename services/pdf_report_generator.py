@@ -359,7 +359,7 @@ def draw_cover(c, ctx):
     c.setFont('Helvetica-Bold', 50)
     c.drawCentredString(cx, gy - 16, ctx.get('score_display', str(ctx['trust'])))
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, gy - 35, 'OUT OF 100', 'Helvetica', 7.5, 2)
+    draw_spaced(c, cx, gy - 35, 'INCOMPLETE' if ctx.get('incomplete') else 'OUT OF 100', 'Helvetica', 7.5, 2)
 
     # شارة الحكم
     label = ctx['vlabel']
@@ -964,7 +964,7 @@ def generate_vulnerability_report(scan, analysis, username):
     username = str(username or 'N/A')
 
     ctx = {
-        'trust': overall, 'score_display': str(aggregate['score']) if aggregate.get('score') is not None else 'N/A', 'vcolor': vcol, 'vlabel': vlabel, 'url': url,
+        'incomplete': aggregate.get('score') is None, 'trust': overall, 'score_display': str(aggregate['score']) if aggregate.get('score') is not None else 'N/A', 'vcolor': vcol, 'vlabel': vlabel, 'url': url,
         'date': date_str, 'report_id': report_id, 'username': username,
     }
 
@@ -1009,14 +1009,15 @@ def generate_vulnerability_report(scan, analysis, username):
     E.append(verdict_banner(vcol, vlabel, vdesc))
     E.append(Spacer(1, 12))
     E.append(StatCards([
-        ('OVERALL SCORE', aggregate.get('score') if aggregate.get('score') is not None else 'N/A', 'provisional' if aggregate.get('provisional') else 'out of 100', score_color(overall)),
+        ('OVERALL SCORE', aggregate.get('score') if aggregate.get('score') is not None else 'N/A', 'assessment incomplete' if aggregate.get('score') is None else 'out of 100', COLORS['yellow'] if aggregate.get('score') is None else score_color(overall)),
         ('LOCAL SCORE', local, 'out of 100', score_color(local)),
         ('RED FLAGS', len(red_flags), 'threat indicators',
          COLORS['red'] if red_flags else COLORS['green']),
         ('GREEN FLAGS', len(green_flags), 'positive signals', COLORS['green']),
     ]))
     E.append(Spacer(1, 12))
-    E.append(RiskMeter(overall))
+    if aggregate.get('score') is not None:
+        E.append(RiskMeter(overall))
     E.append(Spacer(1, 16))
 
     E.append(SubHeader('Scan Overview', COLORS['accent']))

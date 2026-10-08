@@ -261,6 +261,7 @@
   .tone-clear .hero-tags span:first-child { background:#183e34; color:#a4e7c7; }
   .tone-danger .hero-tags span:first-child { background:#512735; color:#ffb9c7; }
   .overall-score { border-left:1px solid #39445b; padding-left:32px; }
+  .score-incomplete { font-size:28px; line-height:1.3; font-weight:600; color:#f4d693; margin:20px 0 16px; letter-spacing:-.5px; }
   .score-caption { color:#b9c8dd; font-size:11px; font-weight:700; letter-spacing:1.3px; }
   .score-number { font-size:72px; font-weight:700; letter-spacing:-4px; line-height:1.3; color:#f7f9ff; }
   .score-number > span { font-size:22px; font-weight:400; color:#9fadc4; letter-spacing:0; padding-left:7px; }
@@ -571,7 +572,7 @@ function renderURLVet(urlvet) {
 // ================================================================
 function renderAggregate(assessment) {
   if (!assessment) return '<div class="section-card">Overall assessment unavailable. No score can be confirmed.</div>';
-  const numeric = typeof assessment.score === 'number' && Number.isFinite(assessment.score);
+  const numeric = !assessment.provisional && assessment.coverage !== 'partial' && typeof assessment.score === 'number' && Number.isFinite(assessment.score);
   const score = numeric ? ScanUI.score(assessment.score) : null;
   const verdict = assessment.verdict || 'unknown';
   const labels = {harmless:'No threat indicated',unknown:'Needs verification',suspicious:'Suspicious indicators',high_risk:'High risk',malicious:'Threat reported'};
@@ -584,13 +585,12 @@ function renderAggregate(assessment) {
   return `<section class="assessment-hero tone-${tone}" aria-label="Overall URL assessment">
     <div class="hero-copy"><div class="report-eyebrow">COMBINED ASSESSMENT</div>
       <h2>${esc(labels[verdict] || 'Needs verification')}</h2>
-      <p>${assessment.provisional ? 'Some checks could not be verified. The score reflects the available evidence; it does not confirm this destination is safe.' : 'URL, connection, content and reputation evidence assessed together. Review the findings before deciding to visit.'}</p>
+      <p>${assessment.provisional ? 'Some checks could not be verified, so no final safety score is shown. Review the available findings and coverage gaps below.' : 'URL, connection, content and reputation evidence assessed together. Review the findings before deciding to visit.'}</p>
       <div class="hero-tags"><span>${assessment.provisional ? 'Limited coverage' : 'Assessment complete'}</span><span>${esc(count)} of 5 evidence categories assessed</span></div>
-      ${assessment.threat_override ? '<p class="threat-callout">A reported threat overrides positive findings and caps the score at 10.</p>' : ''}
+      ${assessment.threat_override ? '<p class="threat-callout">A reported threat overrides positive findings. Incomplete coverage does not cancel that finding.</p>' : ''}
     </div>
-    <div class="overall-score"><span class="score-caption">OVERALL SAFETY SCORE</span><div class="score-number">${score === null ? '—' : esc(score)}<span>/100</span></div>
-      <div class="score-track" aria-hidden="true"><span style="width:${score === null ? 0 : score}%"></span></div>
-      <span class="score-note">${assessment.provisional ? 'Provisional evidence index' : 'Combined evidence index'}</span></div>
+    <div class="overall-score"><span class="score-caption">${score === null ? 'ASSESSMENT STATUS' : 'OVERALL SAFETY SCORE'}</span>
+      ${score === null ? '<div class="score-incomplete">Assessment<br>incomplete</div><span class="score-note">No final safety score is available.</span>' : `<div class="score-number">${esc(score)}<span>/100</span></div><div class="score-track" aria-hidden="true"><span style="width:${score}%"></span></div><span class="score-note">Combined evidence index</span>`}</div>
   </section>
   <div class="category-grid" aria-label="Evidence categories">${Object.entries(categories).map(([key,label])=>{
     const c = components[key] || {}; const checked=c.status==='assessed'; const deduction=typeof c.deduction==='number' ? c.deduction : 0;

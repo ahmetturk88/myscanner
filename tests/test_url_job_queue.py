@@ -124,6 +124,23 @@ class URLQueueTests(unittest.TestCase):
             self.assertEqual(pdf.call_args.args[1]['aggregate_assessment'],aggregate)
             analyzer.assert_not_called()
 
+    def test_partial_saved_report_has_no_final_score_in_api_and_pdf(self):
+        from io import BytesIO
+        self.app.add_url_rule('/api/url-analysis/<int:scan_id>','api_url_analysis',self.production.api_url_analysis)
+        self.app.add_url_rule('/report/pdf/<int:scan_id>','download_pdf',self.production.download_pdf)
+        sid,tid=self.job();claim_url_scan(sid,self.owner,'https://example.invalid',tid)
+        local,deep=self.reports();deep['osint']={}
+        save_url_scan(sid,self.owner,'https://example.invalid',local,deep)
+        with patch.object(self.production,'generate_vulnerability_report',return_value=BytesIO(b'%PDF-test')) as pdf:
+            response=self.client.get(f'/api/url-analysis/{sid}')
+            aggregate=response.json['aggregate_assessment']
+            self.assertIsNone(aggregate['score']);self.assertEqual(aggregate['evidence_score'],100)
+            exported=self.client.get(f'/api/scan_result/{sid}').json['raw_report']['aggregate_assessment']
+            self.assertEqual(exported,aggregate)
+            self.assertEqual((aggregate['verdict'],aggregate['coverage']),('unknown','partial'))
+            self.assertEqual(self.client.get(f'/report/pdf/{sid}').status_code,200)
+            self.assertEqual(pdf.call_args.args[1]['aggregate_assessment'],aggregate)
+
     def test_dashboard_dispatches_queue_without_thread_or_analyzer(self):
         with patch.object(self.production.scan_url_task,'apply_async') as dispatch,patch.object(self.production.threading,'Thread') as thread,patch.object(self.production,'URLDeepAnalyzer') as analyzer:
             response=self.client.post('/dashboard',data={'url':'https://example.invalid'})

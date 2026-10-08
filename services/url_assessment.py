@@ -3,7 +3,7 @@ import copy
 import math
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v1'
+POLICY_VERSION = 'url-evidence-v2'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 
 
@@ -138,7 +138,8 @@ def assess_url(local, deep):
         verdict='high_risk' if score<40 else 'suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
-    return {'policy_version':POLICY_VERSION,'score':score,'verdict':verdict,
+    return {'policy_version':POLICY_VERSION,'score':None if missing else score,
+            'evidence_score':score,'verdict':verdict,
             'coverage':'partial' if missing else 'completed','provisional':bool(missing),
             'assessed_categories':count,'total_categories':len(WEIGHTS),
             'components':components,'reasons':list(reasons.values()),'missing_checks':missing,

@@ -1,6 +1,6 @@
 # Overall URL assessment
 
-The report, saved JSON, API and PDF use one deterministic evidence index (`url-evidence-v1`). It combines URLVet, local checks and Deep Content. It is a heuristic index, not a probability or a guarantee of safety. Source scores remain in saved data and are not averaged. The web report presents one primary combined score; provider, connection and deep evidence sit in native expandable sections.
+The report, saved JSON, API and PDF use one deterministic evidence index (`url-evidence-v2`). It combines URLVet, local checks and Deep Content. It is a heuristic index, not a probability or a guarantee of safety. Source scores remain in saved data and are not averaged. The web report presents one primary combined score; provider, connection and deep evidence sit in native expandable sections.
 
 | Evidence category | Maximum deduction |
 | --- | ---: |
@@ -12,7 +12,7 @@ The report, saved JSON, API and PDF use one deterministic evidence index (`url-e
 
 The index starts at 100 and subtracts evidence deductions, capped within each category. Stable evidence codes deduplicate overlapping findings across sources. Forms or keywords alone do not confirm phishing. A reported malicious finding caps the score at 10 and preserves the threat verdict. Unverified database submissions do not confirm phishing; missing, failed or unrecorded checks produce partial coverage and cannot confirm safety. With no usable evidence the score is unavailable.
 
-Coverage is displayed separately from score. A high provisional score only describes the evidence that was assessed. Historical reports are recalculated from saved evidence when read, without sending new requests; legacy reports missing source availability remain partial. The original source evidence stays in the saved JSON.
+Coverage is displayed separately. A partial assessment has no final score (`score: null`), even when all available checks have no scored indicators. The internal `evidence_score` preserves the calculation for audit and is not a final safety score. Complete coverage is required before publishing a numeric final score. Historical reports are recalculated from saved evidence when read, without sending new requests; legacy reports missing source availability remain partial. The original source evidence stays in the saved JSON.
 
 Worker failure diagnostics expose only a fixed stage, an allowed exception class and known project module/line locations. They omit exception text, target URLs and credentials. The shortened-link failure still requires a reproduction on the Docker worker; this change does not bypass SSRF, redirect or TLS protections.
 

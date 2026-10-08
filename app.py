@@ -668,6 +668,10 @@ def api_scan_result(scan_id):
         except Exception:
             raw = None
 
+    if isinstance(raw, dict) and isinstance(raw.get('local_analysis'), dict) and isinstance(raw.get('deep_analysis'), dict):
+        from services.url_assessment import assess_url
+        raw['aggregate_assessment'] = assess_url(raw['local_analysis'], raw['deep_analysis'])
+
     return jsonify({
         "id": scan.id, "url": scan.url,
         "status": scan.status, "verdict": scan.verdict,

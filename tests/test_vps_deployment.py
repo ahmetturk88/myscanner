@@ -69,6 +69,13 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn('header_up X-Forwarded-For {remote_host}',caddy)
         self.assertIn('header_up -CF-Connecting-IP',caddy)
         self.assertEqual(self.config['services']['proxy']['networks']['frontend']['ipv4_address']+'/32',self.config['services']['web']['environment']['TRUSTED_PROXY_CIDRS'])
+    def test_account_creation_requires_rehearsal_before_prompt(self):
+        spec=importlib.util.spec_from_file_location('vps_account',ROOT/'scripts/vps_runtime.py');runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
+        with patch.dict('os.environ',{},clear=True),patch('getpass.getpass') as prompt:
+            with self.assertRaisesRegex(RuntimeError,'Explicit rehearsal'):runtime.create_rehearsal_user()
+            prompt.assert_not_called()
+        with patch.dict('os.environ',{'VPS_REHEARSAL':'1'},clear=True),patch('getpass.getpass',side_effect=['short','short']):
+            with self.assertRaises(ValueError):runtime.create_rehearsal_user()
     def test_queue_smoke_requires_explicit_rehearsal(self):
         spec=importlib.util.spec_from_file_location('vps_smoke',ROOT/'scripts/vps_runtime.py');runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
         with patch.dict('os.environ',{},clear=True):

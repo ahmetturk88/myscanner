@@ -68,3 +68,18 @@ only when its schema compatibility was tested. Do not automatically downgrade
 migrations or restore over a live database. A destructive schema change requires
 a separately rehearsed database recovery and maintenance plan. This document
 is a reviewable procedure, not a claim that production rollback is validated.
+
+## Browser rehearsal account
+
+After successful HTTPS and queue checks, create the account interactively:
+
+```powershell
+docker compose --env-file .env.vps.rehearsal -f compose.vps.yml exec -e VPS_REHEARSAL=1 web python scripts/vps_runtime.py create-user
+```
+
+The password must match and contain at least 12 characters; it is not echoed.
+The fixed account is `rehearsal-admin@example.invalid`, verified and admin only
+in this isolated database. Existing accounts are never changed by the command.
+Open https://localhost:8443 and sign in. The local certificate is issued by
+Caddy's rehearsal CA; accept the browser warning only for this localhost test.
+Production account onboarding and real domain certificates are separate steps.

@@ -18,11 +18,34 @@ def configure(command):
     user='myscanner_bootstrap' if command=='bootstrap' else 'myscanner_migrator' if command=='migrate' else 'myscanner_app'
     password=secret('db_admin_password' if command=='bootstrap' else 'db_migration_password' if command=='migrate' else 'db_app_password')
     os.environ['DATABASE_URL']='postgresql+psycopg2://'+user+':'+password+'@postgres:5432/myscanner_vps'
-    if command in {'web','worker','beat','health-web','health-worker','seed','smoke-queue'}:
+    if command in {'web','worker','beat','health-web','health-worker','seed','smoke-queue','create-user'}:
         os.environ['SECRET_KEY']=secret('session_key')
         redis_password=secret('redis_password')
         os.environ['CELERY_BROKER_URL']='redis://:'+redis_password+'@redis:6379/0'
         os.environ['CELERY_RESULT_BACKEND']='redis://:'+redis_password+'@redis:6379/1'
+
+
+def create_rehearsal_user():
+    if os.getenv("VPS_REHEARSAL") != "1":raise RuntimeError("Explicit rehearsal required.")
+    import getpass
+    password = getpass.getpass('Rehearsal administrator password (at least 12 characters): ')
+    confirmation = getpass.getpass('Confirm password: ')
+    if len(password) < 12 or password != confirmation:
+        raise ValueError('Password must match and contain at least 12 characters')
+    from app import app
+    from extensions import db, bcrypt
+    from models import User
+    with app.app_context():
+        email = 'rehearsal-admin@example.invalid'
+        user = User.query.filter_by(email=email).first()
+        if user is not None:
+            raise RuntimeError('Rehearsal administrator already exists; it was not changed')
+        user = User(username='rehearsal-admin', email=email, is_verified=True,
+                    is_admin=True, role='admin',
+                    password_hash=bcrypt.generate_password_hash(password).decode('utf-8'))
+        db.session.add(user)
+        db.session.commit()
+    print('Rehearsal administrator created: rehearsal-admin@example.invalid')
 
 
 def smoke_queue():
@@ -84,6 +107,8 @@ def run(command):
         try:upgrade_database(engine,schema_role='myscanner_schema_owner')
         finally:engine.dispose()
         print('PASS: VPS schema migrated.')
+    elif command=='create-user':
+        create_rehearsal_user()
     elif command=='smoke-queue':
         smoke_queue()
     elif command=='seed':

@@ -1,0 +1,21 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const elements={};const node=id=>elements[id]||=( {style:{},textContent:'',className:'',classList:{add(){},remove(){}},addEventListener(){}} );
+const details=[{textContent:'TLS certificate',hidden:false,open:false},{textContent:'Page content',hidden:false,open:false}];
+let copied='';
+const ctx={document:{getElementById:node,querySelectorAll:()=>details},window:{addEventListener(){},location:{search:''}},URL,URLSearchParams,console,setTimeout(){},navigator:{clipboard:{writeText(text){copied=text;return Promise.resolve();}}}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('static/scan_ui.js','utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
+let source=[...fs.readFileSync('templates/result.html','utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n').replace(/{{ scan.id \| tojson }}/g,'1').replace(/{{ scan.status \| tojson }}/g,'"queued"').replace(/if \(initStatus[^\n]*\nelse[^\n]*/g,'');
+vm.runInContext(source,ctx);
+ctx.setLoadingState('queued');assert.equal(elements['phase-queue'].className,'active');assert.equal(elements['phase-analysis'].className,'');
+ctx.setLoadingState('running');assert.equal(elements['phase-analysis'].className,'active');assert.equal(elements['phase-report'].className,'');
+ctx.setLoadingState('report');assert.equal(elements['phase-report'].className,'active');assert(!elements['loading-text'].textContent.includes('%'));
+ctx.filterEvidence('tls');assert(!details[0].hidden);assert(details[1].hidden);assert(details[0].open);ctx.filterEvidence('');assert(details.every(d=>!d.hidden));
+ctx.expandEvidence(true);assert(details.every(d=>d.open));ctx.expandEvidence(false);assert(details.every(d=>!d.open));
+for(const cell of ['=CMD()', '+test', '-test', '@x','  =CMD()'])assert(ctx.csvCell(cell).startsWith('"\''));assert.equal(ctx.csvCell('a"b'),'"a""b"');
+assert(ctx.renderSourceOverview({deep_analysis:{osint:{urlhaus_status:'matched'}}}).includes('Dataset match reported'));
+assert(ctx.renderSourceOverview({}).includes('Not verified'));assert(!ctx.renderSourceOverview({}).includes('No dataset match'));
+vm.runInContext('allData={scan:{url:"https://example.org"},analysis:{aggregate_assessment:{score:95,verdict:"unknown",missing_checks:["Source unavailable"]}}}',ctx);
+ctx.copyURLReport().then(()=>{assert(copied.includes('95/100'));assert(copied.includes('Source unavailable'));assert(copied.includes('not a probability'));});
+
+const journey=ctx.renderJourney({url:'https://example.org/<img onerror=x>'},{deep_analysis:{behavior:{redirect_chain:[{url:'https://next.example/<script>x</script>',status_code:302}],final_url:'https://final.example/'}}});
+assert(journey.includes('&lt;img'));assert(journey.includes('&lt;script'));assert(!journey.includes('<img'));assert(!journey.includes('href='));assert(journey.includes('302'));assert(journey.includes('https://final.example/'));

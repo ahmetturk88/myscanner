@@ -44,7 +44,10 @@ def audit_spf(domain, records, lookup, budget=10):
                 target=body.split('=',1)[1] if kind=='redirect' else body.partition(':')[2]
                 if '%' in target:
                     result['status']='partial';issue('SPF macros require sender context; dependency not expanded');continue
-                if not re.fullmatch(r'(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?',target) or '.' not in target:
+                # SPF targets are DNS names, not web hostnames; underscore labels
+                # such as _spf.google.com and _netblocks.google.com are valid.
+                target=target.rstrip('.')
+                if len(target)>253 or '.' not in target or any(not re.fullmatch(r'[a-zA-Z0-9_-]{1,63}',label) for label in target.split('.')):
                     issue('Invalid SPF dependency domain');continue
                 target=target.lower().rstrip('.')
                 if target in path:issue('SPF dependency cycle at '+target);continue

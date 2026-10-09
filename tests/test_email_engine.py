@@ -48,6 +48,11 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(r['quality_score'],r['assessment']['score']);self.assertEqual(r['verdict'],r['assessment']['verdict']);self.assertEqual(r['deliverability'],'PROBE_ACCEPTED');self.assertNotEqual(r['verdict'],'safe')
 
 class PolicyTests(unittest.TestCase):
+    def test_google_style_underscore_dependencies_are_valid(self):
+        records={'_spf.google.com':['v=spf1 include:_netblocks.google.com ~all'],'_netblocks.google.com':['v=spf1 ip4:8.8.8.0/24 ~all']}
+        r=audit_spf('gmail.com',['v=spf1 redirect=_spf.google.com'],lambda name,kind:(records[name],'found'))
+        self.assertTrue(r['configuration_valid']);self.assertEqual(r['issues'],[])
+        self.assertEqual([d['domain'] for d in r['dependencies']],['_spf.google.com','_netblocks.google.com'])
     def test_nested_spf_and_cycles(self):
         records={'a.example':['v=spf1 include:b.example -all'],'b.example':['v=spf1 ip4:8.8.8.0/24 -all']}
         lookup=lambda name,kind:(records[name],'found')

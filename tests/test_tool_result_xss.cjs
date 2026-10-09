@@ -45,6 +45,10 @@ assert.equal(email.ctx.csvCell('hello'), '"hello"');
 email.ctx.renderMain({email:payload,dns_evidence:{spf:{audit:{status:'partial',issues:[payload],dependencies:[{domain:payload,status:payload}]}},mx:{infrastructure:[{host:payload,addresses:[payload]}]}},reputation_evidence:{scope:payload,queried_ips:[payload],checks:[{source:payload,reason:payload,status:payload,response_codes:[payload]}]}});
 collect(email,'email engine');assert(email.elements['dns-evidence'].innerHTML.includes('&lt;img'));assert(email.elements['reputation-evidence'].innerHTML.includes('&lt;img'));
 
+email.ctx.renderMain({blacklisted:true,reputation_evidence:{blacklisted_on:[payload],checks:[{source:payload,ip:payload,status:'listed'}]}});
+assert(email.elements['blocklist-status'].className.includes('blocklist-listed'));assert(email.elements['blocklist-title'].textContent.includes('Warning'));assert(email.elements['blocklist-summary'].textContent.includes(payload));collect(email,'email blocklist');
+email.ctx.renderMain({blacklisted:false,reputation_evidence:{coverage_status:'completed',clean_on:['zen.spamhaus.org'],queried_ips:['8.8.8.8'],checks:[{status:'not_found'}]}});assert(email.elements['blocklist-status'].className.includes('blocklist-clear'));
+email.ctx.renderMain({blacklisted:false,reputation_evidence:{coverage_status:'partial'}});assert(email.elements['blocklist-status'].className.includes('blocklist-partial'));assert(!email.elements['blocklist-title'].textContent.includes('no listing'));
 const domain=setup('domain_lookup.html');
 domain.ctx.renderResult({registrar:payload,created:payload,expires:payload,ip:payload,country:payload,isp:payload,status:payload,whois_updated:payload,nameservers:payload,dns:[{type:'TXT',value:payload},{type:'A',value:payload},{type:'__proto__',value:payload},{type:'constructor',value:payload}],lat:payload,lon:payload});
 assert.equal(domain.elements['map-frame'].src,'');collect(domain,'domain');

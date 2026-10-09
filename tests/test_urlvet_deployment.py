@@ -31,5 +31,5 @@ class ProviderDeploymentTests(unittest.TestCase):
         self.assertNotIn(':latest',source)
     def test_build_context_excludes_host_files(self):
         source=(ROOT/'deploy/.dockerignore').read_text().splitlines()
-        self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh'])
+        self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh','!egress.Dockerfile','!scanner-egress.py','!egress-check.py'])
 if __name__=='__main__':unittest.main()

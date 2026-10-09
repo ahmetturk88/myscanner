@@ -1,0 +1,55 @@
+# Apply after compose.vps.yml and compose.urlvet.yml. Rehearsal gate first.
+services:
+  urlvet-egress:
+    image: myscanner-egress:rehearsal
+    build: {context: ./deploy, dockerfile: egress.Dockerfile}
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp, /run]
+    environment: {SCANNER_ROLE: provider}
+    networks:
+      urlvet-api: {aliases: [urlvet]}
+      urlvet-cache-net: {}
+      urlvet-browser-net: {}
+      urlvet-outbound: {}
+    depends_on:
+      urlvet-cache: {condition: service_healthy}
+      urlvet-browser-egress: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, test, -f, /tmp/egress-ready]
+      interval: 2s
+      timeout: 1s
+      retries: 15
+  urlvet-browser-egress:
+    image: myscanner-egress:rehearsal
+    build: {context: ./deploy, dockerfile: egress.Dockerfile}
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp, /run]
+    environment: {SCANNER_ROLE: browser}
+    networks:
+      urlvet-browser-net: {aliases: [urlvet-browser]}
+      urlvet-outbound: {}
+    healthcheck:
+      test: [CMD, test, -f, /tmp/egress-ready]
+      interval: 2s
+      timeout: 1s
+      retries: 15
+  urlvet:
+    networks: !reset []
+    network_mode: service:urlvet-egress
+    depends_on:
+      urlvet-egress: {condition: service_healthy}
+    # Loopback target access is blocked too. Probe the API from worker instead.
+    healthcheck:
+      disable: true
+  urlvet-browser:
+    networks: !reset []
+    network_mode: service:urlvet-browser-egress
+    cap_drop: [ALL]
+    depends_on:
+      urlvet-browser-egress: {condition: service_healthy}

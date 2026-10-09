@@ -320,22 +320,23 @@
   @media(max-width:900px) { .category-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }.assessment-hero { gap:24px; padding:26px; grid-template-columns:minmax(0,1fr) 210px; }.overall-score { padding-left:24px; }.hero-copy h2 { font-size:27px; } }
   @media(max-width:640px) { .result-wrap { padding:24px 16px 48px; }.page-head h1 { font-size:25px; }.assessment-hero { grid-template-columns:1fr; gap:24px; padding:24px; }.overall-score { border-left:0; border-top:1px solid #39445b; padding:20px 0 0; }.score-number { font-size:62px; }.category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.assessment-detail-grid,.connection-grid,.urlvet-tech-grid,.flags-grid,#deep-analysis-section .disclosure-body { grid-template-columns:1fr; }.report-disclosure summary { padding:18px; }.disclosure-body { padding:18px; }.disclosure-action { font-size:0; }.disclosure-action::after { font-size:20px; }.evidence-panel { padding:20px; }.panel-heading { flex-wrap:wrap; } }
 
+
+  /* URL intelligence report */
+  .result-wrap{padding-top:46px}.page-head{display:grid;grid-template-columns:minmax(0,1fr) 210px;align-items:center;gap:32px;margin-bottom:30px}.page-head h1{font-size:clamp(32px,4.7vw,48px);letter-spacing:-1.8px;line-height:1.1;margin:14px 0}.page-head .label{color:#7fd1ff}.report-intro{font-size:14px;line-height:1.8;color:#aebed4;max-width:620px;margin:0 0 18px}.target-url{background:#101d30;border:1px solid #2f4560;border-radius:12px;padding:14px 16px;overflow-wrap:anywhere;font-size:12px;color:#c9ddf2}.url-art{height:185px;display:grid;place-items:center;background:radial-gradient(ellipse,#1a435c,transparent 70%);position:relative}.url-art svg{width:170px;height:130px;filter:drop-shadow(0 0 16px #56c7ff40)}.art-caption{position:absolute;bottom:8px;letter-spacing:2px;font-size:10px;color:#8fcdf0}.report-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}.report-actions .btn{padding:10px 15px;border-radius:10px}.btn-danger{background:#293b56;color:#d4e5fa;border:1px solid #466380}.assessment-hero{background:linear-gradient(120deg,#182d44,#101d30);border-color:#365474;border-radius:22px;padding:34px;gap:32px}.hero-copy h2{font-size:34px}.overall-score{border-color:#365474}.score-number{color:#c6eaff}.score-track{height:7px}.tone-review .score-track span{background:#83ceee}.category-card{border-radius:14px;background:#101d30}.category-grid{gap:10px}.report-disclosure,.evidence-panel{background:#101b2c;border-color:#30435e}.report-disclosure summary{padding:21px 24px}.report-disclosure summary:focus-visible,.btn:focus-visible,.evidence-search:focus-visible{outline:2px solid #7bd1ff;outline-offset:3px}.report-disclosure[open] .disclosure-action{color:#81d8f5}.source-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}.source-tile{border:1px solid #304761;border-radius:12px;background:#101c2e;padding:17px}.source-tile strong{display:block;font-size:13px;color:#dbeaf9;margin:8px 0}.source-tile small{font-size:11px;line-height:1.6;color:#aec2d9}.source-state{font-size:10px;letter-spacing:.6px;color:#a6dcf1}.source-state.warning{color:#f1ce8e}.source-state.danger{color:#ff98ab}.evidence-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:26px 0 16px}.evidence-search{min-width:180px;flex:1;background:#0d1829;border:1px solid #3b536f;border-radius:10px;padding:12px 14px;color:#e5f1fe;font-size:13px}.report-feedback{font-size:12px;color:#9edaf5;min-height:20px;margin:8px 0;line-height:1.6}.loading-area{position:relative;overflow:hidden;text-align:left;border:1px solid #345576;background:linear-gradient(135deg,#142a42,#0d192c);border-radius:22px;padding:34px;margin-bottom:24px}.loading-heading{display:flex;gap:18px;align-items:center;margin-bottom:18px}.scan-orbit{width:54px;height:54px;border-radius:50%;border:1px solid #3f7599;position:relative;display:grid;place-items:center;color:#91dafb;font-size:24px}.scan-orbit:before{content:'';position:absolute;inset:-5px;border:2px solid transparent;border-top-color:#84d7ff;border-right-color:#84d7ff;border-radius:50%;animation:spin 2s linear infinite}.loading-area h2{font-size:22px;color:#e1effe;margin:7px 0}.loading-area p{font-size:13px;color:#acc2dd;line-height:1.8}.scan-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0;margin:24px 0 18px;list-style:none}.scan-flow li{border:1px solid #2d4663;border-radius:12px;padding:15px;font-size:12px;color:#93aac7;background:#0f1d30}.scan-flow li.active{border-color:#68b7e7;color:#cef0ff;background:#19354b}.scan-flow li.done{color:#a9dfce;border-color:#3b6c61}.scan-flow span{display:block;font-size:10px;color:#8fabcc;margin-bottom:8px;letter-spacing:1px}.loading-track{height:4px;border-radius:5px;background:#253c55;overflow:hidden}.loading-track:before{content:'';display:block;height:100%;width:30%;background:#7bd0f5;animation:scanSweep 2s ease-in-out infinite}.loading-area.stopped .loading-track:before,.loading-area.stopped .scan-orbit:before{animation:none}.loading-foot{display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-top:16px;font-size:11px;color:#92acc9}.loading-foot button{background:none;border:0;color:#bfe7fb;text-decoration:underline;cursor:pointer}.export-btns{justify-content:flex-start;padding:18px 0}.export-btns .btn{background:#203c55;color:#cceafb;border:1px solid #426480}.info-row,.tech-row{gap:16px}.info-value,.tech-value{overflow-wrap:anywhere;min-width:0}.report-disclosure summary .disclosure-action:after{content:' +';font-size:17px}.report-disclosure[open] summary .disclosure-action:after{content:' −'}
+  @keyframes scanSweep{0%{transform:translateX(-100%)}100%{transform:translateX(430%)}}
+  @media(max-width:800px){.page-head{grid-template-columns:minmax(0,1fr) 150px}.url-art svg{width:140px}.assessment-hero{grid-template-columns:1fr}.overall-score{border-left:0;border-top:1px solid #365474;padding:20px 0 0}.category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.assessment-detail-grid{grid-template-columns:1fr}.source-strip{grid-template-columns:1fr}}
+  @media(max-width:520px){.result-wrap{padding:28px 14px 60px}.page-head{grid-template-columns:1fr;gap:10px}.url-art{height:120px}.url-art svg{height:105px}.art-caption{bottom:0}.assessment-hero,.loading-area{padding:23px}.hero-copy h2{font-size:28px}.scan-flow{grid-template-columns:1fr}.report-disclosure summary{padding:17px}.evidence-panel{padding:20px}}
+  @media(prefers-reduced-motion:reduce){.loading-track:before,.scan-orbit:before,.spinner,.urlvet-title:before{animation:none!important}.btn{transition:none}}
+
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="result-wrap">
-  <div class="page-head">
-    <div>
-      <div class="label">SCAN REPORT · #{{ scan.id }}</div>
-      <h1>URL Security Report</h1>
-      <div class="url-text">{{ scan.url[:100] }}{% if scan.url|length > 100 %}...{% endif %}</div>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <a href="/dashboard" class="btn btn-outline">← New Scan</a>
-      <a href="/report/pdf/{{ scan.id }}" class="btn btn-danger">📄 PDF Report</a>
-    </div>
-  </div>
+  <header class="page-head">
+    <div><div class="label">URL INTELLIGENCE / REPORT #{{ scan.id }}</div><h1>See beyond the link.</h1><p class="report-intro">One report connects URL identity, transport, redirects, page content and threat intelligence. Explore the evidence, understand the deductions, and see what could not be verified.</p><div class="target-url">{{ scan.url }}</div><div class="report-actions"><a href="/dashboard" class="btn btn-outline">← New scan</a><a href="/report/pdf/{{ scan.id }}" class="btn btn-danger">Download PDF</a></div></div>
+    <div class="url-art" aria-hidden="true"><svg viewBox="0 0 180 140" fill="none"><rect x="20" y="20" width="140" height="100" rx="19" fill="#10273a" stroke="#4f94bd"/><path d="M20 47h140" stroke="#4f94bd"/><circle cx="34" cy="34" r="3" fill="#7bd5ff"/><circle cx="45" cy="34" r="3" fill="#7bd5ff"/><circle cx="56" cy="34" r="3" fill="#7bd5ff"/><rect x="52" y="61" width="49" height="24" rx="12" transform="rotate(-35 76 73)" stroke="#8bdbff" stroke-width="4"/><rect x="78" y="77" width="49" height="24" rx="12" transform="rotate(-35 102 89)" stroke="#8bdbff" stroke-width="4"/><path d="m77 89 25-17" stroke="#8bdbff" stroke-width="4" stroke-linecap="round"/></svg><span class="art-caption">LINK / EVIDENCE / CONTEXT</span></div>
+  </header>
 
   <div class="status-card">
     <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -343,13 +344,16 @@
       <span id="status-badge" class="badge badge-{{ scan.status }}">{{ 'Limited coverage' if scan.status == 'partial' else scan.status | upper }}</span>
     </div>
 
-    <div id="loading-area" class="loading-area">
-      <span class="spinner"></span>
-      <span id="loading-text">Loading scan results...</span>
-    </div>
+    <section id="loading-area" class="loading-area" aria-live="polite" aria-label="Scan status">
+      <div class="loading-heading"><div class="scan-orbit" aria-hidden="true">↗</div><div><span class="report-eyebrow">EVIDENCE IN PROGRESS</span><h2 id="loading-text">Preparing your report…</h2></div></div>
+      <p id="loading-description">Your report is linked to a saved scan. Refreshing this page reads its status; it does not start another analysis.</p>
+      <ol class="scan-flow"><li id="phase-queue"><span>01 / QUEUE</span>Waiting for a worker</li><li id="phase-analysis"><span>02 / ANALYSIS</span>Collecting available evidence</li><li id="phase-report"><span>03 / REPORT</span>Saving and displaying results</li></ol>
+      <div class="loading-track" aria-hidden="true"></div><div class="loading-foot"><span>No simulated completion percentage</span><button type="button" onclick="window.location.reload()">Refresh status</button></div>
+    </section>
+    <div id="report-feedback" class="report-feedback" role="status"></div>
 
     <div id="verdict-area" class="verdict-area"></div>
-    <div id="extra-sections"></div>
+    <div id="evidence-tools" class="evidence-tools" style="display:none"><input id="evidence-search" type="search" class="evidence-search" placeholder="Search source details…" aria-label="Search source details"><button class="btn btn-outline" type="button" onclick="expandEvidence(true)">Expand details</button><button class="btn btn-outline" type="button" onclick="expandEvidence(false)">Collapse details</button></div><div id="extra-sections"></div>
     <div id="export-buttons" class="export-btns" style="display:none;"></div>
   </div>
 
@@ -378,6 +382,9 @@ let allData = null;
 
 function updateBadge(status, verdict) {
   const badge = document.getElementById('status-badge');
+  status=typeof status==='string'?status:'unknown';
+  const allowed=['partial','queued','pending','running','completed','error','unknown','harmless','malicious','high_risk','suspicious'];
+  verdict=allowed.includes(verdict)?verdict:'unknown';
   badge.textContent = status === 'partial' ? 'Limited coverage' : status === 'queued' ? 'Queued' : status.toUpperCase();
   badge.className = 'badge badge-' + (status === 'partial' ? 'partial' : (verdict || status));
 }
@@ -623,6 +630,9 @@ function renderResult(scanData, analysisData) {
 
   const isPartial = combined?.provisional || scanData.status === 'partial';
   let mainHTML = renderAggregate(combined);
+  mainHTML += renderSourceOverview(analysisData);
+  mainHTML += renderJourney(scanData,analysisData);
+  document.getElementById('evidence-tools').style.display='flex';
   mainHTML += `<div class="evidence-heading"><div><h2>Explore the evidence</h2><p>Source observations behind the combined result.</p></div></div>`;
   mainHTML += `<details class="report-disclosure"><summary><span><strong>Provider observations</strong><small>URLVet · domain, TLS and reputation signals</small></span><span class="disclosure-action">View evidence</span></summary><div class="disclosure-body">${renderURLVet(urlvet)}</div></details>`;
 
@@ -668,7 +678,7 @@ function renderResult(scanData, analysisData) {
   if (screenshotURL) {
     extraHTML += `<div class="section-card">
       <div class="section-title">📸 Website Screenshot (url.vet)</div>
-      <img src="${esc(screenshotURL)}" alt="Screenshot" class="screenshot-img">
+      <img src="${esc(screenshotURL)}" alt="Screenshot" class="screenshot-img" loading="lazy" referrerpolicy="no-referrer">
     </div>`;
   }
 
@@ -739,21 +749,49 @@ function renderResult(scanData, analysisData) {
     `;
   }
 
+  const search=document.getElementById('evidence-search');
+  if(search)search.addEventListener('input',()=>filterEvidence(search.value));
   // Export Buttons
   document.getElementById('export-buttons').style.display = 'flex';
   document.getElementById('export-buttons').innerHTML = `
-    <button class="btn btn-success" onclick="exportJSON()">💾 Export JSON</button>
+    <button class="btn btn-success" type="button" onclick="exportJSON()">JSON ↓</button><button class="btn btn-outline" type="button" onclick="exportCSV()">CSV ↓</button><button class="btn btn-outline" type="button" onclick="copyURLReport()">Copy report</button>
   `;
 }
 
-function exportJSON() {
-  if (!allData) return;
-  const blob = new Blob([JSON.stringify(allData, null, 2)], {type: 'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `scan-${scanId}-report.json`; a.click();
+function reportObject(value){return value&&typeof value==='object'&&!Array.isArray(value)?value:{};}
+function setLoadingState(state){
+  const phase=state==='queued'||state==='pending'?'queue':state==='report'||state==='completed'||state==='partial'?'report':'analysis';
+  const labels={queue:'Your scan is queued.',analysis:'Analyzing the link',report:'Loading your saved evidence'};
+  const descriptions={queue:'A worker will start the analysis when it is available. The report stays associated with your account.',analysis:'The worker is collecting available evidence. Specific DNS, TLS or content stages are not exposed by this status endpoint.',report:'Reading the saved result and source observations. This does not start a new scan.'};
+  document.getElementById('loading-text').textContent=labels[phase];document.getElementById('loading-description').textContent=descriptions[phase];
+  document.getElementById('loading-area').classList.remove('stopped');
+  for(const [i,key] of ['queue','analysis','report'].entries())document.getElementById('phase-'+key).className=key===phase?'active':i<['queue','analysis','report'].indexOf(phase)?'done':'';
 }
+function renderSourceOverview(analysis){
+  const data=reportObject(analysis),provider=reportObject(data.urlvet),deep=reportObject(data.deep_analysis),osint=reportObject(deep.osint);
+  const hasProvider=Object.keys(provider).length>0&&!provider.error;
+  const hasDeep=Object.keys(deep).length>0&&!deep.error;
+  const status=osint.urlhaus_status;
+  const sources=[{name:'URLVet',state:hasProvider?(provider.incomplete?'Limited observations':'Observations available'):'Unavailable',tone:hasProvider&&!provider.incomplete?'':'warning',note:'Domain, TLS, URL and reputation observations.'},{name:'Content & behavior',state:hasDeep?'Observations available':'Unavailable',tone:hasDeep?'':'warning',note:'Returned content and redirect observations; review individual check coverage.'},{name:'URLhaus',state:status==='matched'?'Dataset match reported':status==='not_found'?'No dataset match':'Not verified',tone:status==='matched'?'danger':status==='not_found'?'':'warning',note:'Dataset result only; no match does not prove safety.'}];
+  return '<section class="source-strip" aria-label="Source coverage">'+sources.map(source=>`<article class="source-tile"><span class="source-state ${source.tone}">${esc(source.state)}</span><strong>${esc(source.name)}</strong><small>${esc(source.note)}</small></article>`).join('')+'</section>';
+}
+function renderJourney(scan,analysis){
+ const data=reportObject(analysis),behavior=reportObject(reportObject(data.deep_analysis).behavior),provider=reportObject(reportObject(data.urlvet).analysis);
+ const hops=ScanUI.list(behavior.redirect_chain).slice(0,20);const original=reportObject(scan).url??reportObject(scan).target??'Original URL not recorded';
+ const final=behavior.error?'Destination not verified':behavior.final_url??provider.final_url??'Destination not recorded';
+ return '<section class="evidence-panel next-steps"><div class="panel-heading"><h3>Observed link journey</h3><span>URLs shown as text</span></div><div class="info-row"><span class="info-label">Submitted URL</span><span class="info-value">'+esc(original)+'</span></div>'+hops.map((hop,i)=>'<div class="info-row"><span class="info-label">Hop '+(i+1)+' · HTTP '+esc(reportObject(hop).status_code??'Not recorded')+'</span><span class="info-value">'+esc(reportObject(hop).url??'Not recorded')+'</span></div>').join('')+'<div class="info-row"><span class="info-label">Reported destination</span><span class="info-value">'+esc(final)+'</span></div><p class="method-note">'+(hops.length?'Up to 20 returned redirect hops are shown.':'A detailed redirect chain was not returned; no missing hops are inferred.')+' Destination observations do not establish safety.</p></section>';
+}
+function expandEvidence(open){for(const detail of document.querySelectorAll('.report-disclosure'))if(!detail.hidden)detail.open=open;}
+function filterEvidence(value){const query=typeof value==='string'?value.trim().toLowerCase():'';let visible=0;for(const detail of document.querySelectorAll('.report-disclosure')){const match=!query||detail.textContent.toLowerCase().includes(query);detail.hidden=!match;if(match){visible++;if(query)detail.open=true;}}document.getElementById('report-feedback').textContent=query?visible+' source sections match your search. The score and findings are unchanged.':'';}
+function csvCell(value){let text=String(value??'');if(/^[\s]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';}
+function exportCSV(){if(!allData)return;const assessment=reportObject(reportObject(allData.analysis).aggregate_assessment);const scan=reportObject(allData.scan);const rows=[['Field','Value','Risk deduction','Coverage deduction'],['URL',scan.url??scan.target??''],['Assessment index',assessment.score??'Not recorded'],['Verdict',assessment.verdict??'Unknown'],['Policy',assessment.policy_version??'Not recorded']];for(const [key,component] of Object.entries(reportObject(assessment.components)))rows.push([key,reportObject(component).status??'Not recorded',reportObject(component).deduction??'',reportObject(assessment.coverage_deductions)[key]??'']);for(const reason of ScanUI.list(assessment.reasons))rows.push(['Finding',reportObject(reason).message,reportObject(reason).deduction,'']);for(const gap of ScanUI.list(assessment.missing_checks))rows.push(['Coverage gap',gap]);rows.push(['Meaning','Heuristic evidence and coverage index; not a safety probability or guarantee.']);downloadReport(rows.map(row=>row.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8','csv');}
+function downloadReport(content,type,extension){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='scan-'+scanId+'-report.'+extension;link.click();URL.revokeObjectURL(url);}
+async function copyURLReport(){if(!allData)return;const a=reportObject(reportObject(allData.analysis).aggregate_assessment),scan=reportObject(allData.scan);const report=['URL EVIDENCE REPORT',ScanUI.text(scan.url??scan.target),'Index: '+ScanUI.text(a.score,'Not recorded')+'/100','Verdict: '+ScanUI.text(a.verdict,'Unknown'),'Policy: '+ScanUI.text(a.policy_version,'Not recorded'),'Findings:',...ScanUI.list(a.reasons).map(r=>ScanUI.text(reportObject(r).message)),'Coverage:',...ScanUI.list(a.missing_checks),'Heuristic evidence index; not a probability or safety guarantee.'].join('\n');try{await navigator.clipboard.writeText(report);document.getElementById('report-feedback').textContent='Report copied.';}catch(error){document.getElementById('report-feedback').textContent='Clipboard unavailable. Use JSON or CSV export.';}}
+
+function exportJSON(){if(allData)downloadReport(JSON.stringify(allData,null,2),'application/json','json');}
 
 function loadResult() {
-  document.getElementById('loading-text').textContent = 'Loading full analysis...';
+  setLoadingState('report');
   Promise.all([
     fetch('/api/scan_result/' + scanId).then(r => r.json()),
     fetch('/api/url-analysis/' + scanId).then(r => r.json()).catch(() => null)
@@ -778,22 +816,23 @@ function loadResult() {
       return;
     }
     if (analysisData && analysisData.error) {
+      document.getElementById('loading-area').classList.add('stopped');
       document.getElementById('loading-text').textContent = ScanUI.text(analysisData.error, 'Saved analysis is unavailable. Start a new URL scan.');
       updateBadge('error', 'error');
       return;
     }
     renderResult(scanData, analysisData);
   })
-  .catch(() => { document.getElementById('loading-text').textContent = 'Failed to load results. Refresh page.'; updateBadge('error','error'); });
+  .catch(() => { document.getElementById('loading-text').textContent = 'Could not load the saved report. Refresh status to try again.';document.getElementById('loading-area').classList.add('stopped'); updateBadge('error','error'); });
 }
 
 function pollStatus() {
   fetch('/api/scan_status/' + scanId).then(r => r.json()).then(data => {
     updateBadge(data.status, data.verdict);
-    document.getElementById('loading-text').textContent = data.status === 'queued' ? 'Your scan is queued. Analysis will start when a worker is available.' : 'Analyzing your URL…';
+    setLoadingState(data.status);
     if (data.status === 'completed' || data.status === 'partial' || data.status === 'error') { loadResult(); return; }
     setTimeout(pollStatus, 1500);
-  }).catch(() => { document.getElementById('loading-text').textContent = 'Connection error.'; });
+  }).catch(() => { document.getElementById('loading-text').textContent = 'Connection interrupted. Refresh status to reconnect.';document.getElementById('loading-area').classList.add('stopped'); });
 }
 
 if (initStatus === 'completed' || initStatus === 'partial' || initStatus === 'error') { loadResult(); }

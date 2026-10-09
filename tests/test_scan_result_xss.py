@@ -58,7 +58,7 @@ class JavaScriptRenderingTests(unittest.TestCase):
                     for attr in tag.attrs:
                         if attr.lower().startswith('on'):
                             self.assertEqual(attr, 'onclick')
-                            self.assertIn(tag[attr], ['exportJSON()','copyReport()'])
+                            self.assertIn(tag[attr], ['exportJSON()','copyReport()','exportCSV()','copyURLReport()'])
                         if attr.lower() in ['href','src']:
                             self.assertTrue(tag[attr].startswith(('http://','https://')))
 

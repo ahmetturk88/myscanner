@@ -37,3 +37,9 @@ serving need verification before public use. Do not expose the provider admin
 API or Chrome debugging ports. User data retention in reports/screenshots/cache
 and upstream licensing obligations also remain launch gates. Never describe
 unknown/partial evidence as confirmed safety.
+
+## Optional URLhaus credential
+
+After updating the branch, run `python scripts/init_vps_stack.py`, then `python scripts/configure_urlhaus.py` in an interactive local terminal. Paste the Auth-Key at its hidden prompt. Do not put the key in command arguments, chat, environment files or source code. The helper saves it under the ignored rehearsal secret directory and preserves an existing nonempty key.
+
+The Compose override mounts the file read-only in web and worker. Recreate these services with both Compose files. The URLhaus lookup reports `not_configured`, `authentication_rejected`, `rate_limited` or a generic failure reason when unavailable. A valid negative lookup is `not_found`, limited to that dataset. Changing the key does not rerun historical reports; use a new scan to update source coverage.

@@ -3,11 +3,15 @@ services:
   web:
     environment:
       URLVET_URL: http://urlvet:8080
+      URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
+    secrets: [urlhaus_auth_key]
     networks:
       urlvet-api: {}
   worker:
     environment:
       URLVET_URL: http://urlvet:8080
+      URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
+    secrets: [urlhaus_auth_key]
     networks:
       urlvet-api: {}
   urlvet:
@@ -76,3 +80,4 @@ secrets:
   urlvet_cache_password: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlvet_cache_password'}
   urlvet_jwt_secret: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlvet_jwt_secret'}
   urlvet_cache_config: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlvet_cache_config'}
+  urlhaus_auth_key: {file: '${SECRET_DIRECTORY:?Prepare secrets}/urlhaus_auth_key'}

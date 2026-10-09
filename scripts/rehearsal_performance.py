@@ -8,7 +8,8 @@ import ssl
 import subprocess
 import threading
 import time
-import urllib.request
+import http.client
+import socket
 from urllib.parse import urlsplit
 
 ROOT=__import__('pathlib').Path(__file__).resolve().parents[1]
@@ -43,6 +44,41 @@ def valid_base(value):
     return value.rstrip('/')
 
 
+class RehearsalHTTPSConnection(http.client.HTTPSConnection):
+    """IPv4 loopback socket with the original Host and TLS SNI retained."""
+    def connect(self):
+        if self.host not in ('localhost','127.0.0.1') or self.port!=8443:
+            raise ValueError('Connection outside rehearsal boundary')
+        begin=time.monotonic()
+        self.sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(('127.0.0.1',8443))
+        connected=time.monotonic()
+        self.sock=self._context.wrap_socket(self.sock,server_hostname=self.host)
+        self.connect_ms=(connected-begin)*1000
+        self.tls_ms=(time.monotonic()-connected)*1000
+
+
+def fetch_local(base,path):
+    host=urlsplit(valid_base(base)).hostname
+    if path not in ('/health/live','/health/ready','/'):
+        raise ValueError('Unsupported measurement endpoint')
+    connection=RehearsalHTTPSConnection(host,8443,timeout=10,context=ssl._create_unverified_context())
+    begin=time.monotonic()
+    try:
+        connection.request('GET',path,headers={'Connection':'close'})
+        sent=time.monotonic()
+        response=connection.getresponse()
+        headers=time.monotonic()
+        response.read(1024*1024)
+        return {'path':path,'ms':(time.monotonic()-begin)*1000,'ok':response.status==200,
+                'connect_ms':connection.connect_ms,'tls_ms':connection.tls_ms,
+                'first_byte_ms':(headers-begin)*1000,'response_wait_ms':(headers-sent)*1000}
+    except Exception:
+        return {'path':path,'ms':(time.monotonic()-begin)*1000,'ok':False}
+    finally:connection.close()
+
+
 def measure(args):
     base=valid_base(args.base)
     ids=docker(compose()+['ps','-q']).split()
@@ -60,18 +96,14 @@ def measure(args):
             stop.wait(2)
     thread=threading.Thread(target=sample);thread.start()
     samples=[];mutex=threading.Lock();start=time.monotonic();deadline=start+args.seconds
-    # Certificate bypass is restricted to this local rehearsal URL, never arbitrary targets.
-    opener=lambda:urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=ssl._create_unverified_context()))
+    # Fresh connections, forced loopback IPv4, original Host/SNI; no redirects or proxies.
     paths=('/health/live','/health/ready','/')
     def reader(index):
-        client=opener();iteration=0
+        iteration=0
         while time.monotonic()<deadline:
-            path=paths[(iteration+index)%len(paths)];iteration+=1;begin=time.monotonic();status=None
-            try:
-                with client.open(base+path,timeout=10) as response:
-                    response.read(1024*1024);status=response.status
-            except Exception:pass
-            with mutex:samples.append({'path':path,'ms':(time.monotonic()-begin)*1000,'ok':status==200})
+            path=paths[(iteration+index)%len(paths)];iteration+=1;begin=time.monotonic()
+            item=fetch_local(base,path)
+            with mutex:samples.append(item)
             # Rate-limited to at most one request/second per reader.
             stop.wait(max(0,1-(time.monotonic()-begin)))
     print('Measuring rehearsal. If testing scan load, start your own authorized scans in the browser now.',flush=True)
@@ -79,9 +111,12 @@ def measure(args):
         with ThreadPoolExecutor(max_workers=args.concurrency) as pool:list(pool.map(reader,range(args.concurrency)))
     finally:stop.set();thread.join(timeout=20)
     successful=[item['ms'] for item in samples if item['ok']]
-    result={'mode':'rehearsal-read-only','seconds':round(time.monotonic()-start,1),'concurrency':args.concurrency,'requests':len(samples),'failures':sum(not s['ok'] for s in samples),'p50_ms':percentile(successful,50),'p95_ms':percentile(successful,95),'docker_cpus':host.get('NCPU'),'docker_memory_bytes':host.get('MemTotal'),'containers':rows,'sampling_errors':len(errors),
+    result={'mode':'rehearsal-read-only','transport':'IPv4 loopback; original Host/SNI; fresh connection per request','seconds':round(time.monotonic()-start,1),'concurrency':args.concurrency,'requests':len(samples),'failures':sum(not s['ok'] for s in samples),'p50_ms':percentile(successful,50),'p95_ms':percentile(successful,95),'docker_cpus':host.get('NCPU'),'docker_memory_bytes':host.get('MemTotal'),'containers':rows,'sampling_errors':len(errors),
             'limits':'Home and health reads only. External scan duration, sustained load, browser rendering and VPS hardware require separate measurements.'}
     result['by_endpoint']={path:{'requests':sum(s['path']==path for s in samples),'failures':sum(s['path']==path and not s['ok'] for s in samples),'p95_ms':percentile([s['ms'] for s in samples if s['path']==path and s['ok']],95)} for path in paths}
+    for path,summary in result['by_endpoint'].items():
+        for metric in ('connect_ms','tls_ms','first_byte_ms','response_wait_ms'):
+            summary['p95_'+metric]=percentile([s[metric] for s in samples if s['path']==path and s['ok'] and metric in s],95)
     # Sum of per-container peaks is a conservative envelope, not simultaneous peak RAM.
     peak=sum(row['peak_memory_bytes'] for row in rows.values())
     result['observed_memory_envelope_bytes']=peak

@@ -7,7 +7,7 @@
 
 import logging
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from services.malwarebazaar_client import get_malwarebazaar_client
 from services.file_deep_analyzer import FileDeepAnalyzer
@@ -74,7 +74,7 @@ class FileThreatIntel:
         # ─────────────────────────────────────────────────────────────
         # 2. فحص MalwareBazaar (عبر hash)
         # ─────────────────────────────────────────────────────────────
-        mb_result = self._run_malwarebazaar_scan(file_content, filename)
+        mb_result = local_result.get('hash_reputation',{}).get('provider') or self._run_malwarebazaar_scan(file_content, filename)
         
         # ─────────────────────────────────────────────────────────────
         # 3. دمج النتائج
@@ -100,7 +100,7 @@ class FileThreatIntel:
         except Exception as e:
             logger.error(f"❌ Local analysis failed: {e}")
             return {
-                'error': str(e),
+                'error': 'Local file evidence unavailable',
                 'security_score': 50,  # قيمة افتراضية محايدة
                 'verdict': 'unknown'
             }
@@ -115,7 +115,8 @@ class FileThreatIntel:
             return {
                 'source': 'malwarebazaar',
                 'error': 'MalwareBazaar client not available',
-                'is_malicious': False,
+                'is_malicious': None,
+                'status': 'unavailable',
                 'found': False
             }
         
@@ -128,8 +129,9 @@ class FileThreatIntel:
             logger.error(f"❌ MalwareBazaar scan failed: {e}")
             return {
                 'source': 'malwarebazaar',
-                'error': str(e),
-                'is_malicious': False,
+                'error': 'Reputation lookup unavailable',
+                'is_malicious': None,
+                'status': 'unavailable',
                 'found': False
             }
 
@@ -174,6 +176,14 @@ class FileThreatIntel:
             verdict = 'malicious'
             verdict_icon = '🚨'
         
+        missing_checks=list(local_result.get('missing_checks',[]))
+        if local_result.get('error'):missing_checks.append('Local file analysis unavailable')
+        if mb_result.get('status') not in ('matched','not_found'):missing_checks.append('MalwareBazaar reputation unavailable')
+        if not mb_result.get('is_malicious') and local_result.get('verdict') in ('malicious','high_risk','suspicious'):
+            verdict=local_result['verdict']
+        elif not mb_result.get('is_malicious') and (local_result.get('error') or verdict=='safe'):
+            verdict='unknown' if missing_checks else 'not_found'
+            verdict_icon='⚠️' if missing_checks else 'ℹ️'
         # ─────────────────────────────────────────────────────────────
         # قائمة التهديدات الموحدة
         # ─────────────────────────────────────────────────────────────
@@ -232,6 +242,8 @@ class FileThreatIntel:
         # النتيجة النهائية
         # ─────────────────────────────────────────────────────────────
         return {
+            **{key:local_result[key] for key in ('file_size_mb','file_type','hashes','metadata','exiftool_data','iocs','yara','hash_reputation','warnings','benign_reasons','is_likely_benign') if key in local_result},
+            'malwarebazaar': mb_result,
             # معلومات أساسية
             'filename': filename,
             'file_size': len(file_content),
@@ -239,6 +251,9 @@ class FileThreatIntel:
             
             # الحكم
             'verdict': verdict,
+            'coverage_status': 'partial' if missing_checks else 'completed',
+            'missing_checks': list(dict.fromkeys(missing_checks)),
+            'scope': 'Available static observations and a hash dataset; no guarantee of safety.',
             'verdict_icon': verdict_icon,
             'security_score': security_score,
             
@@ -257,7 +272,7 @@ class FileThreatIntel:
             
             # معلومات إضافية
             'scan_sources': self._get_active_sources(),
-            'scanned_at': datetime.utcnow().isoformat()
+            'scanned_at': datetime.now(timezone.utc).isoformat()
         }
 
     # ================================================================

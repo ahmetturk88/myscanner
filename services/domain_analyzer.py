@@ -1,142 +1,71 @@
-# services/domain_analyzer.py
-import requests
-from urllib.parse import urlparse
-import logging
-logger = logging.getLogger(__name__)
+"""Bounded domain metadata lookup, with per-source coverage."""
+import os
+import time
+from urllib.parse import urlsplit
+from services.safe_http import PublicHTTPSession, normalize_url
 
 class DomainAnalyzer:
-    """تحليل متقدم للنطاقات"""
-    
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        self.timeout = 15
-        logger.info("✅ DomainAnalyzer initialized successfully")
-    
-    def analyze_domain(self, domain: str) -> dict:
-        logger.info(f"🔍 Starting domain analysis for: {domain}")
-        """تحليل نطاق شامل"""
-        
-        # تنظيف النطاق
-        domain = domain.replace('https://', '').replace('http://', '').strip('/')
-        
-        result = {
-            "domain": domain,
-            "registrar": "N/A",
-            "created": "N/A",
-            "expires": "N/A",
-            "ip": "N/A",
-            "country": "N/A",
-            "isp": "N/A",
-            "nameservers": [],
-            "dns": [],
-            "whois_updated": "N/A",
-            "status": "N/A",
-        }
-        
-        # 1. WHOIS via whoisxmlapi (free)
-        result.update(self._get_whois_info(domain))
-        
-        # 2. IP info via ip-api
-        result.update(self._get_ip_info(domain))
-        
-        # 3. DNS Records
-        result["dns"] = self._get_dns_records(domain)
-        logger.info(f"✅ Domain analysis completed for: {domain}")
-        return result
-    
-    def _get_whois_info(self, domain: str) -> dict:
-        logger.debug(f"Fetching WHOIS info for: {domain}")
-        """الحصول على معلومات WHOIS"""
+        self.session=PublicHTTPSession(response_limit=1024*1024,deadline=time.monotonic()+30)
+        self.timeout=5
+    def analyze_domain(self, domain):
         try:
-            resp = self.session.get(
-                f"https://www.whoisxmlapi.com/whoisserver/WhoisService",
-                params={
-                    "domainName": domain,
-                    "apiKey": "at_free_demo_key",
-                    "outputFormat": "JSON"
-                },
-                timeout=self.timeout
-            )
-            
-            if resp.status_code == 200:
-                whois_data = resp.json()
-                reg_record = whois_data.get("WhoisRecord", {})
-                
-                nameservers = reg_record.get("nameServers", {}).get("hostNames", [])
-                
-                return {
-                    "registrar": reg_record.get("registrarName", "N/A"),
-                    "created": (reg_record.get("createdDate") or "N/A")[:10],
-                    "expires": (reg_record.get("expiresDate") or "N/A")[:10],
-                    "whois_updated": (reg_record.get("updatedDate") or "N/A")[:10],
-                    "status": reg_record.get("status", "N/A"),
-                    "nameservers": nameservers[:5] if nameservers else []
-                }
-        except Exception as e:
-            logger.error(f"Error fetching WHOIS for {domain}: {str(e)}")
-        return {}
-    
-    def _get_ip_info(self, domain: str) -> dict:
-        logger.debug(f"Fetching IP info for: {domain}")
-        """الحصول على معلومات IP للنطاق"""
+            normalized=normalize_url(domain)
+            parts=urlsplit(normalized)
+            if parts.path!='/' or parts.query:raise ValueError()
+            domain=parts.hostname
+        except Exception:return {'error':'A valid domain name is required','verdict':'unknown'}
+        result={'domain':domain,'registrar':'N/A','created':'N/A','expires':'N/A','ip':'N/A','country':'N/A','isp':'N/A','nameservers':[],'dns':[],'whois_updated':'N/A','status':'N/A','verdict':'unknown','coverage':{},'scope':'Domain metadata only; no malware, mailbox or website safety conclusion.'}
         try:
-            resp = self.session.get(f"http://ip-api.com/json/{domain}", timeout=self.timeout)
-            if resp.status_code == 200:
-                r = resp.json()
-                if r.get('status') != 'fail':
-                    return {
-                        "ip": r.get('query', 'N/A'),
-                        "country": r.get('country', 'N/A'),
-                        "isp": r.get('isp', 'N/A')
-                    }
-        except Exception as e:
-            logger.error(f"Error fetching IP info for {domain}: {str(e)}")
-        return {}
-    
-    def _get_dns_records(self, domain: str) -> list:
-        logger.debug(f"Fetching DNS records for: {domain}")
-        """الحصول على سجلات DNS"""
-        records = []
-        
-        for rtype in ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA']:
+            result.update(self._get_whois_info(domain))
+            result['coverage']['whois']=result.pop('_whois_status')
+            result.update(self._get_ip_info(domain));result['coverage']['geolocation']=result.pop('_ip_status')
+            result['dns'],result['coverage']['dns']=self._get_dns_records(domain)
+            result['coverage_status']='completed' if all(v=='assessed' for v in result['coverage'].values()) else 'partial'
+            return result
+        finally:self.session.close()
+    def _json(self,url,params):
+        response=self.session.get(url,params=params,timeout=self.timeout,allow_redirects=False)
+        response.raise_for_status()
+        if response.status_code!=200:raise ValueError()
+        data=response.json()
+        if not isinstance(data,dict):raise ValueError()
+        return data
+    def _get_whois_info(self,domain):
+        key=os.environ.get('WHOISXML_API_KEY')
+        if not key:return {'_whois_status':'not_configured'}
+        try:
+            record=self._json('https://www.whoisxmlapi.com/whoisserver/WhoisService',{'domainName':domain,'apiKey':key,'outputFormat':'JSON'})['WhoisRecord']
+            if not isinstance(record,dict) or not record or record.get('dataError'):raise ValueError()
+            result={'_whois_status':'assessed','nameservers':record.get('nameServers',{}).get('hostNames',[])[:5]}
+            for key,source in {'registrar':'registrarName','created':'createdDate','expires':'expiresDate','whois_updated':'updatedDate','status':'status'}.items():result[key]=record.get(source) or 'N/A'
+            return result
+        except Exception:return {'_whois_status':'unavailable'}
+    def _get_ip_info(self,domain):
+        try:
+            data=self._json('http://ip-api.com/json/'+domain,{})
+            if data.get('status')!='success':raise ValueError()
+            return {'_ip_status':'assessed','ip':data.get('query','N/A'),'country':data.get('country','N/A'),'isp':data.get('isp','N/A')}
+        except Exception:return {'_ip_status':'unavailable'}
+    def _get_dns_records(self,domain):
+        records=[];unavailable=False
+        for kind in ('A','AAAA','MX','NS','TXT','CNAME','SOA'):
             try:
-                resp = self.session.get(
-                    f"https://dns.google/resolve?name={domain}&type={rtype}",
-                    timeout=self.timeout
-                )
-                if resp.status_code == 200:
-                    answers = resp.json().get('Answer', [])
-                    for ans in answers[:3]:
-                        val = ans.get('data', '')
-                        if val:
-                            records.append({"type": rtype, "value": val})
-            except Exception as e:
-                logger.error(f"Error fetching DNS records for {domain}: {str(e)}")
-        return records
-    # أضف هذه الدالة في نهاية class DomainAnalyzer
-
-    def analyze_with_tip(self, domain: str, user_id: int = None) -> dict:
-        """
-        تحليل Domain مع دمج TIP
-        """
+                data=self._json('https://dns.google/resolve',{'name':domain,'type':kind})
+                if type(data.get('Status')) is not int or data['Status'] not in (0,3):raise ValueError()
+                answers=data.get('Answer',[])
+                if not isinstance(answers,list):raise ValueError()
+                for answer in answers[:3]:
+                    if not isinstance(answer,dict) or not isinstance(answer.get('data'),str):raise ValueError()
+                    records.append({'type':kind,'value':answer['data']})
+            except Exception:unavailable=True
+        return records,'unavailable' if unavailable else 'assessed'
+    def analyze_with_tip(self,domain,user_id=None):
         from services.ioc_lookup import IoCLookup
-        
-        result = self.analyze_domain(domain)
-        
+        result=self.analyze_domain(domain)
+        if result.get('error'):return result
         try:
-            lookup = IoCLookup()
-            tip_result = lookup.lookup_domain(domain=domain, context='domain_lookup', user_id=user_id)
-            
-            if tip_result.get('found'):
-                result['tip'] = tip_result
-                result['tip_score'] = tip_result.get('tip_score', 0)
-                
-                if tip_result.get('highest_severity') in ('critical', 'high'):
-                    result['reputation'] = 'malicious'
-        except Exception as e:
-            result['tip_error'] = str(e)
-        
+            tip=IoCLookup().lookup_domain(domain=result['domain'],context='domain_lookup',user_id=user_id);result['tip']=tip
+            if tip.get('found') and tip.get('highest_severity') in ('critical','high'):result['reputation']='malicious';result['verdict']='malicious'
+        except Exception:result['tip_status']='unavailable'
         return result

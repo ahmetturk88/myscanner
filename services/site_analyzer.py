@@ -593,105 +593,41 @@ class SiteAnalyzer:
     # 6. فحص DNS كامل
     # ================================================================
     
-    def check_dns_records(self, domain: str) -> Dict[str, Any]:
-        logger.debug(f"Checking DNS records for: {domain}")
-        result = {
-            "a_records": [],
-            "aaaa_records": [],
-            "mx_records": [],
-            "ns_records": [],
-            "txt_records": [],
-            "cname_records": [],
-            "soa_record": None,
-            "has_spf": False,
-            "has_dmarc": False,
-            "spf_record": None,
-            "dmarc_record": None,
-            "risk_score": 0,
-            "warnings": []
-        }
-        
-        try:
-            answers = dns.resolver.resolve(domain, 'A')
-            result["a_records"] = [str(r) for r in answers]
-            logger.debug(f"Found {len(result['a_records'])} A records for {domain}")
-        except:
-            result["warnings"].append("No A records found")
-        
-        try:
-            answers = dns.resolver.resolve(domain, 'AAAA')
-            result["aaaa_records"] = [str(r) for r in answers]
-        except:
-            pass
-        
-        try:
-            answers = dns.resolver.resolve(domain, 'MX')
-            result["mx_records"] = [{"preference": r.preference, "exchange": str(r.exchange).rstrip('.')} for r in answers]
-            logger.debug(f"Found {len(result['mx_records'])} MX records for {domain}")
-        except:
-            result["warnings"].append("No MX records - email may not work")
-            result["risk_score"] += 15
-        
-        try:
-            answers = dns.resolver.resolve(domain, 'NS')
-            result["ns_records"] = [str(r).rstrip('.') for r in answers]
-            logger.debug(f"Found {len(result['ns_records'])} NS records for {domain}")
-        except:
-            result["warnings"].append("No NS records found")
-            result["risk_score"] += 20
-        
-        try:
-            answers = dns.resolver.resolve(domain, 'TXT')
-            for r in answers:
-                txt_str = str(r).strip('"')
-                result["txt_records"].append(txt_str[:200])
-                if 'v=spf1' in txt_str.lower():
-                    result["has_spf"] = True
-                    result["spf_record"] = txt_str[:200]
-        except:
-            pass
-        
-        try:
-            soa = dns.resolver.resolve(domain, 'SOA')
-            for r in soa:
-                result["soa_record"] = {
-                    "mname": str(r.mname).rstrip('.'),
-                    "rname": str(r.rname).rstrip('.'),
-                    "serial": r.serial,
-                    "refresh": r.refresh,
-                    "retry": r.retry,
-                    "expire": r.expire,
-                    "minimum": r.minimum
-                }
-        except:
-            pass
-        
-        try:
-            dmarc_answers = dns.resolver.resolve(f"_dmarc.{domain}", 'TXT')
-            for r in dmarc_answers:
-                txt_str = str(r).strip('"')
-                if 'v=DMARC1' in txt_str:
-                    result["has_dmarc"] = True
-                    result["dmarc_record"] = txt_str[:200]
-                    break
-        except:
-            pass
-        
-        if not result["has_spf"]:
-            result["warnings"].append("No SPF record - email spoofing possible")
-            result["risk_score"] += 15
-        
-        if not result["has_dmarc"]:
-            result["warnings"].append("No DMARC record - email authentication weak")
-            result["risk_score"] += 15
-        
-        result["risk_score"] = min(100, result["risk_score"])
-        
-        if result["warnings"]:
-            logger.warning(f"DNS warnings for {domain}: {', '.join(result['warnings'])}")
-        
+    def check_dns_records(self, domain):
+        result={'a_records':[],'aaaa_records':[],'mx_records':[],'ns_records':[],'txt_records':[],
+                'cname_records':[],'soa_record':None,'has_spf':None,'has_dmarc':None,
+                'spf_record':None,'dmarc_record':None,'risk_score':0,'warnings':[],'checks':{}}
+        for kind in ('A','AAAA','MX','NS','TXT','SOA','DMARC'):
+            query='_dmarc.'+domain if kind=='DMARC' else domain
+            try:
+                answers=list(dns.resolver.resolve(query,'TXT' if kind=='DMARC' else kind,lifetime=3))
+                result['checks'][kind]='found' if answers else 'not_found'
+                if kind in ('A','AAAA'):result[kind.lower()+'_records']=[str(r) for r in answers]
+                elif kind=='MX':result['mx_records']=[{'preference':r.preference,'exchange':str(r.exchange).rstrip('.')} for r in answers]
+                elif kind=='NS':result['ns_records']=[str(r).rstrip('.') for r in answers]
+                elif kind=='TXT':
+                    result['txt_records']=[str(r).strip('"')[:200] for r in answers]
+                    result['has_spf']=any(value.lower().startswith('v=spf1') for value in result['txt_records'])
+                    result['spf_record']=next((value for value in result['txt_records'] if value.lower().startswith('v=spf1')),None)
+                elif kind=='DMARC':
+                    values=[str(r).strip('"') for r in answers]
+                    result['has_dmarc']=any(value.startswith('v=DMARC1') for value in values)
+                    result['dmarc_record']=next((value[:200] for value in values if value.startswith('v=DMARC1')),None)
+                elif kind=='SOA' and answers:
+                    r=answers[0];result['soa_record']={'mname':str(r.mname),'rname':str(r.rname),'serial':r.serial,'refresh':r.refresh,'retry':r.retry,'expire':r.expire,'minimum':r.minimum}
+            except (dns.resolver.NoAnswer,dns.resolver.NXDOMAIN):
+                result['checks'][kind]='not_found'
+                if kind=='TXT':result['has_spf']=False
+                if kind=='DMARC':result['has_dmarc']=False
+            except Exception:result['checks'][kind]='unavailable'
+        for kind,penalty in (('MX',15),('NS',20)):
+            if result['checks'][kind]=='not_found':result['risk_score']+=penalty;result['warnings'].append('No '+kind+' records returned')
+        for key,penalty in (('has_spf',15),('has_dmarc',15)):
+            if result[key] is False:result['risk_score']+=penalty;result['warnings'].append(key.replace('has_','').upper()+' record not found')
+        result['evidence_policy']='site-passive-v2'
+        result['coverage_status']='partial' if 'unavailable' in result['checks'].values() else 'completed'
         return result
-    
+
     # ================================================================
     # 7. كشف مؤشرات التصيد
     # ================================================================
@@ -778,7 +714,8 @@ class SiteAnalyzer:
     def check_reputation(self, domain: str) -> Dict[str, Any]:
         logger.debug(f"Checking reputation for: {domain}")
         return {
-            "is_blacklisted": False,
+            "is_blacklisted": None,
+            "status": "not_checked",
             "blacklist_sources": [],
             "risk_score": 0,
             "details": []
@@ -855,7 +792,7 @@ class SiteAnalyzer:
         domain = validate_public_url(domain).url
 
         cached_result = self._get_cached_result(domain)
-        if cached_result:
+        if cached_result and cached_result.get('evidence_policy')=='site-passive-v2':
             cached_result['from_cache'] = True
             return cached_result
         
@@ -1079,6 +1016,18 @@ class SiteAnalyzer:
             }
         }
         
+        missing=[label for label,value in {'TLS':ssl_result,'Security headers':security_headers,'Robots':robots_txt,'Sitemap':sitemap,'Performance':performance,'Reputation':reputation}.items() if value.get('error') or value.get('status')=='not_checked']
+        if dns_records.get('coverage_status')=='partial':missing.append('DNS coverage')
+        result['evidence_policy']='site-passive-v2'
+        result['coverage_status']='partial' if missing else 'completed'
+        result['missing_checks']=missing
+        result['scope']='Passive website observations only; no active vulnerability or safety guarantee.'
+        if missing:result['status']='partial'
+        result['verdict']={'secure':'unknown','moderate':'suspicious','risky':'suspicious','insecure':'dangerous'}.get(result['verdict'],'unknown')
+        result['summary']['has_ssl']=None if ssl_result.get('error') else ssl_result.get('valid')
+        for name,key in (('has_hsts','strict_transport_security'),('has_csp','content_security_policy')):
+            value=security_headers.get('headers',{}).get(key)
+            result['summary'][name]=None if security_headers.get('error') or value is None else bool(value and value!='Missing')
         self._save_cached_result(clean_domain, result)
         logger.info(f"✅ Site analysis completed for {domain} | Score: {security_score}/100 | Verdict: {verdict}")
         

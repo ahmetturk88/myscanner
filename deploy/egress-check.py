@@ -25,13 +25,14 @@ def check():
         for address in FIXTURES:
             command('address','add',address+'/32','dev','lo');added.append(address)
         for address in ('127.0.0.1',*FIXTURES):
-            with socket.socket() as listener:
-                listener.bind((address,443));listener.listen(1)
-                with socket.socket() as client:
-                    client.settimeout(3)
-                    if client.connect_ex((address,443)) == 0:
-                        raise RuntimeError('Blocked destination reached an active listener')
-            print('PASS: active listener blocked at '+address+':443',flush=True)
+            for port in (80,443,43,25):
+                with socket.socket() as listener:
+                    listener.bind((address,port));listener.listen(1)
+                    with socket.socket() as client:
+                        client.settimeout(3)
+                        if client.connect_ex((address,port)) == 0:
+                            raise RuntimeError('Blocked destination reached an active listener')
+                print('PASS: active listener blocked at '+address+':'+str(port),flush=True)
     finally:
         for address in reversed(added):
             command('address','del',address+'/32','dev','lo')

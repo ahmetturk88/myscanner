@@ -178,6 +178,7 @@
   }
 
   function calculateSecurityScore(d) {
+    if (d.coverage_status !== 'completed') return null;
     let score = 70; // بداية متوسطة
     
     // وجود NS records
@@ -212,12 +213,12 @@
 
   function renderResult(d) {
     const securityScore = calculateSecurityScore(d);
-    const quality = getDomainQuality(securityScore);
+    const quality = securityScore === null ? {text:'Not assessed',icon:'ℹ️',cls:'banner-moderate',sub:'Some metadata sources are unavailable or not configured. No safety conclusion.'} : {text:'Metadata available',icon:'ℹ️',cls:'banner-moderate',sub:'Registration and DNS observations only; not a domain reputation or safety verdict.'};
     const scoreColor = securityScore >= 80 ? 'var(--green)' : securityScore >= 50 ? 'var(--yellow)' : 'var(--red)';
     
-    document.getElementById('score-fill').style.width = securityScore + '%';
+    document.getElementById('score-fill').style.width = (securityScore ?? 0) + '%';
     document.getElementById('score-fill').style.background = scoreColor;
-    document.getElementById('score-num').textContent = securityScore + ' / 100';
+    document.getElementById('score-num').textContent = securityScore === null ? 'Not assessed' : securityScore + ' / 100 (configuration index)';
     
     const banner = document.getElementById('verdict-banner');
     banner.className = 'verdict-banner ' + quality.cls;

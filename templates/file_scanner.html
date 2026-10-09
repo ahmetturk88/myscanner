@@ -242,7 +242,7 @@
       
       <!-- Section 5: YARA Rules (Full details) -->
       <div class="deep-section-title" onclick="toggleCollapse(this)">
-        <span class="icon">📜</span> YARA RULES
+        <span class="icon">📜</span> BYTE PATTERNS
       </div>
       <div class="collapsible-content">
         <div class="deep-card" id="df-yara"></div>
@@ -444,7 +444,9 @@ async function analyzeFile(file) {
 
 function renderResult(d) {
   const verdicts = {
-    safe: { icon: '✅', title: 'SAFE - Clean File', subtitle: 'No threats detected.', cls: 'banner-safe' },
+    safe: { icon: 'ℹ️', title: 'No indicators reported', subtitle: 'Available checks do not establish safety.', cls: 'banner-suspicious' },
+    unknown: {icon:'⚠️',title:'Evidence unavailable',subtitle:'Some checks could not run. No safety conclusion.',cls:'banner-suspicious'},
+    not_found: {icon:'ℹ️',title:'No indicators detected',subtitle:'No match in available checks; not a guarantee of safety.',cls:'banner-suspicious'},
     suspicious: { icon: '⚠️', title: 'SUSPICIOUS', subtitle: 'Suspicious elements detected.', cls: 'banner-suspicious' },
     high_risk: { icon: '🚨', title: 'HIGH RISK', subtitle: 'Multiple suspicious indicators detected. Do not execute!', cls: 'banner-high_risk' },
     malicious: { icon: '💀', title: 'MALICIOUS', subtitle: 'Confirmed malware detected! Delete immediately.', cls: 'banner-malicious' }
@@ -458,7 +460,7 @@ function renderResult(d) {
   }
   
   const score = ScanUI.score(d.security_score);
-  const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : score >= 20 ? 'var(--orange)' : 'var(--red)';
+  const color = d.verdict === 'unknown' ? 'var(--yellow)' : score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : score >= 20 ? 'var(--orange)' : 'var(--red)';
   
   const scoreFill = document.getElementById('score-fill');
   if (scoreFill) {
@@ -477,13 +479,13 @@ function renderResult(d) {
   const statsGrid = document.getElementById('stats-grid');
   if (statsGrid) {
     statsGrid.innerHTML = `
-      <div class="stat-box"><div class="num">${escapeHtml(yara.matched_rules?.length || 0)}</div><div class="label">YARA RULES</div></div>
+      <div class="stat-box"><div class="num">${escapeHtml(yara.matched_rules?.length || 0)}</div><div class="label">BYTE PATTERNS</div></div>
       <div class="stat-box"><div class="num">${escapeHtml(iocs.urls?.length || 0)}</div><div class="label">URLs FOUND</div></div>
       <div class="stat-box"><div class="num">${escapeHtml(iocs.ipv4?.length || 0)}</div><div class="label">IPs FOUND</div></div>
       <div class="stat-box"><div class="num">${escapeHtml(metadata.has_macros ? 'Yes' : 'No')}</div><div class="label">MACROS</div></div>
       <div class="stat-box"><div class="num">${escapeHtml(metadata.has_javascript ? 'Yes' : 'No')}</div><div class="label">JAVASCRIPT</div></div>
       <div class="stat-box"><div class="num">${escapeHtml(d.file_size_mb || 0)} MB</div><div class="label">SIZE</div></div>
-      <div class="stat-box"><div class="num">${escapeHtml(mb.is_malicious ? 'Yes' : 'No')}</div><div class="label">MALWAREBAZAAR</div></div>
+      <div class="stat-box"><div class="num">${escapeHtml(mb.status === 'matched' ? 'Yes' : mb.status === 'not_found' ? 'No dataset match' : 'Unknown')}</div><div class="label">MALWAREBAZAAR</div></div>
       <div class="stat-box"><div class="num">${escapeHtml((mb.tags || []).length)}</div><div class="label">MB TAGS</div></div>
     `;
   }
@@ -590,7 +592,7 @@ function renderFullDeepAnalysis(d) {
     metadataHtml += `<div class="deep-card"><h4><span class="icon">📑</span> PDF Details</h4>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Pages</span><span class="info-value">${escapeHtml(meta.num_pages || 0)}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Encrypted</span><span class="info-value ${escapeHtml(meta.is_encrypted ? 'info-warn' : 'info-good')}">${escapeHtml(meta.is_encrypted ? 'Yes' : 'No')}</span></div>`;
-    metadataHtml += `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${escapeHtml(meta.has_javascript ? 'info-danger' : 'info-good')}">${escapeHtml(meta.has_javascript ? '⚠️ Detected' : 'Clean')}</span></div>`;
+    metadataHtml += `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${escapeHtml(meta.has_javascript ? 'info-danger' : 'info-good')}">${escapeHtml(meta.error ? 'Not assessed' : meta.has_javascript ? '⚠️ Detected' : 'Not detected')}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Auto Actions</span><span class="info-value ${escapeHtml(meta.has_actions ? 'info-danger' : 'info-good')}">${escapeHtml(meta.has_actions ? '⚠️ Yes' : 'No')}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Embedded Files</span><span class="info-value ${escapeHtml(meta.has_attachments ? 'info-warn' : 'info-good')}">${escapeHtml(meta.has_attachments ? 'Yes' : 'No')}</span></div>`;
     metadataHtml += `<div class="info-row"><span class="info-label">Launch Actions</span><span class="info-value ${escapeHtml(meta.has_launch ? 'info-danger' : 'info-good')}">${escapeHtml(meta.has_launch ? 'Yes' : 'No')}</span></div>`;
@@ -678,7 +680,7 @@ function renderFullDeepAnalysis(d) {
   } else if (yara.matched_rules && yara.matched_rules.length > 0) {
     yaraHtml += yara.matched_rules.map(rule => `<div class="info-row"><span class="info-label">Rule</span><span class="info-value info-warn">${escapeHtml(rule)}</span></div>`).join('');
   } else {
-    yaraHtml += `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">✅ No YARA rules matched</span></div>`;
+    yaraHtml += `<div class="info-row"><span class="info-label">Status</span><span class="info-value info-good">No local byte patterns matched; this is not the YARA engine.</span></div>`;
   }
   const yaraDiv = document.getElementById('df-yara');
   if (yaraDiv) yaraDiv.innerHTML = yaraHtml;
@@ -688,7 +690,7 @@ function renderFullDeepAnalysis(d) {
   const repDiv = document.getElementById('df-reputation');
   if (repDiv) {
     repDiv.innerHTML = `
-      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${escapeHtml(rep.is_malicious ? 'info-danger' : 'info-good')}">${escapeHtml(rep.is_malicious ? '⚠️ Found in database' : '✅ Clean')}</span></div>
+      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${escapeHtml(rep.is_malicious ? 'info-danger' : 'info-good')}">${escapeHtml(rep.status === 'matched' ? '⚠️ Found in database' : rep.status === 'not_found' ? 'No dataset match' : 'Not verified')}</span></div>
       <div class="info-row"><span class="info-label">Sources</span><span class="info-value">${escapeHtml((rep.sources || []).join(', ') || 'None')}</span></div>
       <div class="info-row"><span class="info-label">Risk Score</span><span class="info-value ${escapeHtml(rep.risk_score > 50 ? 'info-danger' : '')}">${escapeHtml(rep.risk_score || 0)}</span></div>
       <div class="info-row"><span class="info-label">Detections</span><span class="info-value">${escapeHtml(rep.detections?.length || 0)}</span></div>
@@ -701,8 +703,8 @@ function renderFullDeepAnalysis(d) {
   if (mbDiv) {
     const mbFound = mb.found || mb.is_malicious;
     mbDiv.innerHTML = `
-      <div class="info-row"><span class="info-label">Status</span><span class="info-value ${escapeHtml(mbFound ? 'info-danger' : 'info-good')}">${escapeHtml(mbFound ? '⚠️ Found in MalwareBazaar' : '✅ Not Found')}</span></div>
-      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${escapeHtml(mb.is_malicious ? 'info-danger' : 'info-good')}">${escapeHtml(mb.is_malicious ? 'Yes' : 'No')}</span></div>
+      <div class="info-row"><span class="info-label">Status</span><span class="info-value ${escapeHtml(mbFound ? 'info-danger' : 'info-good')}">${escapeHtml(mb.status === 'matched' ? '⚠️ Found in MalwareBazaar' : mb.status === 'not_found' ? 'No dataset match' : 'Not verified')}</span></div>
+      <div class="info-row"><span class="info-label">Malicious</span><span class="info-value ${escapeHtml(mb.is_malicious ? 'info-danger' : 'info-good')}">${escapeHtml(mb.status === 'matched' ? 'Yes' : mb.status === 'not_found' ? 'No dataset match' : 'Unknown')}</span></div>
       <div class="info-row"><span class="info-label">Signature</span><span class="info-value">${escapeHtml(mb.signature || 'N/A')}</span></div>
       <div class="info-row"><span class="info-label">File Type</span><span class="info-value">${escapeHtml(mb.file_type || 'N/A')}</span></div>
       <div class="info-row"><span class="info-label">File Name</span><span class="info-value">${escapeHtml(mb.file_name || 'N/A')}</span></div>
@@ -750,7 +752,7 @@ function renderFullDeepAnalysis(d) {
   const pdfDiv = document.getElementById('df-pdf');
   if (pdfDiv) {
     pdfDiv.innerHTML = d.metadata?.is_pdf
-      ? `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${escapeHtml(d.metadata.has_javascript ? 'info-danger' : 'info-good')}">${escapeHtml(d.metadata.has_javascript ? '⚠️ Detected' : 'Clean')}</span></div>
+      ? `<div class="info-row"><span class="info-label">JavaScript</span><span class="info-value ${escapeHtml(d.metadata.has_javascript ? 'info-danger' : 'info-good')}">${escapeHtml(d.metadata.error ? 'Not assessed' : d.metadata.has_javascript ? '⚠️ Detected' : 'Not detected')}</span></div>
          <div class="info-row"><span class="info-label">Launch Actions</span><span class="info-value ${escapeHtml(d.metadata.has_launch ? 'info-danger' : 'info-good')}">${escapeHtml(d.metadata.has_launch ? 'Yes' : 'No')}</span></div>
          <div class="info-row"><span class="info-label">Embedded Files</span><span class="info-value">${escapeHtml(d.metadata.has_attachments ? 'Yes' : 'No')}</span></div>`
       : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not a PDF file</span></div>';
@@ -760,7 +762,7 @@ function renderFullDeepAnalysis(d) {
   const officeDiv = document.getElementById('df-office');
   if (officeDiv) {
     officeDiv.innerHTML = d.metadata?.is_office
-      ? `<div class="info-row"><span class="info-label">Macros</span><span class="info-value ${escapeHtml(d.metadata.has_macros ? 'info-danger' : 'info-good')}">${escapeHtml(d.metadata.has_macros ? '⚠️ Detected' : 'Clean')}</span></div>
+      ? `<div class="info-row"><span class="info-label">Macros</span><span class="info-value ${escapeHtml(d.metadata.has_macros ? 'info-danger' : 'info-good')}">${escapeHtml(d.metadata.error ? 'Not assessed' : d.metadata.has_macros ? '⚠️ Detected' : 'Not detected')}</span></div>
          <div class="info-row"><span class="info-label">OLE Objects</span><span class="info-value">${escapeHtml(d.metadata.has_ole ? 'Yes' : 'No')}</span></div>`
       : '<div class="info-row"><span class="info-label">Status</span><span class="info-value">Not an Office file</span></div>';
   }
@@ -824,7 +826,7 @@ if (copyReportBtn) {
 ║ Filename: ${d.filename || 'Unknown'}
 ║ Size: ${d.file_size_mb || 0} MB
 ║ Verdict: ${(d.verdict || 'unknown').toUpperCase()}
-║ Security Score: ${d.security_score || 0}/100
+║ Static Evidence Index: ${d.security_score || 0}/100
 ╠══════════════════════════════════════════════════════════════════╣
 ║ HASHES:
 ║   MD5: ${d.hashes?.md5 || 'N/A'}
@@ -838,7 +840,7 @@ if (copyReportBtn) {
 ║   URLs: ${d.iocs?.urls?.length || 0}
 ║   Domains: ${d.iocs?.domains?.length || 0}
 ╠══════════════════════════════════════════════════════════════════╣
-║   MalwareBazaar: ${d.malwarebazaar?.is_malicious ? 'MALICIOUS' : 'CLEAN'}
+║   MalwareBazaar: ${d.malwarebazaar?.status === 'matched' ? 'MATCHED' : d.malwarebazaar?.status === 'not_found' ? 'NO DATASET MATCH' : 'NOT VERIFIED'}
 ║   Signature: ${d.malwarebazaar?.signature || 'N/A'}
 ║   File Type: ${d.malwarebazaar?.file_type || 'N/A'}
 ╠══════════════════════════════════════════════════════════════════╣

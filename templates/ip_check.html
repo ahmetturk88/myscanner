@@ -169,7 +169,7 @@
 {% block body_extra %}
 <script>
   const VC = {
-    safe:        { icon:'✅', title:'Clean IP Address', sub:'No threats detected. This IP appears to be safe.', cls:'banner-safe' },
+    safe:        { icon:'ℹ️', title:'Legacy observation', sub:'This result does not establish safety. Run a new reputation lookup.', cls:'banner-unknown' },
     suspicious:  { icon:'⚠️', title:'Suspicious IP', sub:'This IP is associated with a proxy, VPN, or hosting service.', cls:'banner-suspicious' },
     blacklisted: { icon:'🚫', title:'Blacklisted IP', sub:'This IP was found in one or more blacklists!', cls:'banner-blacklisted' },
     unknown:     { icon:'❓', title:'Unknown', sub:'Could not determine the threat level of this IP.', cls:'banner-unknown' },
@@ -235,6 +235,7 @@
   }
 
   function calculateSecurityScore(d) {
+    if (!['matched','not_found'].includes(d.reputation_status) || d.coverage_status !== 'completed' || typeof d.is_proxy !== 'boolean' || typeof d.is_hosting !== 'boolean') return null;
     let score = 100;
     if (d.is_proxy) score -= 30;
     if (d.is_hosting) score -= 20;
@@ -244,7 +245,7 @@
   }
 
   function renderResult(d) {
-    const vc = Object.hasOwn(VC, d.verdict) ? VC[d.verdict] : VC.unknown;
+    const vc = d.verdict === 'not_found' ? {cls:'banner-unknown',icon:'ℹ️',title:'No dataset match',sub:'No reports matched in AbuseIPDB; metadata does not establish safety.'} : Object.hasOwn(VC, d.verdict) ? VC[d.verdict] : VC.unknown;
     const banner = document.getElementById('verdict-banner');
     banner.className = 'verdict-banner ' + vc.cls;
     document.getElementById('v-icon').textContent = vc.icon;
@@ -253,9 +254,9 @@
 
     const securityScore = calculateSecurityScore(d);
     const scoreColor = securityScore >= 80 ? 'var(--green)' : securityScore >= 50 ? 'var(--yellow)' : 'var(--red)';
-    document.getElementById('score-fill').style.width = securityScore + '%';
+    document.getElementById('score-fill').style.width = (securityScore ?? 0) + '%';
     document.getElementById('score-fill').style.background = scoreColor;
-    document.getElementById('score-num').textContent = securityScore + ' / 100';
+    document.getElementById('score-num').textContent = securityScore === null ? 'Not assessed' : securityScore + ' / 100';
 
     const flag = ScanUI.countryFlag(d.country_code);
 
@@ -264,10 +265,10 @@
       <div class="stat-box"><div class="s-icon">${flag ? `<img src="${flag}" style="border-radius:2px;width:20px;">` : '🌍'}</div><div class="s-label">COUNTRY</div><div class="s-value">${ScanUI.escape(d.country||'—')}</div></div>
       <div class="stat-box"><div class="s-icon">🏙️</div><div class="s-label">CITY</div><div class="s-value">${ScanUI.escape(d.city||'—')}</div></div>
       <div class="stat-box"><div class="s-icon">📡</div><div class="s-label">ISP</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.isp||'—')}</div></div>
-      <div class="stat-box ${d.is_proxy ? 'bad' : 'good'}"><div class="s-icon">🔒</div><div class="s-label">PROXY/VPN</div><div class="s-value">${d.is_proxy ? '⚠️ Yes' : 'No'}</div></div>
-      <div class="stat-box ${d.is_hosting ? 'warn' : 'good'}"><div class="s-icon">🖥️</div><div class="s-label">HOSTING</div><div class="s-value">${d.is_hosting ? 'Yes' : 'No'}</div></div>
-      <div class="stat-box"><div class="s-icon">📱</div><div class="s-label">MOBILE</div><div class="s-value">${d.is_mobile ? 'Yes' : 'No'}</div></div>
-      <div class="stat-box ${(d.blacklist_count||0) > 0 ? 'bad' : 'good'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLISTS</div><div class="s-value">${ScanUI.number(d.blacklist_count, 0, 1000000)}</div></div>
+      <div class="stat-box ${d.is_proxy ? 'bad' : 'good'}"><div class="s-icon">🔒</div><div class="s-label">PROXY/VPN</div><div class="s-value">${d.is_proxy === null || d.is_proxy === undefined ? 'Unknown' : d.is_proxy ? 'Yes' : 'No'}</div></div>
+      <div class="stat-box ${d.is_hosting ? 'warn' : 'good'}"><div class="s-icon">🖥️</div><div class="s-label">HOSTING</div><div class="s-value">${d.is_hosting === null || d.is_hosting === undefined ? 'Unknown' : d.is_hosting ? 'Yes' : 'No'}</div></div>
+      <div class="stat-box"><div class="s-icon">📱</div><div class="s-label">MOBILE</div><div class="s-value">${d.is_mobile === null || d.is_mobile === undefined ? 'Unknown' : d.is_mobile ? 'Yes' : 'No'}</div></div>
+      <div class="stat-box ${(d.blacklist_count||0) > 0 ? 'bad' : 'good'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLISTS</div><div class="s-value">${d.blacklist_count === null || d.blacklist_count === undefined ? 'Unknown' : ScanUI.number(d.blacklist_count, 0, 1000000)}</div></div>
     `;
 
     document.getElementById('details-table').innerHTML = `
@@ -281,7 +282,7 @@
       <tr><td>PROXY / VPN</td><td>${yn(d.is_proxy)}</td></tr>
       <tr><td>HOSTING SERVER</td><td>${yn(d.is_hosting)}</td></tr>
       <tr><td>MOBILE NETWORK</td><td>${yn(d.is_mobile)}</td></tr>
-      <tr><td>BLACKLIST COUNT</td><td>${ScanUI.number(d.blacklist_count, 0, 1000000)}</td></tr>
+      <tr><td>BLACKLIST COUNT</td><td>${d.blacklist_count === null || d.blacklist_count === undefined ? 'Unknown' : ScanUI.number(d.blacklist_count, 0, 1000000)}</td></tr>
       <tr><td>COORDINATES</td><td>${ScanUI.escape(d.lat || '—')}, ${ScanUI.escape(d.lon || '—')}</td></tr>
     `;
 
@@ -294,14 +295,18 @@
     const count = ScanUI.number(d.blacklist_count, 0, 1000000);
     const badge = document.getElementById('bl-badge');
 
-    if (count === 0) {
+    if (!['matched','not_found'].includes(d.reputation_status)) {
+      badge.className = 'bl-badge';badge.textContent='NOT VERIFIED';
+      document.getElementById('bl-summary').textContent='Reputation source unavailable or not configured.';
+      document.getElementById('bl-list').textContent='No blacklist conclusion can be drawn.';
+    } else if (count === 0) {
       badge.className = 'bl-badge clean';
-      badge.textContent = 'CLEAN';
+      badge.textContent = 'NO DATASET MATCH';
       document.getElementById('bl-summary').innerHTML = `
         <div class="bl-item"><div class="bl-lbl">BLACKLISTS CHECKED</div><div class="bl-val" style="color:var(--green);">${bl.length || 0}</div></div>
         <div class="bl-item"><div class="bl-lbl">LISTED</div><div class="bl-val" style="color:var(--green);">0</div></div>
       `;
-      document.getElementById('bl-list').innerHTML = '<div class="no-blist">✅ IP is clean — not found in any blacklist.</div>';
+      document.getElementById('bl-list').innerHTML = '<div class="no-blist">No reports matched in the checked dataset. This is not a guarantee of safety.</div>';
     } else {
       badge.className = 'bl-badge listed';
       badge.textContent = count + ' LISTED';

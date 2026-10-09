@@ -1,0 +1,65 @@
+# Apply LAST after compose.vps.yml, compose.urlvet.yml and compose.egress.yml.
+# Web and worker retain exact dependency ports while public target egress is filtered.
+services:
+  web-egress:
+    image: myscanner-egress:rehearsal
+    build: {context: ./deploy, dockerfile: egress.Dockerfile}
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp, /run]
+    environment: {SCANNER_ROLE: web}
+    networks:
+      data: {}
+      outbound: {}
+      urlvet-api: {}
+      frontend: {ipv4_address: 172.31.240.3, aliases: [web]}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      urlvet-egress: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, test, -f, /tmp/egress-ready]
+      interval: 2s
+      timeout: 1s
+      retries: 15
+  worker-egress:
+    image: myscanner-egress:rehearsal
+    build: {context: ./deploy, dockerfile: egress.Dockerfile}
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp, /run]
+    environment: {SCANNER_ROLE: worker}
+    networks: [data, outbound, urlvet-api]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      urlvet-egress: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, test, -f, /tmp/egress-ready]
+      interval: 2s
+      timeout: 1s
+      retries: 15
+  web:
+    extra_hosts: !reset []
+    networks: !reset []
+    network_mode: service:web-egress
+    depends_on:
+      web-egress: {condition: service_healthy}
+  worker:
+    extra_hosts: !reset []
+    networks: !reset []
+    network_mode: service:worker-egress
+    depends_on:
+      worker-egress: {condition: service_healthy}
+  tip-worker:
+    extra_hosts: !reset []
+    networks: !reset []
+    network_mode: service:worker-egress
+    depends_on:
+      worker-egress: {condition: service_healthy}

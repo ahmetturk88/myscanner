@@ -143,7 +143,7 @@ def assess_url(local, deep):
     if confirmed or reported_threat:
         score=min(score if score is not None else 100,10);verdict='malicious'
         if reported_threat and not confirmed:missing.append('An analyzer reports a threat; confirmation details require review')
-    elif score is not None and (score<75 or any(v in ('suspicious','high_risk') for v in reported)):
+    elif score is not None and sum(c['deduction'] for c in components.values()) > 0 and (score<75 or any(v in ('suspicious','high_risk') for v in reported)):
         verdict='high_risk' if score<40 else 'suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'

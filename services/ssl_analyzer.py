@@ -1,8 +1,8 @@
 # services/ssl_analyzer.py
 import ssl
-from services.safe_http import validate_public_url, public_connection
+from services.safe_http import validate_public_url, public_connection, UnsafeTargetError
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,11 @@ class SSLAnalyzer:
             
             if not cert:
                 logger.warning(f"No certificate found for {domain}")
-                return {"valid": False, "error_msg": "No certificate found"}
+                return {"valid": None, "status": "unavailable", "error_msg": "Certificate evidence unavailable"}
             
-            not_after = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
-            not_before = datetime.strptime(cert['notBefore'], '%b %d %H:%M:%S %Y %Z')
-            now = datetime.utcnow()
+            not_after = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z').replace(tzinfo=timezone.utc)
+            not_before = datetime.strptime(cert['notBefore'], '%b %d %H:%M:%S %Y %Z').replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
             days_remaining = (not_after - now).days
             
             issuer = dict(x[0] for x in cert['issuer'])
@@ -62,7 +62,10 @@ class SSLAnalyzer:
             
             result = {
                 "domain": domain,
-                "valid": days_remaining > 0,
+                "status": "assessed",
+                "scope": "Verified TLS handshake and certificate lifetime; not a website safety assessment.",
+                "grade_scope": "Certificate lifetime only",
+                "valid": not_after > now,
                 "days_remaining": days_remaining,
                 "issuer": issuer.get('organizationName', issuer.get('commonName', 'N/A')),
                 "subject": subject.get('commonName', domain),
@@ -77,12 +80,11 @@ class SSLAnalyzer:
             logger.info(f"✅ SSL analysis completed for {domain} | Valid: {result['valid']} | Days: {days_remaining} | Grade: {grade}")
             return result
             
-        except socket.timeout:
-            logger.error(f"Connection timeout for {domain}:443")
-            return {"valid": False, "error_msg": "Connection timeout"}
-        except ConnectionRefusedError:
-            logger.error(f"Connection refused for {domain}:443 - SSL may not be enabled")
-            return {"valid": False, "error_msg": "Connection refused - SSL may not be enabled"}
-        except Exception as e:
-            logger.error(f"Error analyzing SSL for {domain}: {str(e)}")
-            return {"valid": False, "error_msg": str(e)}
+        except UnsafeTargetError:
+            raise
+        except ssl.SSLCertVerificationError:
+            return {"domain":domain,"valid":False,"status":"invalid","grade":None,
+                    "error_msg":"Certificate verification failed; trust or hostname validation failed."}
+        except Exception:
+            return {"domain":domain,"valid":None,"status":"unavailable","grade":None,
+                    "error_msg":"TLS observation unavailable; no certificate validity conclusion."}

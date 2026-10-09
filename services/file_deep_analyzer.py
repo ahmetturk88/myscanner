@@ -1114,43 +1114,14 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def check_hash_reputation(self, hash_value: str) -> Dict[str, Any]:
-        logger.debug(f"Checking hash reputation: {hash_value[:16]}...")
-        """فحص التجزئة ضد MalwareBazaar و VirusTotal"""
-        result = {
-            "is_malicious": False,
-            "sources": [],
-            "risk_score": 0,
-            "detections": []
-        }
-        
-        if not REQUESTS_AVAILABLE:
-            result["error"] = "requests not installed"
-            return result
-        
-        # فحص MalwareBazaar
-        try:
-            resp = requests.post(
-                'https://mb-api.abuse.ch/api/v1/',
-                data={'query': 'get_info', 'hash': hash_value},
-                timeout=10
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get('query_status') == 'ok':
-                    result["is_malicious"] = True
-                    logger.warning(f"⚠️ Malicious file detected: {hash_value[:16]}... found in {result['sources']}")
-                    result["sources"].append("MalwareBazaar")
-                    result["risk_score"] = 80
-                    if 'data' in data and data['data']:
-                        result["detections"].append({
-                            "source": "MalwareBazaar",
-                            "malware": data['data'][0].get('malware', 'Unknown')
-                        })
-        except:
-            pass
-        
-        return result
-    
+        """Hash-only dataset lookup; never uploads or executes the sample."""
+        from services.malwarebazaar_client import get_malwarebazaar_client
+        provider=get_malwarebazaar_client().check_hash(hash_value)
+        matched=provider.get('status')=='matched' and provider.get('is_malicious') is True
+        return {"is_malicious": True if matched else False if provider.get('status')=='not_found' else None,
+                "provider":provider,"status":provider.get('status','unavailable'),"sources":["MalwareBazaar"] if matched else [],
+                "risk_score":80 if matched else 0,"detections":[{"source":"MalwareBazaar","malware":provider.get('signature') or 'Unknown'}] if matched else []}
+
     # ================================================================
     # 7. تحليل الملفات الكبيرة (Streaming)
     # ================================================================
@@ -1394,10 +1365,23 @@ class FileDeepAnalyzer:
             recommendations.append(f"🎭 Extension spoofing detected! Real type: {file_type.get('actual_type')}")
         
         if not recommendations:
-            recommendations.append("✅ No threats detected - file appears clean")
+            recommendations.append("No indicators detected by the available local checks; this does not establish safety.")
+        missing_checks=[]
+        if hash_reputation.get('status') not in ('matched','not_found'):missing_checks.append('Hash reputation unavailable')
+        if metadata.get('error'):missing_checks.append('File metadata parser unavailable or failed')
+        if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
+        # Byte-pattern heuristics are not a signature engine or a sandbox.
+        if hash_reputation.get('is_malicious') is True:
+            verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
+        if verdict=='safe':
+            verdict='unknown' if missing_checks else 'not_found'
+            verdict_icon='⚠️' if missing_checks else 'ℹ️'
         logger.info(f"✅ Analysis completed for: {filename} | Score: {security_score} | Verdict: {verdict}")
         return {
             "filename": filename,
+            "coverage_status": "partial" if missing_checks else "completed",
+            "missing_checks": missing_checks,
+            "scope": "Static metadata, byte patterns and hash reputation; no execution, sandbox or antivirus guarantee.",
             "file_size_bytes": file_size,
             "file_size_mb": round(file_size / 1024 / 1024, 2),
             "file_type": file_type,

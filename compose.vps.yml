@@ -101,6 +101,18 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+  tip-worker:
+    <<: *app
+    command: [tip-worker]
+    restart: unless-stopped
+    depends_on:
+      seed: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, scripts/vps_runtime.py, health-tip-worker]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
   beat:
     <<: *app
     command: [beat]

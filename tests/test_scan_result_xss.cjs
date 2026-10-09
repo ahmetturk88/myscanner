@@ -140,3 +140,9 @@ assert(url.elements['verdict-area'].innerHTML.includes('Target DNS resolution fa
 const gaps=url.ctx.renderSourceOverview({deep_analysis:{page_content:{error:'unavailable'},behavior:{error:'unavailable'}}});
 assert(!gaps.includes('Observations available'));
 assert(gaps.includes('Not verified'));
+
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {urlvet:{incomplete:true,red_flags:['Very low traffic volume.'],green_flags:['Old domain.']},recommendations:['🚩 Very low traffic volume.','✅ Old domain.','Keep HTTPS'],deep_analysis:{whois:{age_days:null,registrar:'N/A',whois_risk_score:0}},aggregate_assessment:{score:40,verdict:'unknown',provisional:true,components:{},reasons:[],missing_checks:[]}});
+assert(!url.elements['verdict-area'].innerHTML.includes('Very low traffic volume.'));
+assert(!url.elements['verdict-area'].innerHTML.includes('Old domain.'));
+assert(url.elements['verdict-area'].innerHTML.includes('Keep HTTPS'));
+assert(url.elements['whois-deep-analysis'].innerHTML.includes('Not verified'));

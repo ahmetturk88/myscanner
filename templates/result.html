@@ -642,7 +642,9 @@ function renderResult(scanData, analysisData) {
   const dnsRecords = analysisData?.dns_records || {};
   const isShortened = analysisData?.is_shortened || false;
   const legacyPartialWarning = 'Scan incomplete: url.vet did not provide a complete assessment. Local checks alone cannot confirm that this URL is safe.';
-  const recommendations = (analysisData?.recommendations || []).filter(r => r !== legacyPartialWarning && (!isPartial || r !== analysisData?.assessment_warning));
+  const providerIncomplete = !!urlvet.error || urlvet.incomplete === true || (Array.isArray(urlvet.errors) && urlvet.errors.length > 0);
+  const unverifiedFlags = providerIncomplete ? [...ScanUI.list(urlvet.red_flags), ...ScanUI.list(urlvet.green_flags)].filter(flag=>typeof flag==='string'&&flag.length>0) : [];
+  const recommendations = ScanUI.list(analysisData?.recommendations).filter(r => r !== legacyPartialWarning && (!isPartial || r !== analysisData?.assessment_warning) && !(typeof r==='string' && unverifiedFlags.some(flag=>r.includes(flag))));
   if ((combined?.missing_checks || []).includes('URLVet domain registration (WHOIS) check unavailable')) recommendations.push('Domain registration data could not be checked. Review the domain identity independently; the other available checks are included in this assessment.');
   const phishingIndicators = analysisData?.phishing_indicators || {};
 
@@ -735,7 +737,7 @@ function renderResult(scanData, analysisData) {
         <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
         <div class="info-row"><span class="info-label">Domain Age</span><span class="info-value">${esc(whoisDeep.age_days ? whoisDeep.age_days + ' days' : 'N/A')}</span></div>
         <div class="info-row"><span class="info-label">Registrar</span><span class="info-value">${esc(whoisDeep.registrar || 'N/A')}</span></div>
-        <div class="info-row"><span class="info-label">Domain history subtotal</span><span class="info-value" style="color:${esc(whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(whoisDeep.error || typeof whoisDeep.whois_risk_score !== 'number' ? 'Not verified' : ScanUI.score(whoisDeep.whois_risk_score)+'/100')}</span></div>
+        <div class="info-row"><span class="info-label">Domain history subtotal</span><span class="info-value" style="color:${esc(whoisDeep.whois_risk_score > 50 ? 'var(--red)' : whoisDeep.whois_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(whoisDeep.error || !Number.isFinite(whoisDeep.age_days) || whoisDeep.age_days < 0 || typeof whoisDeep.whois_risk_score !== 'number' ? 'Not verified' : ScanUI.score(whoisDeep.whois_risk_score)+'/100')}</span></div>
       </div>
     `;
 

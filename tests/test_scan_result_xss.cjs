@@ -129,3 +129,14 @@ url.ctx.renderResult({status:'partial',verdict:'unknown'}, {aggregate_assessment
 assert(!url.elements['verdict-area'].innerHTML.includes('Local checks alone'));
 assert(url.elements['verdict-area'].innerHTML.includes('Review the domain identity independently'));
 assert(url.elements['verdict-area'].innerHTML.includes('Keep HTTPS'));
+
+// Unavailable checks must not invent negative observations.
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {urlvet:{}, deep_analysis:{page_content:{error:'DNS unavailable'},behavior:{error:'DNS unavailable',reason:'target_dns_unavailable'},whois:{error:'unavailable'}},local_analysis:{ssl:{reason:'target_dns_unavailable'}},aggregate_assessment:{score:40,verdict:'unknown',provisional:true,components:{},reasons:[],missing_checks:[]}});
+assert(url.elements['page-content-analysis'].innerHTML.includes('Not verified'));
+assert(!url.elements['page-content-analysis'].innerHTML.includes('>No<'));
+assert(url.elements['behavior-analysis'].innerHTML.includes('Not verified'));
+assert(!url.elements['behavior-analysis'].innerHTML.includes('>0<'));
+assert(url.elements['verdict-area'].innerHTML.includes('Target DNS resolution failed'));
+const gaps=url.ctx.renderSourceOverview({deep_analysis:{page_content:{error:'unavailable'},behavior:{error:'unavailable'}}});
+assert(!gaps.includes('Observations available'));
+assert(gaps.includes('Not verified'));

@@ -392,7 +392,7 @@ function updateBadge(status, verdict) {
 // ================================================================
 // 🌐 Render URL.VET Section
 // ================================================================
-function renderURLVet(urlvet) {
+function renderURLVet(urlvet, targetDNSUnavailable = false) {
   const whoisOnly = !!urlvet && !urlvet.error && Array.isArray(urlvet.errors) && urlvet.errors.length > 0 && urlvet.errors.every(error => typeof error === 'string' && error.startsWith('whois_lookup:'));
   if (whoisOnly) urlvet = {...urlvet, domain_info: {}};
   if (!urlvet || urlvet.error || (!whoisOnly && ((urlvet.errors && urlvet.errors.length) || urlvet.incomplete === true)) || urlvet.trust_score == null || !Number.isFinite(Number(urlvet.trust_score))) {
@@ -406,7 +406,7 @@ function renderURLVet(urlvet) {
           <span class="coverage-icon" aria-hidden="true"><i class="fas fa-plug"></i></span>
           <div>
             <strong>Assessment unavailable</strong>
-            <p>This source did not return a complete result for this scan.</p>
+            <p>${targetDNSUnavailable ? 'Target DNS resolution failed in local checks. URLVet also did not return a complete assessment; its failure reason is not recorded.' : 'URLVet did not return a complete assessment. This is unavailable evidence, not a safe or malicious finding.'}</p>
           </div>
         </div>
       </div>
@@ -634,7 +634,7 @@ function renderResult(scanData, analysisData) {
   mainHTML += renderJourney(scanData,analysisData);
   document.getElementById('evidence-tools').style.display='flex';
   mainHTML += `<div class="evidence-heading"><div><h2>Explore the evidence</h2><p>Source observations behind the combined result.</p></div></div>`;
-  mainHTML += `<details class="report-disclosure"><summary><span><strong>Provider observations</strong><small>URLVet · domain, TLS and reputation signals</small></span><span class="disclosure-action">View evidence</span></summary><div class="disclosure-body">${renderURLVet(urlvet)}</div></details>`;
+  mainHTML += `<details class="report-disclosure"><summary><span><strong>Provider observations</strong><small>URLVet · domain, TLS and reputation signals</small></span><span class="disclosure-action">View evidence</span></summary><div class="disclosure-body">${renderURLVet(urlvet, [analysisData?.local_analysis?.ssl, analysisData?.local_analysis?.security_headers, analysisData?.deep_analysis?.behavior].some(check=>check?.reason==='target_dns_unavailable'))}</div></details>`;
 
   // 2. الأقسام المحلية الأخرى (Deep Analysis, etc.)
   const urlStructure = analysisData?.url_structure || {};
@@ -714,7 +714,7 @@ function renderResult(scanData, analysisData) {
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">📄 Page Content Analysis</h4>
         <div class="info-row"><span class="info-label">Title</span><span class="info-value">${esc(content.title || 'N/A')}</span></div>
-        <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${esc(content.has_login_form ? 'info-bad' : 'info-good')}">${esc(content.has_login_form ? '⚠️ Yes' : 'No')}</span></div>
+        <div class="info-row"><span class="info-label">Has Login Form</span><span class="info-value ${esc(content.error || typeof content.has_login_form !== 'boolean' ? 'info-warn' : content.has_login_form ? 'info-bad' : 'info-good')}">${esc(content.error || typeof content.has_login_form !== 'boolean' ? 'Not verified' : content.has_login_form ? '⚠️ Yes' : 'No')}</span></div>
         <div class="info-row"><span class="info-label">Content heuristic subtotal</span><span class="info-value" style="color:${esc(content.content_risk_score > 50 ? 'var(--red)' : content.content_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(content.error || !('title' in content) ? 'Not verified' : ScanUI.score(content.content_risk_score)+'/100')}</span></div>
       </div>
     `;
@@ -723,13 +723,13 @@ function renderResult(scanData, analysisData) {
     document.getElementById('behavior-analysis').innerHTML = `
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">🔄 Behavioral Analysis</h4>
-        <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${esc(behavior.is_shortened ? 'info-warn' : 'info-good')}">${esc(behavior.is_shortened ? '⚠️ Yes' : 'No')}</span></div>
-        <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${esc(behavior.redirect_count || 0)}</span></div>
+        <div class="info-row"><span class="info-label">Is Shortened URL</span><span class="info-value ${esc(behavior.is_shortened ? 'info-warn' : 'info-good')}">${esc(behavior.error || typeof behavior.is_shortened !== 'boolean' ? 'Not verified' : behavior.is_shortened ? '⚠️ Yes' : 'No')}</span></div>
+        <div class="info-row"><span class="info-label">Redirect Count</span><span class="info-value">${esc(!behavior.error && Number.isInteger(behavior.redirect_count) ? behavior.redirect_count : 'Not verified')}</span></div>
         <div class="info-row"><span class="info-label">Behavior heuristic subtotal</span><span class="info-value" style="color:${esc(behavior.behavior_risk_score > 50 ? 'var(--red)' : behavior.behavior_risk_score > 20 ? 'var(--yellow)' : 'var(--green)')}">${esc(behavior.error || typeof behavior.behavior_risk_score !== 'number' ? 'Not verified' : ScanUI.score(behavior.behavior_risk_score)+'/100')}</span></div>
       </div>
     `;
 
-    const whoisDeep = deep.whois_deep || {};
+    const whoisDeep = deep.whois_deep || deep.whois || {};
     document.getElementById('whois-deep-analysis').innerHTML = `
       <div style="margin-bottom: 20px;">
         <h4 style="color:var(--accent); margin-bottom:10px;">📅 WHOIS Deep Analysis</h4>
@@ -770,9 +770,13 @@ function setLoadingState(state){
 function renderSourceOverview(analysis){
   const data=reportObject(analysis),provider=reportObject(data.urlvet),deep=reportObject(data.deep_analysis),osint=reportObject(deep.osint);
   const hasProvider=Object.keys(provider).length>0&&!provider.error;
-  const hasDeep=Object.keys(deep).length>0&&!deep.error;
+  const content=reportObject(deep.page_content),behavior=reportObject(deep.behavior);
+  const hasContent=!content.error&&typeof content.title==='string';
+  const hasBehavior=!behavior.error&&typeof behavior.behavior_risk_score==='number';
+  const hasDeep=hasContent&&hasBehavior;
+  const partialDeep=hasContent||hasBehavior;
   const status=osint.urlhaus_status;
-  const sources=[{name:'URLVet',state:hasProvider?(provider.incomplete?'Limited observations':'Observations available'):'Unavailable',tone:hasProvider&&!provider.incomplete?'':'warning',note:'Domain, TLS, URL and reputation observations.'},{name:'Content & behavior',state:hasDeep?'Observations available':'Unavailable',tone:hasDeep?'':'warning',note:'Returned content and redirect observations; review individual check coverage.'},{name:'URLhaus',state:status==='matched'?'Dataset match reported':status==='not_found'?'No dataset match':'Not verified',tone:status==='matched'?'danger':status==='not_found'?'':'warning',note:'Dataset result only; no match does not prove safety.'}];
+  const sources=[{name:'URLVet',state:hasProvider?(provider.incomplete?'Limited observations':'Observations available'):'Unavailable',tone:hasProvider&&!provider.incomplete?'':'warning',note:'Domain, TLS, URL and reputation observations.'},{name:'Content & behavior',state:hasDeep?'Observations available':partialDeep?'Limited observations':'Not verified',tone:hasDeep?'':'warning',note:hasDeep?'Returned content and redirect observations; review individual check coverage.':'Content or redirect checks could not be completed; missing observations do not establish safety.'},{name:'URLhaus',state:status==='matched'?'Dataset match reported':status==='not_found'?'No dataset match':'Not verified',tone:status==='matched'?'danger':status==='not_found'?'':'warning',note:'Dataset result only; no match does not prove safety.'}];
   return '<section class="source-strip" aria-label="Source coverage">'+sources.map(source=>`<article class="source-tile"><span class="source-state ${source.tone}">${esc(source.state)}</span><strong>${esc(source.name)}</strong><small>${esc(source.note)}</small></article>`).join('')+'</section>';
 }
 function renderJourney(scan,analysis){

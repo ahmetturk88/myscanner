@@ -3,7 +3,7 @@ import copy
 import math
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v3'
+POLICY_VERSION = 'url-evidence-v4'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 
 
@@ -63,7 +63,15 @@ def assess_url(local, deep):
         provider=copy.deepcopy(mapping(data.get('urlvet')))
         if not isinstance(provider,dict):provider={}
         apply_phishing_evidence(provider)
-        if not usable(provider) or provider.get('errors') or provider.get('incomplete') is True:
+        errors=provider.get('errors')
+        # A known WHOIS-only failure leaves the other provider checks usable.
+        # Never render upstream error text, which may contain private data.
+        whois_only=(usable(provider) and isinstance(errors,list) and bool(errors)
+                    and all(isinstance(error,str) and error.startswith('whois_lookup:') for error in errors))
+        if whois_only:
+            missing.append('URLVet domain registration (WHOIS) check unavailable')
+            provider.pop('domain_info',None)
+        if not usable(provider) or ((errors or provider.get('incomplete') is True) and not whois_only):
             missing.append(label+' URLVet assessment unavailable or incomplete')
         else:
             sources.append('url.vet')
@@ -145,7 +153,7 @@ def assess_url(local, deep):
     coverage_codes={key:set() for key in WEIGHTS}
     for message in missing:
         normalized=message.removeprefix('local ').removeprefix('deep ')
-        key='transport' if 'certificate' in message or 'header' in message else 'content' if 'content' in message else 'behavior' if 'Redirect' in message else 'reputation'
+        key='identity' if 'WHOIS' in message else 'transport' if 'certificate' in message or 'header' in message else 'content' if 'content' in message else 'behavior' if 'Redirect' in message else 'reputation'
         if normalized in ('analysis unavailable','evidence unavailable') or 'confirmation details' in message:
             continue
         coverage_codes[key].add(normalized)

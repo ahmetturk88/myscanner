@@ -74,6 +74,33 @@ class AssessmentTests(unittest.TestCase):
     def test_duplicated_source_gap_counts_once(self):
         local,deep=reports();local['urlvet']=deep['urlvet']={'error':'offline'}
         r=assess_url(local,deep);self.assertEqual(r['coverage_penalty'],5)
+    def test_whois_only_failure_retains_other_evidence_and_deduplicates_gap(self):
+        local,deep=reports()
+        for report in (local,deep):
+            report['urlvet'].update(incomplete=True,errors=['whois_lookup: private SECRET'],
+                                    content={'brand_mismatch':True})
+        before=copy.deepcopy((local,deep))
+        r=assess_url(local,deep)
+        self.assertEqual(r['score'],85)
+        self.assertEqual(r['coverage_deductions']['identity'],5)
+        self.assertEqual(r['coverage_deductions']['reputation'],0)
+        self.assertEqual(r['components']['content']['deduction'],10)
+        self.assertEqual(r['missing_checks'],['URLVet domain registration (WHOIS) check unavailable'])
+        self.assertNotIn('SECRET',str(r))
+        self.assertEqual((local,deep),before)
+    def test_whois_failure_does_not_discard_verified_phishing(self):
+        local,deep=reports()
+        deep['urlvet'].update(incomplete=True,errors=['whois_lookup: invalid'])
+        deep['urlvet']['phishing']={'in_database':True,'verified':True,'valid':True}
+        r=assess_url(local,deep)
+        self.assertEqual(r['verdict'],'malicious');self.assertTrue(r['threat_override'])
+    def test_unknown_or_mixed_provider_failure_is_not_treated_as_whois_only(self):
+        for errors in (['whois_lookup: invalid','unknown: timeout'], 'whois_lookup: invalid', [None], []):
+            local,deep=reports()
+            deep['urlvet'].update(incomplete=True,errors=errors,content={'brand_mismatch':True})
+            r=assess_url(local,deep)
+            self.assertEqual(r['components']['content']['deduction'],0)
+            self.assertIn('deep URLVet assessment unavailable or incomplete',r['missing_checks'])
     def test_failure_diagnostic_does_not_contain_exception_text(self):
         try:raise RuntimeError('postgresql://user:SECRET@host/private?token=SECRET')
         except RuntimeError as error:r=failure_diagnostic(error,'local_analysis')

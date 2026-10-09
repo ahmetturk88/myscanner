@@ -3,3 +3,4 @@
 !urlvet-entrypoint.sh
 !egress.Dockerfile
 !scanner-egress.py
+!egress-check.py

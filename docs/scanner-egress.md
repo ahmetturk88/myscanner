@@ -28,3 +28,12 @@ docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlve
 ```
 
 No Docker integration test has been run by the authoring environment. Unit tests verify policy construction, exact exceptions, IPv6 failure behavior, and namespace configuration; actual Linux Docker startup and connectivity checks remain mandatory before merge.
+
+## Active namespace fixture check
+
+The gateway image includes `/app/egress-check.py`. Run it in each gateway after rebuild. It confirms public HTTPS, creates temporary private and link-local IPv4 addresses on that namespace's loopback interface, binds real TCP/443 listeners, verifies connections are blocked, and removes addresses in finally. It does not connect to real internal services or change host interfaces. It refuses existing fixture addresses. Do not run simultaneous checks in the same namespace.
+
+```powershell
+docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlvet.yml -f compose.egress.yml exec urlvet-browser-egress python3 /app/egress-check.py
+docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlvet.yml -f compose.egress.yml exec urlvet-egress python3 /app/egress-check.py
+```

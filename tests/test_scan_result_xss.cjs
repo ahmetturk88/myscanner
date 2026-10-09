@@ -36,7 +36,7 @@ site.ctx.renderResult({security_score:payload, verdict:'secure',
     seo:{title:payload,description:payload,seo_score:payload,internal_links:payload,external_links:payload}, recommendations:[payload]});
 outputs.push({name:'site results',html:site.elements['result-card'].innerHTML});
 const url = context('result.html');
-const analysis = {security_score:payload,verdict:payload,
+const analysis = {security_score:payload,verdict:payload,aggregate_assessment:{score:payload,verdict:payload,coverage:payload,provisional:true,reasons:[{message:payload,code:payload}],missing_checks:[payload]},
     urlvet:{trust_score:payload,verdict_raw:payload,red_flags:[payload],green_flags:[payload],neutral_reasons:[payload],
         domain_info:{age_human:payload,registrar:payload},ssl_info:{has_tls:true,issuer:payload,not_after:payload},
         url_features:{subdomain_count:payload,has_keywords:true,keywords_found:[payload]},
@@ -96,14 +96,36 @@ assert(verified.includes('Verified phishing entry'));
 const missing = url.ctx.renderURLVet({trust_score:100, verdict:'unknown'});
 assert(missing.includes('Not assessed'));
 assert(missing.includes('Assessment unavailable'));
-url.ctx.renderResult({status:'partial',verdict:'unknown'}, {assessment_status:'partial',assessment_warning:'Conflicting evidence '+payload,urlvet:{trust_score:100,verdict:'unknown',evidence_warning:'Conflicting evidence',phishing:{in_database:true,verified:false}}});
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {aggregate_assessment:{score:95,verdict:'unknown',provisional:true,components:{},reasons:[],missing_checks:['Conflicting evidence '+payload]},assessment_status:'partial',assessment_warning:'Conflicting evidence '+payload,urlvet:{trust_score:100,verdict:'unknown',evidence_warning:'Conflicting evidence',phishing:{in_database:true,verified:false}}});
 const notice = url.elements['verdict-area'].innerHTML;
-assert(notice.includes('This assessment needs review'));
+assert(notice.includes('Needs verification'));
+assert(!notice.includes('Assessment<br>incomplete'));
+assert(notice.includes('95<span>/100</span>'));
+assert(!notice.includes('OVERALL SAFETY SCORE'));
+assert(notice.includes('Coverage &amp; limitations'));
+assert(!notice.includes('trust-circle'));
+assert(!notice.includes('Local Security Score'));
+assert(notice.includes('<details class="report-disclosure">'));
 assert(!notice.includes('url.vet was unavailable'));
 assert(!notice.includes('<svg'));
 outputs.push({name:'conflict coverage notice',html:notice});
-url.ctx.renderResult({status:'partial',verdict:'unknown'}, {assessment_status:'partial',assessment_warning:'Source unavailable',urlvet:{error:'offline'}});
-assert(url.elements['verdict-area'].innerHTML.includes('This report has limited coverage'));
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {aggregate_assessment:{score:null,verdict:'unknown',provisional:true,components:{},reasons:[],missing_checks:['Source unavailable']},assessment_status:'partial',assessment_warning:'Source unavailable',urlvet:{error:'offline'}});
+assert(url.elements['verdict-area'].innerHTML.includes('Limited coverage'));
 assert(url.elements['verdict-area'].innerHTML.includes('Source unavailable'));
 if(process.argv.includes('--json')) console.log(JSON.stringify(outputs));
 else console.log(`${outputs.length} result sections rendered safely with malicious fixtures; helper and normal-display checks passed`);
+
+const whoisPartial = {trust_score:100, verdict:'harmless', incomplete:true, errors:['whois_lookup: '+payload], phishing:{in_database:false,verified:false,valid:false}, ssl_info:{has_tls:true,chain_valid:true,issuer:'Available issuer'},domain_info:{registrar:'Stale registrar'}};
+const whoisHTML = url.ctx.renderURLVet(whoisPartial);
+assert(whoisHTML.includes('Domain registration (WHOIS) unavailable'));
+assert(whoisHTML.includes('Available issuer'));
+assert(!whoisHTML.includes('Stale registrar'));
+assert(!whoisHTML.includes('Assessment unavailable'));
+assert(!whoisHTML.includes(payload));
+assert.equal(whoisPartial.domain_info.registrar,'Stale registrar');
+const mixedHTML = url.ctx.renderURLVet({...whoisPartial, errors:['whois_lookup: invalid','other: unavailable']});
+assert(mixedHTML.includes('Assessment unavailable'));
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {aggregate_assessment:{score:95,verdict:'unknown',provisional:true,components:{},reasons:[],missing_checks:['URLVet domain registration (WHOIS) check unavailable']}, urlvet:whoisPartial,recommendations:['Scan incomplete: url.vet did not provide a complete assessment. Local checks alone cannot confirm that this URL is safe.','Keep HTTPS']});
+assert(!url.elements['verdict-area'].innerHTML.includes('Local checks alone'));
+assert(url.elements['verdict-area'].innerHTML.includes('Review the domain identity independently'));
+assert(url.elements['verdict-area'].innerHTML.includes('Keep HTTPS'));

@@ -668,6 +668,10 @@ def api_scan_result(scan_id):
         except Exception:
             raw = None
 
+    if isinstance(raw, dict) and isinstance(raw.get('local_analysis'), dict) and isinstance(raw.get('deep_analysis'), dict):
+        from services.url_assessment import assess_url
+        raw['aggregate_assessment'] = assess_url(raw['local_analysis'], raw['deep_analysis'])
+
     return jsonify({
         "id": scan.id, "url": scan.url,
         "status": scan.status, "verdict": scan.verdict,
@@ -1402,6 +1406,8 @@ def download_pdf(scan_id):
         return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
     from services.url_scan_coverage import apply_url_coverage
     analysis = apply_url_coverage(saved['local_analysis'])
+    from services.url_assessment import assess_url
+    analysis['aggregate_assessment'] = assess_url(saved['local_analysis'], saved.get('deep_analysis', {}))
 
     # توليد PDF
     buffer = generate_vulnerability_report(scan, analysis, current_user.username)
@@ -1767,6 +1773,8 @@ def api_url_analysis(scan_id):
         return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
     local_analysis = apply_url_coverage(saved['local_analysis'])
     deep_analysis = apply_url_coverage(saved['deep_analysis'])
+    from services.url_assessment import assess_url
+    aggregate = assess_url(local_analysis, deep_analysis)
     app.logger.info(f'[SUCCESS] Saved URL analysis loaded for scan #{scan_id}')
     log_activity(current_user.username, 'url_analysis', f'Read saved URL report #{scan_id}')
     # تحليلات إضافية
@@ -1788,9 +1796,11 @@ def api_url_analysis(scan_id):
         "dns_records": local_analysis.get("dns", {}),
         "is_shortened": local_analysis.get("is_shortened", False),
         "security_score": local_analysis.get("security_score", 0),
-        "assessment_status": local_analysis.get("assessment_status"),
-        "assessment_warning": local_analysis.get("assessment_warning", ""),
-        "verdict": local_analysis.get("verdict", "unknown"),
+        "aggregate_assessment": aggregate,
+        "assessment_status": aggregate["coverage"],
+        "assessment_warning": "; ".join(aggregate["missing_checks"]),
+        "verdict": aggregate["verdict"],
+        "local_verdict": local_analysis.get("local_verdict", "unknown"),
         "recommendations": local_analysis.get("recommendations", []),
         "urlvet": local_analysis.get("urlvet", {}),
         # ميزات التحليل العميق
@@ -1839,3 +1849,4 @@ def api_url_analyze():
 # ================================================================
 if __name__ == '__main__':
     app.run(debug=app.config["DEBUG"])
+

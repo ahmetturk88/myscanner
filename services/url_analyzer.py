@@ -506,6 +506,8 @@ class URLDeepAnalyzer:
         """فحص الرابط ضد URLhaus API"""
         result = {
             "is_malicious": False,
+            "coverage_status": "unavailable",
+            "coverage_reason": "not_configured",
             "urlhaus_id": None,
             "first_seen": None,
             "last_seen": None,
@@ -515,16 +517,32 @@ class URLDeepAnalyzer:
             "details": ""
         }
 
+        key = os.environ.get('URLHAUS_AUTH_KEY', '').strip()
+        key_file = os.environ.get('URLHAUS_AUTH_KEY_FILE', '')
+        if key_file:
+            try:
+                with open(key_file, encoding='utf-8') as secret:
+                    key = secret.read(4096).strip()
+            except (OSError, UnicodeError):
+                result['coverage_reason'] = 'configuration_error'
+                return result
+        if not key or len(key)>4095 or any(char.isspace() for char in key):
+            return result
+        result['coverage_reason'] = 'provider_unavailable'
         try:
             resp = self.session.post(
                 'https://urlhaus-api.abuse.ch/v1/url/',
                 data={'url': url},
+                headers={'Auth-Key': key},
+                allow_redirects=False,
                 timeout=10
             )
 
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get('query_status') == 'ok':
+                    result['coverage_status'] = 'matched'
+                    result['coverage_reason'] = None
                     result["is_malicious"] = True
                     result["urlhaus_id"] = data.get('id')
                     result["first_seen"] = data.get('firstseen')
@@ -540,16 +558,20 @@ class URLDeepAnalyzer:
                     domain = urlparse(url).netloc
                     self._save_phishing_cache(domain)
                 elif data.get('query_status') == 'no_results':
+                    result['coverage_status'] = 'not_found'
+                    result['coverage_reason'] = None
                     result["details"] = "URL not found in URLhaus database"
                 else:
                     result["details"] = f"Query status: {data.get('query_status')}"
             else:
-                result["details"] = f"API Error: {resp.status_code}"
+                result['coverage_reason'] = 'authentication_rejected' if resp.status_code in (401,403) else 'rate_limited' if resp.status_code==429 else 'http_error'
+                result['details'] = 'URLhaus lookup unavailable'
         except UnsafeTargetError:
             raise
         except Exception as e:
-            logger.error(f"URLhaus error: {str(e)}")
-            result["details"] = f"Error: {str(e)}"
+            logger.warning('URLhaus lookup unavailable')
+            result['coverage_reason'] = 'connection_or_response_error'
+            result['details'] = 'URLhaus lookup unavailable'
 
         return result
 
@@ -566,6 +588,8 @@ class URLDeepAnalyzer:
 
         # فحص URLhaus
         urlhaus_result = self.check_urlhaus(url)
+        result["urlhaus_status"] = urlhaus_result.get("coverage_status", "unavailable")
+        result["urlhaus_reason"] = urlhaus_result.get("coverage_reason")
         if urlhaus_result["is_malicious"]:
             result["urlhaus"] = True
             result["urlhaus_details"] = {

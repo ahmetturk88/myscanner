@@ -1255,7 +1255,9 @@ def email_check():
 def api_check_email():
     app.logger.info(f'[INFO] Email check requested by {current_user.username}')
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('email', ''), str) or not isinstance(data.get('verify_smtp', False), bool):
+        return jsonify(error='Invalid email request'), 400
     email = data.get('email', '').strip()
 
     if not email:
@@ -1266,7 +1268,7 @@ def api_check_email():
 
     try:
         checker = AdvancedEmailChecker(redis_client)
-        result = checker.check_all(email)
+        result = checker.check_all(email, verify_smtp=data.get("verify_smtp", False))
 
         if not result.get("valid"):
             app.logger.warning(f'[WARNING] Invalid email format: {email}')
@@ -1298,7 +1300,7 @@ def api_check_email():
             "deliverability": result["deliverability"],
             "quality_score": result["quality_score"] / 100,
             "address_risk": result["verdict"],
-            "total_breaches": 0,
+            "total_breaches": None,
             "last_breached": None,
             "breached_domains": [],
             "domain_age": result["domain_info"].get("age_days", 0),
@@ -1306,13 +1308,18 @@ def api_check_email():
             "spf_record": result["dns"]["spf"]["record"],
             "spf_valid": result["dns"]["spf"]["exists"],
             "dkim_record": None,
-            "dkim_valid": False,
+            "dkim_valid": None,
             "dmarc_record": result["dns"]["dmarc"]["record"],
             "dmarc_valid": result["dns"]["dmarc"]["exists"],
             "blacklisted": result["blacklist"]["is_blacklisted"],
             "blacklist_count": len(result["blacklist"].get("blacklisted_on", [])),
             "blacklist_results": result["blacklist"].get("blacklisted_on", []),
             "smtp_details": result["smtp"],
+            "assessment": result.get("assessment"),
+            "dns_evidence": result["dns"],
+            "reputation_evidence": result["blacklist"],
+            "domain_evidence": result["domain_info"],
+            "checked_at": result.get("checked_at"),
             "quality_breakdown": {
                 "score": result["quality_score"],
                 "smtp_valid": result["smtp"]["valid"],
@@ -1324,11 +1331,9 @@ def api_check_email():
             "format_suggestions": result.get("format_suggestions", [])
         })
 
-    except Exception as e:
-        app.logger.error(f'[ERROR] Email check failed for {email}: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Check error: {str(e)}"}), 500
+    except Exception:
+        app.logger.error("Email assessment unavailable")
+        return jsonify(error="Email assessment temporarily unavailable. Please retry."), 503
 
 
 # ================================================================

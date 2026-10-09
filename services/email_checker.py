@@ -151,104 +151,54 @@ class AdvancedEmailChecker:
         return result
     
     def check_dns_records(self, domain: str):
-        logger.debug(f"Checking DNS records for domain: {domain}")
-        """فحص جميع سجلات DNS المتعلقة بالإيميل"""
-        cache_key = self._get_cache_key(domain, "dns")
-        cached = self._cache_get(cache_key)
-        if cached:
-            return cached
-        
-        result = {
-            "spf": {"exists": False, "record": None, "valid": False, "details": None},
-            "dkim": {"exists": False, "records": [], "valid": False},
-            "dmarc": {"exists": False, "record": None, "policy": None, "pct": None},
-            "mx": {"exists": False, "records": []},
-            "txt": {"records": []}
-        }
-        
-        # فحص MX
-        try:
-            mx = dns.resolver.resolve(domain, 'MX')
-            result["mx"]["exists"] = True
-            result["mx"]["records"] = [{"preference": r.preference, "exchange": str(r.exchange).rstrip('.')} for r in mx]
-        except:
-            pass
-        
-        # فحص TXT (يشمل SPF)
-        try:
-            txt = dns.resolver.resolve(domain, 'TXT')
-            for r in txt:
-                txt_str = str(r).strip('"')
-                result["txt"]["records"].append(txt_str)
-                
-                if 'v=spf1' in txt_str.lower():
-                    result["spf"]["exists"] = True
-                    result["spf"]["record"] = txt_str
-                    result["spf"]["valid"] = True
-        except:
-            pass
-        
-        # فحص DMARC
-        try:
-            dmarc_domain = f"_dmarc.{domain}"
-            dmarc = dns.resolver.resolve(dmarc_domain, 'TXT')
-            for r in dmarc:
-                txt_str = str(r).strip('"')
-                if 'v=DMARC1' in txt_str:
-                    result["dmarc"]["exists"] = True
-                    result["dmarc"]["record"] = txt_str
-                    if 'p=reject' in txt_str.lower():
-                        result["dmarc"]["policy"] = "reject"
-                    elif 'p=quarantine' in txt_str.lower():
-                        result["dmarc"]["policy"] = "quarantine"
-                    elif 'p=none' in txt_str.lower():
-                        result["dmarc"]["policy"] = "none"
-                    break
-        except:
-            pass
-        
-        self._cache_set(cache_key, result, 7200)
+        result = {"spf":{"exists":False,"record":None,"valid":False,"status":"unavailable"},
+                  "dmarc":{"exists":False,"record":None,"policy":None,"status":"unavailable"},
+                  "dkim":{"exists":None,"status":"not_checked","records":[]},
+                  "mx":{"exists":False,"records":[],"status":"unavailable"},"txt":{"records":[]}}
+        def lookup(name, kind):
+            try:return list(dns.resolver.resolve(name,kind,lifetime=3)), "found"
+            except (dns.resolver.NXDOMAIN,dns.resolver.NoAnswer):return [], "not_found"
+            except Exception:return [], "unavailable"
+        records,status=lookup(domain,'MX');result['mx']['status']=status
+        result['mx']['records']=[{'preference':r.preference,'exchange':str(r.exchange).rstrip('.')} for r in records]
+        result['mx']['exists']=bool(records)
+        records,status=lookup(domain,'TXT')
+        texts=[''.join(part.decode('utf-8',errors='replace') for part in r.strings) for r in records]
+        result['txt']['records']=texts
+        spf=[text for text in texts if text.lower().startswith('v=spf1')]
+        result['spf'].update(exists=bool(spf),record=spf[0] if spf else None,valid=bool(spf),status='found' if spf else 'not_found' if status!='unavailable' else 'unavailable')
+        records,status=lookup('_dmarc.'+domain,'TXT')
+        texts=[''.join(part.decode('utf-8',errors='replace') for part in r.strings) for r in records]
+        dmarc=[text for text in texts if text.lower().startswith('v=dmarc1')]
+        record=dmarc[0] if dmarc else None
+        tags={item.split('=',1)[0].strip().lower():item.split('=',1)[1].strip().lower() for item in (record or '').split(';') if '=' in item}
+        result['dmarc'].update(exists=bool(dmarc),record=record,policy=tags.get('p'),status='found' if dmarc else 'not_found' if status!='unavailable' else 'unavailable')
         return result
-    
+
     def check_blacklists(self, domain: str, ip: str = None):
-        logger.debug(f"Checking blacklists for domain: {domain}")
-        """فحص النطاق أو IP ضد قوائم الحظر السوداء"""
-        cache_key = self._get_cache_key(f"{domain}:{ip}", "blacklist")
-        cached = self._cache_get(cache_key)
-        if cached:
-            return cached
-        
-        result = {
-            "is_blacklisted": False,
-            "total_lists": len(BLACKLISTS),
-            "blacklisted_on": [],
-            "clean_on": []
-        }
-        
-        if not ip:
+        import ipaddress
+        sources=list(BLACKLISTS[:10])
+        result={'is_blacklisted':False,'total_lists':len(sources),'blacklisted_on':[], 'clean_on':[], 'unavailable_on':[], 'coverage_status':'partial'}
+        try:
+            address=ip or str(dns.resolver.resolve(domain,'A',lifetime=3)[0])
+            parsed=ipaddress.ip_address(address)
+            if parsed.version!=4 or not parsed.is_global:raise ValueError()
+        except Exception:
+            result['unavailable_on']=sources;return result
+        reverse='.'.join(reversed(address.split('.')))
+        for source in sources:
             try:
-                ip = socket.gethostbyname(domain)
-            except:
-                ip = "unknown"
-        
-        if ip != "unknown":
-            ip_reversed = '.'.join(reversed(ip.split('.')))
-            
-            for bl in BLACKLISTS[:10]:  # حددنا العدد لتجنب الوقت الطويل
-                bl_domain = f"{ip_reversed}.{bl}"
-                try:
-                    socket.gethostbyname(bl_domain)
-                    result["is_blacklisted"] = True
-                    logger.warning(f"⚠️ Domain {domain} found in blacklist: {bl}")
-                    result["blacklisted_on"].append(bl)
-                except socket.gaierror:
-                    result["clean_on"].append(bl)
-                except Exception:
-                    pass
-        
-        self._cache_set(cache_key, result, 3600)
+                answers=[str(r) for r in dns.resolver.resolve(reverse+'.'+source,'A',lifetime=2)]
+                # Resolver/provider error codes (e.g. 127.255.*) are not listings.
+                if answers and all(a.startswith('127.0.0.') and a.rsplit('.',1)[1].isdigit() and 2<=int(a.rsplit('.',1)[1])<=11 for a in answers):
+                    result['blacklisted_on'].append(source)
+                else:result['unavailable_on'].append(source)
+            except (dns.resolver.NXDOMAIN,dns.resolver.NoAnswer):result['clean_on'].append(source)
+            except Exception:result['unavailable_on'].append(source)
+        result['is_blacklisted']=bool(result['blacklisted_on'])
+        result['coverage_status']='completed' if sources and not result['unavailable_on'] else 'partial'
         return result
-    
+
     def check_domain_info(self, domain: str):
         logger.debug(f"Getting WHOIS info for domain: {domain}")
         """الحصول على معلومات النطاق"""
@@ -294,7 +244,9 @@ class AdvancedEmailChecker:
         self._cache_set(cache_key, result, 86400)
         return result
     
-    def check_all(self, email: str):
+    def check_all(self, email: str, verify_smtp: bool = False):
+        if not isinstance(verify_smtp, bool):
+            raise ValueError('SMTP consent must be a boolean')
         logger.info(f"🔍 Starting comprehensive email check for: {email}")
         """الفحص الشامل للإيميل بكل الميزات"""
         
@@ -311,7 +263,10 @@ class AdvancedEmailChecker:
         
         domain = normalized.split('@')[-1]
         
-        smtp_result = self.check_smtp(normalized)
+        smtp_result = self.check_smtp(normalized) if verify_smtp else {
+            'valid': None, 'coverage_status': 'skipped',
+            'message': 'Direct SMTP recipient verification was not requested.', 'servers': []
+        }
         dns_result = self.check_dns_records(domain)
         is_disposable = domain in DISPOSABLE_DOMAINS
         is_free = domain in FREE_DOMAINS
@@ -353,7 +308,7 @@ class AdvancedEmailChecker:
             verdict = "high_risk"
 
         logger.info(f"✅ Email check completed for: {email} | Verdict: {verdict} | Score: {quality_score}")
-        return {
+        report = {
             "email": normalized,
             "domain": domain,
             "valid": True,
@@ -369,3 +324,6 @@ class AdvancedEmailChecker:
             "deliverability": "DELIVERABLE" if smtp_result.get("valid") is True else "UNDELIVERABLE" if smtp_result.get("valid") is False else "UNKNOWN",
             "checked_at": datetime.now().isoformat()
         }
+        from services.email_assessment import assess_email
+        report["assessment"] = assess_email(report)
+        return report

@@ -27,7 +27,7 @@ class TemplateTests(unittest.TestCase):
         source=(ROOT/'templates/email_check.html').read_text(encoding='utf-8')
         self.assertNotIn('onclick="useSuggestion(',source)
         self.assertIn("button.addEventListener('click'",source)
-        self.assertIn('corrected.textContent = suggestion.suggested',source)
+        self.assertIn("values.textContent=ScanUI.text(s.original)+' → '+s.suggested",source)
 
 @unittest.skipUnless(shutil.which('node'),'Node.js is needed for scanner renderer execution tests')
 class ExecutionTests(unittest.TestCase):

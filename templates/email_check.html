@@ -1,379 +1,60 @@
 {% extends "base.html" %}
-{% block title %}Email Checker - Advanced Email Security Scanner{% endblock %}
-
+{% block title %}Email Intelligence — MyScanner{% endblock %}
 {% block head_extra %}
 <style>
-  .email-wrap { max-width: 1000px; margin: 0 auto; padding: 56px 24px 100px; }
-  .page-head { text-align: center; margin-bottom: 44px; }
-  .page-head .label { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,200,255,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 16px; }
-  .page-head h1 { font-family: var(--mono); font-size: clamp(28px, 5vw, 40px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
-  .page-head h1 span { color: var(--accent); }
-  .page-head p { font-size: 15px; color: var(--muted); max-width: 640px; margin: 0 auto; line-height: 1.7; }
-  .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px; display: flex; gap: 8px; margin-bottom: 12px; transition: border-color .3s, box-shadow .3s; }
-  .search-box:focus-within { border-color: rgba(0,200,255,0.4); box-shadow: 0 0 30px rgba(0,200,255,0.08); }
-  .search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 12px 16px; font-family: var(--mono); font-size: 13px; color: var(--text); min-width: 0; }
-  .search-box input::placeholder { color: var(--muted); }
-  .search-box button { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 26px; font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .2s; flex-shrink: 0; }
-  .search-box button:hover { background: #00aad9; }
-  .search-box button:disabled { background: var(--muted); cursor: not-allowed; }
-  
-  /* Suggestion Box */
-  .suggestion-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: none; animation: fadeInUp 0.3s ease; }
-  .suggestion-box .title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-  .suggestion-box .suggestion-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
-  .suggestion-box .suggestion-item:last-child { border-bottom: none; }
-  .suggestion-box .original { font-family: var(--mono); font-size: 12px; color: var(--red); text-decoration: line-through; }
-  .suggestion-box .corrected { font-family: var(--mono); font-size: 12px; color: var(--green); }
-  .suggestion-box .use-btn { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 12px; font-size: 11px; cursor: pointer; transition: all .2s; }
-  .suggestion-box .use-btn:hover { background: var(--accent); color: #000; }
-  
-  #error-div { background: var(--red-dim); border: 1px solid rgba(255,69,96,.3); border-radius: 10px; padding: 12px 16px; color: var(--red); font-size: 13px; display: none; margin-bottom: 16px; }
-  #loading-div { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; display: none; }
-  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: middle; margin-right: 10px; }
-  @keyframes rot { to { transform: rotate(360deg); } }
-  
-  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; margin-bottom: 18px; display: none; animation: fadeInUp 0.5s ease; }
-  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-  
-  .verdict-banner { border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
-  .verdict-banner .v-icon { font-size: 34px; flex-shrink: 0; }
-  .verdict-banner .v-text h3 { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
-  .verdict-banner .v-text p { font-size: 13px; opacity: 0.75; }
-  .banner-safe { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
-  .banner-invalid { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-disposable { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .banner-moderate_risk { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .banner-high_risk { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-undeliverable { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  .banner-blacklisted { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.3); }
-  
-  .q-bar-wrap { margin-bottom: 28px; }
-  .q-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 8px; letter-spacing: 0.5px; }
-  .q-bar-bg { background: var(--surface2); border-radius: 6px; height: 8px; overflow: hidden; border: 1px solid var(--border); }
-  .q-bar-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
-  
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 28px; }
-  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; transition: all .2s; }
-  .stat-box:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .stat-box .s-icon { font-size: 20px; margin-bottom: 6px; }
-  .stat-box .s-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; margin-bottom: 4px; text-transform: uppercase; }
-  .stat-box .s-value { font-size: 13px; font-weight: 700; color: var(--text); }
-  .stat-box.good { border-color: rgba(0,230,118,.25); } .stat-box.good .s-value { color: var(--green); }
-  .stat-box.bad { border-color: rgba(255,69,96,.25); } .stat-box.bad .s-value { color: var(--red); }
-  .stat-box.warn { border-color: rgba(255,211,42,.25); } .stat-box.warn .s-value { color: var(--yellow); }
-  
-  .quality-breakdown { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 28px; border: 1px solid var(--border); }
-  .quality-breakdown h4 { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 12px; letter-spacing: 1px; }
-  .quality-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px dashed var(--border); }
-  .quality-item .check { color: var(--green); }
-  .quality-item .cross { color: var(--red); }
-  
-  .smtp-details { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 28px; border: 1px solid var(--border); }
-  .smtp-details h4 { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-  .mx-server { display: flex; align-items: center; gap: 12px; padding: 8px; background: var(--surface); border-radius: 8px; margin-bottom: 8px; font-size: 12px; font-family: var(--mono); }
-  .mx-pref { background: var(--accent-dim); padding: 2px 8px; border-radius: 12px; font-size: 10px; }
-  
-  .details-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .details-table tr { border-bottom: 1px solid var(--border); }
-  .details-table tr:last-child { border-bottom: none; }
-  .details-table td { padding: 10px 6px; }
-  .details-table td:first-child { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; width: 35%; }
-  .details-table td:last-child { color: var(--text); font-weight: 600; word-break: break-all; }
-  
-  .suggestions-tag { background: var(--yellow-dim); color: var(--yellow); padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 6px; }
-  
-  .export-buttons { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
-  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 12px; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 6px; }
-  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
-  
-  @media (max-width: 580px) { .search-box { flex-direction: column; } .stats-grid { grid-template-columns: repeat(2,1fr); } }
-    .toast-notification {
-    position: fixed; bottom: 30px; right: 30px;
-    background: var(--surface); border-left: 3px solid var(--green);
-    padding: 14px 20px; border-radius: 10px;
-    display: flex; gap: 12px; align-items: center;
-    transform: translateX(400px); transition: 0.3s ease;
-    z-index: 1000;
-  }
-  .toast-notification.show { transform: translateX(0); }
-  .toast-message { font-size: 13px; color: var(--text); }
-  .toast-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; }
+.email-wrap{max-width:1200px;margin:auto;padding:48px 24px 90px;color:#e8eef9;font-family:Arial,Helvetica,sans-serif}.eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#78caff;font-weight:700}.email-hero{display:grid;grid-template-columns:1.25fr .75fr;gap:40px;align-items:center;margin-bottom:32px}.email-hero h1{font-size:clamp(32px,5vw,52px);letter-spacing:-2px;line-height:1.1;margin:16px 0}.email-hero p{color:#aab9ce;font-size:15px;line-height:1.8;max-width:600px}.hero-graphic{height:200px;display:grid;place-items:center;background:radial-gradient(ellipse at center,#173a53 0,transparent 70%);position:relative}.mail-mark{width:132px;height:92px;border:2px solid #65caff;border-radius:22px;position:relative;background:#112337;box-shadow:0 0 65px #34aee521}.mail-mark:before{content:'';position:absolute;width:74px;height:74px;border-right:2px solid #65caff;border-bottom:2px solid #65caff;transform:rotate(45deg);top:-37px;left:27px;border-radius:8px}.mail-mark:after{content:'@';position:absolute;right:-18px;bottom:-18px;font-size:34px;font-weight:700;background:#0c182b;border:1px solid #326888;color:#93dcff;border-radius:16px;padding:2px 12px}.tool-chips{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.pill{padding:7px 11px;border-radius:20px;border:1px solid #304157;background:#142033;font-size:11px;color:#c3d5e9}.input-panel,.panel,.result-card{border:1px solid #2d3b51;background:#111c2c;border-radius:20px;padding:26px}.input-panel{margin-bottom:24px}.input-label{display:block;font-weight:700;font-size:14px;margin-bottom:12px}.search-box{display:flex;gap:12px}.search-box input{min-width:0;flex:1;border:1px solid #354862;border-radius:12px;background:#0b1422;color:#f2f7ff;padding:16px;font-size:16px}.search-box input:focus{outline:2px solid #65caff;outline-offset:2px}.search-box button,.primary-btn{border:0;border-radius:12px;background:#74d1ff;color:#061423;font-weight:700;padding:14px 24px;cursor:pointer}.search-box button:disabled{opacity:.5;cursor:wait}.input-note{font-size:12px;color:#9bafc7;line-height:1.7;margin:14px 0 0}.option-row{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:13px;color:#c5d4e8}.option-row input{margin-top:4px;accent-color:#74d1ff}.intro-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}.intro-grid article{padding:20px;border:1px solid #27364d;border-radius:16px;background:#101a29}.intro-grid h3{font-size:14px;margin:12px 0 8px}.intro-grid p{font-size:12px;color:#a6b8cf;line-height:1.7;margin:0}.intro-icon{color:#79d2ff;font-size:22px}.result-card{display:none;padding:0;overflow:hidden}.report-toolbar{display:flex;justify-content:space-between;gap:16px;padding:22px 28px;border-bottom:1px solid #2c3a50;align-items:center}.report-toolbar strong{display:block;font-size:15px;overflow-wrap:anywhere}.report-toolbar small{display:block;color:#9db2cb;margin-top:7px}.export-buttons{display:flex;gap:8px;flex-wrap:wrap}.export-btn{border:1px solid #3a4c68;border-radius:9px;padding:10px 13px;background:#1d2b40;color:#e7effc;font-size:12px;cursor:pointer}.export-btn:hover{border-color:#74d1ff}.export-btn:focus-visible,summary:focus-visible{outline:2px solid #74d1ff;outline-offset:3px}.report-body{padding:28px}.assessment-top{display:grid;grid-template-columns:1.4fr .6fr;gap:28px;background:linear-gradient(130deg,#1c2c43,#111c2c);border:1px solid #354863;border-radius:17px;padding:28px;margin-bottom:20px}.assessment-top h2{font-size:28px;letter-spacing:-.8px;margin:12px 0}.assessment-top p{font-size:13px;line-height:1.8;color:#b6c8e0;margin-bottom:18px}.score-box{border-left:1px solid #38506d;padding-left:28px;display:flex;flex-direction:column;justify-content:center}.score-big{font-size:68px;font-weight:700;letter-spacing:-3px;line-height:1.1;margin:12px 0}.score-big small{font-size:18px;color:#a0b7d4;letter-spacing:0}.q-bar-bg{height:6px;background:#33435a;border-radius:8px;overflow:hidden}.q-bar-fill{height:100%;background:#75cdff;width:0%;transition:width .6s}.score-note{font-size:11px;color:#a4bddb;margin-top:12px;line-height:1.6}.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}.category-card{border:1px solid #2e415b;background:#152238;border-radius:13px;padding:17px}.category-card h3{font-size:13px;margin:11px 0}.category-card p{font-size:11px;line-height:1.7;color:#b2c5dc;margin:0}.category-card .category-index{color:#7aafd4;font-size:11px}.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}.panel h3{font-size:15px;margin:0 0 16px}.panel p,.panel li{font-size:13px;line-height:1.7;color:#bacbe0}.panel ul{padding-left:18px;margin-bottom:0}.panel li{margin-bottom:9px}.deduction{color:#efc77d;font-size:11px}.evidence-detail{border:1px solid #2e405b;border-radius:13px;margin-top:12px;background:#111e31;overflow:hidden}.evidence-detail summary{cursor:pointer;padding:18px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;list-style:none}.evidence-detail summary:after{content:'+';color:#87cffe}.evidence-detail[open] summary:after{content:'−'}.evidence-body{padding:0 18px 18px}.details-table{width:100%;border-collapse:collapse;font-size:12px}.details-table th,.details-table td{padding:12px 5px;border-top:1px solid #2b3d57;text-align:left;vertical-align:top;overflow-wrap:anywhere}.details-table th{width:34%;color:#9fb6d2;font-weight:400}.details-table td{color:#e1ebfb}.record{font-family:monospace;font-size:11px;line-height:1.8;overflow-wrap:anywhere;color:#bacfea}.good{color:#7ad8b2}.bad{color:#f6a4ad}.warn{color:#f0cf90}.source-note{padding:14px;border:1px solid #3e4c64;border-radius:10px;color:#b9c9de;font-size:12px;line-height:1.8;margin-bottom:14px}.mx-server{padding:10px;border-bottom:1px solid #2d415d;font-size:12px;overflow-wrap:anywhere}.suggestion-box{display:none;padding:18px;border:1px solid #5482aa;border-radius:12px;margin-bottom:18px}.suggestion-item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;font-size:12px;overflow-wrap:anywhere}.use-btn{color:#d8ecff;border:1px solid #5683a9;background:#203551;padding:7px 12px;border-radius:8px;cursor:pointer}.original{color:#f5a0ad}.corrected{color:#8dd6be}.suggestions-tag{margin-left:8px;color:#9eb9d7}#error-div{display:none;padding:16px;background:#3b1c2b;border:1px solid #804451;border-radius:12px;margin-bottom:18px}#loading-div{display:none;padding:28px;text-align:center;background:#152439;border-radius:16px;margin:20px 0}.loading-track{height:4px;background:#273c56;margin:16px auto;max-width:260px;overflow:hidden;border-radius:5px}.loading-track:after{content:'';display:block;width:35%;height:100%;background:#7bd1ff;animation:travel 1.5s ease-in-out infinite}.loading-text{font-size:13px;color:#bbd0e9}.toast-notification{display:none;position:fixed;bottom:24px;right:24px;background:#21364d;border:1px solid #5d98b0;padding:15px;border-radius:12px;z-index:1000}.toast-notification.show{display:block}.toast-close{margin-left:15px;background:none;border:0;color:white;cursor:pointer}@keyframes travel{to{transform:translateX(300%)}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}@media(max-width:900px){.email-hero{grid-template-columns:1fr}.hero-graphic{display:none}.stats-grid{grid-template-columns:repeat(3,1fr)}.assessment-top{grid-template-columns:1fr}.score-box{border-left:0;border-top:1px solid #38506d;padding:20px 0 0}.score-big{font-size:54px}.intro-grid{grid-template-columns:1fr}}@media(max-width:600px){.email-wrap{padding:30px 14px 60px}.search-box,.report-toolbar{flex-direction:column;align-items:stretch}.stats-grid{grid-template-columns:1fr 1fr}.report-grid{grid-template-columns:1fr}.report-body,.assessment-top,.input-panel{padding:20px}.email-hero h1{letter-spacing:-1px}.export-btn{flex:1}.details-table th{width:38%}}
 </style>
 {% endblock %}
-
 {% block content %}
 <div class="email-wrap">
-  <div class="page-head">
-    <div class="label">Security Tool</div>
-    <h1>Email <span>Checker</span></h1>
-    <p>Advanced email verification — SMTP, SPF, DKIM, DMARC, Blacklists, Domain Reputation & AI Classification</p>
-  </div>
-  
-  <div class="search-box">
-    <input type="email" id="email-input" placeholder="user@example.com" autocomplete="off">
-    <button id="check-btn" onclick="checkEmail()">Analyze →</button>
-  </div>
-  
-  <div id="suggestion-box" class="suggestion-box">
-    <div class="title">💡 Did you mean?</div>
-    <div id="suggestions-list"></div>
-  </div>
-  
-  <div id="error-div">❌ <span id="error-msg"></span></div>
-  <div id="loading-div"><span class="spin"></span>Analyzing email address with advanced checks (SMTP, DNS, Blacklists)...</div>
-  
-  <div class="result-card" id="result-card">
-    <div id="verdict-banner" class="verdict-banner">
-      <div class="v-icon" id="v-icon"></div>
-      <div class="v-text"><h3 id="v-title"></h3><p id="v-sub"></p></div>
-    </div>
-    
-    <div class="q-bar-wrap">
-      <div class="q-bar-label"><span>🔍 QUALITY SCORE</span><span id="q-num">—</span></div>
-      <div class="q-bar-bg"><div class="q-bar-fill" id="q-bar" style="width:0%;"></div></div>
-    </div>
-    
-    <div class="stats-grid" id="stats-grid"></div>
-    
-    <div class="quality-breakdown" id="quality-breakdown" style="display: none;">
-      <h4>📊 Quality Score Breakdown</h4>
-      <div id="quality-items"></div>
-    </div>
-    
-    <div class="smtp-details" id="smtp-details" style="display: none;">
-      <h4>📡 SMTP & MX Details</h4>
-      <div id="mx-servers"></div>
-      <div id="smtp-result"></div>
-    </div>
-    
-    <table class="details-table" id="details-table"></table>
-    
-    <div class="export-buttons">
-      <button class="export-btn" onclick="exportJSON()">📄 Export JSON</button>
-      <button class="export-btn" onclick="copyToClipboard()">📋 Copy Report</button>
-    </div>
-  </div>
+<header class="email-hero"><div><span class="eyebrow">Email intelligence / Evidence first</span><h1>Know more.<br>Trust with evidence.</h1><p>Explore an email address's routing, sender protections and domain signals. One clear assessment, with every finding and every limitation explained.</p><div class="tool-chips"><span class="pill">MX routing</span><span class="pill">SPF & DMARC</span><span class="pill">Domain signals</span><span class="pill">Optional SMTP</span></div></div><div class="hero-graphic" aria-hidden="true"><div class="mail-mark"></div></div></header>
+<section class="input-panel"><label for="email-input" class="input-label">Email address to investigate</label><div class="search-box"><input type="email" id="email-input" placeholder="name@company.com" autocomplete="off" spellcheck="false" maxlength="254"><button id="check-btn" type="button" onclick="checkEmail()">Analyze address →</button></div><label class="option-row"><input type="checkbox" id="smtp-consent"><span>Include a direct SMTP acceptance probe.<br><small>The receiving mail server gets the email address in this probe. No message body is sent. Acceptance does not prove ownership or future delivery.</small></span></label><p class="input-note">The score describes evidence and coverage, not a probability of safety. DKIM message signatures and breach exposure are not checked.</p></section>
+<div id="suggestion-box" class="suggestion-box"><strong>Possible spelling correction</strong><div id="suggestions-list"></div></div><div id="error-div" role="alert"><span id="error-msg"></span></div><div id="loading-div" role="status" aria-live="polite"><span class="eyebrow">Assessment in progress</span><div class="loading-track"></div><span class="loading-text">Collecting DNS records, domain signals and available evidence…</span><p class="input-note">Unavailable sources remain visible; they are never counted as successful checks.</p></div>
+<div id="intro-grid" class="intro-grid"><article><span class="intro-icon">01</span><h3>Understand the domain</h3><p>See mail routing and sender-policy records, with the original evidence available for review.</p></article><article><span class="intro-icon">02</span><h3>Know what is missing</h3><p>Failed lookups, skipped probes and untested checks are separated from reported risk indicators.</p></article><article><span class="intro-icon">03</span><h3>Take the evidence with you</h3><p>Copy a readable report or export JSON and CSV for follow-up, without storing a report in your browser.</p></article></div>
+<section id="result-card" class="result-card" aria-live="polite"><div class="report-toolbar"><div><span class="eyebrow">Email assessment</span><strong id="report-email"></strong><small id="report-time"></small></div><div class="export-buttons"><button class="export-btn" type="button" onclick="exportJSON()">JSON ↓</button><button class="export-btn" type="button" onclick="exportCSV()">CSV ↓</button><button class="export-btn" type="button" onclick="copyToClipboard()">Copy report</button></div></div><div class="report-body"><div id="verdict-banner" class="assessment-top"><div><span class="eyebrow">Combined assessment</span><h2 id="v-title"></h2><p id="v-sub"></p><div id="coverage-pills" class="tool-chips"></div></div><div class="score-box"><span class="eyebrow">Overall assessment index</span><div id="q-num" class="score-big"></div><div class="q-bar-bg"><div id="q-bar" class="q-bar-fill"></div></div><span class="score-note">Risk indicators + coverage deductions / 100</span></div></div><div id="stats-grid" class="stats-grid"></div><div class="report-grid"><section class="panel"><h3>Why this result</h3><div id="quality-items"></div></section><section class="panel"><h3>Coverage & limitations</h3><div id="coverage-details"></div></section></div><section class="panel"><h3>Suggested next steps</h3><div id="next-steps"></div></section><h3 style="font-size:17px;margin:28px 0 15px">Explore the evidence</h3><details class="evidence-detail"><summary>Routing & mailbox acceptance</summary><div class="evidence-body"><div id="smtp-details"><div id="mx-servers"></div><div id="smtp-result" class="source-note"></div></div><table id="routing-table" class="details-table"></table></div></details><details class="evidence-detail"><summary>Sender authentication · SPF & DMARC</summary><div id="dns-evidence" class="evidence-body"></div></details><details class="evidence-detail"><summary>Reputation & domain identity</summary><div class="evidence-body"><div id="reputation-evidence"></div><table id="details-table" class="details-table"></table></div></details><div id="quality-breakdown" style="display:none"></div></div></section>
 </div>
 {% endblock %}
-
 {% block body_extra %}
+<div id="toast" class="toast-notification" role="status"><span id="toast-message"></span><button class="toast-close" type="button" onclick="hideToast()" aria-label="Dismiss notification">×</button></div>
 <script>
-  const VC = {
-    unknown: { icon:"❔", title:"Verification unavailable", sub:"SMTP could not verify mailbox acceptance. This does not establish that the address is undeliverable.", cls:"banner-moderate_risk" },
-    safe:             { icon:'✅', title:'Safe & Valid', sub:'This email appears legitimate and deliverable. All security checks passed.', cls:'banner-safe' },
-    invalid:          { icon:'❌', title:'Invalid Format', sub:'This email address has an invalid format.', cls:'banner-invalid' },
-    disposable:       { icon:'⚠️', title:'Disposable Email', sub:'Temporary/disposable email — not recommended for business or trusted communications.', cls:'banner-disposable' },
-    moderate_risk:    { icon:'⚠️', title:'Moderate Risk', sub:'This email has some reliability issues. Proceed with caution.', cls:'banner-moderate_risk' },
-    high_risk:        { icon:'⚠️', title:'High Risk', sub:'Multiple security issues detected on this email/domain.', cls:'banner-high_risk' },
-    undeliverable:    { icon:'🚫', title:'Undeliverable', sub:'Emails to this address will likely bounce or never arrive.', cls:'banner-undeliverable' },
-    blacklisted:      { icon:'🚫', title:'Domain Blacklisted', sub:'This domain appears in one or more anti-spam blacklists!', cls:'banner-blacklisted' },
-  };
-  
-  let lastResult = null;
-
-  async function checkEmail() {
-    const email = document.getElementById('email-input').value.trim();
-    const btn = document.getElementById('check-btn');
-    document.getElementById('suggestion-box').style.display = 'none';
-    document.getElementById('result-card').style.display = 'none';
-    document.getElementById('loading-div').style.display = 'block';
-    document.getElementById('error-div').style.display = 'none';
-    
-    if (!email) { showErr('Please enter an email address.'); return; }
-    btn.disabled = true;
-    
-    try {
-      const r = await fetch('/api/check-email', { 
-        method:'POST', 
-        headers:{'Content-Type':'application/json'}, 
-        body: JSON.stringify({email}) 
-      });
-      const data = await r.json();
-      document.getElementById('loading-div').style.display = 'none';
-      
-      if (data.error) { 
-        showErr(data.error); 
-        if (data.suggestions && data.suggestions.length) showSuggestions(data.suggestions);
-        return; 
-      }
-      
-      lastResult = data;
-      renderMain(data);
-    } catch(e) { 
-      document.getElementById('loading-div').style.display = 'none'; 
-      showErr('Network error. Please try again.'); 
-    } finally { 
-      btn.disabled = false; 
-    }
-  }
-
-  function showSuggestions(suggestions) {
-    const box = document.getElementById('suggestion-box');
-    const list = document.getElementById('suggestions-list');
-    list.replaceChildren();
-    ScanUI.list(suggestions).forEach(suggestion => {
-      if (!suggestion || typeof suggestion.suggested !== 'string') return;
-      const row = document.createElement('div'); row.className = 'suggestion-item';
-      const values = document.createElement('div');
-      const original = document.createElement('span'); original.className = 'original'; original.textContent = ScanUI.text(suggestion.original);
-      const arrow = document.createElement('span'); arrow.textContent = ' → ';
-      const corrected = document.createElement('span'); corrected.className = 'corrected'; corrected.textContent = suggestion.suggested;
-      const tag = document.createElement('span'); tag.className = 'suggestions-tag'; tag.textContent = suggestion.type === 'domain_typo' ? 'Typo' : 'Similar';
-      values.appendChild(original); values.appendChild(arrow); values.appendChild(corrected); values.appendChild(tag);
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'use-btn'; button.textContent = 'Use →';
-      button.addEventListener('click', () => useSuggestion(suggestion.suggested));
-      row.appendChild(values); row.appendChild(button); list.appendChild(row);
-    });
-    box.style.display = 'block';
-  }
-  
-  function useSuggestion(corrected) {
-    document.getElementById('email-input').value = corrected;
-    document.getElementById('suggestion-box').style.display = 'none';
-    checkEmail();
-  }
-
-  function showErr(msg) { 
-    document.getElementById('error-msg').textContent = msg; 
-    document.getElementById('error-div').style.display = 'block'; 
-  }
-
-  function yn(v) { return v ? '<span style="color:var(--green);font-weight:700;">✓ Yes</span>' : '<span style="color:var(--red);font-weight:700;">✗ No</span>'; }
-  function statusBadge(v) { return v ? '<span style="color:var(--green);">✓</span>' : '<span style="color:var(--red);">✗</span>'; }
-  function showToast(message) {
-    const toast = document.getElementById('toast');
-    document.getElementById('toast-message').textContent = message;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 4000);
-  }
-  function hideToast() {
-    document.getElementById('toast').classList.remove('show');
-  }
-
-  function renderMain(d) {
-    const vc = Object.hasOwn(VC, d.verdict) ? VC[d.verdict] : VC.moderate_risk;
-    const banner = document.getElementById('verdict-banner');
-    banner.className = 'verdict-banner ' + vc.cls;
-    document.getElementById('v-icon').textContent = vc.icon;
-    document.getElementById('v-title').textContent = vc.title;
-    document.getElementById('v-sub').textContent = vc.sub;
-
-    const score = Math.round(ScanUI.number(d.quality_score, 0, 1) * 100);
-    const col = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
-    document.getElementById('q-bar').style.width = score + '%';
-    document.getElementById('q-bar').style.background = col;
-    document.getElementById('q-num').textContent = score + ' / 100';
-
-    // Stats Grid with enhanced info
-    document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-box ${d.is_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">FORMAT</div><div class="s-value">${d.is_valid ? 'Valid':'Invalid'}</div></div>
-      <div class="stat-box ${d.is_mx ? 'good':'bad'}"><div class="s-icon">📡</div><div class="s-label">MX RECORDS</div><div class="s-value">${d.is_mx ? 'Found':'Not Found'}</div></div>
-      <div class="stat-box ${d.is_smtp ? 'good':'bad'}"><div class="s-icon">🔌</div><div class="s-label">SMTP</div><div class="s-value">${d.is_smtp ? 'Valid':'Invalid'}</div></div>
-      <div class="stat-box ${!d.is_disposable ? 'good':'bad'}"><div class="s-icon">🗑️</div><div class="s-label">DISPOSABLE</div><div class="s-value">${d.is_disposable ? '⚠️ Yes' : 'Clean'}</div></div>
-      <div class="stat-box ${!d.is_free ? 'good':'warn'}"><div class="s-icon">🆓</div><div class="s-label">EMAIL TYPE</div><div class="s-value">${d.is_free ? 'Personal/Free' : 'Business'}</div></div>
-      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':d.deliverability==='UNKNOWN'?'warn':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERABILITY</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.deliverability)}</div></div>
-      <div class="stat-box ${!d.blacklisted ? 'good':'bad'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLIST</div><div class="s-value">${d.blacklisted ? `⚠️ ${ScanUI.escape(d.blacklist_count)} lists` : 'Clean'}</div></div>
-      <div class="stat-box ${d.spf_valid ? 'good':'bad'}"><div class="s-icon">🛡️</div><div class="s-label">SPF</div><div class="s-value">${d.spf_valid ? 'Valid' : 'Missing'}</div></div>
-      <div class="stat-box ${d.dmarc_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">DMARC</div><div class="s-value">${d.dmarc_valid ? 'Valid' : 'Missing'}</div></div>
-    `;
-
-    document.getElementById('quality-breakdown').style.display = 'none';
-    document.getElementById('smtp-details').style.display = 'none';
-    // Quality breakdown
-    if (d.quality_breakdown) {
-      document.getElementById('quality-breakdown').style.display = 'block';
-      document.getElementById('quality-items').innerHTML = `
-        <div class="quality-item"><span>SMTP Validation</span> ${statusBadge(d.quality_breakdown.smtp_valid)}</div>
-        <div class="quality-item"><span>Not Disposable Email</span> ${statusBadge(d.quality_breakdown.no_disposable)}</div>
-        <div class="quality-item"><span>Not Blacklisted</span> ${statusBadge(d.quality_breakdown.not_blacklisted)}</div>
-        <div class="quality-item"><span>SPF Record Exists</span> ${statusBadge(d.quality_breakdown.spf_exists)}</div>
-        <div class="quality-item"><span>DMARC Record Exists</span> ${statusBadge(d.quality_breakdown.dmarc_exists)}</div>
-        <div class="quality-item"><strong>Final Score</strong> <strong style="color:${col}">${score}%</strong></div>
-      `;
-    }
-
-    // SMTP Details
-    if (d.smtp_details && ScanUI.list(d.smtp_details.mx_servers).length > 0) {
-      document.getElementById('smtp-details').style.display = 'block';
-      document.getElementById('mx-servers').innerHTML = ScanUI.list(d.smtp_details.mx_servers).filter(mx => mx && typeof mx === 'object').map(mx => `
-        <div class="mx-server">
-          <span class="mx-pref">Priority ${ScanUI.escape(mx.preference)}</span>
-          <span style="font-family:monospace">${ScanUI.escape(mx.server)}</span>
-        </div>
-      `).join('');
-      document.getElementById('smtp-result').innerHTML = `
-        <div style="margin-top:12px; padding:8px; background:var(--surface); border-radius:8px;">
-          <strong>SMTP Check:</strong> ${ScanUI.escape(d.smtp_details.message)}
-        </div>
-      `;
-    }
-
-    // Details Table
-    document.getElementById('details-table').innerHTML = `
-      <tr><td>📧 EMAIL ADDRESS</td><td>${ScanUI.escape(d.email)}</td></tr>
-      <tr><td>🌐 DOMAIN</td><td>${ScanUI.escape(d.domain)}</td></tr>
-      <tr><td>✓ VALID FORMAT</td><td>${yn(d.is_valid)}</td></tr>
-      <tr><td>📡 MX RECORDS</td><td>${yn(d.is_mx)}</td></tr>
-      <tr><td>🔌 SMTP VALID</td><td>${yn(d.is_smtp)}</td></tr>
-      <tr><td>🗑️ DISPOSABLE</td><td>${yn(!d.is_disposable)}</td></tr>
-      <tr><td>🆓 FREE PROVIDER</td><td>${d.is_free ? 'Yes (Personal)' : 'No (Business/Custom)'}</td></tr>
-      <tr><td>📬 DELIVERABILITY</td><td><span class="${d.deliverability === 'DELIVERABLE' ? 'good' : d.deliverability === 'UNKNOWN' ? 'warn' : 'bad'}">${ScanUI.escape(d.deliverability)}</span></td></tr>
-      <tr><td>⚠️ RISK LEVEL</td><td><span class="${d.verdict === 'safe' ? 'good' : 'bad'}">${ScanUI.escape(ScanUI.text(d.address_risk || d.verdict, 'unknown').toUpperCase())}</span></td></tr>
-      <tr><td>🛡️ SPF RECORD</td><td>${yn(d.spf_valid)}${d.spf_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${ScanUI.escape(ScanUI.text(d.spf_record).substring(0, 80))}${d.spf_record.length > 80 ? '...' : ''}</span>` : ''}</td></tr>
-      <tr><td>📋 DMARC RECORD</td><td>${yn(d.dmarc_valid)}${d.dmarc_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${ScanUI.escape(ScanUI.text(d.dmarc_record).substring(0, 80))}</span>` : ''}</td></tr>
-      <tr><td>🚫 BLACKLISTED</td><td>${d.blacklisted ? `Yes (${ScanUI.escape(d.blacklist_count)} lists)` : 'No'}</td></tr>
-      <tr><td>🏢 REGISTRAR</td><td>${ScanUI.escape(d.registrar || 'N/A')}</td></tr>
-      <tr><td>📅 DOMAIN AGE</td><td>${d.domain_age ? ScanUI.escape(d.domain_age) + ' days' + (d.domain_age < 30 ? ' ⚠️ New domain' : '') : 'N/A'}</td></tr>
-      <tr><td>🎯 QUALITY SCORE</td><td><strong style="color:${col}">${score} / 100</strong></td></tr>
-    `;
-
-    document.getElementById('result-card').style.display = 'block';
-    window.scrollTo({ top: document.getElementById('result-card').offsetTop - 20, behavior: 'smooth' });
-  }
-
-  function exportJSON() {
-    if (!lastResult) return;
-    const dataStr = JSON.stringify(lastResult, null, 2);
-    const blob = new Blob([dataStr], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `email-report-${lastResult.email}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function copyToClipboard() {
-    if (!lastResult) return;
-    const report = `
-╔══════════════════════════════════════════════════════════════╗
-║                    Email Security Report                      ║
-╠══════════════════════════════════════════════════════════════╣
-║ Email: ${lastResult.email}
-║ Domain: ${lastResult.domain}
-║ Verdict: ${lastResult.verdict.toUpperCase()}
-║ Quality Score: ${Math.round((lastResult.quality_score || 0) * 100)}/100
-╠══════════════════════════════════════════════════════════════╣
-║ ✓ Format Valid: ${lastResult.is_valid}
-║ ✓ MX Records: ${lastResult.is_mx}
-║ ✓ SMTP Valid: ${lastResult.is_smtp}
-║ ✓ Deliverable: ${lastResult.deliverability}
-║ ✓ Disposable: ${lastResult.is_disposable}
-║ ✓ Email Type: ${lastResult.is_free ? 'Personal/Free' : 'Business'}
-║ ✓ SPF: ${lastResult.spf_valid ? 'Valid' : 'Missing'}
-║ ✓ DMARC: ${lastResult.dmarc_valid ? 'Valid' : 'Missing'}
-║ ✓ Blacklisted: ${lastResult.blacklisted ? 'Yes (' + lastResult.blacklist_count + ' lists)' : 'No'}
-╠══════════════════════════════════════════════════════════════╣
-║ Generated by MyScanner Email Security Tool
-╚══════════════════════════════════════════════════════════════╝
-    `;
-    navigator.clipboard.writeText(report);
-     showToast('✅ Report copied to clipboard!');  }
-
-  document.getElementById('email-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkEmail(); });
+let lastResult = null;
+const esc = value => ScanUI.escape(ScanUI.text(value));
+const node = id => document.getElementById(id);
+const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+function showToast(message){node('toast-message').textContent=message;node('toast').classList.add('show');setTimeout(hideToast,3000);}
+function hideToast(){node('toast').classList.remove('show');}
+function showErr(message){node('error-msg').textContent=message;node('error-div').style.display='block';}
+async function checkEmail(){
+ const email=node('email-input').value.trim();node('error-div').style.display='none';node('suggestion-box').style.display='none';
+ if(!email){showErr('Enter an email address to analyze.');return;}
+ node('check-btn').disabled=true;node('loading-div').style.display='block';node('result-card').style.display='none';
+ try{const response=await fetch('/api/check-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,verify_smtp:node('smtp-consent').checked===true})});const data=await response.json();if(!response.ok||data.error){showErr(data.error||'Assessment temporarily unavailable.');if(data.suggestions)showSuggestions(data.suggestions);return;}lastResult=data;renderMain(data);}catch(error){showErr('The request could not finish. Please try again.');}finally{node('check-btn').disabled=false;node('loading-div').style.display='none';}
+}
+function showSuggestions(suggestions){const list=node('suggestions-list');list.replaceChildren();ScanUI.list(suggestions).forEach(s=>{if(!s||typeof s.suggested!=='string')return;const row=document.createElement('div');row.className='suggestion-item';const values=document.createElement('div');values.textContent=ScanUI.text(s.original)+' → '+s.suggested;const button=document.createElement('button');button.type='button';button.className='use-btn';button.textContent='Use suggestion';button.addEventListener('click',()=>useSuggestion(s.suggested));row.appendChild(values);row.appendChild(button);list.appendChild(row);});node('suggestion-box').style.display='block';}
+function useSuggestion(email){node('email-input').value=email;node('suggestion-box').style.display='none';checkEmail();}
+function status(value){return value===true?'Reported':value===false?'Not reported':'Not verified';}
+function rows(values){return values.map(([label,value])=>`<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join('');}
+function renderMain(d){
+ d=object(d);lastResult=d;const a=object(d.assessment);const hasAssessment=Array.isArray(a.categories);const raw=d.quality_score;const fallback=typeof raw==='number'&&Number.isFinite(raw)?ScanUI.score(raw<=1?raw*100:raw):0;const score=hasAssessment?ScanUI.score(a.score):fallback;
+ node('result-card').style.display='block';node('intro-grid').style.display='none';node('report-email').textContent=ScanUI.text(d.email,'Email assessment');node('report-time').textContent=d.checked_at?'Analyzed '+ScanUI.text(d.checked_at):'Time not recorded';
+ const title=hasAssessment?(a.verdict==='review'?'Review the evidence':a.verdict==='no_indicators'?'No scored indicators':'Needs verification'):'Evidence needs review';
+ node('v-title').textContent=title;node('v-sub').textContent=hasAssessment?'One index combines the available checks. Missing coverage lowers this score separately from reported risk; neither a high score nor SMTP acceptance guarantees safety.':'This older result lacks detailed source coverage. Its legacy quality score cannot confirm safety.';
+ node('q-num').innerHTML=`${esc(score)}<small>/100</small>`;node('q-bar').style.width=score+'%';node('q-bar').style.background=score<50?'#f3a2aa':score<85?'#f0cb86':'#79cde9';
+ node('coverage-pills').innerHTML=`<span class="pill">${esc(a.coverage==='completed'?'Available checks completed':'Limited coverage')}</span><span class="pill">${esc(a.policy_version||'Legacy evidence')}</span>`;
+ node('stats-grid').innerHTML=ScanUI.list(a.categories).map((c,i)=>`<article class="category-card"><span class="category-index">0${i+1} / ${esc(object(c).weight)} pts</span><h3>${esc(object(c).label)}</h3><p>${esc(object(c).status==='assessed'?'Assessed':'Limited coverage')}</p><p>Risk −${esc(object(c).risk_deduction)} · Coverage −${esc(object(c).coverage_deduction)}</p></article>`).join('');
+ node('quality-items').innerHTML=ScanUI.list(a.findings).length?'<ul>'+ScanUI.list(a.findings).map(f=>`<li>${esc(object(f).message)} <span class="deduction">−${esc(object(f).deduction)} pts</span></li>`).join('')+'</ul>':'<p>No scored risk indicators are recorded in the available assessment. Missing checks remain separate below.</p>';
+ const gaps=ScanUI.list(a.missing_checks),untested=ScanUI.list(a.not_checked);node('coverage-details').innerHTML=`<p>Coverage deduction: ${esc(a.coverage_penalty??'Not recorded')} points.</p><ul>${gaps.concat(untested).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(a.warning||'Source coverage is not recorded for this result.')}</p>`;
+ const steps=[];if(gaps.length)steps.push('Review unavailable checks before making a trust or delivery decision.');if(d.blacklisted)steps.push('Review the reporting blocklist and its response; a domain IP listing does not prove this mailbox is malicious.');if(d.is_disposable)steps.push('Consider whether a temporary address meets your account or contact policy.');steps.push('Verify identity independently. Never use this score alone to approve payments or sensitive access.');node('next-steps').innerHTML='<ul>'+steps.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
+ const smtp=object(d.smtp_details);const servers=ScanUI.list(smtp.mx_servers);node('smtp-details').style.display=servers.length?'block':'none';node('quality-breakdown').style.display='none';node('mx-servers').innerHTML=servers.map(x=>`<div class="mx-server">Priority ${esc(x.preference)} · ${esc(x.server)}</div>`).join('');node('smtp-result').textContent=ScanUI.text(smtp.message,'No SMTP evidence recorded');node('routing-table').innerHTML=rows([['MX routing',object(object(d.dns_evidence).mx).status==='unavailable'?'Not verified':status(d.is_mx)],['Mailbox probe',smtp.coverage_status==='checked'?'Server replied':smtp.coverage_status==='skipped'?'Not requested':'Not verified'],['Deliverability',d.deliverability||'UNKNOWN'],['SMTP response code',smtp.response_code??'Not recorded']]);
+ const dns=object(d.dns_evidence);node('dns-evidence').innerHTML=['spf','dmarc'].map(name=>{const v=object(dns[name]);return `<h4>${name.toUpperCase()}</h4><div class="source-note">${esc(v.status||'Source status not recorded')}<br><span class="record">${esc(v.record||d[name+'_record']||'No record available')}</span></div>`;}).join('')+'<p class="input-note">Record presence is reported. Full policy evaluation and DKIM message signature verification were not performed.</p>';
+ const rep=object(d.reputation_evidence);node('reputation-evidence').innerHTML=`<div class="source-note">DNS blocklist coverage: ${esc(rep.coverage_status||'Not recorded')}.<br>Reported listings: ${esc(ScanUI.list(rep.blacklisted_on).join(', ')||'None recorded')}<br>Unavailable sources: ${esc(ScanUI.list(rep.unavailable_on).join(', ')||'None recorded')}</div>`;
+ node('details-table').innerHTML=rows([['Email',d.email],['Domain',d.domain],['Local disposable dataset',status(d.is_disposable)],['Free provider dataset',status(d.is_free)],['Registrar',d.registrar||'Not recorded'],['Domain age',typeof d.domain_age==='number'?d.domain_age+' days':'Not recorded'],['Breach exposure','Not checked'],['Mailbox ownership','Not verified']]);
+}
+function download(content,type,filename){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);}
+function exportJSON(){if(lastResult)download(JSON.stringify(lastResult,null,2),'application/json','email-assessment.json');}
+function csvCell(value){let text=String(value??'');if(/^[\s]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';}
+function exportCSV(){if(!lastResult)return;const a=object(lastResult.assessment);const data=[['Email','Score','Verdict','Coverage','Risk deduction','Coverage deduction'],[lastResult.email,a.score,a.verdict,a.coverage,a.risk_deduction,a.coverage_penalty]];for(const c of ScanUI.list(a.categories))data.push([c.label,'',c.status,'',c.risk_deduction,c.coverage_deduction]);download(data.map(row=>row.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8','email-assessment.csv');}
+async function copyToClipboard(){if(!lastResult)return;const a=object(lastResult.assessment);const text=['EMAIL ASSESSMENT',lastResult.email,'Index: '+(a.score??'Not recorded')+'/100','Verdict: '+(a.verdict||'Unknown'),'Coverage: '+(a.coverage||'Not recorded'),...ScanUI.list(a.findings).map(f=>object(f).message),...ScanUI.list(a.missing_checks),...ScanUI.list(a.not_checked),a.warning||'Not a safety guarantee'].join('\n');try{await navigator.clipboard.writeText(text);showToast('Report copied');}catch(error){showToast('Clipboard unavailable. Use JSON or CSV export.');}}
+node('email-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!node('check-btn').disabled)checkEmail();});
 </script>
-<div id="toast" class="toast-notification">
-  <span class="toast-message" id="toast-message"></span>
-  <button class="toast-close" onclick="hideToast()">×</button>
-</div>
 {% endblock %}

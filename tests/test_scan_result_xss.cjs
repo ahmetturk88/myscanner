@@ -114,3 +114,18 @@ assert(url.elements['verdict-area'].innerHTML.includes('Limited coverage'));
 assert(url.elements['verdict-area'].innerHTML.includes('Source unavailable'));
 if(process.argv.includes('--json')) console.log(JSON.stringify(outputs));
 else console.log(`${outputs.length} result sections rendered safely with malicious fixtures; helper and normal-display checks passed`);
+
+const whoisPartial = {trust_score:100, verdict:'harmless', incomplete:true, errors:['whois_lookup: '+payload], phishing:{in_database:false,verified:false,valid:false}, ssl_info:{has_tls:true,chain_valid:true,issuer:'Available issuer'},domain_info:{registrar:'Stale registrar'}};
+const whoisHTML = url.ctx.renderURLVet(whoisPartial);
+assert(whoisHTML.includes('Domain registration (WHOIS) unavailable'));
+assert(whoisHTML.includes('Available issuer'));
+assert(!whoisHTML.includes('Stale registrar'));
+assert(!whoisHTML.includes('Assessment unavailable'));
+assert(!whoisHTML.includes(payload));
+assert.equal(whoisPartial.domain_info.registrar,'Stale registrar');
+const mixedHTML = url.ctx.renderURLVet({...whoisPartial, errors:['whois_lookup: invalid','other: unavailable']});
+assert(mixedHTML.includes('Assessment unavailable'));
+url.ctx.renderResult({status:'partial',verdict:'unknown'}, {aggregate_assessment:{score:95,verdict:'unknown',provisional:true,components:{},reasons:[],missing_checks:['URLVet domain registration (WHOIS) check unavailable']}, urlvet:whoisPartial,recommendations:['Scan incomplete: url.vet did not provide a complete assessment. Local checks alone cannot confirm that this URL is safe.','Keep HTTPS']});
+assert(!url.elements['verdict-area'].innerHTML.includes('Local checks alone'));
+assert(url.elements['verdict-area'].innerHTML.includes('Review the domain identity independently'));
+assert(url.elements['verdict-area'].innerHTML.includes('Keep HTTPS'));

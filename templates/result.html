@@ -386,7 +386,9 @@ function updateBadge(status, verdict) {
 // 🌐 Render URL.VET Section
 // ================================================================
 function renderURLVet(urlvet) {
-  if (!urlvet || urlvet.error || (urlvet.errors && urlvet.errors.length) || urlvet.trust_score == null || !Number.isFinite(Number(urlvet.trust_score))) {
+  const whoisOnly = !!urlvet && !urlvet.error && Array.isArray(urlvet.errors) && urlvet.errors.length > 0 && urlvet.errors.every(error => typeof error === 'string' && error.startsWith('whois_lookup:'));
+  if (whoisOnly) urlvet = {...urlvet, domain_info: {}};
+  if (!urlvet || urlvet.error || (!whoisOnly && ((urlvet.errors && urlvet.errors.length) || urlvet.incomplete === true)) || urlvet.trust_score == null || !Number.isFinite(Number(urlvet.trust_score))) {
     return `
       <div class="urlvet-section urlvet-unavailable">
         <div class="urlvet-header">
@@ -540,7 +542,7 @@ function renderURLVet(urlvet) {
 
   techHTML += '</div>';
 
-  return `
+  return `${whoisOnly ? '<div class="provider-unavailable"><strong>Domain registration (WHOIS) unavailable</strong><p>Other returned provider observations are shown below. The missing WHOIS check is included in the domain identity coverage deduction.</p></div>' : ''}
     <div class="urlvet-section">
       <div class="urlvet-header">
         <div class="urlvet-title">URLVet observations</div>
@@ -629,7 +631,9 @@ function renderResult(scanData, analysisData) {
   const sslInfo = analysisData?.ssl_info || {};
   const dnsRecords = analysisData?.dns_records || {};
   const isShortened = analysisData?.is_shortened || false;
-  const recommendations = (analysisData?.recommendations || []).filter(r => !isPartial || r !== analysisData?.assessment_warning);
+  const legacyPartialWarning = 'Scan incomplete: url.vet did not provide a complete assessment. Local checks alone cannot confirm that this URL is safe.';
+  const recommendations = (analysisData?.recommendations || []).filter(r => r !== legacyPartialWarning && (!isPartial || r !== analysisData?.assessment_warning));
+  if ((combined?.missing_checks || []).includes('URLVet domain registration (WHOIS) check unavailable')) recommendations.push('Domain registration data could not be checked. Review the domain identity independently; the other available checks are included in this assessment.');
   const phishingIndicators = analysisData?.phishing_indicators || {};
 
   let extraHTML = '';

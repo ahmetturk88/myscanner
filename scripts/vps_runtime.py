@@ -18,7 +18,7 @@ def configure(command):
     user='myscanner_bootstrap' if command=='bootstrap' else 'myscanner_migrator' if command=='migrate' else 'myscanner_app'
     password=secret('db_admin_password' if command=='bootstrap' else 'db_migration_password' if command=='migrate' else 'db_app_password')
     os.environ['DATABASE_URL']='postgresql+psycopg2://'+user+':'+password+'@postgres:5432/myscanner_vps'
-    if command in {'web','worker','beat','health-web','health-worker','seed','smoke-queue','create-user'}:
+    if command in {'web','worker','tip-worker','beat','health-web','health-worker','health-tip-worker','seed','smoke-queue','create-user'}:
         os.environ['SECRET_KEY']=secret('session_key')
         redis_password=secret('redis_password')
         os.environ['CELERY_BROKER_URL']='redis://:'+redis_password+'@redis:6379/0'
@@ -118,15 +118,16 @@ def run(command):
         import urllib.request
         with urllib.request.urlopen('http://127.0.0.1:8000/health/live',timeout=3) as response:
             if response.status!=200:raise RuntimeError('Web unavailable.')
-    elif command=='health-worker':
+    elif command in {'health-worker','health-tip-worker'}:
         import socket
         from celery_worker import celery
-        replies=celery.control.inspect(destination=['vps-worker@'+socket.gethostname()],timeout=2).ping() or {}
+        replies=celery.control.inspect(destination=[('vps-tip-worker@' if command=='health-tip-worker' else 'vps-worker@')+socket.gethostname()],timeout=2).ping() or {}
         if not replies:raise RuntimeError('Worker unavailable.')
     else:
         commands={
           'web':['gunicorn','app:app','--bind','0.0.0.0:8000','--workers','2','--threads','2','--no-control-socket','--timeout','120','--worker-tmp-dir','/tmp','--access-logfile','-'],
-          'worker':['celery','-A','celery_worker:celery','worker','--loglevel=info','--pool=prefork','--concurrency=1','-Q','scans,tip,celery','--hostname','vps-worker@%h'],
+          'worker':['celery','-A','celery_worker:celery','worker','--loglevel=info','--pool=prefork','--concurrency=1','-Q','scans,celery','--hostname','vps-worker@%h'],
+          'tip-worker':['celery','-A','celery_worker:celery','worker','--loglevel=info','--pool=prefork','--concurrency=1','-Q','tip','--hostname','vps-tip-worker@%h'],
           'beat':['celery','-A','celery_worker:celery','beat','--loglevel=info','--schedule','/state/celerybeat-schedule','--pidfile','/tmp/celerybeat.pid']}
         if command not in commands:raise RuntimeError('Unknown runtime command.')
         os.execvp(commands[command][0],commands[command])

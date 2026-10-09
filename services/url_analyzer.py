@@ -10,7 +10,7 @@ import socket
 import ssl
 import dns.resolver
 import requests
-from services.safe_http import PublicHTTPSession, UnsafeTargetError, validate_public_url, public_connection
+from services.safe_http import PublicHTTPSession, UnsafeTargetError, TargetResolutionError, normalize_url, validate_public_url, public_connection
 import hashlib
 import json
 import os
@@ -23,6 +23,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+
+def dns_partial(function):
+    """Retain other evidence on DNS failure; policy rejections still abort."""
+    from functools import wraps
+    @wraps(function)
+    def check(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except TargetResolutionError:
+            return {'status': 'unavailable', 'error': 'Target DNS resolution failed; this check could not be completed.',
+                    'reason': 'target_dns_unavailable'}
+    return check
 
 class URLDeepAnalyzer:
     """
@@ -266,6 +279,7 @@ class URLDeepAnalyzer:
     # 4. فحص SSL/TLS
     # ================================================================
 
+    @dns_partial
     def check_ssl_certificate(self, domain: str) -> Dict[str, Any]:
         """فحص شهادة SSL للموقع"""
         logger.debug(f"Checking SSL certificate for: {domain}")
@@ -377,6 +391,7 @@ class URLDeepAnalyzer:
     # 6. فحص رؤوس الأمان (Security Headers)
     # ================================================================
 
+    @dns_partial
     def check_security_headers(self, url: str) -> Dict[str, Any]:
         """فحص رؤوس الأمان"""
         try:
@@ -575,6 +590,7 @@ class URLDeepAnalyzer:
 
         return result
 
+    @dns_partial
     def check_osint_sources(self, url: str) -> Dict[str, Any]:
         """فحص الرابط ضد مصادر OSINT"""
         result = {
@@ -612,6 +628,7 @@ class URLDeepAnalyzer:
     # 9. تحليل محتوى الصفحة
     # ================================================================
 
+    @dns_partial
     def analyze_page_content(self, url: str, html: str = None) -> Dict[str, Any]:
         """تحليل محتوى الصفحة"""
         if html is None:
@@ -714,6 +731,7 @@ class URLDeepAnalyzer:
     # 10. تحليل سلوك الرابط (Behavior)
     # ================================================================
 
+    @dns_partial
     def analyze_behavior(self, url: str) -> Dict[str, Any]:
         """تحليل سلوك الرابط (redirects, shorteners, status)"""
         result = {
@@ -817,7 +835,11 @@ class URLDeepAnalyzer:
         """
         logger.info(f"🔍 Starting quick URL analysis for: {url}")
 
-        url = validate_public_url(url).url
+        try:
+            url = validate_public_url(url).url
+        except TargetResolutionError:
+            # Syntax only here; every target connection still validates and pins public IPs.
+            url = normalize_url(url)
 
         parsed = urlparse(url)
         domain = parsed.hostname
@@ -918,7 +940,11 @@ class URLDeepAnalyzer:
         """
         logger.info(f"🚀 Starting deep URL analysis for: {url}")
 
-        url = validate_public_url(url).url
+        try:
+            url = validate_public_url(url).url
+        except TargetResolutionError:
+            # Syntax only here; every target connection still validates and pins public IPs.
+            url = normalize_url(url)
 
         # التحقق من cache
         cached_result = self._get_cached_result(url)

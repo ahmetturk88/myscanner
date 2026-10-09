@@ -57,3 +57,9 @@ services:
     network_mode: service:worker-egress
     depends_on:
       worker-egress: {condition: service_healthy}
+  tip-worker:
+    extra_hosts: !reset []
+    networks: !reset []
+    network_mode: service:worker-egress
+    depends_on:
+      worker-egress: {condition: service_healthy}

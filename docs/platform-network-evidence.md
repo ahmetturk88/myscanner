@@ -44,3 +44,9 @@ docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlve
 It checks public HTTPS and active namespace-local listeners at loopback, private and link-local addresses on 80/443/43/25; it removes temporary addresses in finally. This fixture does not probe the real metadata service or database.
 
 Then verify HTTPS `/health/live` and `/health/ready`, the existing `smoke-queue`, `role-check`, a new authorized URL/site scan, and email/domain/IP/SSL/file results. Confirm unknown-provider states are visible and no positive finding is lost. Keep this branch unmerged until the actual firewall and runtime checks pass.
+
+### DNS failures and queue isolation
+
+DNS resolution failures now have a separate `TargetResolutionError` type. URL checks retain structure and any completed provider evidence when a DNS-dependent check cannot run. The check records a generic unavailable reason, without awarding a clean result. All connections still validate public addresses and pin them; private targets and other policy rejections still abort. No blind retry or IPv4-only validation is introduced.
+
+The VPS scan worker consumes `scans,celery`; a separate `tip-worker` consumes only `tip`. Both use distinct Celery node names. With the final app egress overlay, the TIP worker shares the filtered worker gateway, without NET_ADMIN or administrator database credentials. Scheduled feed refreshes therefore cannot occupy the only scan process. Rebuild the image and recreate web/worker/tip-worker using all four Compose files; repeat resource measurement because the additional worker increases memory usage.

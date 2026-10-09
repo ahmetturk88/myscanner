@@ -14,6 +14,10 @@ class UnsafeTargetError(requests.exceptions.RequestException):
     """The target is outside the public web scanner's network policy."""
 
 
+class TargetResolutionError(UnsafeTargetError):
+    """DNS resolution failed; no connection was attempted."""
+
+
 @dataclass(frozen=True)
 class PublicTarget:
     url: str
@@ -82,7 +86,7 @@ def validate_public_url(value):
         if not records or any(not _public_address(record[4][0]) for record in records):
             raise UnsafeTargetError('The target must resolve only to public IP addresses')
     except (socket.gaierror, ValueError) as error:
-        raise UnsafeTargetError('The target could not be resolved to public IP addresses') from error
+        raise TargetResolutionError('The target could not be resolved to public IP addresses') from error
     return PublicTarget(url, host, port, tuple(records))
 
 

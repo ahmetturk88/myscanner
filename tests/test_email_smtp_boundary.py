@@ -7,7 +7,7 @@ class SMTPBoundaryTests(unittest.TestCase):
     def test_timeout_and_temporary_reply_remain_unknown_and_close_session(self):
         mx=MagicMock();mx.preference=1;mx.exchange='mx.example.org.'
         for code in (None,450):
-            smtp=MagicMock()
+            smtp=MagicMock();smtp.ehlo.return_value=(250,b"OK");smtp.has_extn.return_value=True
             if code is None:smtp.connect.side_effect=OSError('SECRET')
             else:smtp.rcpt.return_value=(code,b'Temporary failure')
             with patch('services.email_checker.dns.resolver.resolve',return_value=[mx]),patch('services.email_checker.PublicSMTP',return_value=smtp):
@@ -17,7 +17,7 @@ class SMTPBoundaryTests(unittest.TestCase):
     def test_explicit_acceptance_and_rejection_are_checked(self):
         mx=MagicMock();mx.preference=1;mx.exchange='mx.example.org.'
         for code,valid in ((250,True),(550,False)):
-            smtp=MagicMock();smtp.rcpt.return_value=(code,b'Reply')
+            smtp=MagicMock();smtp.ehlo.return_value=(250,b"OK");smtp.has_extn.return_value=True;smtp.rcpt.return_value=(code,b'Reply')
             with patch('services.email_checker.dns.resolver.resolve',return_value=[mx]),patch('services.email_checker.PublicSMTP',return_value=smtp):
                 result=self.checker.check_smtp('user@example.org')
             self.assertEqual((result['valid'],result['coverage_status']),(valid,'checked'))
@@ -25,6 +25,6 @@ class SMTPBoundaryTests(unittest.TestCase):
         with patch.object(self.checker,'validate_format',return_value=(True,'user@example.org',{})),patch.object(self.checker,'check_smtp',return_value={'valid':None,'coverage_status':'unavailable'}),patch.object(self.checker,'check_dns_records',return_value={'spf':{'exists':True},'dmarc':{'exists':True}}),patch.object(self.checker,'check_blacklists',return_value={}),patch.object(self.checker,'check_domain_info',return_value={}):
             result=self.checker.check_all('user@example.org')
         self.assertEqual((result['verdict'],result['deliverability']),('unknown','UNKNOWN'))
-        self.assertEqual(result['quality_score'],100)
+        self.assertEqual(result['quality_score'],result['assessment']['score']);self.assertLess(result['quality_score'],100)
 
 if __name__=='__main__':unittest.main()

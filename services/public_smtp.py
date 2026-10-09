@@ -8,6 +8,7 @@ class PublicSMTP(smtplib.SMTP):
         if port != 25 or not isinstance(host,str) or any(c in host for c in '/:@?#\\'):
             raise UnsafeTargetError('A public MX hostname on SMTP port 25 is required')
         target=validate_public_url('https://'+host)
+        self._host = target.hostname  # STARTTLS SNI/certificate name, while socket stays pinned.
         family,kind,protocol,_,address=target.addresses[0]
         pinned=list(address);pinned[1]=25
         sock=socket.socket(family,kind,protocol)

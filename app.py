@@ -1295,7 +1295,7 @@ def api_check_email():
             "is_valid": result["valid"],
             "is_disposable": result["is_disposable"],
             "is_free": result["is_free"],
-            "is_mx": result["dns"]["mx"]["exists"],
+            "is_mx": result["dns"]["mx"]["exists"] if result["dns"]["mx"].get("status") != "unavailable" else None,
             "is_smtp": result["smtp"]["valid"],
             "deliverability": result["deliverability"],
             "quality_score": result["quality_score"] / 100,
@@ -1306,11 +1306,11 @@ def api_check_email():
             "domain_age": result["domain_info"].get("age_days", 0),
             "registrar": result["domain_info"].get("registrar", "Unknown"),
             "spf_record": result["dns"]["spf"]["record"],
-            "spf_valid": result["dns"]["spf"]["exists"],
+            "spf_valid": result["dns"]["spf"].get("audit", {}).get("configuration_valid"),
             "dkim_record": None,
             "dkim_valid": None,
             "dmarc_record": result["dns"]["dmarc"]["record"],
-            "dmarc_valid": result["dns"]["dmarc"]["exists"],
+            "dmarc_valid": result["dns"]["dmarc"].get("audit", {}).get("configuration_valid"),
             "blacklisted": result["blacklist"]["is_blacklisted"],
             "blacklist_count": len(result["blacklist"].get("blacklisted_on", [])),
             "blacklist_results": result["blacklist"].get("blacklisted_on", []),
@@ -1328,6 +1328,7 @@ def api_check_email():
                 "spf_exists": result["dns"]["spf"]["exists"],
                 "dmarc_exists": result["dns"]["dmarc"]["exists"]
             },
+            "address_features": result.get("address_features", {}),
             "format_suggestions": result.get("format_suggestions", [])
         })
 

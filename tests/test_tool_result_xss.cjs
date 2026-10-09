@@ -42,6 +42,9 @@ email.ctx.renderMain({email:payload,assessment:{score:82,coverage:'partial',verd
 assert.equal(email.elements['q-bar'].style.width,'82%');assert(email.elements['stats-grid'].innerHTML.includes('&lt;img'));assert(email.elements['quality-items'].innerHTML.includes('&lt;img'));assert(email.elements['coverage-details'].innerHTML.includes('&lt;img'));
 for(const value of ['=SUM(A1)', '+cmd', '-2', '@x', '  =cmd'])assert(email.ctx.csvCell(value).startsWith('"\''));
 assert.equal(email.ctx.csvCell('hello'), '"hello"');
+email.ctx.renderMain({email:payload,dns_evidence:{spf:{audit:{status:'partial',issues:[payload],dependencies:[{domain:payload,status:payload}]}},mx:{infrastructure:[{host:payload,addresses:[payload]}]}},reputation_evidence:{scope:payload,queried_ips:[payload],checks:[{source:payload,reason:payload,status:payload,response_codes:[payload]}]}});
+collect(email,'email engine');assert(email.elements['dns-evidence'].innerHTML.includes('&lt;img'));assert(email.elements['reputation-evidence'].innerHTML.includes('&lt;img'));
+
 const domain=setup('domain_lookup.html');
 domain.ctx.renderResult({registrar:payload,created:payload,expires:payload,ip:payload,country:payload,isp:payload,status:payload,whois_updated:payload,nameservers:payload,dns:[{type:'TXT',value:payload},{type:'A',value:payload},{type:'__proto__',value:payload},{type:'constructor',value:payload}],lat:payload,lon:payload});
 assert.equal(domain.elements['map-frame'].src,'');collect(domain,'domain');

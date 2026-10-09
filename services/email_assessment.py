@@ -19,17 +19,30 @@ def assess_email(report):
     if mx.get('status')=='not_found':routing.append((20,'No MX record was found; implicit routing was not tested.'))
     elif any(isinstance(r,dict) and r.get('exchange') in ('','.') for r in (mx.get('records') if isinstance(mx.get('records'),list) else [])):
         routing.append((20,'The domain declares a null MX and does not accept email.'))
-    category('routing','Mail routing',20,[None if mx.get('status') in ('found','not_found') else 'MX lookup unavailable'],routing)
+    infrastructure=mx.get('infrastructure') if isinstance(mx.get('infrastructure'),list) else []
+    if any(isinstance(host,dict) and host.get('unsafe_addresses') for host in infrastructure):
+        routing.append((20,'An MX hostname resolves to a non-public address; direct connections are blocked.'))
+    routing_gaps=[None if mx.get('status') in ('found','not_found') else 'MX lookup unavailable']
+    if any(isinstance(host,dict) and host.get('status')!='assessed' for host in infrastructure):
+        routing_gaps.append('Sampled MX address discovery incomplete')
+    category('routing','Mail routing',20,routing_gaps,routing)
     auth=[];gaps=[]
     for name,points in (('spf',10),('dmarc',10)):
         value=dns.get(name,{});value=value if isinstance(value,dict) else {}
         if value.get('status')=='not_found':auth.append((points,name.upper()+' record not found.'))
         elif value.get('status')!='found':gaps.append(name.upper()+' lookup unavailable')
+        audit=value.get('audit',{})
+        if isinstance(audit,dict) and audit.get('configuration_valid') is False:
+            auth.append((points,name.upper()+' configuration issues: '+'; '.join(audit.get('issues',[]))))
+        if isinstance(audit,dict) and audit.get('status')=='partial':
+            gaps.append(name.upper()+' dependency audit limited')
     dmarc=dns.get('dmarc',{})
-    if isinstance(dmarc,dict) and dmarc.get('status')=='found' and dmarc.get('policy')=='none':auth.append((5,'DMARC uses a monitoring policy (p=none), not enforcement.'))
+    if isinstance(dmarc,dict) and dmarc.get('status')=='found' and dmarc.get('policy')=='none' and dmarc.get('audit',{}).get('configuration_valid') is not False:auth.append((5,'DMARC uses a monitoring policy (p=none), not enforcement.'))
+    if isinstance(dmarc,dict) and dmarc.get('audit',{}).get('test_mode') is True and dmarc.get('policy') != 'none':
+        auth.append((5,'DMARC test mode requests a less strict effective policy.'))
     category('authentication','Sender authentication',25,gaps,auth)
     rep=[]
-    if reputation.get('is_blacklisted') is True:rep.append((20,'A DNS blocklist reports the domain IP; this is not proof that this mailbox is malicious.'))
+    if reputation.get('is_blacklisted') is True:rep.append((20,'A DNS blocklist reports a sampled mail-infrastructure IP; this does not prove that the mailbox is malicious.'))
     if report.get('is_disposable') is True:rep.append((10,'The domain appears in the local disposable-domain dataset.'))
     category('reputation','Domain reputation',25,[None if reputation.get('coverage_status')=='completed' else 'DNS blocklist coverage incomplete'],rep)
     mailbox=[]
@@ -40,4 +53,4 @@ def assess_email(report):
     risk=sum(c['risk_deduction'] for c in categories);coverage=sum(c['coverage_deduction'] for c in categories)
     score=max(0,100-risk-coverage)
     verdict='review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':'email-evidence-v1','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.'],'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}
+    return {'policy_version':'email-evidence-v2','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.'],'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

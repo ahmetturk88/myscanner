@@ -27,5 +27,17 @@ class ConsentEndpointTests(unittest.TestCase):
             if consent:payload['verify_smtp']=True
             with self.app.test_request_context(json=payload):self.endpoint()
             self.checker.check_all.assert_called_with('u@example.org',verify_smtp=consent)
+    def test_success_response_uses_one_score_and_verdict(self):
+        self.checker.check_all.return_value={
+            'email':'u@example.org','domain':'example.org','verdict':'review','valid':True,
+            'is_disposable':False,'is_free':False,'deliverability':'PROBE_ACCEPTED',
+            'quality_score':85,'assessment':{'score':85,'verdict':'review'},
+            'domain_info':{'age_days':100,'registrar':'Example'},
+            'dns':{'mx':{'exists':True,'status':'found'},'spf':{'record':'v=spf1 -all','exists':True,'audit':{'configuration_valid':True}},'dmarc':{'record':'v=DMARC1; p=none','exists':True,'audit':{'configuration_valid':True}}},
+            'smtp':{'valid':True,'coverage_status':'checked'},'blacklist':{'is_blacklisted':False}}
+        with self.app.test_request_context(json={'email':'u@example.org'}):r=self.endpoint().get_json()
+        self.assertEqual(r['quality_score']*100,r['assessment']['score'])
+        self.assertEqual(r['verdict'],r['assessment']['verdict']);self.assertEqual(r['address_risk'],'review')
+        self.assertIsNone(r['total_breaches']);self.assertIsNone(r['dkim_valid'])
 
 if __name__=='__main__':unittest.main()

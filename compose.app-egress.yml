@@ -46,11 +46,13 @@ services:
       timeout: 1s
       retries: 15
   web:
+    extra_hosts: !reset []
     networks: !reset []
     network_mode: service:web-egress
     depends_on:
       web-egress: {condition: service_healthy}
   worker:
+    extra_hosts: !reset []
     networks: !reset []
     network_mode: service:worker-egress
     depends_on:

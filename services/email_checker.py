@@ -1,7 +1,7 @@
 import hashlib
 import json
 import socket
-import smtplib
+from services.public_smtp import PublicSMTP
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -87,13 +87,14 @@ class AdvancedEmailChecker:
         """فحص SMTP المباشر للتأكد من وجود الصندوق"""
         cache_key = self._get_cache_key(email, "smtp")
         cached = self._cache_get(cache_key)
-        if cached:
+        if cached and cached.get("coverage_status") == "checked":
             return cached
         
         domain = email.split('@')[-1]
         result = {
-            "valid": False,
-            "message": "Not checked",
+            "valid": None,
+            "coverage_status": "unavailable",
+            "message": "SMTP verification could not be completed",
             "mx_servers": [],
             "response_code": None,
             "response_message": None
@@ -110,8 +111,9 @@ class AdvancedEmailChecker:
                 return result
             
             for pref, mx in mx_servers[:3]:
+                smtp = None
                 try:
-                    smtp = smtplib.SMTP(timeout=timeout)
+                    smtp = PublicSMTP(timeout=timeout)
                     smtp.connect(mx, 25)
                     smtp.helo('checker.local')
                     smtp.mail('verify@checker.local')
@@ -121,10 +123,12 @@ class AdvancedEmailChecker:
                     result["response_message"] = message.decode() if isinstance(message, bytes) else str(message)
                     
                     if code == 250:
+                        result["coverage_status"] = "checked"
                         result["valid"] = True
                         logger.info(f"✅ SMTP check passed for: {email}")
                         result["message"] = "Mailbox exists"
                     elif code in (550, 551):
+                        result["coverage_status"] = "checked"
                         result["valid"] = False
                         logger.warning(f"SMTP check failed for: {email} - {result['message']}")
                         result["message"] = "Mailbox does not exist"
@@ -136,9 +140,12 @@ class AdvancedEmailChecker:
                     
                 except Exception:
                     continue
+                finally:
+                    if smtp is not None:
+                        smtp.close()
                     
-        except Exception as e:
-            result["message"] = f"Error: {str(e)}"
+        except Exception:
+            result["message"] = "SMTP verification could not be completed"
         
         self._cache_set(cache_key, result, 3600)
         return result
@@ -314,7 +321,7 @@ class AdvancedEmailChecker:
         # حساب نقاط الجودة
         quality_score = 100
         
-        if not smtp_result.get("valid", False):
+        if smtp_result.get("valid") is False:
             quality_score -= 30
         if is_disposable:
             quality_score -= 50
@@ -334,8 +341,10 @@ class AdvancedEmailChecker:
             verdict = "disposable"
         elif blacklist_result.get("is_blacklisted", False):
             verdict = "blacklisted"
-        elif not smtp_result.get("valid", False):
+        elif smtp_result.get("valid") is False:
             verdict = "undeliverable"
+        elif smtp_result.get("valid") is not True:
+            verdict = "unknown"
         elif quality_score >= 80:
             verdict = "safe"
         elif quality_score >= 50:
@@ -357,6 +366,6 @@ class AdvancedEmailChecker:
             "is_free": is_free,
             "blacklist": blacklist_result,
             "domain_info": domain_info,
-            "deliverability": "DELIVERABLE" if smtp_result.get("valid", False) else "UNDELIVERABLE",
+            "deliverability": "DELIVERABLE" if smtp_result.get("valid") is True else "UNDELIVERABLE" if smtp_result.get("valid") is False else "UNKNOWN",
             "checked_at": datetime.now().isoformat()
         }

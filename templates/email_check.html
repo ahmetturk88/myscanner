@@ -159,6 +159,7 @@
 {% block body_extra %}
 <script>
   const VC = {
+    unknown: { icon:"❔", title:"Verification unavailable", sub:"SMTP could not verify mailbox acceptance. This does not establish that the address is undeliverable.", cls:"banner-moderate_risk" },
     safe:             { icon:'✅', title:'Safe & Valid', sub:'This email appears legitimate and deliverable. All security checks passed.', cls:'banner-safe' },
     invalid:          { icon:'❌', title:'Invalid Format', sub:'This email address has an invalid format.', cls:'banner-invalid' },
     disposable:       { icon:'⚠️', title:'Disposable Email', sub:'Temporary/disposable email — not recommended for business or trusted communications.', cls:'banner-disposable' },
@@ -270,7 +271,7 @@
       <div class="stat-box ${d.is_smtp ? 'good':'bad'}"><div class="s-icon">🔌</div><div class="s-label">SMTP</div><div class="s-value">${d.is_smtp ? 'Valid':'Invalid'}</div></div>
       <div class="stat-box ${!d.is_disposable ? 'good':'bad'}"><div class="s-icon">🗑️</div><div class="s-label">DISPOSABLE</div><div class="s-value">${d.is_disposable ? '⚠️ Yes' : 'Clean'}</div></div>
       <div class="stat-box ${!d.is_free ? 'good':'warn'}"><div class="s-icon">🆓</div><div class="s-label">EMAIL TYPE</div><div class="s-value">${d.is_free ? 'Personal/Free' : 'Business'}</div></div>
-      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERABILITY</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.deliverability)}</div></div>
+      <div class="stat-box ${d.deliverability==='DELIVERABLE'?'good':d.deliverability==='UNKNOWN'?'warn':'bad'}"><div class="s-icon">📬</div><div class="s-label">DELIVERABILITY</div><div class="s-value" style="font-size:11px;">${ScanUI.escape(d.deliverability)}</div></div>
       <div class="stat-box ${!d.blacklisted ? 'good':'bad'}"><div class="s-icon">🚫</div><div class="s-label">BLACKLIST</div><div class="s-value">${d.blacklisted ? `⚠️ ${ScanUI.escape(d.blacklist_count)} lists` : 'Clean'}</div></div>
       <div class="stat-box ${d.spf_valid ? 'good':'bad'}"><div class="s-icon">🛡️</div><div class="s-label">SPF</div><div class="s-value">${d.spf_valid ? 'Valid' : 'Missing'}</div></div>
       <div class="stat-box ${d.dmarc_valid ? 'good':'bad'}"><div class="s-icon">📋</div><div class="s-label">DMARC</div><div class="s-value">${d.dmarc_valid ? 'Valid' : 'Missing'}</div></div>
@@ -316,7 +317,7 @@
       <tr><td>🔌 SMTP VALID</td><td>${yn(d.is_smtp)}</td></tr>
       <tr><td>🗑️ DISPOSABLE</td><td>${yn(!d.is_disposable)}</td></tr>
       <tr><td>🆓 FREE PROVIDER</td><td>${d.is_free ? 'Yes (Personal)' : 'No (Business/Custom)'}</td></tr>
-      <tr><td>📬 DELIVERABILITY</td><td><span class="${d.deliverability === 'DELIVERABLE' ? 'good' : 'bad'}">${ScanUI.escape(d.deliverability)}</span></td></tr>
+      <tr><td>📬 DELIVERABILITY</td><td><span class="${d.deliverability === 'DELIVERABLE' ? 'good' : d.deliverability === 'UNKNOWN' ? 'warn' : 'bad'}">${ScanUI.escape(d.deliverability)}</span></td></tr>
       <tr><td>⚠️ RISK LEVEL</td><td><span class="${d.verdict === 'safe' ? 'good' : 'bad'}">${ScanUI.escape(ScanUI.text(d.address_risk || d.verdict, 'unknown').toUpperCase())}</span></td></tr>
       <tr><td>🛡️ SPF RECORD</td><td>${yn(d.spf_valid)}${d.spf_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${ScanUI.escape(ScanUI.text(d.spf_record).substring(0, 80))}${d.spf_record.length > 80 ? '...' : ''}</span>` : ''}</td></tr>
       <tr><td>📋 DMARC RECORD</td><td>${yn(d.dmarc_valid)}${d.dmarc_record ? `<span style="font-size:10px; display:block; color:var(--muted);">${ScanUI.escape(ScanUI.text(d.dmarc_record).substring(0, 80))}</span>` : ''}</td></tr>

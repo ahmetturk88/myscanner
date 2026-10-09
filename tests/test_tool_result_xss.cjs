@@ -38,6 +38,17 @@ assert.equal(email.elements['q-bar'].style.width,'0%');
 email.ctx.showSuggestions([{original:payload,suggested:payload,type:'domain_typo'}]);const suggestion=email.elements['suggestions-list'].children[0].children[1];
 assert.equal(suggestion.tagName,'button');assert.equal(suggestion.type,'button');let checked=false;email.ctx.checkEmail=()=>{checked=true;};suggestion.handlers.click();assert.equal(email.elements['email-input'].value,payload);assert(checked);collect(email,'email');
 email.ctx.renderMain({smtp_details:{mx_servers:{}},quality_score:100});assert.equal(email.elements['q-bar'].style.width,'100%');assert.equal(email.elements['smtp-details'].style.display,'none');assert.equal(email.elements['quality-breakdown'].style.display,'none');
+email.ctx.renderMain({email:payload,assessment:{score:82,coverage:'partial',verdict:'review',categories:[{label:payload,weight:20,risk_deduction:10,coverage_deduction:5}],findings:[{message:payload,deduction:10}],missing_checks:[payload],not_checked:[payload]}});
+assert.equal(email.elements['q-bar'].style.width,'82%');assert(email.elements['stats-grid'].innerHTML.includes('&lt;img'));assert(email.elements['quality-items'].innerHTML.includes('&lt;img'));assert(email.elements['coverage-details'].innerHTML.includes('&lt;img'));
+for(const value of ['=SUM(A1)', '+cmd', '-2', '@x', '  =cmd'])assert(email.ctx.csvCell(value).startsWith('"\''));
+assert.equal(email.ctx.csvCell('hello'), '"hello"');
+email.ctx.renderMain({email:payload,dns_evidence:{spf:{audit:{status:'partial',issues:[payload],dependencies:[{domain:payload,status:payload}]}},mx:{infrastructure:[{host:payload,addresses:[payload]}]}},reputation_evidence:{scope:payload,queried_ips:[payload],checks:[{source:payload,reason:payload,status:payload,response_codes:[payload]}]}});
+collect(email,'email engine');assert(email.elements['dns-evidence'].innerHTML.includes('&lt;img'));assert(email.elements['reputation-evidence'].innerHTML.includes('&lt;img'));
+
+email.ctx.renderMain({blacklisted:true,reputation_evidence:{blacklisted_on:[payload],checks:[{source:payload,ip:payload,status:'listed'}]}});
+assert(email.elements['blocklist-status'].className.includes('blocklist-listed'));assert(email.elements['blocklist-title'].textContent.includes('Warning'));assert(email.elements['blocklist-summary'].textContent.includes(payload));collect(email,'email blocklist');
+email.ctx.renderMain({blacklisted:false,reputation_evidence:{coverage_status:'completed',clean_on:['zen.spamhaus.org'],queried_ips:['8.8.8.8'],checks:[{status:'not_found'}]}});assert(email.elements['blocklist-status'].className.includes('blocklist-clear'));
+email.ctx.renderMain({blacklisted:false,reputation_evidence:{coverage_status:'partial'}});assert(email.elements['blocklist-status'].className.includes('blocklist-partial'));assert(!email.elements['blocklist-title'].textContent.includes('no listing'));
 const domain=setup('domain_lookup.html');
 domain.ctx.renderResult({registrar:payload,created:payload,expires:payload,ip:payload,country:payload,isp:payload,status:payload,whois_updated:payload,nameservers:payload,dns:[{type:'TXT',value:payload},{type:'A',value:payload},{type:'__proto__',value:payload},{type:'constructor',value:payload}],lat:payload,lon:payload});
 assert.equal(domain.elements['map-frame'].src,'');collect(domain,'domain');

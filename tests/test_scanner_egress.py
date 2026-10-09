@@ -38,6 +38,9 @@ class EgressTests(unittest.TestCase):
         rules=egress.rules()
         loopback=[r for r in rules if '127.0.0.11/32' in r]
         self.assertEqual(len(loopback),2)
-        self.assertTrue(all(r[r.index('--dport')+1]=='53' for r in loopback))
+        self.assertTrue(all(r[r.index('--ctorigdst')+1]=='127.0.0.11' for r in loopback))
+        self.assertTrue(all(r[r.index('--ctdir')+1]=='ORIGINAL' for r in loopback))
+        self.assertTrue(all('--dport' not in r for r in loopback))
+        self.assertTrue(all(r[r.index('--ctorigdstport')+1]=='53' for r in loopback))
 
 if __name__=='__main__':unittest.main()

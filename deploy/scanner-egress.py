@@ -17,7 +17,9 @@ def rules(exceptions=()):
     result=[['-P','OUTPUT','DROP'], ['-F','OUTPUT'],
             ['-A','OUTPUT','-m','conntrack','--ctstate','ESTABLISHED,RELATED','-j','ACCEPT']]
     for protocol in ('udp','tcp'):
-        result.append(['-A','OUTPUT','-d','127.0.0.11/32','-p',protocol,'--dport','53','-j','ACCEPT'])
+        result.append(['-A','OUTPUT','-d','127.0.0.11/32','-p',protocol,
+                       '-m','conntrack','--ctorigdst','127.0.0.11',
+                       '--ctorigdstport','53','--ctdir','ORIGINAL','-j','ACCEPT'])
     for address,port in exceptions:
         ip=ipaddress.ip_address(address)
         if ip.version != 4 or not ip.is_private or ip.is_loopback or ip.is_link_local:

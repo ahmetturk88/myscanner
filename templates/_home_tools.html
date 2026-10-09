@@ -1,0 +1,10 @@
+{% set tools = [('url','URL intelligence','URLs & web','link','Connect URL structure, redirects, content and threat sources.','dashboard'),('email','Email analysis','Identity','envelope','Review mail routing, authentication and domain reputation.','email_check'),('site','Website review','URLs & web','globe','Inspect public website headers, TLS and passive observations.','site_scanner'),('file','File inspection','Files','file-shield','Review file metadata, static indicators and hash reputation.','file_scanner'),('ip','IP intelligence','Infrastructure','network-wired','Explore public IP metadata and available reputation evidence.','ip_check'),('domain','Domain research','Infrastructure','compass','Discover DNS and available registration information.','domain_lookup'),('ssl','Certificate review','Infrastructure','shield-halved','Check certificate validity, issuer and remaining lifetime.','ssl_checker'),('qr','QR inspection','URLs & web','qrcode','Decode an image and inspect the destination before opening.','qr_scanner'),('password','Password exposure','Identity','key','Check supported breach evidence without sending the full password.','password_check'),('subdomain','Subdomain discovery','Infrastructure','diagram-project','Discover publicly reported subdomains for authorized research.','subdomain_finder')] %}
+<div class="hx-tool-grid" id="tool-grid">
+{% for key,name,category,icon,description,endpoint in tools %}
+<a class="hx-tool" data-category="{{ category }}" data-search="{{ name|lower }} {{ description|lower }}" href="{{ '#url-input' if key == 'url' and workspace else url_for(endpoint) }}">
+  <div class="hx-tool-top"><span class="hx-icon"><i class="fas fa-{{ icon }}" aria-hidden="true"></i></span><span class="hx-tool-arrow" aria-hidden="true">↗</span></div>
+  <small>{{ category }}</small><h3>{{ name }}</h3><p>{{ description }}</p><span class="hx-tool-action">{{ 'Start analysis' if workspace else 'Explore tool' }} <span aria-hidden="true">→</span></span>
+</a>
+{% endfor %}
+</div>
+<p id="tool-empty" class="hx-empty" hidden>No tools match your search. Try a different name or category.</p>

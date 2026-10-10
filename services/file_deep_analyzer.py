@@ -1052,7 +1052,8 @@ class FileDeepAnalyzer:
         exiftool_data = self.extract_metadata_via_exiftool(file_content, filename) if self.use_exiftool else {}
         
         # 5. المؤشرات (IoCs)
-        iocs = self.extract_iocs(file_content)
+        # Compressed container bytes and member names are not decoded payload evidence.
+        iocs = {key: [] for key in self.IOC_PATTERNS} if file_type.get('is_archive') else self.extract_iocs(file_content)
         
         # 6. فحص YARA (مع اسم الملف للفلترة)
         yara_result = self.scan_with_yara(file_content, filename)

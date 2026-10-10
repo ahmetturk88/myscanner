@@ -1,4 +1,6 @@
 import os
+import io
+import zipfile
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -28,3 +30,17 @@ class IntegrationTests(unittest.TestCase):
             r=FileDeepAnalyzer(use_exiftool=True).extract_metadata_via_exiftool(b'fixture','test.rar')
         self.assertFalse(r['available']);self.assertIn('error',r)
         self.assertNotIn('private',r['error'])
+
+    def test_zip_payload_is_partial_and_filenames_are_not_domain_iocs(self):
+        output=io.BytesIO()
+        with zipfile.ZipFile(output,'w') as archive:
+            archive.writestr('main.pyUT', 'print("fixture")')
+        a=FileDeepAnalyzer()
+        with patch.object(a,'check_hash_reputation',return_value={'status':'not_found','risk_score':0,'is_malicious':False}):
+            r=a.comprehensive_analysis(output.getvalue(),'fixture.zip')
+        self.assertEqual(r['coverage_status'],'partial')
+        self.assertTrue(all(not values for values in r['iocs'].values()))
+        self.assertIn('Archive member contents and nested archives were not inspected',r['missing_checks'])
+        from services.file_assessment import assess_file
+        r['malwarebazaar']={'status':'not_found'}
+        self.assertEqual(assess_file(r)['score'],60)

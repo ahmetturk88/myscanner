@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libarchive-tool
 COPY requirements.txt /tmp/requirements-source.txt
 # The repository lock file has a Windows UTF-16 BOM. Normalize only inside this image.
 RUN python -c "from pathlib import Path; p=Path('/tmp/requirements-source.txt'); b=p.read_bytes(); Path('/tmp/requirements.txt').write_text(b.decode('utf-16') if b.startswith((b'\\xff\\xfe', b'\\xfe\\xff')) else b.decode('utf-8-sig'), encoding='utf-8')" \
-    && pip install --no-cache-dir -r /tmp/requirements.txt \
+    && pip install --no-cache-dir -r /tmp/requirements.txt pypdf==6.10.0 \
     && rm /tmp/requirements-source.txt /tmp/requirements.txt \
     && groupadd --gid 10001 myscanner \
     && useradd --uid 10001 --gid 10001 --create-home myscanner

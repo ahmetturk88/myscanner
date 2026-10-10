@@ -1683,39 +1683,20 @@ def domain_lookup():
 @login_required
 @check_permission('domain_lookup')
 def api_domain_lookup():
-    app.logger.info(f'[INFO] Domain lookup requested by {current_user.username}')
-
-    data = request.get_json()
-    domain = data.get('domain', '').strip()
-
-    if not domain:
-        app.logger.warning(f'[WARNING] No domain provided by {current_user.username}')
-        return jsonify({"error": "No domain provided"}), 400
-
-    app.logger.info(f'[INFO] Analyzing domain: {domain} | User: {current_user.username}')
-
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('domain'), str):
+        return jsonify({'error': 'A valid domain name is required'}), 400
     try:
-        analyzer = DomainAnalyzer()
-        result = analyzer.analyze_domain(domain)
-
-        if "error" in result:
-            app.logger.warning(f'[WARNING] Domain analysis error for {domain}: {result["error"]}')
-            return jsonify({"error": result["error"]}), 400
-
-        app.logger.info(f'[SUCCESS] Domain lookup completed for {domain} | IP: {result.get("ip")} | Registrar: {result.get("registrar")}')
-        log_activity(
-            current_user.username,
-            'domain_lookup',
-            f'Looked up domain: {domain} | IP: {result.get("ip")}'
-        )
-
-        return jsonify(result)
-
-    except Exception as e:
-        app.logger.error(f'[ERROR] Domain lookup failed for {domain}: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+        result = DomainAnalyzer().analyze_domain(data['domain'])
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 400
+        log_activity(current_user.username, 'domain_lookup', 'Domain metadata lookup completed')
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except Exception:
+        app.logger.error('Domain metadata lookup failed')
+        return jsonify({'error': 'Domain lookup is temporarily unavailable'}), 503
 
 @app.route('/qr-scanner')
 @login_required
@@ -1864,4 +1845,5 @@ def api_url_analyze():
 # ================================================================
 if __name__ == '__main__':
     app.run(debug=app.config["DEBUG"])
+
 

@@ -34,7 +34,7 @@ class EvidenceTests(unittest.TestCase):
     def test_domain_failure_has_coverage_and_no_demo_key(self):
         with patch.dict('os.environ',{},clear=True):
             analyzer=DomainAnalyzer();analyzer.session=Mock();analyzer.session.get.side_effect=RuntimeError('secret')
-            result=analyzer.analyze_domain('example.com');self.assertEqual(result['verdict'],'unknown');self.assertEqual(result['coverage']['whois'],'not_configured');self.assertEqual(result['coverage_status'],'partial');self.assertNotIn('secret',str(result));analyzer.session.close.assert_called_once()
+            result=analyzer.analyze_domain('example.com');self.assertEqual(result['verdict'],'unknown');self.assertEqual(result['coverage']['whois'],'unavailable');self.assertEqual(result['coverage_status'],'partial');self.assertNotIn('secret',str(result));analyzer.session.close.assert_called_once()
     def test_domain_query_uses_encoded_params_and_invalid_input_never_fetches(self):
         for target in ('example.com/?name=localhost','example.com/path','https://user:key@example.com'):
             analyzer=DomainAnalyzer();analyzer.session=Mock();self.assertIn('error',analyzer.analyze_domain(target));analyzer.session.get.assert_not_called()
@@ -79,3 +79,4 @@ class EvidenceTests(unittest.TestCase):
         self.assertNotEqual(result['verdict'],'safe');self.assertEqual(result['coverage_status'],'partial');self.assertIn('Hash reputation unavailable',result['missing_checks'])
 
 if __name__=='__main__':unittest.main()
+

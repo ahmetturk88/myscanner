@@ -27,4 +27,8 @@ class IPWorkspaceTests(unittest.TestCase):
         a=self.analyzer();a.session.get.return_value=response({'success':True,'ip':'8.8.8.8','latitude':True,'longitude':float('nan'),'connection':{'asn':True}});r=a.analyze_ip('8.8.8.8');self.assertIsNone(r['lat']);self.assertIsNone(r['lon']);self.assertIsNone(r['asn'])
     def test_metadata_mismatch_rejected_and_responses_closed(self):
         a=self.analyzer();r=response({'success':True,'ip':'1.1.1.1'});a.session.get.return_value=r;result=a.analyze_ip('8.8.8.8');self.assertEqual(result['coverage']['metadata'],'unavailable');r.close.assert_called_once()
+    def test_report_severity_tracks_confidence_not_count(self):
+        for score, severity in [(0,'warning'),(49,'warning'),(50,'high'),(100,'high')]:
+            a=self.analyzer();a.session.get.side_effect=[response({},503),response({'data':{'ipAddress':'8.8.8.8','abuseConfidenceScore':score,'totalReports':235}})]
+            r=a.analyze_ip('8.8.8.8','key');self.assertEqual(r['findings'][0]['severity'],severity);self.assertEqual(r['total_reports'],235);self.assertEqual(r['verdict'],'reported')
 if __name__=='__main__':unittest.main()

@@ -25,3 +25,5 @@ Live provider responses, Docker and browser visual acceptance require rehearsal 
 Run `python scripts/init_vps_stack.py`, then `python scripts/configure_abuseipdb.py` in an interactive terminal and paste the key into the hidden prompt. The script preserves existing nonempty keys and rejects malformed input. The optional secret file remains outside Git and the Docker build context. Only the web service mounts it; no key appears in Compose environment values. Recreate web after saving. Explicit file configuration takes precedence over the legacy environment variable; unreadable/invalid files stay unconfigured.
 
 Use `python -m unittest discover -s tests -p test_abuseipdb_configuration.py -v` to verify storage and mounts. Never print the secret or share it in chat.
+
+Report presence uses an amber review notice for provider confidence below 50. Confidence of 50 or higher uses a red elevated-confidence notice. This is a local presentation threshold, not an AbuseIPDB safety guarantee or a confirmed maliciousness verdict; counts remain visible at every score.

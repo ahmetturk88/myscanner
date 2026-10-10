@@ -113,7 +113,7 @@ class IPAnalyzer:
             result['analyzed_at'] = datetime.now(timezone.utc).isoformat()
             result['findings'] = []
             if reputation['status'] == 'matched':
-                result['findings'].append({'code':'abuse_reports','severity':'warning','title':'Community abuse reports observed','detail':f"AbuseIPDB returned {reputation['reports']} reports in 90 days and a provider confidence score of {reputation['score']}/100. Review the source evidence; reports do not prove every use of this shared IP is malicious."})
+                result['findings'].append({'code':'abuse_reports','severity':'high' if reputation['score'] >= 50 else 'warning','title':'Elevated provider confidence in abuse reports' if reputation['score'] >= 50 else 'Community abuse reports — review advised','detail':f"AbuseIPDB returned {reputation['reports']} reports in 90 days and a provider confidence score of {reputation['score']}/100. Review the source evidence; reports do not prove every use of this shared IP is malicious."})
             result['summary'] = [f"Public IPv{address.version} address {ip}.", f"Network organization: {result.get('org') or result.get('isp') or 'unavailable'}; ASN: {result.get('asn') or 'unavailable'}.", f"Approximate network location: {result.get('country') or 'unavailable'}. This does not locate an individual.", f"AbuseIPDB returned {reputation['reports']} reports in its 90-day window." if reputation['status'] in ('matched','not_found') else 'AbuseIPDB evidence was not available; no reputation conclusion is possible.', 'Metadata and missing reports do not establish safety.']
             return result
         finally:

@@ -547,86 +547,9 @@ class FileDeepAnalyzer:
             return {"is_pe": False, "error": str(e)}
     
     def extract_metadata_pdf(self, file_content: bytes) -> Dict[str, Any]:
-        """تحليل متقدم لملفات PDF"""
-        content_str = file_content.decode('latin-1', errors='ignore')
-        
-        result = {
-            "is_pdf": True,
-            "num_pages": 0,
-            "is_encrypted": '/Encrypt' in content_str,
-            "has_javascript": False,
-            "has_actions": False,
-            "has_attachments": False,
-            "has_launch": False,
-            "has_form_fields": False,
-            "metadata": {},
-            "suspicious": []
-        }
-        
-        # استخراج البيانات الوصفية
-        metadata_patterns = {
-            '/Title': 'title', '/Author': 'author', '/Subject': 'subject',
-            '/Keywords': 'keywords', '/Creator': 'creator', '/Producer': 'producer',
-            '/CreationDate': 'creation_date', '/ModDate': 'modification_date'
-        }
-        for pattern, key in metadata_patterns.items():
-            match = re.search(f'{pattern}\\s*\\((.*?)\\)', content_str)
-            if match:
-                result["metadata"][key] = match.group(1)
-        
-        # البحث عن JavaScript (بتفاصيل أكثر)
-        js_patterns = ['/JS', '/JavaScript', 'app.alert', 'app.launchURL', 'this.print', 'this.submitForm']
-        for pattern in js_patterns:
-            if pattern in content_str:
-                result["has_javascript"] = True
-                # لا نضيفها كـ suspicious تلقائياً لأنها قد تكون شرعية
-                break
-        
-        # البحث عن الإجراءات التلقائية
-        action_patterns = ['/AA', '/OpenAction']
-        for pattern in action_patterns:
-            if pattern in content_str:
-                result["has_actions"] = True
-                result["suspicious"].append(f"Auto-action detected: {pattern}")
-                break
-        
-        # البحث عن Launch actions (خطيرة جداً)
-        if '/Launch' in content_str:
-            result["has_launch"] = True
-            result["suspicious"].append("Launch action detected - can execute external programs")
-        
-        # البحث عن المرفقات
-        attachment_patterns = ['/EmbeddedFile', '/Filespec', '/EF']
-        for pattern in attachment_patterns:
-            if pattern in content_str:
-                result["has_attachments"] = True
-                result["suspicious"].append(f"Embedded file found: {pattern}")
-                break
-        
-        # البحث عن روابط URI - لا نضيفها كـ suspicious تلقائياً
-        if '/URI' in content_str:
-            uris = re.findall(r'/URI\s*\((.*?)\)', content_str)
-            # نفحص إذا كانت URIs آمنة
-            unsafe_uris = []
-            for uri in uris:
-                if not any(safe in uri.lower() for safe in self.SAFE_DOMAINS):
-                    unsafe_uris.append(uri)
-            if unsafe_uris:
-                result["suspicious"].append(f"External URIs to non-safe domains: {len(unsafe_uris)}")
-        
-        # البحث عن حروف الـ PDF
-        if re.search(r'/AcroForm|/XFA', content_str):
-            result["has_form_fields"] = True
-        
-        # محاولة حساب عدد الصفحات
-        pages = re.findall(r'/Type\s*/Page', content_str)
-        result["num_pages"] = len(pages) if pages else 0
-        
-        result['coverage_status'] = 'partial'
-        result['scope'] = 'Visible PDF byte tokens only; compressed streams, object graph and encrypted content were not parsed.'
-        result['missing_checks'] = ['PDF compressed streams and object structure were not inspected']
-        return result
-    
+        from services.pdf_structure import pdf_observations
+        return pdf_observations(file_content)
+
     def extract_metadata_office(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         if container_type(file_content) in ('docx', 'xlsx', 'pptx'):
             return zip_observations(file_content, office=True)
@@ -887,6 +810,8 @@ class FileDeepAnalyzer:
     def scan_with_yara(self, file_content: bytes, filename: str = "") -> Dict[str, Any]:
         logger.debug(f"Scanning with YARA rules for: {filename}")
         """فحص الملف باستخدام قواعد YARA المتقدمة مع فلترة النتائج الخاطئة"""
+        if file_content.startswith(b'%PDF-'):
+            return {'matched_rules': [], 'details': [], 'risk_score': 0, 'count': 0, 'status': 'not_checked'}
         matched_rules = []
         total_risk = 0
         details = []
@@ -1053,10 +978,15 @@ class FileDeepAnalyzer:
         
         # 5. المؤشرات (IoCs)
         # Compressed container bytes and member names are not decoded payload evidence.
-        iocs = {key: [] for key in self.IOC_PATTERNS} if file_type.get('is_archive') else self.extract_iocs(file_content)
+        iocs = {key: [] for key in self.IOC_PATTERNS} if file_type.get('is_archive') or file_type.get('is_pdf') else self.extract_iocs(file_content)
+        if file_type.get('is_pdf'):
+            iocs = self.extract_iocs('\n'.join(metadata.get('uris', [])).encode('utf-8'))
+            metadata['ioc_scope'] = 'Explicit PDF URI action values only; no raw or compressed byte matching.'
         
         # 6. فحص YARA (مع اسم الملف للفلترة)
-        yara_result = self.scan_with_yara(file_content, filename)
+        yara_result = ({'matched_rules': [], 'details': [], 'risk_score': 0, 'count': 0,
+                        'status': 'not_checked', 'scope': 'Raw PDF byte patterns skipped; object findings are reported separately.'}
+                       if file_type.get('is_pdf') else self.scan_with_yara(file_content, filename))
         
         # 7. سمعة التجزئة
         hash_reputation = self.check_hash_reputation(hashes["sha256"])

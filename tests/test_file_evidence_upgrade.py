@@ -87,9 +87,9 @@ class FileEvidenceTests(unittest.TestCase):
             result=self.analyzer.comprehensive_analysis(b'print("hello")','resume.py')
         self.assertEqual(result['verdict'],'high_risk')
 
-    def test_pdf_token_checks_disclose_unparsed_streams(self):
+    def test_malformed_pdf_tokens_do_not_claim_launch(self):
         result=self.analyzer.extract_metadata_pdf(b'%PDF-1.4 /Launch')
-        self.assertTrue(result['has_launch'])
+        self.assertIsNone(result['has_launch'])
         self.assertEqual(result['coverage_status'],'partial')
         self.assertTrue(result['missing_checks'])
 

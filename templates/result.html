@@ -617,6 +617,7 @@ function renderAggregate(assessment) {
 }
 
 function renderResult(scanData, analysisData) {
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('url',{scan:scanData,analysis:analysisData},'#verdict-area');
   document.getElementById('loading-area').style.display = 'none';
   const verdictArea = document.getElementById('verdict-area');
   verdictArea.style.display = 'block';
@@ -855,3 +856,4 @@ window.addEventListener('load', function() {
 });
 </script>
 {% endblock %}
+

@@ -212,6 +212,7 @@
   }
 
   function renderResult(d) {
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('domain',d,'#result-card');
     const securityScore = calculateSecurityScore(d);
     const quality = securityScore === null ? {text:'Not assessed',icon:'ℹ️',cls:'banner-moderate',sub:'Some metadata sources are unavailable or not configured. No safety conclusion.'} : {text:'Metadata available',icon:'ℹ️',cls:'banner-moderate',sub:'Registration and DNS observations only; not a domain reputation or safety verdict.'};
     const scoreColor = securityScore >= 80 ? 'var(--green)' : securityScore >= 50 ? 'var(--yellow)' : 'var(--red)';

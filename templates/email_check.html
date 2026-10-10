@@ -35,6 +35,7 @@ function useSuggestion(email){node('email-input').value=email;node('suggestion-b
 function status(value){return value===true?'Reported':value===false?'Not reported':'Not verified';}
 function rows(values){return values.map(([label,value])=>`<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join('');}
 function renderMain(d){
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('email',d,'#result-card');
  d=object(d);lastResult=d;const a=object(d.assessment);const hasAssessment=Array.isArray(a.categories);const raw=d.quality_score;const fallback=typeof raw==='number'&&Number.isFinite(raw)?ScanUI.score(raw<=1?raw*100:raw):0;const score=hasAssessment?ScanUI.score(a.score):fallback;
  node('result-card').style.display='block';node('intro-grid').style.display='none';node('report-email').textContent=ScanUI.text(d.email,'Email assessment');node('report-time').textContent=d.checked_at?'Analyzed '+ScanUI.text(d.checked_at):'Time not recorded';
  const title=hasAssessment?(a.verdict==='review'?'Review the evidence':a.verdict==='no_indicators'?'No scored indicators':'Needs verification'):'Evidence needs review';
@@ -64,3 +65,4 @@ async function copyToClipboard(){if(!lastResult)return;const a=object(lastResult
 node('email-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!node('check-btn').disabled)checkEmail();});
 </script>
 {% endblock %}
+

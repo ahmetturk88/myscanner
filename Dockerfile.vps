@@ -1,6 +1,8 @@
 FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONUTF8=1
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends libarchive-tools libimage-exiftool-perl \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements-source.txt
 # The repository lock file has a Windows UTF-16 BOM. Normalize only inside this image.
 RUN python -c "from pathlib import Path; p=Path('/tmp/requirements-source.txt'); b=p.read_bytes(); Path('/tmp/requirements.txt').write_text(b.decode('utf-16') if b.startswith((b'\\xff\\xfe', b'\\xfe\\xff')) else b.decode('utf-8-sig'), encoding='utf-8')" \
@@ -22,3 +24,4 @@ RUN mkdir -p cache file_cache temp_uploads logs reports instance /state \
 USER 10001:10001
 ENTRYPOINT ["python", "scripts/vps_runtime.py"]
 CMD ["web"]
+

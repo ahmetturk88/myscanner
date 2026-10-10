@@ -127,6 +127,7 @@
     return {available, value:available ? assessment.score : null, incomplete};
   }
   function render(d) {
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('file',d,'#result-card');
     $('export-pdf').disabled = typeof d._pdf_receipt !== 'string';
     const score = scorePresentation(d), mb = provider(d), meta = object(d.metadata), ft = object(d.file_type), patterns = object(d.yara), iocs = object(d.iocs);
     const danger = confirmed(d);
@@ -218,3 +219,4 @@
   window.addEventListener('beforeprint',preparePrint);window.addEventListener('afterprint',restorePrint);
   $('print-report').addEventListener('click',()=>{if(lastResult)window.print();});
 })();
+

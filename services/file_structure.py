@@ -47,6 +47,8 @@ def zip_observations(content, office=False):
                 result['suspicious'].append('Large declared uncompressed content; members were not expanded')
             if office:
                 result.update(has_macros=False, has_ole=False)
+            if not office:
+                result['missing_checks'].append('Archive member contents and nested archives were not inspected')
             budget = MAX_XML * 2
             for member in entries[:MAX_ENTRIES]:
                 name = member.filename

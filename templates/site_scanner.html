@@ -141,6 +141,7 @@ function showError(message) {
 }
 
 function renderResult(d) {
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('site',d,'#result-card');
   // التحقق من وجود البيانات المطلوبة
   const verdicts = {
     secure: { icon: '✅', title: 'LOW OBSERVED RISK', subtitle: 'General checks found a low risk score. Active vulnerability testing was not performed.', cls: 'banner-secure' },

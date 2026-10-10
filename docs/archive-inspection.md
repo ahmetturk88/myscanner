@@ -1,0 +1,11 @@
+# RAR and 7z directory inspection
+
+Linux scanner images install the libarchive runtime (via libarchive-tools) and ExifTool from their distribution. RAR4, RAR5 and 7z are dispatched by observed magic bytes, not the uploaded name. Native parsing runs in a separate process: 6 seconds wall time, 3 seconds CPU, 256 MiB address space, 1 MiB output, zero core dump. Maximum upload remains 10 MiB. At most 1000 entries are inspected and 100 names displayed. Temporary input and result files are removed.
+
+The directory lists sizes, script/executable suffixes, unsafe paths and encryption flags when readable. Files are never extracted to disk or executed. Some solid formats require internal decoding to reach subsequent headers. Unsupported, encrypted or malformed headers and time/resource limits remain explicit partial evidence. Encryption is unknown when the parser cannot determine it; a filename containing “password” is not evidence of encryption. Nested archives and member payloads are not analyzed. A directory negative is not a malware-negative result.
+
+file-evidence-v2 deducts an additional 30 points when archive contents are unavailable or explicitly uninspected. An ordinary readable RAR/7z remains partial because only its directory was inspected. A confirmed malicious verdict/hash still forces zero, even when the directory is unreadable. ExifTool failure is explicit, and its temporary input is cleaned on timeout/error.
+
+Tests: `python -m unittest discover -s tests -p test_archive_directory.py -v`. Native cases require Linux and libarchive; on Windows these cases skip. Included fixtures are synthetic plain/encrypted RAR4 and 7z headers; no malware is used. Rebuild both local/VPS images, then rescan the same archive and compare JSON/PDF. No sandbox or antivirus execution is added.
+
+ZIP directory inspection also marks member contents and nested archives as uninspected, applying the same coverage deduction as RAR/7z. Compressed archive bytes are excluded from text IOC extraction: member names/header bytes are not evidence of domains embedded in a decoded payload. This does not inspect those payloads or assert their absence of indicators. Office XML checks retain their separate bounded inspection scope.

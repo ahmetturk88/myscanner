@@ -10,6 +10,7 @@ import tempfile
 import subprocess
 import zipfile
 from services.file_structure import container_type, zip_observations
+from services.archive_directory import archive_observations
 import struct
 from datetime import datetime
 from pathlib import Path
@@ -701,6 +702,10 @@ class FileDeepAnalyzer:
     def extract_metadata_archive(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         if container_type(file_content) == 'zip':
             return zip_observations(file_content)
+        if file_content.startswith(b'Rar!\x1a\x07'):
+            return archive_observations(file_content, 'rar')
+        if file_content.startswith(b'7z\xbc\xaf\x27\x1c'):
+            return archive_observations(file_content, '7z')
         return {'is_archive': True, 'type': 'unknown', 'suspicious': [],
                 'coverage_status': 'partial', 'error': 'This archive format has no configured structural parser'}
 
@@ -768,6 +773,7 @@ class FileDeepAnalyzer:
         
         result = {"available": False, "data": {}}
         
+        tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
                 tmp.write(file_content)
@@ -786,12 +792,20 @@ class FileDeepAnalyzer:
                     result["available"] = True
                     result["data"] = data[0]
             
-            os.unlink(tmp_path)
+            if not result["available"]:
+                result["error"] = "ExifTool metadata unavailable or malformed"
         except FileNotFoundError:
             result["error"] = "exiftool not installed"
         except Exception as e:
-            result["error"] = str(e)
+            result["error"] = "ExifTool metadata failed or timed out"
         
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
         return result
     
     # ================================================================

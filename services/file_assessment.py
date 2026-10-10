@@ -17,6 +17,9 @@ def assess_file(report):
         deductions.append({'points': 10, 'reason': 'Static inspection coverage limited'})
     if not valid or meta.get('error') or meta.get('metadata_error'):
         deductions.append({'points': 25, 'reason': 'Local index unavailable or metadata failed'})
+    archive_limited = meta.get('is_archive') and (meta.get('error') or meta.get('encrypted') is True or any('member contents' in str(x).lower() for x in meta.get('missing_checks', [])))
+    if archive_limited:
+        deductions.append({'points': 30, 'reason': 'Archive contents unavailable or not inspected'})
     penalty = sum(d['points'] for d in deductions)
     # Without a local index there is no measured baseline to credit.
     score = 0 if confirmed or not valid else max(0, round(base - penalty))
@@ -25,5 +28,5 @@ def assess_file(report):
     return {'score': score, 'local_index': base if valid else None,
             'coverage_penalty': penalty, 'deductions': deductions,
             'coverage': 'partial' if partial or not valid else 'completed',
-            'policy_version': 'file-evidence-v1',
+            'policy_version': 'file-evidence-v2',
             'warning': 'Evidence and coverage index; not a safety probability. Zero may mean insufficient evidence or a confirmed threat; read the verdict.'}

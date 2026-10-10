@@ -1,6 +1,7 @@
 """MyScanner A4 file evidence report. No remote resources or active PDF links."""
 from io import BytesIO
 from services.file_assessment import assess_file
+from services.file_report_summary import file_report_summary
 from datetime import datetime, timezone
 import json
 import math
@@ -68,6 +69,9 @@ def generate_file_report(report):
     verdict=Paragraph(safe(title),ParagraphStyle('verdict',parent=styles['heading'],textColor=RED if malicious else AMBER if partial or risk else CYAN))
     story.append(verdict)
     story.append(p('Keep the file unexecuted and review the confirmed evidence.' if malicious else 'Review this report in context. Neither a high index nor a dataset negative establishes that a file is safe to open.'))
+    story.append(p('REPORT BRIEF','label'))
+    story.extend(p(line) for line in file_report_summary({**report,'assessment':assessment}))
+    story.append(Spacer(1,10))
     story.append(table([('File',report.get('filename')),('Reported at',report.get('scanned_at') or report.get('analyzed_at')),('Size (bytes)',report.get('file_size_bytes',report.get('file_size'))),('Verdict',report.get('verdict')),('Coverage','Limited evidence' if partial else 'Configured checks returned'),('Evidence index',str(score)+'%'),('Coverage deductions',str(assessment['coverage_penalty'])+' points'),('Score meaning',assessment['warning'])]))
     story+=heading('01','Source evidence')
     meta=report.get('metadata') if isinstance(report.get('metadata'),dict) else {}
@@ -186,3 +190,4 @@ def generate_file_report(report):
         c.restoreState()
     doc.build([Spacer(1,1),PageBreak()]+story,onFirstPage=cover,onLaterPages=page)
     buffer.seek(0);return buffer
+

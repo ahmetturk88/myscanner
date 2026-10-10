@@ -146,6 +146,7 @@
   }
 
   function renderResult(d) {
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('ssl',d,'#result-card');
     if (['unavailable','blocked'].includes(d.status) || d.valid === null) {
       document.getElementById('result-card').style.display='none';
       showErr(d.error_msg || 'TLS evidence unavailable; certificate validity was not established.');

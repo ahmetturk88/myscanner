@@ -245,6 +245,7 @@
   }
 
   function renderResult(d) {
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('ip',d,'#result-card');
     const vc = d.verdict === 'not_found' ? {cls:'banner-unknown',icon:'ℹ️',title:'No dataset match',sub:'No reports matched in AbuseIPDB; metadata does not establish safety.'} : Object.hasOwn(VC, d.verdict) ? VC[d.verdict] : VC.unknown;
     const banner = document.getElementById('verdict-banner');
     banner.className = 'verdict-banner ' + vc.cls;

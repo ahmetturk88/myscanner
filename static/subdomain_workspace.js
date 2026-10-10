@@ -1,0 +1,51 @@
+/* Discovery workspace: all remote evidence is rendered as literal text. */
+(function(root){
+'use strict';
+const list=v=>Array.isArray(v)?v:[],obj=v=>v&&typeof v==='object'?v:{},text=v=>v==null?'Not reported':String(v);
+function node(tag,cls,value){const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=text(value);return e;}
+function button(label,fn){const e=node('button','sd-button',label);e.type='button';e.addEventListener('click',fn);return e;}
+function csvCell(value){let s=text(value);if(/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
+function selectRows(data,query='',state='all',source='all',tls='all',sort='name'){
+ const rows=list(data.results).filter(r=>[r.full_domain,...list(r.addresses),...list(r.sources)].join(' ').toLowerCase().includes(query.toLowerCase())&&(state==='all'||state==='wildcard'&&r.possible_wildcard===true||r.verdict===state)&&(source==='all'||list(r.sources).includes(source))&&(tls==='all'||obj(r.tls).status===tls));
+ return rows.slice().sort((a,b)=>sort==='status'?text(a.verdict).localeCompare(text(b.verdict))||text(a.full_domain).localeCompare(text(b.full_domain)):text(a.full_domain).localeCompare(text(b.full_domain)));
+}
+function brief(d){return [
+ `${text(d.total_found)} names returned DNS evidence from ${text(d.candidates_selected)} selected candidates for ${text(d.domain)}.`,
+ `${text(d.active_count)} hosts returned a responding web status and ${text(d.redirect_count)} returned redirects; redirects were not followed.`,
+ d.wildcard?.detected===true?'Random-label probes observed wildcard DNS; matching names may not be independent hosts.':d.wildcard?.detected===false?'Wildcard DNS was not observed in the two random-label probes.':'Wildcard verification was incomplete; independent-host status is uncertain.',
+ `${text(d.dns_error_count)} candidates had incomplete DNS checks. Source outages and unchecked names are disclosed separately.`,
+ 'This is a bounded discovery sample. DNS existence, HTTP responses and valid certificates do not establish safety.'
+];}
+function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=node('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function render(target,d,onInspect){
+ target.replaceChildren();
+ const top=node('section','sd-overview');const intro=node('div');intro.append(node('span','sd-eyebrow','DISCOVERY SNAPSHOT'),node('h2','',d.domain),node('p','sd-muted',`Observed ${text(d.analyzed_at)} · ${text(d.duration_seconds)} seconds`));
+ const coverage=obj(d.verification_coverage);const valid=typeof coverage.score==='number'&&Number.isFinite(coverage.score)&&coverage.score>=0&&coverage.score<=100;
+ const ring=node('div','sd-ring');ring.style.setProperty('--coverage',(valid?coverage.score:0)+'%');ring.setAttribute('role','img');ring.setAttribute('aria-label',valid?coverage.score+' percent of selected verification checks completed':'Verification coverage unavailable');ring.append(node('strong','',valid?coverage.score+'%':'—'),node('span','','CHECK COVERAGE'));top.append(intro,ring);target.append(top);
+ const disclaimer=node('p','sd-scope',coverage.warning||'Selected check completion only; not a safety score.');target.append(disclaimer);
+ const stats=node('div','sd-stats');for(const [value,label] of [[d.total_found,'DNS names'],[d.active_count,'Responding'],[d.redirect_count,'Redirects'],[list(d.results).filter(r=>r.possible_wildcard).length,'Wildcard matches'],[d.dns_error_count,'DNS gaps']]){const card=node('div','sd-stat');card.append(node('strong','',value),node('span','',label));stats.append(card);}target.append(stats);
+ const report=node('section','sd-brief');report.append(node('span','sd-eyebrow','REPORT BRIEF'),node('h3','','What this discovery tells you'));for(const line of brief(d))report.append(node('p','',line));target.append(report);
+ const signals=node('div','sd-signals');const sources=node('section','sd-panel');sources.append(node('h3','','Evidence sources'));for(const s of list(d.sources)){const row=node('div','sd-source');row.append(node('strong','',s.name),node('span','sd-badge',s.status));if(s.reason)row.append(node('p','sd-muted',s.reason));if(s.truncated)row.append(node('p','sd-muted','Source response truncated; additional certificate names were not parsed.'));sources.append(row);}signals.append(sources);
+ const parts=node('section','sd-panel');parts.append(node('h3','','Verification breakdown'));for(const p of list(coverage.parts)){const row=node('div','sd-source');row.append(node('strong','',p.label),node('span','sd-muted',p.total?`${p.completed} / ${p.total} completed`:'Not applicable'));const meter=node('progress');meter.max=p.total||1;meter.value=p.completed||0;meter.setAttribute('aria-label',text(p.label));row.append(meter);parts.append(row);}parts.append(node('p','sd-muted','Checks cover selected candidates and at most 20 web hosts. Unselected names remain unchecked.'));signals.append(parts);target.append(signals);
+ const toolbar=node('div','sd-toolbar');const search=node('input');search.type='search';search.placeholder='Search name, address or source';search.setAttribute('aria-label','Search discovery results');toolbar.append(search);
+ function choose(label,options){const s=node('select');s.setAttribute('aria-label',label);for(const [value,title] of options){const o=node('option','',title);o.value=value;s.append(o);}s.value=options[0][0];toolbar.append(s);return s;}
+ const state=choose('Observation status',[['all','All observations'],['active','Responding'],['redirect','Redirects'],['http_error','HTTP errors'],['dns_only','DNS only'],['blocked','Policy blocked'],['wildcard','Wildcard matches']]);
+ const source=choose('Discovery source',[['all','All sources'],['certificate_transparency','Certificate index'],['common_name','Common-name DNS']]);
+ const tls=choose('Certificate state',[['all','All TLS states'],['completed','TLS verified'],['invalid','TLS invalid'],['unavailable','TLS unavailable'],['not_requested','TLS not requested'],['blocked','TLS blocked']]);
+ const sort=choose('Sort results',[['name','Sort by name'],['status','Sort by status']]);target.append(toolbar);
+ const status=node('p','sd-muted');status.setAttribute('aria-live','polite');target.append(status);const rowsRoot=node('div','sd-results');target.append(rowsRoot);let visible=[];
+ function pair(parent,label,value){const row=node('div','sd-pair');row.append(node('span','sd-muted',label),node('span','',value));parent.append(row);}
+ function update(){visible=selectRows(d,search.value,state.value,source.value,tls.value,sort.value);status.textContent=`${visible.length} of ${list(d.results).length} discovered names shown`;rowsRoot.replaceChildren();
+  if(!visible.length)rowsRoot.append(node('div','sd-empty','No matching names in this sample. This does not prove that no subdomains exist.'));
+  for(const r of visible.slice(0,100)){const article=node('article','sd-row');const details=node('details');const summary=node('summary');const heading=node('div');heading.append(node('strong','',r.full_domain),node('span','sd-muted',list(r.addresses).join(' · ')||'CNAME evidence; no address returned'));summary.append(heading,node('span','sd-badge',r.possible_wildcard?'Possible wildcard':r.verdict));details.append(summary);const body=node('div','sd-detail');pair(body,'Source',list(r.sources).join(' + '));for(const kind of ['A','AAAA','CNAME'])pair(body,kind,list(obj(r.dns)[kind]?.values).join(', ')||obj(r.dns)[kind]?.status);
+   const http=obj(r.http),cert=obj(r.tls);pair(body,'HTTP',http.status==='completed'?`${http.status_code} · ${http.url}`:http.reason||http.status);if(http.location)pair(body,'Redirect · not followed',http.location);pair(body,'TLS',cert.reason||cert.status);if(cert.issuer)pair(body,'Issuer',cert.issuer);if(cert.expires_at)pair(body,'Expires',cert.expires_at);
+   const actions=node('div','sd-row-actions');const inspect=button('Inspect URL',()=>onInspect(r.subdomain,r.full_domain));inspect.className='sd-button scan-subdomain';inspect.disabled=r.public_addresses!==true;actions.append(inspect);if(r.public_addresses!==true)actions.append(node('span','sd-muted','Web inspection blocked: addresses are not exclusively public.'));body.append(actions);details.append(body);article.append(details);rowsRoot.append(article);}
+ }
+ for(const control of [search,state,source,tls,sort])control.addEventListener(control===search?'input':'change',update);update();
+ const actions=node('div','sd-exports');const notice=node('span','sd-muted');notice.setAttribute('aria-live','polite');
+ actions.append(button('Copy shown names',async()=>{try{await navigator.clipboard.writeText(visible.map(r=>r.full_domain).join('\n'));notice.textContent='Shown names copied.';}catch{notice.textContent='Copy unavailable. Use an export.';}}),button('Export shown CSV',()=>{const rows=[['Hostname','Addresses','Sources','DNS status','HTTP status','TLS status','Possible wildcard'],...visible.map(r=>[r.full_domain,list(r.addresses).join('; '),list(r.sources).join('; '),r.dns_status,obj(r.http).status==='completed'?obj(r.http).status_code:obj(r.http).status,obj(r.tls).status,r.possible_wildcard?'yes':'no'])];download(rows.map(r=>r.map(csvCell).join(',')).join('\r\n'),'subdomain-observations.csv','text/csv;charset=utf-8');}),button('Export full JSON',()=>download(JSON.stringify(d,null,2),'subdomain-discovery.json','application/json')),notice);target.append(actions);
+ const gaps=node('details','sd-panel');gaps.append(node('summary','',`DNS checks with gaps (${list(d.unresolved).length})`));for(const r of list(d.unresolved))pair(gaps,r.full_domain,r.exists?'Some DNS evidence returned; other records were unavailable.':'DNS lookup unavailable; absence not established.');target.append(gaps);
+ const limits=node('details','sd-panel');limits.append(node('summary','','Scope & limits'));for(const line of list(d.limitations))limits.append(node('p','sd-muted',line));target.append(limits);
+}
+const api={render,selectRows,csvCell,brief};root.SubdomainWorkspace=Object.freeze(api);if(typeof module!=='undefined')module.exports=api;
+})(typeof window!=='undefined'?window:globalThis);

@@ -113,7 +113,7 @@ class SubdomainFinder:
                             continue
                         if host.endswith('.'+domain):
                             names.add(host)
-                source.update(status='completed', candidate_count=len(names), truncated=len(data)>2000)
+                source.update(status='partial' if len(data)>2000 else 'completed', candidate_count=len(names), truncated=len(data)>2000)
         except (requests.exceptions.RequestException, ValueError, TypeError):
             source['reason'] = 'Certificate index timed out, was blocked, or returned invalid data'
         return names, source
@@ -121,9 +121,10 @@ class SubdomainFinder:
     def wildcard_probe(self, domain, deadline):
         probes = [dns_records('myscanner-'+secrets.token_hex(8)+'.'+domain, ('A','AAAA','CNAME'), deadline) for _ in range(2)]
         sets = [{v for kind in ('A','AAAA') for v in probe[kind]['values']} for probe in probes]
+        cnames = [{v.rstrip('.').lower() for v in probe['CNAME']['values']} for probe in probes]
         complete = all(r['status'] != 'unavailable' for p in probes for r in p.values())
-        return {'status':'completed' if complete else 'partial', 'detected': all(bool(s) for s in sets),
-                'addresses': sorted(set.union(*sets)), 'note':'Two random DNS labels were checked. Rotating wildcard DNS may have different addresses.'}
+        return {'status':'completed' if complete else 'partial', 'detected': (all(bool(s) for s in sets) or all(bool(s) for s in cnames)) if complete else None,
+                'addresses': sorted(set.union(*sets)), 'cnames': sorted(set.union(*cnames)), 'note':'Two random DNS labels were checked. Rotating wildcard DNS may have different addresses.'}
 
     def resolve_candidate(self, item, domain, deadline, wildcard):
         host, sources = item
@@ -132,7 +133,7 @@ class SubdomainFinder:
         uncertain = any(r['status'] == 'unavailable' for r in records.values())
         exists = bool(addresses or records['CNAME']['values'])
         status = 'resolved' if exists else 'unavailable' if uncertain else 'not_found'
-        possible_wildcard = bool(wildcard['detected'] and set(addresses).intersection(wildcard['addresses']))
+        possible_wildcard = bool(wildcard['detected'] and (set(addresses).intersection(wildcard['addresses']) or {v.rstrip('.').lower() for v in records['CNAME']['values']}.intersection(wildcard.get('cnames', []))))
         public = bool(addresses)
         for value in addresses:
             try:
@@ -142,7 +143,7 @@ class SubdomainFinder:
             except ValueError:
                 public = False
         return {'subdomain':host[:-(len(domain)+1)], 'full_domain':host, 'sources':sources, 'dns':records,
-                'addresses':addresses, 'ip':addresses[0] if addresses else None, 'dns_status':status, 'exists':exists,
+                'addresses':addresses, 'ip':addresses[0] if addresses else None, 'dns_status':status, 'dns_complete':not uncertain, 'exists':exists,
                 'possible_wildcard':possible_wildcard, 'public_addresses':public,
                 'http':{'status':'not_requested'}, 'tls':{'status':'not_requested'}, 'verdict':'dns_only' if exists else status}
 
@@ -165,7 +166,7 @@ class SubdomainFinder:
                     row['verdict'] = 'redirect' if code in (301,302,303,307,308) else 'active' if code < 400 else 'http_error'
                 finally:
                     response.close()
-            row['tls'] = certificate_details(row['full_domain'], timeout=2) if time.monotonic() < deadline else {'status':'unavailable', 'reason':'Time budget reached'}
+            row['tls'] = certificate_details(row['full_domain'], timeout=min(2, max(.1, deadline-time.monotonic()))) if time.monotonic() < deadline else {'status':'unavailable', 'reason':'Time budget reached'}
         except UnsafeTargetError:
             row['http'] = {'status':'blocked', 'reason':'Public-network policy blocked this connection'}
             row['verdict'] = 'blocked'
@@ -197,6 +198,8 @@ class SubdomainFinder:
 
     def find_subdomains(self, domain, max_subdomains=80, include_ct=True):
         domain = normalize_domain(domain)
+        if type(include_ct) is not bool:
+            raise ValueError('Certificate index option must be true or false')
         if isinstance(max_subdomains, bool) or not isinstance(max_subdomains, int) or not 1 <= max_subdomains <= 100:
             raise ValueError('Candidate limit must be between 1 and 100')
         start = time.monotonic()
@@ -214,7 +217,19 @@ class SubdomainFinder:
         for sub in common:
             candidates.setdefault(sub+'.'+domain, []).append('common_name')
         sources.append({'name':'Common-name DNS discovery', 'status':'completed', 'candidate_count':len(common)})
-        selected = list(candidates.items())[:max_subdomains]
+        # Reserve sampling space for both sources; historical CT names cannot consume every slot.
+        ct_hosts = [host for host, labels in candidates.items() if 'certificate_transparency' in labels]
+        common_hosts = [sub+'.'+domain for sub in common]
+        selected_hosts = []
+        for index in range(max(len(ct_hosts), len(common_hosts))):
+            for pool in (common_hosts, ct_hosts):
+                if index < len(pool) and pool[index] not in selected_hosts:
+                    selected_hosts.append(pool[index])
+                    if len(selected_hosts) >= max_subdomains:
+                        break
+            if len(selected_hosts) >= max_subdomains:
+                break
+        selected = [(host,candidates[host]) for host in selected_hosts[:max_subdomains]]
         wildcard = self.wildcard_probe(domain, deadline)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             rows = list(executor.map(lambda item: self.resolve_candidate(item, domain, deadline, wildcard), selected))
@@ -226,17 +241,18 @@ class SubdomainFinder:
         groups = {k:[r for r in found if r['verdict']==k] for k in ('active','redirect','http_error','dns_only','blocked')}
         groups['redirects'] = groups.pop('redirect')
         groups['inactive'] = []  # No HTTP response is not evidence of inactivity.
-        unresolved = [r for r in rows if r['dns_status']=='unavailable']
-        partial = bool(unresolved or any(s['status']=='unavailable' for s in sources) or wildcard['status']=='partial' or len(candidates)>len(selected) or len(found)>20 or any(r['http']['status'] not in ('completed','blocked') for r in found))
-        return {'schema_version':2, 'domain':domain, 'assessment_status':'partial' if partial else 'completed',
+        unresolved = [r for r in rows if not r['dns_complete']]
+        partial = bool(unresolved or any(s['status'] in ('unavailable','partial') for s in sources) or wildcard['status']=='partial' or len(candidates)>len(selected) or len(found)>20 or any(r['http']['status'] not in ('completed','blocked') for r in found))
+        coverage = discovery_coverage(rows, found, sources, wildcard)
+        return {'schema_version':3, 'verification_coverage':coverage, 'domain':domain, 'assessment_status':'partial' if partial else 'completed',
                 'analyzed_at':datetime.now(timezone.utc).isoformat(), 'duration_seconds':round(time.monotonic()-start,2),
-                'total_checked':sum(r['dns_status']!='unavailable' for r in rows), 'candidates_selected':len(selected), 'candidates_available':len(candidates),
+                'total_checked':sum(r['dns_complete'] for r in rows), 'candidates_selected':len(selected), 'candidates_available':len(candidates),
                 'total_found':len(found), 'active_count':len(groups['active']), 'redirect_count':len(groups['redirects']), 'inactive_count':0,
                 'dns_error_count':len(unresolved), 'not_found_count':sum(r['dns_status']=='not_found' for r in rows),
                 'wildcard':wildcard, 'sources':sources, 'results':sorted(found,key=lambda r:r['full_domain']), 'unresolved':unresolved,
                 'subdomains':groups, 'all_subdomains':sorted(r['full_domain'] for r in found),
                 'limits':{'candidate_limit':max_subdomains,'web_probe_limit':20,'workers':self.max_workers,'time_budget_seconds':20},
-                'limitations':['Discovery is a bounded sample, not a list of every possible subdomain.', 'Certificate names may be historical; DNS results reflect this lookup.', 'Wildcard matches are flagged, not claimed as confirmed independent hosts.', 'DNS errors are reported separately from names that do not resolve.', 'HTTP status and TLS validity do not prove safety. No redirects or exploit scans are performed during discovery.']}
+                'limitations':['Discovery is a bounded sample, not a list of every possible subdomain.', 'Certificate names may be historical; DNS results reflect this lookup.', 'Wildcard matches are flagged, not claimed as confirmed independent hosts.', 'DNS errors are reported separately from names that do not resolve.', 'Candidate selection alternates common names and certificate names. Names outside the selected sample were not checked.', 'HTTP status and TLS validity do not prove safety. No redirects or exploit scans are performed during discovery.']}
 
     def check_subdomain(self, subdomain, domain):
         domain = normalize_domain(domain)
@@ -247,3 +263,22 @@ class SubdomainFinder:
     def get_subdomain_suggestions(self, domain):
         domain = normalize_domain(domain)
         return [sub+'.'+domain for sub in list(dict.fromkeys(self.COMMON_SUBDOMAINS))[:10]]
+
+
+
+def discovery_coverage(rows, found, sources, wildcard):
+    """Completion of selected observations only, never security or whole-domain coverage."""
+    dns_done=sum(row.get('dns_complete') is True for row in rows)
+    web_rows=found[:20]
+    http_done=sum(row.get('http',{}).get('status')=='completed' for row in web_rows)
+    tls_done=sum(row.get('tls',{}).get('status') in ('completed','invalid') for row in web_rows)
+    parts=[{'key':'dns','label':'Selected DNS checks','completed':dns_done,'total':len(rows),'weight':60},
+           {'key':'http','label':'Selected web observations','completed':http_done,'total':len(web_rows),'weight':25},
+           {'key':'tls','label':'Selected certificate checks','completed':tls_done,'total':len(web_rows),'weight':15}]
+    applicable=[part for part in parts if part['total']]
+    total_weight=sum(part['weight'] for part in applicable)
+    score=round(sum(part['weight']*part['completed']/part['total'] for part in applicable)/total_weight*100) if total_weight else None
+    return {'score':score,'parts':parts,'policy_version':'discovery-coverage-v1',
+        'source_gaps':sum(s.get('status') in ('partial','unavailable') for s in sources),
+        'wildcard_status':wildcard.get('status'),
+        'warning':'Completion index for selected checks only; not a safety score or a percentage of every subdomain discovered.'}

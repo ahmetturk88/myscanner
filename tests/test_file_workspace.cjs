@@ -14,6 +14,20 @@ async function main(){
  let resolve,calls=0;ctx.fetch=()=>{calls++;return new Promise(r=>{resolve=r;});};const pending=api.analyze();api.analyze();assert.equal(calls,1);assert.equal(get('start-scan').disabled,true);resolve({ok:true,json:async()=>partial});await pending;assert.equal(get('loading-div').hidden,true);assert.equal(get('start-scan').disabled,false);assert.equal(get('result-card').hidden,false);
  ctx.fetch=async()=>({ok:false,status:500,json:async()=>({error:'secret backend path'})});await api.analyze();assert(get('upload-error').textContent.includes('temporarily unavailable'));assert(!get('upload-error').textContent.includes('secret'));
  api.reset();assert.equal(get('result-card').hidden,true);assert.equal(get('start-scan').disabled,true);
+ api.select({name:'test.py',size:50});
+ ctx.fetch=async()=>({ok:true,json:async()=>({...partial,_pdf_receipt:'signed-fixture'})});
+ await api.analyze();
+ assert.equal(get('export-pdf').disabled,false);
+ // Exercise the actual PDF download handler without contacting a server.
+ let request;
+ ctx.URL={createObjectURL:()=> 'blob:fixture',revokeObjectURL(){}};
+ ctx.fetch=async(url,options)=>{request={url,options};return{ok:true,headers:{get:()=> 'application/pdf'},blob:async()=>new Blob(['%PDF-fixture'])};};
+ await get('export-pdf').listeners.click();
+ assert.equal(request.url,'/api/file-report/pdf');assert.equal(JSON.parse(request.options.body).receipt,'signed-fixture');
+ assert.equal(get('export-pdf').disabled,false);
+ ctx.fetch=async()=>({ok:false,status:400,headers:{get:()=> 'application/json'}});
+ await get('export-pdf').listeners.click();assert(get('file-feedback').textContent.includes('expired'));
+ api.render(partial);assert.equal(get('export-pdf').disabled,true);
  console.log('PASS: file workspace evidence, safe DOM, upload validation and request lifecycle');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

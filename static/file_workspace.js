@@ -127,6 +127,7 @@
     return {available, value:available ? d.security_score : null, incomplete};
   }
   function render(d) {
+    $('export-pdf').disabled = typeof d._pdf_receipt !== 'string';
     const score = scorePresentation(d), mb = provider(d), meta = object(d.metadata), ft = object(d.file_type), patterns = object(d.yara), iocs = object(d.iocs);
     const danger = confirmed(d);
     const review = !danger && ['high_risk','suspicious'].includes(d.verdict);
@@ -192,8 +193,23 @@
   $('collapse-all').addEventListener('click',()=>root.querySelectorAll('.fw-detail').forEach(d=>{d.open=false;}));
   root.querySelectorAll('.fw-report-nav a').forEach(a=>a.addEventListener('click',()=>{const target=document.getElementById(a.hash.slice(1));if(target)target.open=true;}));
   $('export-json').addEventListener('click',()=>{
-    if(!lastResult)return;const blob=new Blob([JSON.stringify(lastResult,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a','');
+    if(!lastResult)return;const blob=new Blob([JSON.stringify(Object.fromEntries(Object.entries(lastResult).filter(([key])=>key !== '_pdf_receipt')),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a','');
     a.href=url;a.download='myscanner-file-'+text(lastResult.filename || 'report').replace(/[^a-z0-9._-]/gi,'_').slice(0,100)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);feedback('Report export requested.');
+  });
+  $('export-pdf').addEventListener('click',async()=>{
+    if (!lastResult || typeof lastResult._pdf_receipt !== 'string' || $('export-pdf').disabled) return;
+    $('export-pdf').disabled=true; $('export-pdf').textContent='Preparing PDF…';
+    const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),30000);
+    try {
+      const response=await fetch('/api/file-report/pdf',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({receipt:lastResult._pdf_receipt}),signal:controller.signal});
+      if(!response.ok || !response.headers.get('Content-Type')?.includes('application/pdf')) {
+        feedback(response.status===400?'PDF export expired or unavailable. Start a new file scan.':'PDF export unavailable. Check your session and try again.');return;
+      }
+      const url=URL.createObjectURL(await response.blob()),a=node('a','');
+      a.href=url;a.download='myscanner-file-report.pdf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      feedback('PDF download requested.');
+    } catch (_) {feedback('PDF export could not finish. Check your connection and try again.');}
+    finally {clearTimeout(timeout);$('export-pdf').textContent='Download PDF';$('export-pdf').disabled=!lastResult || typeof lastResult._pdf_receipt!=='string';}
   });
   $('copy-report').addEventListener('click',()=>{if(!lastResult)return;const d=lastResult,s=scorePresentation(d);copy(['MyScanner · File evidence report','File: '+text(d.filename),'Verdict: '+text(d.verdict),'Coverage: '+(s.incomplete?'Limited':'Configured checks returned'),'Local heuristic index: '+(s.available?s.value+'/100':'Not assigned'),'MalwareBazaar: '+text(provider(d).status || 'Not verified'),'SHA256: '+text(object(d.hashes).sha256 || 'Not reported'),'Scope: Static inspection only; no execution or guarantee of safety.','Missing checks: '+list(d.missing_checks).join('; ')].join('\n'),'Report summary copied.');});
   let printState=[];

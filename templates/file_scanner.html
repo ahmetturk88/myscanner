@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}File Scanner · MyScanner{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='file_workspace.css', v='20261010-1') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='file_workspace.css', v='20261010-2') }}">
 {% endblock %}
 {% block content %}
 <div class="fw" id="file-workspace">
@@ -56,7 +56,7 @@
   </section>
 
   <section id="result-card" class="fw-report" aria-labelledby="report-title" hidden>
-    <div class="fw-report-toolbar"><span class="fw-eyebrow">02 / YOUR EVIDENCE REPORT</span><div><button class="fw-button fw-button-quiet" id="export-json" type="button">Export JSON</button><button class="fw-button fw-button-quiet" id="copy-report" type="button">Copy summary</button><button class="fw-button fw-button-quiet" id="print-report" type="button">Print</button><button class="fw-button fw-button-light" id="new-scan" type="button">New scan ↗</button></div></div>
+    <div class="fw-report-toolbar"><span class="fw-eyebrow">02 / YOUR EVIDENCE REPORT</span><div><button class="fw-button fw-button-primary" id="export-pdf" type="button" disabled>Download PDF</button><button class="fw-button fw-button-quiet" id="export-json" type="button">Export JSON</button><button class="fw-button fw-button-quiet" id="copy-report" type="button">Copy summary</button><button class="fw-button fw-button-quiet" id="print-report" type="button">Print</button><button class="fw-button fw-button-light" id="new-scan" type="button">New scan ↗</button></div></div>
     <div class="fw-assessment" id="verdict-banner"><div><span class="fw-eyebrow">ASSESSMENT</span><h2 id="report-title" tabindex="-1"></h2><p id="verdict-description"></p><div class="fw-assessment-tags"><span id="coverage-badge"></span><span>Static inspection · No execution</span></div></div><div class="fw-score"><span id="score-caption">LOCAL HEURISTIC INDEX</span><div><strong id="score-num">—</strong><span id="score-unit" hidden>/100</span></div><div class="fw-score-track"><span id="score-fill"></span></div><p id="score-note"></p></div></div>
     <div class="fw-report-identity" id="report-identity"></div>
     <div class="fw-stat-grid" id="stats-grid"></div>
@@ -70,5 +70,5 @@
   <section class="fw-method" id="file-method"><span class="fw-eyebrow">KNOW THE DIFFERENCE</span><h2>Evidence first. Confidence with context.</h2><div><article><span>01</span><h3>Inspect, never assume.</h3><p>A filename can hide its contents. Review reported structure and metadata alongside the extension.</p></article><article><span>02</span><h3>A match has a scope.</h3><p>A reputation lookup checks a specific fingerprint against a dataset. No match is not a clean bill of health.</p></article><article><span>03</span><h3>Missing stays missing.</h3><p>Unavailable sources remain visible. This scanner does not run your file in a sandbox.</p></article></div></section>
   <div class="fw-feedback" id="file-feedback" role="status" aria-live="polite"></div>
 </div>
-<script src="{{ url_for('static', filename='file_workspace.js', v='20261010-1') }}" defer></script>
+<script src="{{ url_for('static', filename='file_workspace.js', v='20261010-2') }}" defer></script>
 {% endblock %}

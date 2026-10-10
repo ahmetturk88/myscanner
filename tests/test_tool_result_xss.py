@@ -20,7 +20,7 @@ class TemplateTests(unittest.TestCase):
                 rendered=env.get_template(page).render()
                 soup=BeautifulSoup(rendered,'html.parser')
                 self.assertIsNotNone(soup.find('script',src='/static/scan_ui.js'))
-                renderer = '/static/domain_workspace.js' if page == 'domain_lookup.html' else 'function render'
+                renderer = {'domain_lookup.html':'/static/domain_workspace.js','ip_check.html':'/static/ip_workspace.js'}.get(page, 'function render')
                 self.assertLess(rendered.index('/static/scan_ui.js'),rendered.index(renderer))
                 self.assertIsNotNone(soup.select_one('#result-card'))
 
@@ -70,4 +70,5 @@ class ExecutionTests(unittest.TestCase):
         # coordinate bounds and zero handling, grade/color allowlists and score bounds.
 
 if __name__=='__main__':unittest.main()
+
 

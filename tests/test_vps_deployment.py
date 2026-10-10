@@ -42,7 +42,9 @@ class DeploymentTests(unittest.TestCase):
     def test_runtime_never_mounts_schema_or_administrator_credentials(self):
         for name in ('web','worker','beat','seed'):
             service=self.config['services'][name]
-            self.assertEqual(set(service['secrets']),{'db_app_password','redis_password','session_key'})
+            expected={'db_app_password','redis_password','session_key'}
+            if name=='web':expected.add('abuseipdb_api_key')
+            self.assertEqual(set(service['secrets']),expected)
             self.assertTrue(service['read_only']);self.assertIn('ALL',service['cap_drop'])
         self.assertEqual(self.config['services']['migrate']['secrets'],['db_migration_password'])
     def test_only_proxy_publishes_ports_and_data_is_private(self):
@@ -86,3 +88,4 @@ class DeploymentTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):runtime.configure('web')
             read.assert_not_called()
 if __name__=='__main__':unittest.main()
+

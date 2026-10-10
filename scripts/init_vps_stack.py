@@ -18,10 +18,12 @@ def initialize(root=ROOT):
         # Compose file secrets bind-mount host files without UID remapping.
         # World-readable inode within a private host directory permits non-root containers.
         os.chmod(path,0o444)
-    optional=directory/'urlhaus_auth_key'
-    if not optional.exists():
-        with optional.open('x',encoding='utf-8') as output:output.write('')
-    os.chmod(optional,0o444)
+    for name in ('urlhaus_auth_key', 'abuseipdb_api_key'):
+        optional=directory/name
+        if optional.is_symlink():raise RuntimeError('Optional secret path must not be a symbolic link.')
+        if not optional.exists():
+            with optional.open('x',encoding='utf-8') as output:output.write('')
+        os.chmod(optional,0o444)
     config=directory/'redis_config'
     expected='appendonly yes\nappendfsync everysec\nmaxmemory 256mb\nmaxmemory-policy noeviction\nrequirepass '+(directory/'redis_password').read_text().strip()+'\n'
     if config.exists() and config.read_text()!=expected:raise RuntimeError('Existing Redis configuration does not match secrets.')
@@ -43,3 +45,4 @@ def initialize(root=ROOT):
 if __name__=='__main__':
     try:initialize()
     except Exception:raise SystemExit('VPS rehearsal preparation failed; no secrets printed.')
+

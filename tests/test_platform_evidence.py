@@ -17,16 +17,16 @@ def response(data,code=200):
 
 class EvidenceTests(unittest.TestCase):
     def test_ip_metadata_is_not_safety_and_missing_key_is_unknown(self):
-        analyzer=IPAnalyzer();analyzer.session=Mock();analyzer.session.get.return_value=response({'status':'success','query':'8.8.8.8','proxy':False,'hosting':False})
+        analyzer=IPAnalyzer();analyzer.session=Mock();analyzer.session.get.return_value=response({'success':True,'ip':'8.8.8.8'})
         result=analyzer.analyze_ip('8.8.8.8')
         self.assertEqual(result['verdict'],'unknown');self.assertIsNone(result['blacklist_count']);self.assertEqual(result['reputation_status'],'not_configured');analyzer.session.close.assert_called_once()
     def test_ip_reputation_failure_and_malformed_data_are_not_clean(self):
         for payload in ({},{'data':{}},{'data':{'ipAddress':'8.8.8.8','abuseConfidenceScore':False,'totalReports':0}},{'data':{'ipAddress':'1.1.1.1','abuseConfidenceScore':0,'totalReports':0}}):
-            analyzer=IPAnalyzer();analyzer.session=Mock();analyzer.session.get.side_effect=[response({'status':'success','query':'8.8.8.8'}),response(payload)]
+            analyzer=IPAnalyzer();analyzer.session=Mock();analyzer.session.get.side_effect=[response({'success':True,'ip':'8.8.8.8'}),response(payload)]
             result=analyzer.analyze_ip('8.8.8.8','key');self.assertEqual(result['verdict'],'unknown');self.assertEqual(result['reputation_status'],'unavailable')
     def test_ip_valid_negative_is_dataset_only_and_positive_is_preserved(self):
-        for score,verdict in [(0,'not_found'),(75,'blacklisted')]:
-            analyzer=IPAnalyzer();analyzer.session=Mock();analyzer.session.get.side_effect=[response({},503),response({'data':{'ipAddress':'8.8.8.8','abuseConfidenceScore':score,'totalReports':5}})]
+        for score,verdict in [(0,'not_found'),(75,'reported')]:
+            analyzer=IPAnalyzer();analyzer.session=Mock();analyzer.session.get.side_effect=[response({},503),response({'data':{'ipAddress':'8.8.8.8','abuseConfidenceScore':score,'totalReports':5 if score else 0}})]
             result=analyzer.analyze_ip('8.8.8.8','key');self.assertEqual(result['verdict'],verdict);self.assertEqual(result['coverage_status'],'partial')
     def test_ip_inputs_cannot_change_provider_request_path(self):
         for value in ('127.0.0.1','169.254.169.254','8.8.8.8/../../admin','::ffff:127.0.0.1'):
@@ -79,4 +79,5 @@ class EvidenceTests(unittest.TestCase):
         self.assertNotEqual(result['verdict'],'safe');self.assertEqual(result['coverage_status'],'partial');self.assertIn('Hash reputation unavailable',result['missing_checks'])
 
 if __name__=='__main__':unittest.main()
+
 

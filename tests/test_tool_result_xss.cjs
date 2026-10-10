@@ -18,21 +18,17 @@ function setup(filename){
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
  const template=fs.readFileSync(path.join(root,'templates',filename),'utf8');
  for(const match of template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())vm.runInContext(match[1],ctx);
+ if(filename==='ip_check.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/ip_workspace.js'),'utf8'),ctx);ctx.renderResult=ctx.window.renderResult;}
  if(filename==='domain_lookup.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/domain_workspace.js'),'utf8'),ctx);ctx.renderResult=ctx.window.renderResult;}
  return {ctx,elements,node};
 }
 const sections=[];
 function collect(page,label){for(const [id,node] of Object.entries(page.elements))if(node.innerHTML)sections.push({name:label+' '+id,html:node.innerHTML});assert.equal(page.ctx.pwned,undefined);}
 const ip=setup('ip_check.html');
-ip.ctx.renderResult({verdict:'__proto__',country_code:payload,ip:payload,country:payload,city:payload,region:payload,timezone:payload,isp:payload,org:payload,blacklist_count:payload,lat:payload,lon:payload});
-ip.ctx.renderBlacklist({blacklist_count:1,blacklist_results:[{name:payload,listed:true},null]});ip.ctx.renderMap({lat:payload,lon:payload});
-assert.equal(ip.elements['map-frame'].src,'');assert.equal(ip.elements['map-card'].style.display,'none');assert.equal(ip.elements['verdict-banner'].className,'verdict-banner banner-unknown');collect(ip,'IP');
-ip.ctx.renderResult({country_code:'DE'});assert(ip.elements['stats-grid'].innerHTML.includes('https://flagcdn.com/24x18/de.png'));
-for(const [lat,lon] of [[0,0],['0','0'],[90,180],[-90,-180]]){
- ip.ctx.renderMap({lat,lon});const url=new URL(ip.elements['map-frame'].src);assert.equal(url.hostname,'www.openstreetmap.org');assert.equal(url.searchParams.get('marker'),Number(lat)+','+Number(lon));
-}
-for(const value of [payload,'NaN','Infinity',null,{},true,[],91])assert.equal(ip.ctx.ScanUI.mapURL(value,0),'');
-for(const value of [payload,'en/../../x','123','USA','US\n',{},null])assert.equal(ip.ctx.ScanUI.countryFlag(value),'');
+ip.ctx.renderResult({ip:payload,country:payload,city:payload,region:payload,timezone:payload,isp:payload,org:payload,coverage:{metadata:'unavailable'},reputation:{status:'matched',scope:payload,score:75,reports:3},findings:[{title:payload,detail:payload}],summary:[payload],lat:payload,lon:payload});
+assert.equal(ip.elements['ip-map'].hidden,true);collect(ip,'IP');
+for(const [lat,lon] of [[0,0],[90,180],[-90,-180]])assert.equal(new URL(ip.ctx.window.IPWorkspace.mapURL({lat,lon})).hostname,'www.openstreetmap.org');
+for(const value of [payload,'NaN','Infinity',null,{},true,[],91])assert.equal(ip.ctx.window.IPWorkspace.mapURL({lat:value,lon:0}),'');
 const email=setup('email_check.html');
 email.ctx.renderMain({verdict:'constructor',quality_score:payload,deliverability:payload,blacklisted:true,blacklist_count:payload,email:payload,domain:payload,address_risk:payload,registrar:payload,domain_age:payload,spf_record:payload,dmarc_record:payload,quality_breakdown:{},smtp_details:{mx_servers:[{preference:payload,server:payload}],message:payload}});
 assert.equal(email.elements['q-bar'].style.width,'0%');
@@ -71,4 +67,5 @@ vm.runInContext('lastResult = {final:{},variety:{},entropy:{},pwned:{status:"una
 password.ctx.copyReport();assert(copied.includes('Lookup unavailable'));assert(copied.includes('unknown'));assert(!copied.includes('Clean'));
 password.ctx.renderResult({});
 console.log(JSON.stringify({payload,sections}));
+
 

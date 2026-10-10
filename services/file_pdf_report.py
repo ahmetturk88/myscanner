@@ -14,14 +14,14 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, CondPageBreak
 
-NAVY=colors.HexColor('#08111f')
-CARD=colors.HexColor('#102135')
-LINE=colors.HexColor('#294058')
-CYAN=colors.HexColor('#84dfec')
-WHITE=colors.HexColor('#edf5ff')
-MUTED=colors.HexColor('#b0c1d6')
-AMBER=colors.HexColor('#f4c77c')
-RED=colors.HexColor('#ff929e')
+NAVY=colors.HexColor('#07070f')
+CARD=colors.HexColor('#13132a')
+LINE=colors.HexColor('#2a2a48')
+CYAN=colors.HexColor('#00c8ff')
+WHITE=colors.HexColor('#e6e8f5')
+MUTED=colors.HexColor('#8b90b8')
+AMBER=colors.HexColor('#ffd32a')
+RED=colors.HexColor('#ff4560')
 WIDTH=A4[0]-84
 # Embed the fonts bundled with ReportLab so layout is consistent on Windows/VPS.
 FONT_DIR=Path(reportlab.__file__).parent/'fonts'
@@ -113,5 +113,74 @@ def generate_file_report(report):
         canvas.setFont('MSFile',8);canvas.setFillColor(MUTED);canvas.drawRightString(A4[0]-42,A4[1]-30,'FILE EVIDENCE / STATIC INSPECTION')
         canvas.drawString(42,24,'Generated '+datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))
         canvas.drawRightString(A4[0]-42,24,'PAGE '+str(document.page));canvas.restoreState()
-    doc.build(story,onFirstPage=page,onLaterPages=page)
+    def cover(canvas,document):
+        c=canvas; c.saveState()
+        w,h=A4; cx=w/2
+        def blend(a,b,t):
+            return colors.Color(a.red*t+b.red*(1-t),a.green*t+b.green*(1-t),a.blue*t+b.blue*(1-t))
+        def text(value,y,size=10,color=MUTED,bold=False):
+            c.setFillColor(color);c.setFont('MSFileBold' if bold else 'MSFile',size)
+            c.drawCentredString(cx,y,value)
+        def fit(value,size,width):
+            value=safe(value,240).replace('&amp;','&').replace('&lt;','<').replace('&gt;','>')
+            while pdfmetrics.stringWidth(value,'MSFile',size)>width:
+                value=value[:-4]+'...' if len(value)>4 else ''
+            return value
+        c.setFillColor(NAVY);c.rect(0,0,w,h,fill=1,stroke=0)
+        for i in range(80):
+            c.setFillColor(blend(CYAN,NAVY,.13*(1-i/79)))
+            c.rect(0,h-(i+1)*4,w,4.5,fill=1,stroke=0)
+        c.setStrokeColor(blend(CYAN,NAVY,.045));c.setLineWidth(.3)
+        for x in range(0,int(w),28):c.line(x,0,x,h-320)
+        for y in range(0,int(h-320),28):c.line(0,y,w,y)
+        c.setFillColor(CYAN);c.rect(0,h-5,w,5,fill=1,stroke=0);c.rect(0,0,w,4,fill=1,stroke=0)
+        # Vector shield: a crisp brand mark with no external image dependency.
+        cy=h-108
+        path=c.beginPath();path.moveTo(cx,cy+42);path.lineTo(cx+35,cy+29);path.lineTo(cx+35,cy)
+        path.curveTo(cx+35,cy-26,cx+14,cy-39,cx,cy-45)
+        path.curveTo(cx-14,cy-39,cx-35,cy-26,cx-35,cy)
+        path.lineTo(cx-35,cy+29);path.close()
+        c.setFillColor(NAVY);c.setStrokeColor(CYAN);c.setLineWidth(3);c.drawPath(path,fill=1,stroke=1)
+        c.setLineWidth(5);c.setLineCap(1)
+        c.line(cx-14,cy,cx-4,cy-11);c.line(cx-4,cy-11,cx+17,cy+15)
+        font='MSFileBold';size=37
+        first=pdfmetrics.stringWidth('My',font,size);total=pdfmetrics.stringWidth('MyScanner',font,size)
+        c.setFont(font,size);c.setFillColor(WHITE);c.drawString(cx-total/2,h-186,'My')
+        c.setFillColor(CYAN);c.drawString(cx-total/2+first,h-186,'Scanner')
+        text('ADVANCED CYBERSECURITY PLATFORM',h-208,8)
+        c.setStrokeColor(CYAN);c.setLineWidth(2);c.line(cx-40,h-225,cx+40,h-225)
+        text('FILE THREAT & EVIDENCE',h-260,20,WHITE,True)
+        text('ANALYSIS REPORT',h-285,20,WHITE,True)
+        tint=RED if malicious else AMBER if partial or risk else CYAN
+        gy=423;r=78
+        for i in range(9):
+            c.setFillColor(blend(tint,NAVY,.012*(i+1)));c.circle(cx,gy,138-i*7,fill=1,stroke=0)
+        text('Static inspection with source-aware evidence',h-306,10)
+        c.setFillColor(colors.HexColor('#0e0e1a'));c.circle(cx,gy,r-6,fill=1,stroke=0)
+        c.setStrokeColor(LINE);c.setLineWidth(12);c.circle(cx,gy,r,fill=0,stroke=1)
+        if available and score>0:
+            sweep=min(359.9,score*3.6);c.setStrokeColor(tint);c.arc(cx-r,gy-r,cx+r,gy+r,90-sweep,sweep)
+        text('LOCAL HEURISTIC',gy+33,8,MUTED,True)
+        text(str(int(score)) if available else 'N/A',gy-17,46,tint,True)
+        text('OUT OF 100' if available else 'NOT ASSIGNED',gy-38,8)
+        label='KNOWN THREAT' if malicious else 'REVIEW REQUIRED' if risk else 'UNVERIFIED' if partial else 'NO INDICATORS'
+        pw=pdfmetrics.stringWidth(label,font,12)+62;py=gy-r-61
+        c.setFillColor(blend(tint,NAVY,.12));c.setStrokeColor(tint);c.setLineWidth(1)
+        c.roundRect(cx-pw/2,py,pw,35,17,fill=1,stroke=1)
+        text(label,py+12,12,tint,True)
+        bx=52;bw=w-104
+        c.setFillColor(CARD);c.setStrokeColor(LINE);c.roundRect(bx,195,bw,70,10,fill=1,stroke=1)
+        c.setFillColor(CYAN);c.roundRect(bx,208,3,44,1,fill=1,stroke=0)
+        c.setFont(font,8);c.drawString(bx+18,242,'ANALYZED FILE')
+        c.setFillColor(WHITE);c.setFont('MSFile',11);c.drawString(bx+18,217,fit(report.get('filename'),11,bw-36))
+        meta_cards=[('EVIDENCE', 'Limited' if partial else 'Checks returned'),('HASH REPUTATION', 'Matched' if malicious else 'No match' if mb.get('status')=='not_found' else 'Not verified'),('INSPECTION','Static / unexecuted')]
+        gap=10;mw=(bw-2*gap)/3
+        for i,(label,value) in enumerate(meta_cards):
+            x=bx+i*(mw+gap);c.setFillColor(CARD);c.setStrokeColor(LINE);c.roundRect(x,110,mw,60,8,fill=1,stroke=1)
+            c.setFillColor(MUTED);c.setFont(font,7);c.drawString(x+12,151,label)
+            c.setFillColor(WHITE);c.setFont('MSFile',9);c.drawString(x+12,130,value)
+        text('A heuristic index is not a guarantee of safety.',78,8)
+        text('CONFIDENTIAL  /  MYSCANNER FILE INTELLIGENCE',55,7)
+        c.restoreState()
+    doc.build([Spacer(1,1),PageBreak()]+story,onFirstPage=cover,onLaterPages=page)
     buffer.seek(0);return buffer

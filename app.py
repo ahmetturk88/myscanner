@@ -1360,33 +1360,20 @@ def ip_check():
 @login_required
 @check_permission('ip_check')
 def api_check_ip():
-    app.logger.info(f'[INFO] IP check requested by {current_user.username}')
-    
-    data = request.get_json()
-    ip = data.get('ip', '').strip()
-    
-    if not ip:
-        app.logger.warning(f'[WARNING] No IP provided by {current_user.username}')
-        return jsonify({"error": "No IP provided"}), 400
-    
-    app.logger.info(f'[INFO] Analyzing IP: {ip} | User: {current_user.username}')
-    
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('ip'), str):
+        return jsonify({'error': 'A public IPv4 or IPv6 address is required'}), 400
     try:
-        analyzer = IPAnalyzer()
-        result = analyzer.analyze_ip(ip, ABUSEIPDB_API_KEY)
-        
-        if "error" in result:
-            app.logger.warning(f'[WARNING] IP analysis error for {ip}: {result["error"]}')
-            return jsonify({"error": result["error"]}), 400
-        
-        app.logger.info(f'[SUCCESS] IP analysis completed for {ip} | Verdict: {result.get("verdict")}')
-        log_activity(current_user.username, 'ip_check', f'Checked IP: {ip} | Verdict: {result.get("verdict")}')
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        app.logger.error(f'[ERROR] IP check failed for {ip}: {str(e)}')
-        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+        result = IPAnalyzer().analyze_ip(data['ip'], ABUSEIPDB_API_KEY)
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 400
+        log_activity(current_user.username, 'ip_check', 'IP evidence lookup completed')
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except Exception:
+        app.logger.error('IP evidence lookup failed')
+        return jsonify({'error': 'IP lookup is temporarily unavailable'}), 503
 
 
 # ================================================================
@@ -1845,5 +1832,6 @@ def api_url_analyze():
 # ================================================================
 if __name__ == '__main__':
     app.run(debug=app.config["DEBUG"])
+
 
 

@@ -33,7 +33,7 @@ class FilePDFTests(unittest.TestCase):
     @unittest.skipUnless(PdfReader, "pypdf is required for PDF text checks")
     def test_partial_score_not_presented_as_100(self):
         reader=PdfReader(generate_file_report(REPORT));text='\n'.join(page.extract_text() for page in reader.pages)
-        self.assertIn('Evidence needs verification',text);self.assertIn('Not assigned',text);self.assertNotIn('100 / 100',text)
+        self.assertIn('Evidence needs verification',text);self.assertIn('75%',text);self.assertNotIn('100 / 100',text)
         self.assertIn('a'*64,text.replace('\n',''))
         self.assertGreaterEqual(len(reader.pages),2)
     @unittest.skipUnless(PdfReader, "pypdf is required for PDF text checks")

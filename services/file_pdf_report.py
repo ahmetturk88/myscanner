@@ -1,5 +1,6 @@
 """MyScanner A4 file evidence report. No remote resources or active PDF links."""
 from io import BytesIO
+from services.file_assessment import assess_file
 from datetime import datetime, timezone
 import json
 import math
@@ -59,14 +60,15 @@ def generate_file_report(report):
     partial=report.get('coverage_status')!='completed' or bool(report.get('missing_checks')) or mb.get('status') not in ('matched','not_found')
     risk=report.get('verdict') in ('suspicious','high_risk')
     title='Known threat reported' if malicious else 'Indicators need review' if risk else 'Evidence needs verification' if partial else 'No indicators reported'
-    score=report.get('security_score')
-    available=type(score) in (int,float) and math.isfinite(score) and 0<=score<=100 and not partial and report.get('verdict') in ('malicious','high_risk','suspicious','safe','not_found')
+    assessment=assess_file(report)
+    score=assessment['score']
+    available=True
     status='Matched malicious hash' if mb.get('status')=='matched' and mb.get('is_malicious') is True else 'No dataset match' if mb.get('status')=='not_found' else 'Not verified'
     story=[p('MYSCANNER / FILE INTELLIGENCE','label'),p('File evidence\nreport'.replace('\n',' '),'title'),p('Static inspection. Source-aware findings. A clear record of what was actually reported.'),Spacer(1,20)]
     verdict=Paragraph(safe(title),ParagraphStyle('verdict',parent=styles['heading'],textColor=RED if malicious else AMBER if partial or risk else CYAN))
     story.append(verdict)
     story.append(p('Keep the file unexecuted and review the confirmed evidence.' if malicious else 'Review this report in context. Neither a high index nor a dataset negative establishes that a file is safe to open.'))
-    story.append(table([('File',report.get('filename')),('Reported at',report.get('scanned_at') or report.get('analyzed_at')),('Size (bytes)',report.get('file_size_bytes',report.get('file_size'))),('Verdict',report.get('verdict')),('Coverage','Limited evidence' if partial else 'Configured checks returned'),('Local heuristic index',str(score)+' / 100' if available else 'Not assigned - evidence is incomplete or unavailable')]))
+    story.append(table([('File',report.get('filename')),('Reported at',report.get('scanned_at') or report.get('analyzed_at')),('Size (bytes)',report.get('file_size_bytes',report.get('file_size'))),('Verdict',report.get('verdict')),('Coverage','Limited evidence' if partial else 'Configured checks returned'),('Evidence index',str(score)+'%'),('Coverage deductions',str(assessment['coverage_penalty'])+' points'),('Score meaning',assessment['warning'])]))
     story+=heading('01','Source evidence')
     meta=report.get('metadata') if isinstance(report.get('metadata'),dict) else {}
     patterns=report.get('yara') if isinstance(report.get('yara'),dict) else {}
@@ -75,7 +77,7 @@ def generate_file_report(report):
     story+=heading('02','Coverage and next steps')
     story+=items(report.get('missing_checks'),'No missing checks were reported by the configured sources.')
     story+=items(report.get('recommendations'),'Review the source status before deciding how to handle this file.')
-    story+=[PageBreak()]+heading('03','File identity and fingerprints')
+    story+=heading('03','File identity and fingerprints')
     ft=report.get('file_type') if isinstance(report.get('file_type'),dict) else {}
     story.append(table([('Extension',ft.get('extension')),('Observed format',ft.get('actual_type')),('MIME observation',ft.get('mime_type')),('Format mismatch',ft.get('is_spoofed')),('Detection scope',ft.get('detection_scope'))]))
     hashes=report.get('hashes') if isinstance(report.get('hashes'),dict) else {}
@@ -154,15 +156,15 @@ def generate_file_report(report):
         tint=RED if malicious else AMBER if partial or risk else CYAN
         gy=423;r=78
         for i in range(9):
-            c.setFillColor(blend(tint,NAVY,.012*(i+1)));c.circle(cx,gy,138-i*7,fill=1,stroke=0)
+            c.setFillColor(blend(tint,NAVY,.006*(i+1)));c.circle(cx,gy,103-i*3,fill=1,stroke=0)
         text('Static inspection with source-aware evidence',h-306,10)
         c.setFillColor(colors.HexColor('#0e0e1a'));c.circle(cx,gy,r-6,fill=1,stroke=0)
         c.setStrokeColor(LINE);c.setLineWidth(12);c.circle(cx,gy,r,fill=0,stroke=1)
         if available and score>0:
             sweep=min(359.9,score*3.6);c.setStrokeColor(tint);c.arc(cx-r,gy-r,cx+r,gy+r,90-sweep,sweep)
-        text('LOCAL HEURISTIC',gy+33,8,MUTED,True)
-        text(str(int(score)) if available else 'N/A',gy-17,46,tint,True)
-        text('OUT OF 100' if available else 'NOT ASSIGNED',gy-38,8)
+        text('EVIDENCE INDEX',gy+33,8,MUTED,True)
+        text(str(int(score))+'%',gy-17,40,tint,True)
+        text('EVIDENCE + COVERAGE',gy-38,8)
         label='KNOWN THREAT' if malicious else 'REVIEW REQUIRED' if risk else 'UNVERIFIED' if partial else 'NO INDICATORS'
         pw=pdfmetrics.stringWidth(label,font,12)+62;py=gy-r-61
         c.setFillColor(blend(tint,NAVY,.12));c.setStrokeColor(tint);c.setLineWidth(1)
@@ -179,7 +181,7 @@ def generate_file_report(report):
             x=bx+i*(mw+gap);c.setFillColor(CARD);c.setStrokeColor(LINE);c.roundRect(x,110,mw,60,8,fill=1,stroke=1)
             c.setFillColor(MUTED);c.setFont(font,7);c.drawString(x+12,151,label)
             c.setFillColor(WHITE);c.setFont('MSFile',9);c.drawString(x+12,130,value)
-        text('A heuristic index is not a guarantee of safety.',78,8)
+        text('An evidence index is not a probability of safety.',78,8)
         text('CONFIDENTIAL  /  MYSCANNER FILE INTELLIGENCE',55,7)
         c.restoreState()
     doc.build([Spacer(1,1),PageBreak()]+story,onFirstPage=cover,onLaterPages=page)

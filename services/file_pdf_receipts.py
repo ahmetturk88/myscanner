@@ -3,7 +3,7 @@ from itsdangerous import URLSafeTimedSerializer, BadData
 
 MAX_TOKEN = 200000
 EXPORT_AGE = 3600
-FIELDS = ('filename','file_size','file_size_bytes','file_type','hashes','metadata','iocs','yara','malwarebazaar','hash_reputation','warnings','recommendations','missing_checks','coverage_status','security_score','verdict','scanned_at','analyzed_at','scope')
+FIELDS = ('assessment','filename','file_size','file_size_bytes','file_type','hashes','metadata','iocs','yara','malwarebazaar','hash_reputation','warnings','recommendations','missing_checks','coverage_status','security_score','verdict','scanned_at','analyzed_at','scope')
 
 
 def compact(value, budget, depth=0):

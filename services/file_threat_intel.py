@@ -248,7 +248,7 @@ class FileThreatIntel:
         # ─────────────────────────────────────────────────────────────
         # النتيجة النهائية
         # ─────────────────────────────────────────────────────────────
-        return {
+        report = {
             **{key:local_result[key] for key in ('file_size_mb','file_type','hashes','metadata','exiftool_data','iocs','yara','hash_reputation','warnings','benign_reasons','is_likely_benign') if key in local_result},
             'malwarebazaar': mb_result,
             # معلومات أساسية
@@ -281,6 +281,10 @@ class FileThreatIntel:
             'scan_sources': self._get_active_sources(),
             'scanned_at': datetime.now(timezone.utc).isoformat()
         }
+
+        from services.file_assessment import assess_file
+        report['assessment'] = assess_file(report)
+        return report
 
     # ================================================================
     # دوال مساعدة

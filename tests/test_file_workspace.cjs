@@ -1,11 +1,11 @@
 const assert=require('node:assert/strict');const {workspace}=require('./file_workspace_harness.cjs');
 async function main(){
  const w=workspace(),{ctx,nodes,get}=w,api=ctx.testAPI;
- const partial={verdict:'unknown',security_score:100,coverage_status:'partial',malwarebazaar:{status:'unavailable'},metadata:{language:'Python'},hashes:{sha256:'a'.repeat(64)},yara:{matched_rules:[]},iocs:{urls:[],ipv4:[]}};
- api.render(partial);assert.equal(get('score-num').textContent,'—');assert.equal(get('score-fill').style.width,'0%');assert(get('provider-summary').textContent.includes('Not verified'));assert(!get('provider-summary').textContent.includes('Clean'));
- api.render({...partial,verdict:'safe',coverage_status:'completed',malwarebazaar:{status:'not_found'}});assert.equal(get('score-num').textContent,'100');assert(get('score-caption').textContent.includes('LOCAL'));assert(get('provider-summary').textContent.includes('not a safety verdict'));
+ const partial={verdict:'unknown',assessment:{score:75},security_score:100,coverage_status:'partial',malwarebazaar:{status:'unavailable'},metadata:{language:'Python'},hashes:{sha256:'a'.repeat(64)},yara:{matched_rules:[]},iocs:{urls:[],ipv4:[]}};
+ api.render(partial);assert.equal(get('score-num').textContent,'75%');assert.equal(get('score-fill').style.width,'75%');assert(get('provider-summary').textContent.includes('Not verified'));assert(!get('provider-summary').textContent.includes('Clean'));
+ api.render({...partial,verdict:'safe',assessment:{score:100},coverage_status:'completed',malwarebazaar:{status:'not_found'}});assert.equal(get('score-num').textContent,'100%');assert(get('score-caption').textContent.includes('EVIDENCE'));assert(get('provider-summary').textContent.includes('not a safety verdict'));
  api.render({...partial,malwarebazaar:{status:'matched',is_malicious:true,signature:'Threat'}});assert.equal(get('report-title').textContent,'Known threat reported');assert.equal(get('verdict-banner').dataset.tone,'danger');
- for(const score of [null,'100',NaN,101,-1]){assert.equal(api.scorePresentation({...partial,verdict:'safe',coverage_status:'completed',malwarebazaar:{status:'not_found'},security_score:score}).available,false);}
+ for(const score of [null,'100',NaN,101,-1]){assert.equal(api.scorePresentation({...partial,verdict:'safe',coverage_status:'completed',malwarebazaar:{status:'not_found'},assessment:{score}}).available,false);}
  const payload='<img src=x onerror="globalThis.pwned=1"><svg onload=alert(1)>';
  api.render({...partial,filename:payload,metadata:{title:payload,nested:{value:payload}},warnings:[payload],recommendations:[payload],iocs:{urls:[payload]},hashes:{sha256:payload}});
  assert(get('report-identity').textContent.includes(payload));assert(!get('deep-analysis-container').innerHTML.includes('<img'));assert.equal(ctx.pwned,undefined);

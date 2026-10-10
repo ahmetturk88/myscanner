@@ -20,7 +20,8 @@ class TemplateTests(unittest.TestCase):
                 rendered=env.get_template(page).render()
                 soup=BeautifulSoup(rendered,'html.parser')
                 self.assertIsNotNone(soup.find('script',src='/static/scan_ui.js'))
-                self.assertLess(rendered.index('/static/scan_ui.js'),rendered.index('function render'))
+                renderer = '/static/domain_workspace.js' if page == 'domain_lookup.html' else 'function render'
+                self.assertLess(rendered.index('/static/scan_ui.js'),rendered.index(renderer))
                 self.assertIsNotNone(soup.select_one('#result-card'))
 
     def test_email_suggestions_bind_literal_data_without_inline_handler(self):
@@ -69,3 +70,4 @@ class ExecutionTests(unittest.TestCase):
         # coordinate bounds and zero handling, grade/color allowlists and score bounds.
 
 if __name__=='__main__':unittest.main()
+

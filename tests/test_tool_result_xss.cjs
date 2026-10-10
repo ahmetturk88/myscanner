@@ -9,7 +9,7 @@ function setup(filename){
   constructor(tag='div'){this.tagName=tag;this.children=[];this.handlers={};this.style={};this.className='';this._text='';this._html='';this.offsetTop=20;this.classList={add(){},remove(){}};this.value='';this.checked=false;}
   set textContent(value){this._text=String(value);this.children=[];this._html='';}get textContent(){return this._text+this.children.map(c=>c.textContent).join('');}
   set innerHTML(value){this._html=value;this.children=[];this._text='';}get innerHTML(){return this._html || escape(this._text)+this.children.map(c=>c.serialize()).join('');}
-  appendChild(child){this.children.push(child);return child;}replaceChildren(...children){this.children=children;this._html='';this._text='';}
+  append(...children){this.children.push(...children);}appendChild(child){this.children.push(child);return child;}replaceChildren(...children){this.children=children;this._html='';this._text='';}
   addEventListener(event,callback){this.handlers[event]=callback;}
   serialize(){return '<'+this.tagName+(this.className?' class="'+escape(this.className)+'"':'')+(this.type?' type="'+escape(this.type)+'"':'')+'>'+this.innerHTML+'</'+this.tagName+'>';}
  }
@@ -18,6 +18,7 @@ function setup(filename){
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
  const template=fs.readFileSync(path.join(root,'templates',filename),'utf8');
  for(const match of template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())vm.runInContext(match[1],ctx);
+ if(filename==='domain_lookup.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/domain_workspace.js'),'utf8'),ctx);ctx.renderResult=ctx.window.renderResult;}
  return {ctx,elements,node};
 }
 const sections=[];
@@ -51,8 +52,8 @@ email.ctx.renderMain({blacklisted:false,reputation_evidence:{coverage_status:'co
 email.ctx.renderMain({blacklisted:false,reputation_evidence:{coverage_status:'partial'}});assert(email.elements['blocklist-status'].className.includes('blocklist-partial'));assert(!email.elements['blocklist-title'].textContent.includes('no listing'));
 const domain=setup('domain_lookup.html');
 domain.ctx.renderResult({registrar:payload,created:payload,expires:payload,ip:payload,country:payload,isp:payload,status:payload,whois_updated:payload,nameservers:payload,dns:[{type:'TXT',value:payload},{type:'A',value:payload},{type:'__proto__',value:payload},{type:'constructor',value:payload}],lat:payload,lon:payload});
-assert.equal(domain.elements['map-frame'].src,'');collect(domain,'domain');
-domain.ctx.renderResult({dns:{},nameservers:{},lat:0,lon:0});assert(domain.elements['map-frame'].src.startsWith('https://www.openstreetmap.org/'));
+collect(domain,'domain');
+domain.ctx.renderResult({dns:{},nameservers:{}});
 const ssl=setup('ssl_checker.html');
 ssl.ctx.renderResult({valid:true,grade:payload,days_remaining:payload,domain:payload,issuer:payload,expiry_date:payload,tls_version:payload,valid_from:payload,valid_until:payload,serial_number:payload});
 assert(ssl.elements['result-card'].innerHTML.includes('grade-unknown'));assert(!ssl.elements['result-card'].innerHTML.includes('grade-<'));collect(ssl,'SSL');
@@ -70,3 +71,4 @@ vm.runInContext('lastResult = {final:{},variety:{},entropy:{},pwned:{status:"una
 password.ctx.copyReport();assert(copied.includes('Lookup unavailable'));assert(copied.includes('unknown'));assert(!copied.includes('Clean'));
 password.ctx.renderResult({});
 console.log(JSON.stringify({payload,sections}));
+

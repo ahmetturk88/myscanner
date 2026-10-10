@@ -11,3 +11,5 @@ All source traffic uses the existing public-address-pinned HTTP session, a 30-se
 References: https://www.iana.org/assignments/rdap-dns/ and https://developers.google.com/speed/public-dns/docs/doh/json
 
 Validation: `python -m unittest discover -s tests -p test_domain_workspace.py -v` and `node tests/test_domain_workspace.cjs`. Live registry access and browser/Docker visual acceptance still require rehearsal testing.
+
+DNS transport failures include safe reason codes and at most one retry within the original deadline. Policy denials are never retried. Multiple exact-domain SPF TXT policies produce a red configuration warning (RFC 7208 section 4.5); TXT chunks are combined within each record and alias-domain policies are excluded. This does not evaluate sender authorization.

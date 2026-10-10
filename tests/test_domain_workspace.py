@@ -23,4 +23,19 @@ class DomainWorkspaceTests(unittest.TestCase):
         response.close.assert_called_once()
     def test_unicode_normalization(self):
         self.assertEqual(DomainAnalyzer.normalize('bücher.de'),'xn--bcher-kva.de')
+    def test_multiple_spf_and_chunks(self):
+        evidence={'TXT':{'status':'completed','records':[{'type':'TXT','name':'example.com.','value':'"v=spf1 " "include:a.example ~all"'},{'type':'TXT','name':'example.com.','value':'v=spf1 include:b.example ~all'},{'type':'TXT','name':'other.com.','value':'v=spf1 -all'}]}}
+        r=DomainAnalyzer.spf_observation('example.com',evidence)
+        self.assertEqual(r['status'],'multiple_records');self.assertEqual(len(r['records']),2)
+    def test_transient_retry_once(self):
+        from requests.exceptions import Timeout
+        a=self.analyzer();a._json=Mock(side_effect=[Timeout(),{'Status':0}]);self.assertEqual(a._dns_json('example.com','A'),{'Status':0});self.assertEqual(a._json.call_count,2)
+    def test_policy_denial_never_retried(self):
+        from services.safe_http import UnsafeTargetError
+        a=self.analyzer();a._json=Mock(side_effect=UnsafeTargetError('private'))
+        with self.assertRaises(UnsafeTargetError):a._dns_json('example.com','A')
+        self.assertEqual(a._json.call_count,1)
+    def test_dns_failure_reason_redacts_exception(self):
+        from services.safe_http import TargetResolutionError
+        a=self.analyzer();a._json=Mock(side_effect=TargetResolutionError('private-secret'));a._get_dns_records('example.com');self.assertEqual(a.dns_evidence['A']['reason'],'resolver_connection_dns_failed');self.assertNotIn('private-secret',str(a.dns_evidence))
 if __name__=='__main__':unittest.main()

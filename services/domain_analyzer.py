@@ -4,7 +4,8 @@ import re
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
-from services.safe_http import PublicHTTPSession, normalize_url
+from services.safe_http import PublicHTTPSession, normalize_url, TargetResolutionError, UnsafeTargetError
+from requests.exceptions import Timeout, ConnectionError, HTTPError
 
 KINDS = {1: 'A', 28: 'AAAA', 15: 'MX', 2: 'NS', 16: 'TXT', 5: 'CNAME', 6: 'SOA'}
 
@@ -56,7 +57,7 @@ class DomainAnalyzer:
         self.dns_evidence = {}
         for kind in KINDS.values():
             try:
-                data = self._json('https://dns.google/resolve', {'name': domain, 'type': kind})
+                data = self._dns_json(domain, kind)
                 if type(data.get('Status')) is not int or data['Status'] not in (0, 3):
                     raise ValueError()
                 answers = data.get('Answer', [])
@@ -72,9 +73,49 @@ class DomainAnalyzer:
                         records.append(rr)
                 status = 'not_found' if data['Status'] == 3 else ('completed' if parsed else 'no_record')
                 self.dns_evidence[kind] = {'status': status, 'records': parsed, 'dnssec_validated': data.get('AD') is True, 'limited': len(answers) > 30}
-            except Exception:
-                self.dns_evidence[kind] = {'status': 'unavailable', 'records': []}
+            except Exception as error:
+                self.dns_evidence[kind] = {'status': 'unavailable', 'records': [], 'reason': self._failure_reason(error)}
         return records, 'assessed' if all(v['status'] != 'unavailable' for v in self.dns_evidence.values()) else 'unavailable'
+
+    @staticmethod
+    def _failure_reason(error):
+        if isinstance(error, TargetResolutionError):
+            return 'resolver_connection_dns_failed'
+        if isinstance(error, UnsafeTargetError):
+            return 'resolver_connection_blocked'
+        if isinstance(error, (Timeout, TimeoutError)):
+            return 'source_timeout'
+        if isinstance(error, HTTPError):
+            return 'source_http_error'
+        if isinstance(error, ConnectionError):
+            return 'source_connection_failed'
+        return 'source_response_invalid'
+
+    def _dns_json(self, domain, kind):
+        # One bounded retry for transient transport failures; never bypass policy.
+        try:
+            return self._json('https://dns.google/resolve', {'name': domain, 'type': kind})
+        except (TargetResolutionError, Timeout, ConnectionError) as error:
+            if isinstance(error, UnsafeTargetError) and not isinstance(error, TargetResolutionError):
+                raise
+            if self.deadline - time.monotonic() < 2:
+                raise
+            return self._json('https://dns.google/resolve', {'name': domain, 'type': kind})
+
+    @staticmethod
+    def spf_observation(domain, evidence):
+        txt = evidence.get('TXT', {})
+        values = []
+        for row in txt.get('records', []):
+            if row.get('type') != 'TXT' or str(row.get('name', '')).lower().rstrip('.') != domain:
+                continue
+            raw = row.get('value', '')
+            # DNS TXT presentation can contain multiple quoted chunks in one RR.
+            chunks = re.findall(r'"((?:[^"\\]|\\.)*)"', raw)
+            value = ''.join(chunks) if raw.startswith('"') and chunks else raw
+            if re.match(r'^v=spf1(?:\s|$)', value, re.I) and value not in values:
+                values.append(value)
+        return {'status': 'multiple_records' if len(values) > 1 else ('published' if values else ('unavailable' if txt.get('status') == 'unavailable' else 'not_found')), 'records': values, 'scope': 'Exact-domain TXT record count only; no sender-IP or full SPF policy evaluation.'}
 
     def _get_whois_info(self, domain):
         try:
@@ -123,6 +164,10 @@ class DomainAnalyzer:
             result = {'schema_version': 2, 'domain': domain, 'registrar': None, 'created': None, 'expires': None, 'ip': None, 'country': None, 'isp': None, 'nameservers': [], 'verdict': 'unknown', 'scope': 'DNS and registration metadata only. No website, malware, mailbox or ownership verification.'}
             result['dns'], dns_status = self._get_dns_records(domain)
             result['dns_evidence'] = self.dns_evidence
+            result['spf_observation'] = self.spf_observation(domain, self.dns_evidence)
+            result['findings'] = []
+            if result['spf_observation']['status'] == 'multiple_records':
+                result['findings'].append({'severity': 'warning', 'code': 'multiple_spf', 'title': 'Multiple SPF records published', 'detail': 'More than one SPF TXT record was observed for this domain. SPF record selection returns PermError; consolidate authorized senders into one policy after reviewing your mail configuration.'})
             result.update(self._get_whois_info(domain))
             registration_status = result.pop('_whois_status')
             result['coverage'] = {'dns': dns_status, 'whois': registration_status}

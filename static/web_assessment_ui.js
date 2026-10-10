@@ -31,7 +31,7 @@
     const titles = {clean:'No threat indicators observed', suspicious:'Indicators need your attention', malicious:'Threat indicators reported', unknown:'Assessment is inconclusive'};
     const verdict = Object.hasOwn(titles, data.verdict) ? data.verdict : 'unknown';
     const summary = element('section', 'assessment-summary assessment-'+verdict);
-    summary.appendChild(element('span', 'coverage-badge', data.assessment_status === 'completed' ? 'Assessment returned' : 'Limited coverage'));
+    summary.appendChild(element('span', 'coverage-badge', data.assessment_status === 'completed' ? (data.assessment_scope === 'local' ? 'Local checks completed' : 'Selected checks completed') : 'Limited coverage'));
     summary.appendChild(element('h2', '', titles[verdict])); summary.appendChild(element('p', '', data.summary || 'Available checks cannot confirm safety.'));
     root.appendChild(summary);
     const stats = data.stats || {};
@@ -128,3 +128,4 @@
   }
   global.WebAssessmentUI=Object.freeze({render,renderDiscovery,csvCell});
 })(window);
+

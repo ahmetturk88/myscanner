@@ -101,7 +101,7 @@ class FileThreatIntel:
             logger.error(f"❌ Local analysis failed: {e}")
             return {
                 'error': 'Local file evidence unavailable',
-                'security_score': 50,  # قيمة افتراضية محايدة
+                'security_score': None,
                 'verdict': 'unknown'
             }
 
@@ -144,14 +144,18 @@ class FileThreatIntel:
         """
         دمج نتائج المصادر في نتيجة موحدة
         """
+        matched = mb_result.get('status') == 'matched' and mb_result.get('is_malicious') is True
+        negative = mb_result.get('status') == 'not_found' and mb_result.get('is_malicious') is False
         # ─────────────────────────────────────────────────────────────
         # security_score (0-100)
         # ─────────────────────────────────────────────────────────────
         # نبدأ من الدرجة المحلية
-        security_score = local_result.get('security_score', 50)
+        security_score = local_result.get('security_score')
+        score_known = type(security_score) in (int, float) and 0 <= security_score <= 100
+        security_score = security_score if score_known else None
         
         # إذا كان الملف خبيثاً في MalwareBazaar، نخفض الدرجة بشكل كبير
-        if mb_result.get('is_malicious'):
+        if matched:
             security_score = 0
         elif mb_result.get('error'):
             # إذا فشل MalwareBazaar، لا نغير الدرجة
@@ -160,9 +164,12 @@ class FileThreatIntel:
         # ─────────────────────────────────────────────────────────────
         # verdict النهائي
         # ─────────────────────────────────────────────────────────────
-        if mb_result.get('is_malicious'):
+        if matched:
             verdict = 'malicious'
             verdict_icon = '🚨'
+        elif not score_known:
+            verdict = 'unknown'
+            verdict_icon = '⚠️'
         elif security_score >= 80:
             verdict = 'safe'
             verdict_icon = '✅'
@@ -177,11 +184,11 @@ class FileThreatIntel:
             verdict_icon = '🚨'
         
         missing_checks=list(local_result.get('missing_checks',[]))
-        if local_result.get('error'):missing_checks.append('Local file analysis unavailable')
-        if mb_result.get('status') not in ('matched','not_found'):missing_checks.append('MalwareBazaar reputation unavailable')
-        if not mb_result.get('is_malicious') and local_result.get('verdict') in ('malicious','high_risk','suspicious'):
+        if local_result.get('error') or not score_known:missing_checks.append('Local file analysis unavailable')
+        if not (matched or negative):missing_checks.append('MalwareBazaar reputation unavailable')
+        if not matched and local_result.get('verdict') in ('malicious','high_risk','suspicious'):
             verdict=local_result['verdict']
-        elif not mb_result.get('is_malicious') and (local_result.get('error') or verdict=='safe'):
+        elif not matched and (local_result.get('error') or verdict=='safe'):
             verdict='unknown' if missing_checks else 'not_found'
             verdict_icon='⚠️' if missing_checks else 'ℹ️'
         # ─────────────────────────────────────────────────────────────
@@ -190,7 +197,7 @@ class FileThreatIntel:
         threats = []
         
         # من MalwareBazaar
-        if mb_result.get('is_malicious'):
+        if matched:
             threats.append({
                 'source': 'malwarebazaar',
                 'signature': mb_result.get('signature'),
@@ -210,7 +217,7 @@ class FileThreatIntel:
         # ─────────────────────────────────────────────────────────────
         recommendations = []
         
-        if mb_result.get('is_malicious'):
+        if matched:
             recommendations.append(
                 f"🚨 CRITICAL: File is a known malware "
                 f"({mb_result.get('signature', 'Unknown family')}). "

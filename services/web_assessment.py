@@ -150,7 +150,13 @@ class WebAssessment:
                         content = {'status': 'completed', 'title': soup.title.get_text(' ', strip=True)[:200] if soup.title else '', 'forms': forms,
                                    'script_count': len(soup.find_all('script')), 'iframe_count': len(soup.find_all('iframe')),
                                    'sample_limited': len(response.content) > 1024*1024,
-                                   'note': 'Static HTML only. Scripts, downloads and forms are never executed or submitted.'}
+                                   'note': 'Static HTML only. Scripts, downloads and forms are never executed or submitted.',
+                                   'description': str((soup.find('meta', attrs={'name':re.compile('^description$', re.I)}) or {}).get('content',''))[:500],
+                                   'headings': [h.get_text(' ', strip=True)[:200] for h in soup.find_all(['h1','h2'],limit=10)],
+                                   'image_count': len(soup.find_all('img')), 'images_missing_alt': len([img for img in soup.find_all('img') if not img.get('alt')]),
+                                   'stylesheet_count': len(soup.find_all('link',rel='stylesheet')),
+                                   'viewport': str((soup.find('meta',attrs={'name':re.compile('^viewport$',re.I)}) or {}).get('content',''))[:200]}
+
                     else:
                         content = {'status': 'not_applicable', 'reason': 'No successful HTML page was returned'}
                     response.close()
@@ -207,4 +213,5 @@ class WebAssessment:
                 'assessment_scope':'local_and_provider' if include_provider else 'local',
                 'checks':checks, 'findings':findings, 'stats':{'checks_completed':completed_checks, 'checks_total':len(selected_checks), 'checks_not_requested':sum(c['status']=='not_requested' for c in checks), 'warning_count':len(warnings), 'redirect_count':max(0,len(http['chain'])-1)},
                 'limitations':['Read-only HTTP, DNS and TLS observations; no exploit attempts.', 'No browser execution, malware detonation or exhaustive threat-engine coverage.', 'A valid certificate and a responsive host do not prove that a page is trustworthy.']}
+
 

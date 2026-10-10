@@ -113,7 +113,8 @@ def oversized_request(error):
     return jsonify({'error': 'Upload request too large.'}), 413
 
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
-ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY')
+from services.provider_credentials import abuseipdb_key
+ABUSEIPDB_API_KEY = abuseipdb_key()
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 # File Scanner Settings
 UPLOAD_FOLDER = 'temp_uploads'

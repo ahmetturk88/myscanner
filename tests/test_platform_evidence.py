@@ -49,11 +49,11 @@ class EvidenceTests(unittest.TestCase):
                     result=SSLAnalyzer().analyze_certificate('example.com');self.assertEqual(result['status'],expected);self.assertIs(result['valid'],False if expected=='invalid' else None)
     def test_malwarebazaar_failures_never_become_negative_matches(self):
         for data,code in [({},200),({'query_status':'ok','data':[]},200),({'query_status':'ok','data':[{'sha256_hash':'b'*64}]},200),({'query_status':'hash_not_found'},503),({'query_status':'hash_not_found'},302)]:
-            client=MalwareBazaarClient();client.session=Mock();client.session.post.return_value=response(data,code)
+            client=MalwareBazaarClient(auth_key='test-private-key-value');client.session=Mock();client.session.post.return_value=response(data,code)
             result=client.check_hash(HASH);self.assertEqual(result['status'],'unavailable');self.assertIsNone(result['is_malicious'])
     def test_malwarebazaar_valid_results_are_specific_to_hash(self):
         for data,state in [({'query_status':'hash_not_found'},'not_found'),({'query_status':'ok','data':[{'sha256_hash':HASH,'signature':'test'}]},'matched')]:
-            client=MalwareBazaarClient();client.session=Mock();client.session.post.return_value=response(data)
+            client=MalwareBazaarClient(auth_key='test-private-key-value');client.session=Mock();client.session.post.return_value=response(data)
             self.assertEqual(client.check_hash(HASH)['status'],state);self.assertFalse(client.session.post.call_args.kwargs['allow_redirects'])
     def test_file_merge_preserves_threat_and_does_not_infer_safety(self):
         scanner=FileThreatIntel.__new__(FileThreatIntel);scanner.mb_client=None

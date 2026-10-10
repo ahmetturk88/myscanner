@@ -4,6 +4,7 @@ services:
     environment:
       URLVET_URL: http://urlvet:8080
       URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
+      MALWAREBAZAAR_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
     secrets: [urlhaus_auth_key]
     networks:
       urlvet-api: {}
@@ -11,6 +12,7 @@ services:
     environment:
       URLVET_URL: http://urlvet:8080
       URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
+      MALWAREBAZAAR_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
     secrets: [urlhaus_auth_key]
     networks:
       urlvet-api: {}

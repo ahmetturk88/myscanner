@@ -333,6 +333,8 @@ app.register_blueprint(vuln_bp)
 
 from services.runtime_health import health_bp
 app.register_blueprint(health_bp)
+from routes.file_pdf import file_pdf_bp
+app.register_blueprint(file_pdf_bp)
 
 # ================================================================
 # Auth Routes
@@ -804,6 +806,13 @@ def api_scan_file():
             f'Scanned file: {filename} | Verdict: {result["verdict"]}'
         )
         
+        # Bind PDF export to this server-generated result and its owner.
+        from services.file_pdf_receipts import issue_file_pdf_receipt
+        try:
+            result['_pdf_receipt'] = issue_file_pdf_receipt(result, current_user.get_id(), app.config['SECRET_KEY'])
+        except (ValueError, TypeError):
+            result['_pdf_receipt'] = None
+            app.logger.error('File PDF receipt unavailable')
         return jsonify(result)
         
     except Exception as e:

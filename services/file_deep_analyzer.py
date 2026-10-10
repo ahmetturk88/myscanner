@@ -9,6 +9,7 @@ import json
 import tempfile
 import subprocess
 import zipfile
+from services.file_structure import container_type, zip_observations
 import struct
 from datetime import datetime
 from pathlib import Path
@@ -245,99 +246,13 @@ class FileDeepAnalyzer:
     # ================================================================
     
     def _is_likely_benign(self, file_content: bytes, filename: str) -> Tuple[bool, List[str]]:
-        """
-        تحديد إذا كان الملف غالباً عادي وليس خبيثاً
-        
-        Returns:
-            (is_benign, reasons): bool وقائمة الأسباب
-        """
-        reasons = []
-        content_str = file_content.decode('latin-1', errors='ignore').lower()
-        name_lower = filename.lower()
-        file_size = len(file_content)
-        
-        # 1. ملفات CV/Resume صغيرة
-        if file_size < 1024 * 1024:  # أقل من 1MB
-            cv_keywords = ['cv', 'resume', 'curriculum', 'vitae', 'bio', 'cover letter']
-            if any(kw in name_lower for kw in cv_keywords):
-                reasons.append("CV/Resume document - likely legitimate")
-                return True, reasons
-        
-        # 2. ملفات Office عادية بدون ماكرو
-        office_extensions = ['.docx', '.xlsx', '.pptx', '.doc', '.xls', '.ppt']
-        if any(filename.lower().endswith(ext) for ext in office_extensions):
-            # التحقق من وجود ماكرو
-            if b'VBA' not in file_content and b'Macro' not in file_content:
-                reasons.append("Office document without macros - likely safe")
-                return True, reasons
-        
-        # 3. PDF عادي بدون JavaScript وأكواد خطيرة
-        if filename.lower().endswith('.pdf'):
-            has_javascript = b'/JS' in file_content or b'/JavaScript' in file_content
-            has_launch = b'/Launch' in file_content
-            has_embedded = b'/EmbeddedFile' in file_content
-            
-            if not has_javascript and not has_launch and not has_embedded:
-                reasons.append("PDF without JavaScript/Launch/Embedded files - likely safe")
-                return True, reasons
-        
-        # 4. ملفات نصية صغيرة (readme, license, etc)
-        text_extensions = ['.txt', '.md', '.rst', '.cfg', '.conf', '.ini']
-        if any(filename.lower().endswith(ext) for ext in text_extensions) and file_size < 100 * 1024:
-            reasons.append("Small text configuration file - likely safe")
-            return True, reasons
-        
-        # 5. ملفات تحتوي على روابط لمواقع آمنة فقط
-        safe_domain_patterns = [domain.replace('.', r'\.') for domain in self.SAFE_DOMAINS]
-        safe_pattern = re.compile('|'.join(safe_domain_patterns), re.IGNORECASE)
-        urls_found = re.findall(self.IOC_PATTERNS['url'], content_str, re.IGNORECASE)
-        
-        if urls_found:
-            all_safe = all(any(safe in url.lower() for safe in self.SAFE_DOMAINS) for url in urls_found)
-            if all_safe and len(urls_found) <= 5:
-                reasons.append(f"Contains only safe domains ({len(urls_found)} links)")
-                return True, reasons
-        
-        return False, reasons
-    
+        # Names, extensions and familiar domains do not establish benign intent.
+        return False, []
+
     def _is_false_positive(self, rule_name: str, matched_pattern: bytes, file_content: bytes, filename: str) -> bool:
-        """تحديد إذا كان الكشف خاطئاً"""
-        content_str = file_content.decode('latin-1', errors='ignore').lower()
-        pattern_str = matched_pattern.decode('latin-1', errors='ignore').lower()
-        
-        # استثناءات لقاعدة PDF_URI_Action
-        if rule_name == "PDF_URI_Action":
-            for domain in self.SAFE_DOMAINS:
-                if domain in content_str:
-                    return True
-        
-        # استثناءات لقاعدة Office_DDE
-        if rule_name == "Office_DDE":
-            for word in self.SAFE_CONTEXT_WORDS:
-                if word in content_str:
-                    return True
-            # DDE في سياق أكاديمي أو تعليمي
-            academic_context = ['dde protocol', 'dynamic data exchange', 'microsoft dde', 'what is dde']
-            if any(ctx in content_str for ctx in academic_context):
-                return True
-        
-        # استثناءات لقاعدة Suspicious_URLs
-        if rule_name == "Suspicious_URLs":
-            if 'bitcoin' in pattern_str:
-                # إذا كان ذكر bitcoin في سياق إخباري أو تعليمي
-                news_context = ['bitcoin price', 'cryptocurrency market', 'blockchain technology', 'what is bitcoin']
-                if any(ctx in content_str for ctx in news_context):
-                    return True
-        
-        # استثناءات لقاعدة PDF_JavaScript
-        if rule_name == "PDF_JavaScript":
-            # بعض PDFs الشرعية تحتوي على JS بسيط للتنقل بين الصفحات
-            if b'this.pageNum' in file_content and b'app.alert' not in file_content:
-                if b'gotoNamedDest' in file_content or b'getPageNthWord' in file_content:
-                    return True
-        
+        # Preserve observations; context elsewhere must not suppress a byte match.
         return False
-    
+
     # ================================================================
     # 1. حساب التجزئات (Hashes) - متقدم
     # ================================================================
@@ -490,6 +405,20 @@ class FileDeepAnalyzer:
                 result["mime_type"] = "application/x-elf"
                 result["description"] = "Linux ELF executable"
         
+        # Inspect the central directory, not just the first ZIP bytes.
+        container = container_type(file_content)
+        if container:
+            result['actual_type'] = container
+            result['mime_type'] = {'zip':'application/zip', 'docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation'}[container]
+            result['description'] = 'Container directory observation: ' + container
+        elif result['actual_type'] == 'unknown' and file_content and b'\x00' not in file_content:
+            try:
+                file_content.decode('utf-8-sig')
+                result.update(actual_type='txt', mime_type='text/plain', description='UTF-8 text; language is inferred separately from the filename')
+            except UnicodeDecodeError:
+                pass
+        result['detection_scope'] = 'Magic bytes, container directory or UTF-8 text; not execution or authenticity verification.'
+
         # تحديد أنواع الملفات
         result["is_executable"] = result["actual_type"] in ['exe', 'dll', 'scr', 'msi', 'bin', 'elf']
         result["is_archive"] = result["actual_type"] in ['zip', 'rar', '7z', 'gz', 'tar']
@@ -505,7 +434,7 @@ class FileDeepAnalyzer:
             'docx': ['docx', 'doc'], 'xls': ['xls', 'xlsx'], 'xlsx': ['xlsx', 'xls'],
             'ppt': ['ppt', 'pptx'], 'pptx': ['pptx', 'ppt'], 'zip': ['zip', 'jar', 'apk'],
             'rar': ['rar'], 'jpg': ['jpg', 'jpeg'], 'jpeg': ['jpg', 'jpeg'],
-            'png': ['png'], 'txt': ['txt'], 'html': ['html', 'htm'], 'js': ['js'],
+            'png': ['png'], 'txt': ['txt','py','js','ps1','sh','bat','vbs','rb','pl'], 'html': ['html', 'htm'], 'js': ['js'],
             'py': ['py'], 'ps1': ['ps1'], 'sh': ['sh'], 'bat': ['bat']
         }
         for ext_type, extensions in ext_to_type.items():
@@ -692,88 +621,20 @@ class FileDeepAnalyzer:
         pages = re.findall(r'/Type\s*/Page', content_str)
         result["num_pages"] = len(pages) if pages else 0
         
+        result['coverage_status'] = 'partial'
+        result['scope'] = 'Visible PDF byte tokens only; compressed streams, object graph and encrypted content were not parsed.'
+        result['missing_checks'] = ['PDF compressed streams and object structure were not inspected']
         return result
     
     def extract_metadata_office(self, file_content: bytes, filename: str) -> Dict[str, Any]:
-        """تحليل ملفات Office (بما في ذلك pptx, xlsx, docx)"""
-        result = {
-            "is_office": True,
-            "type": "unknown",
-            "has_macros": False,
-            "has_ole": False,
-            "metadata": {},
-            "suspicious": []
-        }
-        
-        # تحديد نوع الملف
-        if filename.endswith(('.docx', '.xlsx', '.pptx')):
-            result["type"] = "openxml"
-        elif filename.endswith(('.doc', '.xls', '.ppt')):
-            result["type"] = "ole"
-        else:
-            result["type"] = "unknown"
-        
-        if result["type"] == "openxml":
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=filename) as tmp:
-                    tmp.write(file_content)
-                    tmp_path = tmp.name
-                
-                with zipfile.ZipFile(tmp_path, 'r') as zf:
-                    # البحث عن الماكرو
-                    for name in zf.namelist():
-                        name_lower = name.lower()
-                        if 'vba' in name_lower or 'macro' in name_lower or 'bin' in name_lower:
-                            if name.endswith(('.bin', '.vba', '.vbs')):
-                                result["has_macros"] = True
-                                result["suspicious"].append(f"VBA macros detected in: {name}")
-                                break
-                    
-                    # استخراج البيانات الوصفية
-                    if 'docProps/core.xml' in zf.namelist():
-                        core_xml = zf.read('docProps/core.xml')
-                        try:
-                            import xml.etree.ElementTree as ET
-                            root = ET.fromstring(core_xml)
-                            for elem in root:
-                                tag = elem.tag.split('}')[-1]
-                                if elem.text:
-                                    result["metadata"][tag] = elem.text[:200]
-                        except:
-                            pass
-                    
-                    # تحديد نوع الملف بدقة
-                    if 'word/' in zf.namelist():
-                        result["subtype"] = "Word Document"
-                    elif 'xl/' in zf.namelist():
-                        result["subtype"] = "Excel Spreadsheet"
-                    elif 'ppt/' in zf.namelist() or 'slides' in zf.namelist():
-                        result["subtype"] = "PowerPoint Presentation"
-                
-                os.unlink(tmp_path)
-            except Exception as e:
-                result["metadata_error"] = str(e)
-        
-        elif result["type"] == "ole":
-            # الملفات القديمة
-            if b'\xd0\xcf\x11\xe0' in file_content[:100]:
-                result["has_ole"] = True
-                # البحث عن الماكرو
-                if b'VBA' in file_content or b'Macro' in file_content or b'ThisDocument' in file_content:
-                    result["has_macros"] = True
-                    result["suspicious"].append("Macros in legacy Office file")
-                
-                # تحديد النوع من البايتات
-                content_str = file_content[:500].decode('latin-1', errors='ignore')
-                if 'Word' in content_str:
-                    result["subtype"] = "Word Document (legacy)"
-                elif 'Excel' in content_str or 'Workbook' in content_str:
-                    result["subtype"] = "Excel Spreadsheet (legacy)"
-                elif 'PowerPoint' in content_str or 'PPT' in content_str:
-                    result["subtype"] = "PowerPoint Presentation (legacy)"
-        
-        return result
-    
+        if container_type(file_content) in ('docx', 'xlsx', 'pptx'):
+            return zip_observations(file_content, office=True)
+        # Legacy OLE bytes cannot prove absence of compressed VBA streams.
+        return {'is_office': True, 'type': 'ole', 'has_macros': None,
+                'suspicious': [], 'coverage_status': 'partial',
+                'error': 'Legacy OLE macro and object inspection is not implemented',
+                'scope': 'Legacy container signature only; macro absence was not established.'}
+
     def extract_metadata_script(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """تحليل الملفات النصية"""
         content_str = file_content.decode('utf-8', errors='ignore')
@@ -838,76 +699,11 @@ class FileDeepAnalyzer:
         return result
     
     def extract_metadata_archive(self, file_content: bytes, filename: str) -> Dict[str, Any]:
-        """تحليل الملفات المضغوطة (ZIP, RAR, 7z)"""
-        result = {
-            "is_archive": True,
-            "type": "unknown",
-            "num_files": 0,
-            "total_size": 0,
-            "contains_executable": False,
-            "contains_script": False,
-            "contains_office": False,
-            "has_path_traversal": False,
-            "files": [],
-            "suspicious": []
-        }
-        
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=filename) as tmp:
-                tmp.write(file_content)
-                tmp_path = tmp.name
-            
-            # محاولة فتح كـ ZIP
-            if zipfile.is_zipfile(tmp_path):
-                result["type"] = "zip"
-                with zipfile.ZipFile(tmp_path, 'r') as zf:
-                    result["num_files"] = len(zf.namelist())
-                    for file_info in zf.infolist():
-                        result["total_size"] += file_info.file_size
-                        result["files"].append({
-                            "name": file_info.filename,
-                            "size": file_info.file_size,
-                            "compressed": file_info.compress_size
-                        })
-                        
-                        if file_info.filename.endswith(('.exe', '.dll', '.scr', '.msi')):
-                            result["contains_executable"] = True
-                            result["suspicious"].append(f"Executable: {file_info.filename}")
-                        
-                        if file_info.filename.endswith(('.py', '.js', '.ps1', '.vbs', '.sh', '.bat')):
-                            result["contains_script"] = True
-                        
-                        if file_info.filename.endswith(('.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf')):
-                            result["contains_office"] = True
-                        
-                        if '..' in file_info.filename or file_info.filename.startswith('/') or ':\\' in file_info.filename:
-                            result["has_path_traversal"] = True
-                            result["suspicious"].append(f"Path traversal: {file_info.filename}")
-            
-            # محاولة فتح كـ RAR
-            elif RARFILE_AVAILABLE and rarfile.is_rarfile(tmp_path):
-                result["type"] = "rar"
-                with rarfile.RarFile(tmp_path, 'r') as rf:
-                    for file_info in rf.infolist():
-                        result["num_files"] += 1
-                        result["total_size"] += file_info.file_size
-                        result["files"].append({
-                            "name": file_info.filename,
-                            "size": file_info.file_size
-                        })
-                        
-                        if file_info.filename.endswith(('.exe', '.dll', '.scr', '.msi')):
-                            result["contains_executable"] = True
-                        
-                        if '..' in file_info.filename:
-                            result["has_path_traversal"] = True
-            
-            os.unlink(tmp_path)
-        except Exception as e:
-            result["error"] = str(e)
-        
-        return result
-    
+        if container_type(file_content) == 'zip':
+            return zip_observations(file_content)
+        return {'is_archive': True, 'type': 'unknown', 'suspicious': [],
+                'coverage_status': 'partial', 'error': 'This archive format has no configured structural parser'}
+
     def extract_metadata_image(self, file_content: bytes) -> Dict[str, Any]:
         """تحليل الصور واستخراج EXIF و GPS"""
         if not PIL_AVAILABLE:
@@ -1089,7 +885,7 @@ class FileDeepAnalyzer:
                         continue
                     
                     matched_rules.append(rule_name)
-                    logger.warning(f"YARA rule matched: {rule_name} (Risk: {rule_data['risk']})")
+                    logger.warning(f"Local byte pattern observed: {rule_name} (Risk: {rule_data['risk']})")
                     total_risk += rule_data["risk"]
                     details.append({
                         "rule": rule_name,
@@ -1197,6 +993,8 @@ class FileDeepAnalyzer:
         """التحليل الشامل للملف مع جميع الميزات"""
         
         file_size = len(file_content)
+        original_filename = filename
+        filename = filename.lower()
         
         warnings = []
         if file_size == 0:
@@ -1221,19 +1019,21 @@ class FileDeepAnalyzer:
         # 3. البيانات الوصفية حسب نوع الملف
         metadata = {"type": file_type.get("actual_type", "unknown"), "suspicious": []}
         
-        if file_type.get("is_executable") or filename.endswith(('.exe', '.dll', '.sys', '.scr', '.msi')):
+        if file_type.get("is_executable"):
             metadata.update(self.extract_metadata_pe(file_content))
-        elif file_type.get("is_pdf") or filename.endswith('.pdf'):
+        elif file_type.get("is_pdf"):
             metadata.update(self.extract_metadata_pdf(file_content))
-        elif file_type.get("is_office") or filename.endswith(('.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx')):
+        elif file_type.get("is_office"):
             metadata.update(self.extract_metadata_office(file_content, filename))
-        elif file_type.get("is_script") or filename.endswith(('.py', '.js', '.ps1', '.sh', '.bat', '.vbs')):
-            metadata.update(self.extract_metadata_script(file_content, filename))
-        elif file_type.get("is_archive") or filename.endswith(('.zip', '.rar', '.7z', '.tar', '.gz')):
+        elif file_type.get("is_archive"):
             metadata.update(self.extract_metadata_archive(file_content, filename))
-        elif file_type.get("is_image") or filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff')):
+        elif file_type.get("is_script") and file_type.get('actual_type') == 'txt':
+            metadata.update(self.extract_metadata_script(file_content, filename))
+        elif file_type.get("is_image"):
             metadata.update(self.extract_metadata_image(file_content))
-        
+        else:
+            metadata['error'] = 'No structural parser selected for the observed format'
+
         # 4. exiftool metadata (اختياري)
         exiftool_data = self.extract_metadata_via_exiftool(file_content, filename) if self.use_exiftool else {}
         
@@ -1256,6 +1056,13 @@ class FileDeepAnalyzer:
                 penalty = penalty // 2  # تخفيض العقوبة للملفات العادية
             security_score -= penalty
         
+        if metadata.get('has_path_traversal'):
+            security_score -= 25
+        if any('External Office relationship:' in w for w in metadata.get('suspicious', [])):
+            security_score -= 20
+        if file_type.get('is_spoofed'):
+            security_score -= 15
+
         # تأثير السمعة
         if hash_reputation.get("is_malicious"):
             security_score -= 40
@@ -1318,9 +1125,9 @@ class FileDeepAnalyzer:
             verdict_icon = "🔴"
             severity = "high"
         else:
-            verdict = "malicious"
-            verdict_icon = "💀"
-            severity = "critical"
+            verdict = "high_risk"
+            verdict_icon = "🔴"
+            severity = "high"
         
         # تعديل الحكم للملفات العادية
         if is_benign and verdict in ["malicious", "high_risk"]:
@@ -1356,7 +1163,7 @@ class FileDeepAnalyzer:
             recommendations.append("📌 PDF contains JavaScript that can launch external URLs")
         
         if yara_result.get("matched_rules") and not is_benign:
-            recommendations.append(f"📋 YARA rules triggered ({len(yara_result['matched_rules'])}): {', '.join(yara_result['matched_rules'][:4])}")
+            recommendations.append(f"📋 Local byte patterns reported ({len(yara_result['matched_rules'])}): {', '.join(yara_result['matched_rules'][:4])}")
         
         if hash_reputation.get("is_malicious"):
             recommendations.append(f"💀 File hash found in malware database ({', '.join(hash_reputation['sources'])})")
@@ -1368,7 +1175,9 @@ class FileDeepAnalyzer:
             recommendations.append("No indicators detected by the available local checks; this does not establish safety.")
         missing_checks=[]
         if hash_reputation.get('status') not in ('matched','not_found'):missing_checks.append('Hash reputation unavailable')
-        if metadata.get('error'):missing_checks.append('File metadata parser unavailable or failed')
+        if metadata.get('error') or metadata.get('metadata_error'):missing_checks.append('File metadata parser unavailable or failed')
+        missing_checks.extend(metadata.get('missing_checks', []))
+        if file_type.get('actual_type') == 'unknown':missing_checks.append('File format could not be identified')
         if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
         # Byte-pattern heuristics are not a signature engine or a sandbox.
         if hash_reputation.get('is_malicious') is True:
@@ -1378,7 +1187,7 @@ class FileDeepAnalyzer:
             verdict_icon='⚠️' if missing_checks else 'ℹ️'
         logger.info(f"✅ Analysis completed for: {filename} | Score: {security_score} | Verdict: {verdict}")
         return {
-            "filename": filename,
+            "filename": original_filename,
             "coverage_status": "partial" if missing_checks else "completed",
             "missing_checks": missing_checks,
             "scope": "Static metadata, byte patterns and hash reputation; no execution, sandbox or antivirus guarantee.",

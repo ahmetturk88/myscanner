@@ -122,11 +122,12 @@
   function scorePresentation(d) {
     const missing = list(d.missing_checks);
     const incomplete = d.coverage_status !== 'completed' || missing.length > 0 || !['matched','not_found'].includes(provider(d).status);
-    const reportUnknown = !['malicious','high_risk','suspicious','safe','not_found'].includes(d.verdict);
-    const available = finite(d.security_score) && d.security_score >= 0 && d.security_score <= 100 && !incomplete && !reportUnknown;
-    return {available, value:available ? d.security_score : null, incomplete};
+    const assessment = object(d.assessment);
+    const available = finite(assessment.score) && assessment.score >= 0 && assessment.score <= 100;
+    return {available, value:available ? assessment.score : null, incomplete};
   }
   function render(d) {
+    $('export-pdf').disabled = typeof d._pdf_receipt !== 'string';
     const score = scorePresentation(d), mb = provider(d), meta = object(d.metadata), ft = object(d.file_type), patterns = object(d.yara), iocs = object(d.iocs);
     const danger = confirmed(d);
     const review = !danger && ['high_risk','suspicious'].includes(d.verdict);
@@ -135,11 +136,11 @@
     $('report-title').textContent = title;
     $('verdict-description').textContent = danger ? 'The report contains a malicious verdict or a confirmed hash match. Keep this file unexecuted and review the source evidence below.' : review ? 'Static checks reported risk indicators. Review their context before deciding how to handle the file.' : score.incomplete ? 'The available checks returned a report, but some evidence could not be verified. A full safety conclusion is not available.' : 'No indicators were reported by the available checks. This does not establish that the file is safe to open.';
     $('coverage-badge').textContent = score.incomplete ? 'Limited evidence coverage' : 'Configured checks returned';
-    $('score-caption').textContent = score.available ? 'LOCAL HEURISTIC INDEX' : 'OVERALL SAFETY SCORE';
-    $('score-num').textContent = score.available ? String(score.value) : '—';
-    $('score-unit').hidden = !score.available;
+    $('score-caption').textContent = 'EVIDENCE & COVERAGE INDEX';
+    $('score-num').textContent = score.available ? String(score.value) + '%' : '—';
+    $('score-unit').hidden = true;
     $('score-fill').style.width = score.available ? score.value + '%' : '0%';
-    $('score-note').textContent = score.available ? 'Backend static index. Not an overall safety probability or an antivirus result.' : 'Not assigned. Missing evidence is not converted into a perfect score.';
+    $('score-note').textContent = score.available ? 'Evidence index: ' + score.value + '/100. Coverage deductions: ' + text(object(d.assessment).coverage_penalty ?? 0) + ' points. Not a probability of safety.' : 'Not assigned. Missing evidence is not converted into a perfect score.';
     const identity = $('report-identity'); identity.replaceChildren(node('strong', '', d.filename || selected?.name || 'Unnamed file'), node('span', '', size(finite(d.file_size_bytes) ? d.file_size_bytes : finite(d.file_size) ? d.file_size : selected?.size)), node('span', '', 'Reported: ' + date(d.scanned_at || d.analyzed_at)));
     const grid = $('stats-grid'); grid.replaceChildren();
     const stats = [[Array.isArray(patterns.matched_rules) ? patterns.matched_rules.length : '—','Local byte patterns'],[Array.isArray(iocs.urls) ? iocs.urls.length : '—','Embedded URLs'],[Array.isArray(iocs.ipv4) ? iocs.ipv4.length : '—','Embedded IPv4 addresses'],[meta.error ? 'Unavailable' : meta.language || (ft.actual_type && ft.actual_type !== 'unknown' ? ft.actual_type : 'Not reported'),'Format / language observation']];
@@ -192,10 +193,25 @@
   $('collapse-all').addEventListener('click',()=>root.querySelectorAll('.fw-detail').forEach(d=>{d.open=false;}));
   root.querySelectorAll('.fw-report-nav a').forEach(a=>a.addEventListener('click',()=>{const target=document.getElementById(a.hash.slice(1));if(target)target.open=true;}));
   $('export-json').addEventListener('click',()=>{
-    if(!lastResult)return;const blob=new Blob([JSON.stringify(lastResult,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a','');
+    if(!lastResult)return;const blob=new Blob([JSON.stringify(Object.fromEntries(Object.entries(lastResult).filter(([key])=>key !== '_pdf_receipt')),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a','');
     a.href=url;a.download='myscanner-file-'+text(lastResult.filename || 'report').replace(/[^a-z0-9._-]/gi,'_').slice(0,100)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);feedback('Report export requested.');
   });
-  $('copy-report').addEventListener('click',()=>{if(!lastResult)return;const d=lastResult,s=scorePresentation(d);copy(['MyScanner · File evidence report','File: '+text(d.filename),'Verdict: '+text(d.verdict),'Coverage: '+(s.incomplete?'Limited':'Configured checks returned'),'Local heuristic index: '+(s.available?s.value+'/100':'Not assigned'),'MalwareBazaar: '+text(provider(d).status || 'Not verified'),'SHA256: '+text(object(d.hashes).sha256 || 'Not reported'),'Scope: Static inspection only; no execution or guarantee of safety.','Missing checks: '+list(d.missing_checks).join('; ')].join('\n'),'Report summary copied.');});
+  $('export-pdf').addEventListener('click',async()=>{
+    if (!lastResult || typeof lastResult._pdf_receipt !== 'string' || $('export-pdf').disabled) return;
+    $('export-pdf').disabled=true; $('export-pdf').textContent='Preparing PDF…';
+    const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),30000);
+    try {
+      const response=await fetch('/api/file-report/pdf',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({receipt:lastResult._pdf_receipt}),signal:controller.signal});
+      if(!response.ok || !response.headers.get('Content-Type')?.includes('application/pdf')) {
+        feedback(response.status===400?'PDF export expired or unavailable. Start a new file scan.':'PDF export unavailable. Check your session and try again.');return;
+      }
+      const url=URL.createObjectURL(await response.blob()),a=node('a','');
+      a.href=url;a.download='myscanner-file-report.pdf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      feedback('PDF download requested.');
+    } catch (_) {feedback('PDF export could not finish. Check your connection and try again.');}
+    finally {clearTimeout(timeout);$('export-pdf').textContent='Download PDF';$('export-pdf').disabled=!lastResult || typeof lastResult._pdf_receipt!=='string';}
+  });
+  $('copy-report').addEventListener('click',()=>{if(!lastResult)return;const d=lastResult,s=scorePresentation(d);copy(['MyScanner · File evidence report','File: '+text(d.filename),'Verdict: '+text(d.verdict),'Coverage: '+(s.incomplete?'Limited':'Configured checks returned'),'Evidence index: '+(s.available?s.value+'%':'Not assigned'),'MalwareBazaar: '+text(provider(d).status || 'Not verified'),'SHA256: '+text(object(d.hashes).sha256 || 'Not reported'),'Scope: Static inspection only; no execution or guarantee of safety.','Missing checks: '+list(d.missing_checks).join('; ')].join('\n'),'Report summary copied.');});
   let printState=[];
   function preparePrint(){printState=Array.from(root.querySelectorAll('details.fw-detail, .fw-detail details')).map(el=>[el,el.open,el.hidden]);printState.forEach(([el])=>{el.open=true;el.hidden=false;});}
   function restorePrint(){printState.forEach(([el,open,hidden])=>{el.open=open;el.hidden=hidden;});printState=[];}

@@ -29,7 +29,11 @@ class AssessmentTests(unittest.TestCase):
 
     def test_local_success_is_not_safe_or_fake_engine_count(self):
         r=WebAssessment().analyze('https://example.com')
-        self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['assessment_status'],'partial')
+        self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['assessment_status'],'completed')
+        self.assertEqual(r['assessment_scope'],'local')
+        self.assertEqual(r['stats']['checks_completed'],5)
+        self.assertEqual(r['stats']['checks_total'],5)
+        self.assertEqual(r['stats']['checks_not_requested'],1)
         self.assertEqual(r['provider']['status'],'not_requested');self.assertNotIn('harmless',r['stats'])
         self.assertEqual(r['content']['title'],'Example')
 
@@ -57,6 +61,20 @@ class AssessmentTests(unittest.TestCase):
         with patch.dict(os.environ,{},clear=True):
             r=WebAssessment().analyze('https://example.com',True)
             self.assertEqual(r['provider']['status'],'unavailable')
+            self.assertEqual(r['assessment_status'],'partial')
+            self.assertEqual(r['stats']['checks_total'],6)
+
+    def test_completed_http_inspection_preserves_transport_warning(self):
+        r=WebAssessment().analyze('http://example.com')
+        self.assertEqual(r['assessment_status'],'completed')
+        self.assertEqual(r['verdict'],'suspicious')
+        self.assertTrue(any(f['code']=='unencrypted_entry' for f in r['findings']))
+
+    def test_failed_requested_local_check_remains_partial(self):
+        self.mocks[3].side_effect=requests.ConnectionError()
+        r=WebAssessment().analyze('https://example.com')
+        self.assertEqual(r['assessment_status'],'partial')
+        self.assertLess(r['stats']['checks_completed'],r['stats']['checks_total'])
 
     def test_http_failure_has_no_synthetic_safety_score(self):
         self.mocks[3].side_effect=requests.ConnectionError()
@@ -215,3 +233,4 @@ class ResponseBudgetTests(unittest.TestCase):
         self.assertTrue(raw.closed)
 
 if __name__=='__main__':unittest.main()
+

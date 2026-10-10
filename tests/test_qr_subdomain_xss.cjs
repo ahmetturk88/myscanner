@@ -13,6 +13,7 @@ function setup(name){
   append(...items){for(const item of items)this.appendChild(item);}
   scrollIntoView(){}
   remove(){}
+  removeAttribute(key){delete this.attrs[key];}
   appendChild(c){this.children.push(c);return c;}
   replaceChildren(...children){this.children=children;this._text='';}
   addEventListener(event,callback){this.handlers[event]=callback;}
@@ -25,9 +26,10 @@ function setup(name){
  }
  class TestURL extends URL {static createObjectURL(blob){blobs.push(blob);return 'blob:test';}static revokeObjectURL(){}}
  const node=id=>elements[id] ||= new Element();
- const ctx={window:{scrollTo(){},location:{}},URL:TestURL,Blob,console,setTimeout(){},document:{body:new Element('body'),getElementById:node,createElement:tag=>new Element(tag),addEventListener(){},activeElement:null},navigator:{clipboard:{writeText(value){copied.push(value);return Promise.resolve();}}},localStorage:{setItem(){}},fetch:async(url,options)=>{requests.push({url,body:options.body});return {ok:true,json:async()=>assessment()};}};
+ const ctx={window:{scrollTo(){},location:{}},URL:TestURL,Blob,console,AbortController,setTimeout(){},clearTimeout(){},setInterval(){return 1;},clearInterval(){},document:{body:new Element('body'),getElementById:node,createElement:tag=>new Element(tag),addEventListener(){},activeElement:null},navigator:{clipboard:{writeText(value){copied.push(value);return Promise.resolve();}}},localStorage:{setItem(){}},fetch:async(url,options)=>{requests.push({url,body:options.body});return {ok:true,json:async()=>assessment()};}};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
  vm.runInContext(fs.readFileSync(path.join(root,'static/web_assessment_ui.js'),'utf8'),ctx);ctx.WebAssessmentUI=ctx.window.WebAssessmentUI;
+ if(name==='qr_scanner.html'){for(const file of ['qr_payload.js','qr_workspace.js'])vm.runInContext(fs.readFileSync(path.join(root,'static',file),'utf8'),ctx);ctx.QRPayload=ctx.window.QRPayload;ctx.QRWorkspace=ctx.window.QRWorkspace;}
  if(name==='subdomain_finder.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/subdomain_workspace.js'),'utf8'),ctx);ctx.SubdomainWorkspace=ctx.window.SubdomainWorkspace;}
  const template=fs.readFileSync(path.join(root,'templates',name),'utf8');
  for(const match of template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())vm.runInContext(match[1],ctx);
@@ -38,17 +40,18 @@ function assessment(){return {verdict:payload,assessment_status:'partial',summar
  const qr=setup('qr_scanner.html'); qr.ctx.renderTextResult(payload);
  await qr.elements['action-buttons'].children[0].handlers.click();assert.equal(qr.copied[0],payload);
  const url=`https://good.example/?q='"&x=1`;
- qr.ctx.window.open=(...args)=>qr.opened.push(args);qr.ctx.gotoScanner=value=>qr.scanned.push(value);qr.ctx.rescanURL=value=>qr.scanned.push(value);
  qr.ctx.renderURLResult(url,assessment());let buttons=qr.elements['action-buttons'].children;
- assert.equal(buttons.length,4);await buttons[0].handlers.click();assert.equal(qr.copied[1],url);
- buttons[1].handlers.click();assert.equal(qr.opened[0][0],qr.ctx.ScanUI.webURL(url));assert.equal(qr.opened[0][2],'noopener,noreferrer');
- buttons[2].handlers.click();buttons[3].handlers.click();assert.equal(qr.scanned.length,2);
+ assert.equal(buttons.length,5);await buttons[0].handlers.click();assert.equal(qr.copied[1],url);
+ assert.equal(qr.opened.length,0);assert.equal(qr.requests.length,0);
  const qrStats=qr.elements['assessment-details'].innerHTML;
  for(const unsafe of ['javascript:alert(1)','data:text/html,<script>','https://u:p@good.example','https://good.example/\n']){
-  qr.ctx.renderURLResult(unsafe,assessment());buttons=qr.elements['action-buttons'].children;assert.equal(buttons.length,2);assert.equal(buttons[1].disabled,true);
+  qr.ctx.renderURLResult(unsafe,assessment());buttons=qr.elements['action-buttons'].children;assert.ok(!buttons.some(b=>b.textContent==='Refresh URL evidence'));
  }
  qr.ctx.renderTextResult('A & B < C');await qr.elements['action-buttons'].children[0].handlers.click();assert.equal(qr.copied.at(-1),'A & B < C');
  assert.equal(qr.elements['assessment-details'].children.length,0);
+ qr.ctx.renderTextResult('WIFI:T:WPA;S:Test;P:sensitive-password;;');assert.ok(!qr.elements['decoded-content'].textContent.includes('sensitive-password'));
+ qr.elements['action-buttons'].children.find(b=>b.textContent==='Export JSON').handlers.click();assert.ok(!(await qr.blobs.at(-1).text()).includes('sensitive-password'));
+ qr.elements['action-buttons'].children.find(b=>b.textContent==='Reveal sensitive content').handlers.click();assert.ok(qr.elements['decoded-content'].textContent.includes('sensitive-password'));
  const sub=setup('subdomain_finder.html');
  const row={full_domain:payload,addresses:[payload],sources:[payload],subdomain:payload,public_addresses:true,verdict:'active',http:{status:'completed',status_code:payload,url:payload,location:payload},tls:{status:'completed',issuer:payload},dns:{CNAME:{values:[payload]}}};
  const data={total_found:payload,candidates_selected:payload,dns_error_count:payload,limits:{web_probe_limit:20},sources:[{name:payload,status:payload}],results:[row,{...row,full_domain:'other.example.com',verdict:'dns_only'}],unresolved:[row],all_subdomains:[payload],limitations:[payload]};
@@ -65,4 +68,5 @@ function assessment(){return {verdict:payload,assessment_status:'partial',summar
  exportButtons.find(b=>b.textContent==='Export full JSON').handlers.click();assert.deepEqual(JSON.parse(await sub.blobs.at(-1).text()).results,data.results);
  console.log(JSON.stringify({payload,qrStats,subHTML,modal}));
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
 

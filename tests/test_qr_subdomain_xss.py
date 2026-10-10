@@ -27,9 +27,9 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn('onclick="copyToClipboard(',qr)
         self.assertNotIn('onclick="window.open(',qr)
         self.assertNotIn('onclick="scanSubdomain(',sub)
-        self.assertIn("button.addEventListener('click'",qr)
+        self.assertIn("button.addEventListener('click'",(ROOT/'static/qr_workspace.js').read_text())
         self.assertIn("node.addEventListener('click'",(ROOT/'static/web_assessment_ui.js').read_text(encoding='utf-8'))
-        self.assertIn("'noopener,noreferrer'",qr)
+        self.assertNotIn("window.open",(ROOT/'static/qr_workspace.js').read_text())
 
 @unittest.skipUnless(shutil.which('node'),'Node.js is required for QR/subdomain JavaScript execution tests')
 class ExecutionTests(unittest.TestCase):
@@ -57,3 +57,4 @@ class ExecutionTests(unittest.TestCase):
         soup=BeautifulSoup(self.output['subHTML'],'html.parser')
         self.assertEqual(len(soup.select('button.scan-subdomain')),2)
         self.assertTrue(all(not button.has_attr('onclick') for button in soup.select('button.scan-subdomain')))
+

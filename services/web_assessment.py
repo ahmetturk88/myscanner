@@ -196,12 +196,15 @@ class WebAssessment:
                 provider.update(status='unavailable', reason='External analysis is not configured or the time budget was reached')
         checks = [{'name':'URL structure','status':'completed'}, {'name':'DNS','status':'completed' if all(v['status'] != 'unavailable' for v in dns.values()) else 'partial'},
                   {'name':'HTTP / redirects','status':http['status']}, {'name':'TLS certificate','status':tls['status']}, {'name':'Static page','status':content['status']}, {'name':'url.vet','status':provider['status']}]
-        local_complete = http['status'] == 'completed' and checks[1]['status'] == 'completed' and tls['status'] in ('completed','not_applicable') and content['status'] in ('completed','not_applicable')
-        complete = local_complete and provider['status'] == 'completed'
+        selected_checks = [c for c in checks if c['status'] not in ('not_requested', 'not_applicable')]
+        completed_checks = sum(c['status'] in ('completed', 'invalid') for c in selected_checks)
+        complete = bool(selected_checks) and completed_checks == len(selected_checks)
         warnings = [f for f in findings if f['severity'] == 'warning']
         verdict = 'malicious' if provider.get('verdict') == 'malicious' else 'suspicious' if warnings or provider.get('verdict') == 'suspicious' else 'clean' if complete and provider.get('verdict') == 'harmless' else 'unknown'
         return {'schema_version':2, 'url':url, 'verdict':verdict, 'assessment_status':'completed' if complete else 'partial',
                 'summary': 'Threat indicators reported by the external analyzer.' if verdict == 'malicious' else 'Caution: review the observed indicators before proceeding.' if verdict == 'suspicious' else 'No threat indicators observed in the completed checks. This is not a guarantee of safety.' if verdict == 'clean' else 'The available evidence cannot establish whether this URL is safe.',
                 'analyzed_at':datetime.now(timezone.utc).isoformat(), 'structure':structure, 'dns':dns, 'http':http, 'tls':tls, 'content':content, 'provider':provider,
-                'checks':checks, 'findings':findings, 'stats':{'checks_completed':sum(c['status']=='completed' for c in checks), 'checks_total':len(checks), 'warning_count':len(warnings), 'redirect_count':max(0,len(http['chain'])-1)},
+                'assessment_scope':'local_and_provider' if include_provider else 'local',
+                'checks':checks, 'findings':findings, 'stats':{'checks_completed':completed_checks, 'checks_total':len(selected_checks), 'checks_not_requested':sum(c['status']=='not_requested' for c in checks), 'warning_count':len(warnings), 'redirect_count':max(0,len(http['chain'])-1)},
                 'limitations':['Read-only HTTP, DNS and TLS observations; no exploit attempts.', 'No browser execution, malware detonation or exhaustive threat-engine coverage.', 'A valid certificate and a responsive host do not prove that a page is trustworthy.']}
+

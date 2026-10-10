@@ -4,6 +4,7 @@
 const list=v=>Array.isArray(v)?v:[],obj=v=>v&&typeof v==='object'?v:{},text=v=>v==null?'Not reported':String(v);
 function node(tag,cls,value){const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=text(value);return e;}
 function button(label,fn){const e=node('button','sd-button',label);e.type='button';e.addEventListener('click',fn);return e;}
+function observedTime(value){const date=new Date(value);return Number.isNaN(date.getTime())?'Not reported':new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short'}).format(date)+' (local time)';}
 function csvCell(value){let s=text(value);if(/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
 function selectRows(data,query='',state='all',source='all',tls='all',sort='name'){
  const rows=list(data.results).filter(r=>[r.full_domain,...list(r.addresses),...list(r.sources)].join(' ').toLowerCase().includes(query.toLowerCase())&&(state==='all'||state==='wildcard'&&r.possible_wildcard===true||r.verdict===state)&&(source==='all'||list(r.sources).includes(source))&&(tls==='all'||obj(r.tls).status===tls));
@@ -11,7 +12,7 @@ function selectRows(data,query='',state='all',source='all',tls='all',sort='name'
 }
 function brief(d){return [
  `${text(d.total_found)} names returned DNS evidence from ${text(d.candidates_selected)} selected candidates for ${text(d.domain)}.`,
- `${text(d.active_count)} hosts returned a responding web status and ${text(d.redirect_count)} returned redirects; redirects were not followed.`,
+ `${text(d.active_count)} hosts returned a non-redirect response below HTTP 400; ${text(d.redirect_count)} returned redirects. Redirects were not followed.`,
  d.wildcard?.detected===true?'Random-label probes observed wildcard DNS; matching names may not be independent hosts.':d.wildcard?.detected===false?'Wildcard DNS was not observed in the two random-label probes.':'Wildcard verification was incomplete; independent-host status is uncertain.',
  `${text(d.dns_error_count)} candidates had incomplete DNS checks. Source outages and unchecked names are disclosed separately.`,
  'This is a bounded discovery sample. DNS existence, HTTP responses and valid certificates do not establish safety.'
@@ -19,17 +20,18 @@ function brief(d){return [
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=node('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function render(target,d,onInspect){
  target.replaceChildren();
- const top=node('section','sd-overview');const intro=node('div');intro.append(node('span','sd-eyebrow','DISCOVERY SNAPSHOT'),node('h2','',d.domain),node('p','sd-muted',`Observed ${text(d.analyzed_at)} · ${text(d.duration_seconds)} seconds`));
+ const top=node('section','sd-overview');const intro=node('div');intro.append(node('span','sd-eyebrow','DISCOVERY SNAPSHOT'),node('h2','',d.domain),node('p','sd-muted',`Observed ${observedTime(d.analyzed_at)} · ${text(d.duration_seconds)} seconds`));
  const coverage=obj(d.verification_coverage);const valid=typeof coverage.score==='number'&&Number.isFinite(coverage.score)&&coverage.score>=0&&coverage.score<=100;
  const ring=node('div','sd-ring');ring.style.setProperty('--coverage',(valid?coverage.score:0)+'%');ring.setAttribute('role','img');ring.setAttribute('aria-label',valid?coverage.score+' percent of selected verification checks completed':'Verification coverage unavailable');ring.append(node('strong','',valid?coverage.score+'%':'—'),node('span','','CHECK COVERAGE'));top.append(intro,ring);target.append(top);
  const disclaimer=node('p','sd-scope',coverage.warning||'Selected check completion only; not a safety score.');target.append(disclaimer);
- const stats=node('div','sd-stats');for(const [value,label] of [[d.total_found,'DNS names'],[d.active_count,'Responding'],[d.redirect_count,'Redirects'],[list(d.results).filter(r=>r.possible_wildcard).length,'Wildcard matches'],[d.dns_error_count,'DNS gaps']]){const card=node('div','sd-stat');card.append(node('strong','',value),node('span','',label));stats.append(card);}target.append(stats);
+ const stats=node('div','sd-stats');for(const [value,label] of [[d.total_found,'DNS names'],[d.active_count,'Non-redirect responses <400'],[d.redirect_count,'Redirect responses'],[list(d.results).filter(r=>r.possible_wildcard).length,'Wildcard matches'],[d.dns_error_count,'DNS gaps']]){const card=node('div','sd-stat');card.append(node('strong','',value),node('span','',label));stats.append(card);}target.append(stats);
  const report=node('section','sd-brief');report.append(node('span','sd-eyebrow','REPORT BRIEF'),node('h3','','What this discovery tells you'));for(const line of brief(d))report.append(node('p','',line));target.append(report);
  const signals=node('div','sd-signals');const sources=node('section','sd-panel');sources.append(node('h3','','Evidence sources'));for(const s of list(d.sources)){const row=node('div','sd-source');row.append(node('strong','',s.name),node('span','sd-badge',s.status));if(s.reason)row.append(node('p','sd-muted',s.reason));if(s.truncated)row.append(node('p','sd-muted','Source response truncated; additional certificate names were not parsed.'));sources.append(row);}signals.append(sources);
  const parts=node('section','sd-panel');parts.append(node('h3','','Verification breakdown'));for(const p of list(coverage.parts)){const row=node('div','sd-source');row.append(node('strong','',p.label),node('span','sd-muted',p.total?`${p.completed} / ${p.total} completed`:'Not applicable'));const meter=node('progress');meter.max=p.total||1;meter.value=p.completed||0;meter.setAttribute('aria-label',text(p.label));row.append(meter);parts.append(row);}parts.append(node('p','sd-muted','Checks cover selected candidates and at most 20 web hosts. Unselected names remain unchecked.'));signals.append(parts);target.append(signals);
+ const tlsGaps=list(d.results).slice(0,20).filter(r=>!['completed','invalid'].includes(obj(r.tls).status));if(tlsGaps.length){const gaps=node('section','sd-panel');gaps.append(node('h3','','Why certificate checks are incomplete'));for(const r of tlsGaps)gaps.append(node('p','sd-muted',`${text(r.full_domain)}: ${obj(r.tls).reason||'Certificate inspection was not requested or did not finish.'}`));gaps.append(node('p','sd-muted','An HTTP redirect is still a response. A missing certificate observation does not establish an invalid certificate.'));target.append(gaps);}
  const toolbar=node('div','sd-toolbar');const search=node('input');search.type='search';search.placeholder='Search name, address or source';search.setAttribute('aria-label','Search discovery results');toolbar.append(search);
  function choose(label,options){const s=node('select');s.setAttribute('aria-label',label);for(const [value,title] of options){const o=node('option','',title);o.value=value;s.append(o);}s.value=options[0][0];toolbar.append(s);return s;}
- const state=choose('Observation status',[['all','All observations'],['active','Responding'],['redirect','Redirects'],['http_error','HTTP errors'],['dns_only','DNS only'],['blocked','Policy blocked'],['wildcard','Wildcard matches']]);
+ const state=choose('Observation status',[['all','All observations'],['active','Non-redirect <400'],['redirect','Redirects'],['http_error','HTTP errors'],['dns_only','DNS only'],['blocked','Policy blocked'],['wildcard','Wildcard matches']]);
  const source=choose('Discovery source',[['all','All sources'],['certificate_transparency','Certificate index'],['common_name','Common-name DNS']]);
  const tls=choose('Certificate state',[['all','All TLS states'],['completed','TLS verified'],['invalid','TLS invalid'],['unavailable','TLS unavailable'],['not_requested','TLS not requested'],['blocked','TLS blocked']]);
  const sort=choose('Sort results',[['name','Sort by name'],['status','Sort by status']]);target.append(toolbar);
@@ -47,5 +49,5 @@ function render(target,d,onInspect){
  const gaps=node('details','sd-panel');gaps.append(node('summary','',`DNS checks with gaps (${list(d.unresolved).length})`));for(const r of list(d.unresolved))pair(gaps,r.full_domain,r.exists?'Some DNS evidence returned; other records were unavailable.':'DNS lookup unavailable; absence not established.');target.append(gaps);
  const limits=node('details','sd-panel');limits.append(node('summary','','Scope & limits'));for(const line of list(d.limitations))limits.append(node('p','sd-muted',line));target.append(limits);
 }
-const api={render,selectRows,csvCell,brief};root.SubdomainWorkspace=Object.freeze(api);if(typeof module!=='undefined')module.exports=api;
+const api={render,selectRows,csvCell,brief,observedTime};root.SubdomainWorkspace=Object.freeze(api);if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

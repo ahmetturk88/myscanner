@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const {selectRows,csvCell,brief}=require('../static/subdomain_workspace.js');
+const {selectRows,csvCell,brief,observedTime}=require('../static/subdomain_workspace.js');
 const data={domain:'example.com',results:[
  {full_domain:'b.example.com',addresses:['8.8.8.8'],sources:['common_name'],verdict:'active',possible_wildcard:true,tls:{status:'invalid'}},
  {full_domain:'a.example.com',addresses:['1.1.1.1'],sources:['certificate_transparency'],verdict:'dns_only',possible_wildcard:false,tls:{status:'not_requested'}}]};
@@ -17,3 +17,7 @@ assert.ok(brief({...data,wildcard:{detected:null}})[2].includes('incomplete'));
 const source=fs.readFileSync(require.resolve('../static/subdomain_workspace.js'),'utf8');
 assert.ok(!source.includes('innerHTML'));assert.ok(!source.includes('insertAdjacentHTML'));
 console.log('PASS: combined filters, sorting, unknown wildcard narrative, CSV formula escaping and text-only renderer');
+
+assert.equal(observedTime('invalid'),'Not reported');
+assert.ok(observedTime('2026-10-10T16:12:21.194446+00:00').includes('local time'));
+assert.ok(!observedTime('2026-10-10T16:12:21.194446+00:00').includes('194446'));

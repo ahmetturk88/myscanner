@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const payload = '<img src=x onerror="globalThis.pwned=1"><svg onload="globalThis.pwned=1">"\'&';
 function context(filename) {
+    if (filename === 'file_scanner.html') { const w=require('./file_workspace_harness.cjs').workspace(); return {ctx:{renderResult:w.ctx.testAPI.render,renderFullDeepAnalysis(){}},elements:w.nodes}; }
     const elements = {};
     const element = id => elements[id] ||= {innerHTML:'', textContent:'', style:{},
         classList:{add(){},remove(){},toggle(){}}, addEventListener(){}, offsetTop:20, files:[]};
@@ -63,6 +64,7 @@ const data = {security_score:payload,verdict:'safe',file_size_mb:payload,
     pe:{is_pe:true,machine:payload,number_of_sections:payload,entry_point:payload},exiftool:{available:true,data:{title:payload}}};
 file.ctx.renderResult(data); file.ctx.renderFullDeepAnalysis(data);
 for(const [id,el] of Object.entries(file.elements)) if(el.innerHTML) outputs.push({name:'file '+id,html:el.innerHTML});
+for (const section of file.elements['deep-analysis-container'].children) outputs.push({name:'file evidence '+section.id,html:section.innerHTML});
 assert.equal(file.elements['score-fill'].style.width,'0%');
 // Valid values retain their original display and layout.
 site.ctx.renderResult({security_score:85,verdict:'secure',seo:{title:'Normal & useful',description:'Readable'},recommendations:['Keep HTTPS']});

@@ -65,7 +65,7 @@ class URLQueueTests(unittest.TestCase):
         self.assertIn('scanned_at',json.loads(row.raw_report))
         self.assertFalse(fail_url_scan(sid,self.owner,row.url))
     def test_partial_preserves_threat_and_never_claims_safe(self):
-        for verdict,expected in [('safe','unknown'),('malicious','malicious')]:
+        for verdict,expected in [('safe','unknown'),('malicious','unknown')]:  # v5: analyzer verdicts are not confirmation
             sid,tid=self.job();claim_url_scan(sid,self.owner,'https://example.invalid',tid)
             local,deep=self.reports(False);local['verdict']=verdict
             result=save_url_scan(sid,self.owner,'https://example.invalid',local,deep)

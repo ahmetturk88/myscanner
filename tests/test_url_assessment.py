@@ -62,9 +62,31 @@ class AssessmentTests(unittest.TestCase):
     def test_legacy_false_urlhaus_does_not_mean_checked(self):
         local,deep=reports();deep['osint']={'urlhaus':False}
         r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['score'],95);self.assertEqual(r['coverage_penalty'],5);self.assertEqual(r['evidence_score'],100)
-    def test_reported_threat_survives_unavailable_source(self):
+    def test_unconfirmed_analyzer_threat_is_not_a_verdict(self):
+        # v5: a heuristic analyzer verdict never confirms a threat by itself.
         local,deep=reports();local.update(verdict='malicious',urlvet={'error':'offline'})
-        r=assess_url(local,deep);self.assertEqual((r['verdict'],r['coverage']),('malicious','partial'));self.assertLessEqual(r['score'],10);self.assertLessEqual(r['evidence_score'],10)
+        r=assess_url(local,deep);self.assertEqual((r['verdict'],r['coverage']),('unknown','partial'));self.assertFalse(r['threat_override'])
+    def test_saved_verdict_is_not_rescored_silently(self):
+        from services.url_assessment import saved_assessment
+        local,deep=reports()
+        stored={'policy_version':'url-evidence-v4','verdict':'malicious','score':10,'coverage':'completed'}
+        r=saved_assessment({'aggregate_assessment':stored},local,deep)
+        self.assertEqual((r['verdict'],r['score'],r['policy_version']),('malicious',10,'url-evidence-v4'))
+        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v5')
+        self.assertEqual(r['current_policy']['verdict'],assess_url(local,deep)['verdict'])
+        current=saved_assessment({'aggregate_assessment':assess_url(local,deep)},local,deep)
+        self.assertNotIn('current_policy',current)
+        legacy=saved_assessment({},local,deep)
+        self.assertTrue(legacy['assessed_at_read_time'])
+    def test_plain_http_is_a_finding_not_a_threat(self):
+        local,deep=reports();local.update(verdict='malicious',structure={'is_https':False,'contains_ip':False},ssl={'valid':False,'error':'Not using HTTPS'})
+        r=assess_url(local,deep)
+        self.assertEqual(r['policy_version'],'url-evidence-v5');self.assertNotIn(r['verdict'],('malicious','high_risk'))
+        self.assertIn('no_https',[x['code'] for x in r['reasons']])
+    def test_unconfirmed_provider_threat_requests_review(self):
+        local,deep=reports();deep['urlvet']['verdict']='malicious'
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'suspicious');self.assertFalse(r['threat_override'])
+        self.assertIn('A provider reports a threat; confirmation details require review',r['missing_checks'])
     def test_missing_content_loses_its_category_weight(self):
         local,deep=reports();deep['page_content']={}
         r=assess_url(local,deep);self.assertEqual(r['score'],75);self.assertEqual(r['coverage_deductions']['content'],25)

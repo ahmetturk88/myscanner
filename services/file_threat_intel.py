@@ -173,21 +173,19 @@ class FileThreatIntel:
         elif security_score >= 80:
             verdict = 'safe'
             verdict_icon = '✅'
-        elif security_score >= 60:
+        else:
+            # Local heuristics never confirm a threat (file-evidence-v3); only a
+            # MalwareBazaar match does. Unconfirmed indicators request review.
             verdict = 'suspicious'
             verdict_icon = '⚠️'
-        elif security_score >= 30:
-            verdict = 'high_risk'
-            verdict_icon = '🔴'
-        else:
-            verdict = 'malicious'
-            verdict_icon = '🚨'
         
         missing_checks=list(local_result.get('missing_checks',[]))
         if local_result.get('error') or not score_known:missing_checks.append('Local file analysis unavailable')
         if not (matched or negative):missing_checks.append('MalwareBazaar reputation unavailable')
-        if not matched and local_result.get('verdict') in ('malicious','high_risk','suspicious'):
-            verdict=local_result['verdict']
+        if not matched and local_result.get('verdict') == 'malicious':
+            verdict='malicious'  # the local analyzer reports malicious only for a hash match
+        elif not matched and local_result.get('verdict') in ('high_risk','suspicious'):
+            verdict='suspicious'
         elif not matched and (local_result.get('error') or verdict=='safe'):
             verdict='unknown' if missing_checks else 'not_found'
             verdict_icon='⚠️' if missing_checks else 'ℹ️'

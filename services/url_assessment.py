@@ -3,7 +3,8 @@ import copy
 import math
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v4'
+POLICY_VERSION = 'url-evidence-v5'
+PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 
 
@@ -24,7 +25,7 @@ def assess_url(local, deep):
     local=local if isinstance(local,dict) else {}
     deep=deep if isinstance(deep,dict) else {}
     components={key:{'weight':weight,'status':'unavailable','deduction':0,'reasons':[]} for key,weight in WEIGHTS.items()}
-    reasons={}; missing=[]; confirmed=False; review=False
+    reasons={}; missing=[]; confirmed=False; review=False; provider_verdicts=[]
     def assessed(key):components[key]['status']='assessed'
     def signal(key,code,points,message):
         assessed(key)
@@ -75,6 +76,7 @@ def assess_url(local, deep):
             missing.append(label+' URLVet assessment unavailable or incomplete')
         else:
             sources.append('url.vet')
+            provider_verdicts.append(provider.get('verdict'))
             features=mapping(provider.get('url_features'))
             for field,code,points,message in [('uses_ip','ip_url',8,'The URL uses an IP address instead of a domain.'),('contains_punycode','punycode',3,'Internationalized domain spelling requires review.'),('has_homoglyph','homoglyph',8,'The domain contains look-alike characters.'),('has_keywords','url_phishing_patterns',5,'URL naming patterns resemble phishing heuristics; this is not confirmation.')]:
                 if features.get(field) is True:signal('identity',code,points,message)
@@ -130,21 +132,24 @@ def assess_url(local, deep):
         reason={'not_configured':'authentication is not configured','authentication_rejected':'authentication was rejected','rate_limited':'provider rate limit reached','configuration_error':'credential configuration could not be read','connection_or_response_error':'connection or response failed','http_error':'provider returned an HTTP error'}.get(osint.get('urlhaus_reason'),'check unavailable or not recorded')
         missing.append('URLhaus: '+reason)
     elif osint.get('urlhaus_status')=='not_found':assessed('reputation')
-    reported=[data.get('verdict') for data in (local,deep)]
-    reported += [(mapping(data.get('urlvet'))).get('verdict') for data in (local,deep) if isinstance(mapping(data.get('urlvet')),dict)]
-    reported_threat='malicious' in reported
+    # v5: analyzer thresholds (local/deep verdicts) are not evidence of a threat.
+    # Only a verified phishing entry or a URLhaus match confirms one; any other
+    # provider threat verdict asks for review.
+    provider_flag=any(v in ('malicious','suspicious','high_risk') for v in provider_verdicts)
     for item in reasons.values():components[item['category']]['reasons'].append(item['code'])
     for key,component in components.items():
         component['deduction']=min(component['weight'],round(sum(v['deduction'] for v in reasons.values() if v['category']==key),1))
         if component['status']=='unavailable':missing.append(key+' evidence unavailable')
     count=sum(c['status']=='assessed' for c in components.values())
+    if provider_flag and not confirmed:missing.append(PROVIDER_REVIEW)
     missing=list(dict.fromkeys(missing))
     score=round(100-sum(c['deduction'] for c in components.values())) if count else None
-    if confirmed or reported_threat:
+    deducted=sum(c['deduction'] for c in components.values())>0
+    if confirmed:
         score=min(score if score is not None else 100,10);verdict='malicious'
-        if reported_threat and not confirmed:missing.append('An analyzer reports a threat; confirmation details require review')
-    elif score is not None and sum(c['deduction'] for c in components.values()) > 0 and (score<75 or any(v in ('suspicious','high_risk') for v in reported)):
+    elif score is not None and deducted and score<75:
         verdict='high_risk' if score<40 else 'suspicious'
+    elif provider_flag:verdict='suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
     # Coverage deductions are separate from threat evidence. Missing categories
@@ -154,7 +159,7 @@ def assess_url(local, deep):
     for message in missing:
         normalized=message.removeprefix('local ').removeprefix('deep ')
         key='identity' if 'WHOIS' in message else 'transport' if 'certificate' in message or 'header' in message else 'content' if 'content' in message else 'behavior' if 'Redirect' in message else 'reputation'
-        if normalized in ('analysis unavailable','evidence unavailable') or 'confirmation details' in message:
+        if normalized in ('analysis unavailable','evidence unavailable') or message==PROVIDER_REVIEW:
             continue
         coverage_codes[key].add(normalized)
     coverage_deductions={}
@@ -170,5 +175,25 @@ def assess_url(local, deep):
             'assessed_categories':count,'total_categories':len(WEIGHTS),
             'components':components,'reasons':list(reasons.values()),'missing_checks':missing,
             'sources':list(dict.fromkeys(sources)),
-            'threat_override':bool(confirmed or reported_threat),
+            'threat_override':bool(confirmed),
             'warning':'Heuristic evidence index, not a probability or a guarantee of safety.'}
+
+
+def saved_assessment(saved, local, deep):
+    """Return the verdict recorded at scan time; never re-score it silently.
+
+    Reports saved before an assessment was stored are scored with the current
+    policy and marked as such. When the stored policy is older, the current
+    policy's result is attached separately so readers can see both.
+    """
+    stored = saved.get('aggregate_assessment') if isinstance(saved, dict) else None
+    if not isinstance(stored, dict) or not isinstance(stored.get('policy_version'), str):
+        current = assess_url(local, deep)
+        current['assessed_at_read_time'] = True
+        return current
+    result = copy.deepcopy(stored)
+    if stored['policy_version'] != POLICY_VERSION:
+        current = assess_url(local, deep)
+        result['current_policy'] = {'policy_version': POLICY_VERSION, 'verdict': current['verdict'],
+                                    'score': current['score'], 'coverage': current['coverage']}
+    return result

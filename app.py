@@ -686,8 +686,8 @@ def api_scan_result(scan_id):
             raw = None
 
     if isinstance(raw, dict) and isinstance(raw.get('local_analysis'), dict) and isinstance(raw.get('deep_analysis'), dict):
-        from services.url_assessment import assess_url
-        raw['aggregate_assessment'] = assess_url(raw['local_analysis'], raw['deep_analysis'])
+        from services.url_assessment import saved_assessment
+        raw['aggregate_assessment'] = saved_assessment(raw, raw['local_analysis'], raw['deep_analysis'])
 
     return jsonify({
         "id": scan.id, "url": scan.url,
@@ -1420,8 +1420,8 @@ def download_pdf(scan_id):
         return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
     from services.url_scan_coverage import apply_url_coverage
     analysis = apply_url_coverage(saved['local_analysis'])
-    from services.url_assessment import assess_url
-    analysis['aggregate_assessment'] = assess_url(saved['local_analysis'], saved.get('deep_analysis', {}))
+    from services.url_assessment import saved_assessment
+    analysis['aggregate_assessment'] = saved_assessment(saved, saved['local_analysis'], saved.get('deep_analysis', {}))
 
     # توليد PDF
     buffer = generate_vulnerability_report(scan, analysis, current_user.username)
@@ -1764,8 +1764,8 @@ def api_url_analysis(scan_id):
         return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
     local_analysis = apply_url_coverage(saved['local_analysis'])
     deep_analysis = apply_url_coverage(saved['deep_analysis'])
-    from services.url_assessment import assess_url
-    aggregate = assess_url(local_analysis, deep_analysis)
+    from services.url_assessment import saved_assessment
+    aggregate = saved_assessment(saved, local_analysis, deep_analysis)
     app.logger.info(f'[SUCCESS] Saved URL analysis loaded for scan #{scan_id}')
     log_activity(current_user.username, 'url_analysis', f'Read saved URL report #{scan_id}')
     # تحليلات إضافية
@@ -1775,7 +1775,6 @@ def api_url_analysis(scan_id):
         "cookies": [],
         "security_headers": local_analysis.get("security_headers", {}).get("headers", {}),
         "tech_stack": [],
-        "screenshot": f"https://image.thum.io/get/1024x768/crop/{url}",
         "whois": {},
         "geo": {},
         "similar_sites": [],

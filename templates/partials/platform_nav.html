@@ -1,0 +1,30 @@
+{% set tools = [
+ ('dashboard','URL Scanner','Destination, content & source evidence','links','URL'),
+ ('site_scanner','Site Scanner','Read-only page & connection observations','links','WEB'),
+ ('qr_scanner','QR Scanner','Decode payloads before taking action','links','QR'),
+ ('email_check','Email Checker','Routing, authentication & reputation','identity','@'),
+ ('password_check','Password Security','Guess resistance & breach exposure','identity','KEY'),
+ ('file_scanner','File Scanner','Static inspection & hash reputation','files','FILE'),
+ ('ip_check','IP Lookup','Network metadata & community reports','network','IP'),
+ ('domain_lookup','Domain Lookup','Registration & DNS observations','network','DNS'),
+ ('subdomain_finder','Subdomain Finder','Bounded discovery & hostname evidence','network','SUB'),
+ ('ssl_checker','SSL Checker','Verified TLS & certificate observations','network','TLS')
+] %}
+<a class="shell-skip" href="#platform-main">Skip to content</a>
+<header class="shell-header" id="platform-header">
+ <nav class="shell-nav" aria-label="Primary navigation">
+  <a class="shell-brand" href="/" aria-label="MyScanner home"><img src="{{ url_for('static',filename='brand/myscanner-mark.png') }}" alt="" width="44" height="44"><span>My<span>Scanner</span><small>SECURITY INTELLIGENCE</small></span></a>
+  <div class="shell-nav-links"><a href="/" {% if request is defined and request.path=='/' %}aria-current="page"{% endif %}>Home</a><button type="button" class="shell-explore" data-shell-open aria-haspopup="dialog" aria-controls="platform-tools" aria-expanded="false">Explore tools <span aria-hidden="true">↗</span></button>{% if current_user.is_authenticated %}<a href="{{ url_for('dashboard_v2') }}" {% if request is defined and request.path=='/dashboard-v2' %}aria-current="page"{% endif %}>Workspace</a><a href="{{ url_for('tip.tip_dashboard') }}">Threat intelligence</a>{% else %}<a href="{{ url_for('about') }}">About</a><a href="{{ url_for('contact') }}">Contact</a>{% endif %}</div>
+  <div class="shell-account">{% if current_user.is_authenticated %}<a class="shell-profile" href="{{ url_for('profile') }}"><span class="shell-avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span><span class="shell-username">{{ current_user.username }}</span></a><form method="POST" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="shell-signout" type="submit">Sign out</button></form>{% else %}<a class="shell-login" href="{{ url_for('login') }}">Sign in <span aria-hidden="true">↗</span></a>{% endif %}<button class="shell-mobile-toggle" data-shell-open type="button" aria-label="Open navigation and tools" aria-haspopup="dialog" aria-controls="platform-tools" aria-expanded="false"><span aria-hidden="true">☰</span></button></div>
+ </nav><div class="shell-reading" id="shell-reading" aria-hidden="true"></div>
+</header>
+<dialog class="shell-dialog" id="platform-tools" aria-labelledby="shell-tools-title">
+ <div class="shell-panel-head"><div><span class="shell-kicker">THE TOOLKIT</span><h2 id="shell-tools-title">Find your next inspection.</h2><p>Choose the evidence you want to understand.</p></div><button id="shell-close" type="button" aria-label="Close navigation">✕</button></div>
+ <nav class="shell-quicknav" aria-label="Menu navigation"><a href="/">Home</a>{% if current_user.is_authenticated %}<a href="{{ url_for('dashboard_v2') }}">Workspace</a><a href="{{ url_for('tip.tip_dashboard') }}">Threat intelligence</a><a href="{{ url_for('profile') }}">Profile</a>{% endif %}<a href="{{ url_for('about') }}">About</a><a href="{{ url_for('contact') }}">Contact</a></nav>
+ <div class="shell-tool-search"><label for="shell-search">Search tools</label><input id="shell-search" type="search" placeholder="Try certificate, email, DNS…" autocomplete="off" maxlength="80"><span aria-hidden="true">Ctrl / ⌘ K</span></div>
+ <div class="shell-filters" role="group" aria-label="Tool categories"><button type="button" data-shell-category="all" aria-pressed="true">All tools</button><button type="button" data-shell-category="links" aria-pressed="false">Links & pages</button><button type="button" data-shell-category="identity" aria-pressed="false">Identity</button><button type="button" data-shell-category="files" aria-pressed="false">Files</button><button type="button" data-shell-category="network" aria-pressed="false">Infrastructure</button></div>
+ <div class="shell-tool-grid">{% for endpoint,name,description,category,icon in tools %}<a class="shell-tool" href="{{ url_for(endpoint) }}" data-shell-tool data-category="{{ category }}" {% if request is defined and request.path==url_for(endpoint) %}aria-current="page"{% endif %}><span class="shell-tool-icon" aria-hidden="true">{{ icon }}</span><span><strong>{{ name }}</strong><small>{{ description }}</small></span><span class="shell-tool-arrow" aria-hidden="true">↗</span></a>{% endfor %}</div>
+ <p class="shell-search-count" id="shell-search-count" role="status">10 tools</p>
+ <div class="shell-special"><span>Specialized workspaces</span><a href="{{ url_for('sandbox.sandbox_page') }}">Sandbox <small>Check configured availability</small></a><a href="{{ url_for('vuln.vuln_dashboard') }}">Vulnerability workspace <small>Active scanning requires verified authorization</small></a></div>
+ <p class="shell-panel-note">{% if current_user.is_authenticated %}Your session stays active while you explore.{% else %}Sign in to use the inspection workspaces.{% endif %} Results reflect available evidence, not a guarantee of safety.</p>
+</dialog>

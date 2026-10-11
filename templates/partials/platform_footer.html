@@ -1,0 +1,14 @@
+<footer class="shell-footer">
+ <div class="shell-footer-horizon" aria-hidden="true"></div>
+ <div class="shell-footer-wrap">
+  <div class="shell-footer-intro"><div><span class="shell-kicker">EVIDENCE BEFORE TRUST</span><h2>A clearer view.<br><span>A better next step.</span></h2></div><div><p>Review the destination, identity and infrastructure behind the signal. Understand what was observed—and what remains unknown.</p><a class="shell-footer-cta" href="{{ url_for('dashboard_v2') if current_user.is_authenticated else url_for('login') }}">{{ 'Open your workspace' if current_user.is_authenticated else 'Start with MyScanner' }} <span aria-hidden="true">↗</span></a></div></div>
+  <div class="shell-footer-grid">
+   <div class="shell-footer-brand"><a href="/" aria-label="MyScanner home"><img src="{{ url_for('static',filename='brand/myscanner-logo.png') }}" alt="MyScanner — Scan, verify, stay protected" width="1520" height="440" loading="lazy"></a><p>Tools for reviewing security evidence across links, identity, files and infrastructure.</p><a class="shell-github" href="https://github.com/ahmetturk88/myscanner" target="_blank" rel="noopener noreferrer">Explore the project on GitHub ↗</a></div>
+   <nav aria-label="Footer inspections"><h3>Inspect</h3><a href="{{ url_for('dashboard') }}">Links & destinations</a><a href="{{ url_for('email_check') }}">Email identity</a><a href="{{ url_for('file_scanner') }}">Files & hashes</a><a href="{{ url_for('site_scanner') }}">Website evidence</a><a href="{{ url_for('password_check') }}">Password security</a></nav>
+   <nav aria-label="Footer infrastructure"><h3>Understand</h3><a href="{{ url_for('ip_check') }}">IP intelligence</a><a href="{{ url_for('domain_lookup') }}">Domain & DNS</a><a href="{{ url_for('subdomain_finder') }}">Subdomains</a><a href="{{ url_for('ssl_checker') }}">TLS certificates</a><a href="{{ url_for('qr_scanner') }}">QR payloads</a></nav>
+   <nav aria-label="Footer contact"><h3>Connect</h3><a href="{{ url_for('about') }}">About MyScanner</a><a href="{{ url_for('contact') }}">Contact & feedback</a><a href="mailto:info@myscanners.com">info@myscanners.com</a><a href="tel:+905382131162">+90 538 213 1162</a><a href="https://wa.me/905382131162" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a></nav>
+  </div>
+  <div class="shell-principles"><span><b>01</b> Evidence with context</span><span><b>02</b> Coverage made visible</span><span><b>03</b> Public-target boundaries</span></div>
+  <div class="shell-footer-bottom"><p>© <span id="shell-year">2026</span> MyScanner <span class="shell-credit">/ Built by Ahmed Sairafi</span></p><p>Inspect responsibly. Use authorized targets.</p><button type="button" id="shell-top">Back to top ↑</button></div>
+ </div>
+</footer>

@@ -26,16 +26,9 @@ function context(filename) {
     return {ctx, elements};
 }
 const outputs = [];
-const site = context('site_scanner.html');
-site.ctx.showError(payload);
-outputs.push({name:'site error', html:site.elements['result-card'].innerHTML});
-site.ctx.renderResult({security_score:payload, verdict:'secure',
-    ssl:{valid:true, issuer:payload, tls_version:payload, grade:payload, days_remaining:payload},
-    performance:{server:payload, grade:payload, status_code:payload, load_time_ms:payload},
-    security_headers:{grade:payload,headers:{strict_transport_security:payload,content_security_policy:payload,x_frame_options:payload}},
-    dns:{a_records:[payload],mx_records:[{exchange:payload,preference:payload}]},
-    seo:{title:payload,description:payload,seo_score:payload,internal_links:payload,external_links:payload}, recommendations:[payload]});
-outputs.push({name:'site results',html:site.elements['result-card'].innerHTML});
+// Site Scanner rendering moved to static/site_workspace.js; test_site_workspace.cjs
+// rejects every innerHTML sink with hostile report content.
+if(!process.argv.includes('--json')) require('./test_site_workspace.cjs');
 const url = context('result.html');
 const analysis = {security_score:payload,verdict:payload,aggregate_assessment:{score:payload,verdict:payload,coverage:payload,provisional:true,reasons:[{message:payload,code:payload}],missing_checks:[payload]},
     urlvet:{trust_score:payload,verdict_raw:payload,red_flags:[payload],green_flags:[payload],neutral_reasons:[payload],
@@ -67,9 +60,6 @@ for(const [id,el] of Object.entries(file.elements)) if(el.innerHTML) outputs.pus
 for (const section of file.elements['deep-analysis-container'].children) outputs.push({name:'file evidence '+section.id,html:section.innerHTML});
 assert.equal(file.elements['score-fill'].style.width,'0%');
 // Valid values retain their original display and layout.
-site.ctx.renderResult({security_score:85,verdict:'secure',seo:{title:'Normal & useful',description:'Readable'},recommendations:['Keep HTTPS']});
-assert(site.elements['result-card'].innerHTML.includes('width:85%'));
-assert(site.elements['result-card'].innerHTML.includes('Normal &amp; useful'));
 const helper = url.ctx.ScanUI;
 assert.equal(helper.escape(0),'0');
 assert.equal(helper.score(150),100); assert.equal(helper.score(-5),0);

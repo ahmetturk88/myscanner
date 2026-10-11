@@ -70,7 +70,8 @@ class JavaScriptRenderingTests(unittest.TestCase):
 
     def test_values_are_not_double_escaped(self):
         # Entity decoding should recover the original text, not '&lt;img...'.
-        section = next(s for s in self.sections if s['name']=='site error')
-        text = BeautifulSoup(section['html'],'html.parser').find('p').get_text()
-        self.assertTrue(text.startswith('<img src=x onerror='))
-        self.assertNotIn('&lt;',text)
+        for name in ('URL verdict-area', 'file threats'):
+            section = next(s for s in self.sections if s['name']==name)
+            texts = [p.get_text() for p in BeautifulSoup(section['html'],'html.parser').find_all('p')]
+            self.assertTrue(any(t.startswith('<img src=x onerror=') for t in texts), name)
+            self.assertFalse(any('&lt;' in t for t in texts), name)

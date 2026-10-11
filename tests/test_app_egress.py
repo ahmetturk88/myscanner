@@ -24,7 +24,9 @@ class ApplicationEgressTests(unittest.TestCase):
     def test_overlay_moves_only_runtime_namespaces_without_caps_or_secrets(self):
         source=(Path(__file__).resolve().parents[1]/'compose.app-egress.yml').read_text()
         self.assertEqual(source.count('cap_add: [NET_ADMIN]'),2)
-        self.assertEqual(source.count('network_mode: service:'),2)
+        # web, worker and tip-worker; both workers share the worker egress namespace.
+        self.assertEqual(source.count('network_mode: service:'),3)
+        self.assertEqual(source.count('network_mode: service:worker-egress'),2)
         self.assertNotIn('ports:',source);self.assertNotIn('secrets:',source)
         self.assertIn('aliases: [web]',source);self.assertIn('172.31.240.3',source)
     def test_shared_namespace_services_clear_inherited_host_mappings(self):

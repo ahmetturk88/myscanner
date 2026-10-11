@@ -8,7 +8,7 @@ function page(filename){
 }
 require('./test_ip_workspace.cjs');
 require('./test_domain_workspace.cjs');
-const tls=page('ssl_checker.html');tls.ctx.renderResult({status:'unavailable',valid:null});assert.equal(tls.nodes['result-card'].style.display,'none');assert(tls.nodes['error-msg'].textContent.includes('not established'));
+require('./test_ssl_workspace.cjs');  // SSL rendering moved to static/ssl_workspace.js (unknown != verified)
 const file=require('./file_workspace_harness.cjs').workspace();file.ctx.testAPI.render({verdict:'unknown',security_score:100,coverage_status:'partial',malwarebazaar:{status:'unavailable',is_malicious:null}});assert.equal(file.get('score-num').textContent,'—');assert(file.get('provider-summary').textContent.includes('Not verified'));assert(!file.get('provider-summary').textContent.includes('Clean'));
 
 

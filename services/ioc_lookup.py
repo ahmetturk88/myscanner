@@ -350,7 +350,7 @@ class IoCLookup:
             'max_confidence':   0,
             'threat_types':     [],
             'tags':             [],
-            'summary':          'No IoC matches found — appears clean',
+            'summary':          'No match in the local indicator database; this does not establish safety.',
             'tip_score':        0,
         }
 

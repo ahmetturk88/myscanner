@@ -1,95 +1,67 @@
+"""Threat intelligence lookups against a disposable in-memory database.
+
+The previous version of these checks used the application's configured
+database and only printed results; these tests isolate state and assert.
 """
-اختبارات TIP الأساسية
-"""
-import sys
 import os
+import unittest
+from unittest.mock import patch
 
-# أضاف مسار المشروع
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from flask import Flask
 
-
-def test_ioc_lookup():
-    from services.ioc_lookup import IoCLookup
-    from app import app
-    
-    lookup = IoCLookup()
-    
-    # ✅ العمل داخل سياق التطبيق
-    with app.app_context():
-        # اختبار البحث عن IP غير موجود
-        result = lookup.lookup("192.0.2.1", "ip")
-        
-        if result.get('found') is False:
-            print("✅ Lookup test passed")
-        else:
-            print("❌ Lookup test failed - expected not found")
-            print(f"   Result: {result}")
+from extensions import db
+from models import IoCEntry, IoCSource
 
 
-def test_tip_collector():
-    from services.tip_collector import TIPCollector
-    from app import app
-    from extensions import db
-    
-    with app.app_context():
-        # تأكد من وجود جداول TIP
-        from models import IoCEntry, IoCSource, IoCMatch, TIPFeedLog
-        
+class TIPTests(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+        self.app.config.update(TESTING=True, SECRET_KEY='test-only', SQLALCHEMY_DATABASE_URI='sqlite:///:memory:')
+        db.init_app(self.app)
+        self.context = self.app.app_context()
+        self.context.push()
+        db.create_all()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        self.context.pop()
+
+    def test_missing_indicator_is_not_reported_as_safe(self):
+        from services.ioc_lookup import IoCLookup
+        result = IoCLookup().lookup('192.0.2.1', 'ip')
+        self.assertFalse(result['found'])
+        self.assertEqual(result['count'], 0)
+        self.assertNotIn('clean', result['summary'].lower())
+        self.assertIn('does not establish safety', result['summary'])
+
+    def test_stored_indicator_is_found_with_its_severity(self):
+        from services.ioc_lookup import IoCLookup
+        db.session.add(IoCEntry(value='198.51.100.7', ioc_type='ip', severity='high', confidence=90))
+        db.session.commit()
+        result = IoCLookup().lookup('198.51.100.7', 'ip')
+        self.assertTrue(result['found'])
+        self.assertEqual(result['highest_severity'], 'high')
+
+    def test_inactive_indicator_is_ignored(self):
+        from services.ioc_lookup import IoCLookup
+        db.session.add(IoCEntry(value='198.51.100.8', ioc_type='ip', severity='high', is_active=False))
+        db.session.commit()
+        self.assertFalse(IoCLookup().lookup('198.51.100.8', 'ip')['found'])
+
+    def test_default_sources_are_initialized_once(self):
+        from services.tip_collector import TIPCollector
         collector = TIPCollector()
         added = collector.initialize_default_sources()
-        print(f"✅ Sources initialized: {added} added")
-        
-        # عرض عدد المصادر في قاعدة البيانات
-        sources_count = IoCSource.query.count()
-        print(f"   Total sources in DB: {sources_count}")
+        self.assertGreater(added, 0)
+        self.assertEqual(IoCSource.query.count(), added)
+        self.assertEqual(collector.initialize_default_sources(), 0)
 
-
-def test_misp_client():
-    from services.misp_client import MISPClient
-    from app import app
-    
-    with app.app_context():
-        client = MISPClient()
-        print(f"MISP configured: {client.is_configured}")
-        print("✅ MISP client test passed")
-
-
-def test_tip_models():
-    """اختبار إضافي: التأكد من وجود الجداول"""
-    from app import app
-    from extensions import db
-    from sqlalchemy import inspect
-    
-    with app.app_context():
-        from models import IoCEntry, IoCSource, IoCMatch, TIPFeedLog
-        
-        inspector = inspect(db.engine)
-        tables = inspector.get_table_names()
-        
-        # طباعة أسماء الجداول
-        print("\n📊 TIP Tables:")
-        print(f"   - IoCEntry (ioc_entry): {'ioc_entry' in tables}")
-        print(f"   - IoCSource (ioc_source): {'ioc_source' in tables}")
-        print(f"   - IoCMatch (ioc_match): {'ioc_match' in tables}")
-        print(f"   - TIPFeedLog (tip_feed_log): {'tip_feed_log' in tables}")
+    def test_misp_is_not_configured_without_credentials(self):
+        from services.misp_client import MISPClient
+        with patch.dict(os.environ, {'MISP_URL': '', 'MISP_API_KEY': ''}):
+            self.assertFalse(MISPClient().is_configured)
 
 
 if __name__ == '__main__':
-    print("\n" + "=" * 50)
-    print(" TIP TESTS ".center(50, "="))
-    print("=" * 50 + "\n")
-    
-    try:
-        test_tip_models()
-        print()
-        test_ioc_lookup()
-        print()
-        test_tip_collector()
-        print()
-        test_misp_client()
-        print()
-        print("🎉 All TIP tests completed!")
-    except Exception as e:
-        print(f"\n❌ Test failed: {e}")
-        import traceback
-        traceback.print_exc()
+    unittest.main()

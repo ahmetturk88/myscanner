@@ -153,7 +153,7 @@ class CSRFProtectionTests(unittest.TestCase):
         self.assertEqual(len(soup.select('meta[name="csrf-token"]')), 1)
         self.assertTrue(soup.select_one('script[src="/static/csrf.js"]'))
         forms = soup.select('form[action="/logout"]')
-        self.assertEqual(len(forms), 3)
+        self.assertEqual(len(forms), 2)  # platform navigation + profile page
         for form in forms:
             self.assertEqual(form['method'].upper(), 'POST')
             self.assertTrue(form.select_one('input[name="csrf_token"]')['value'])

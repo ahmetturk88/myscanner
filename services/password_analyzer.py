@@ -280,33 +280,56 @@ class PasswordAnalyzer:
         
         return recommendations[:6]
     
+
     def comprehensive_analysis(self, password: str, check_breaches: bool = False) -> Dict[str, Any]:
-        logger.info(f"🔍 Starting comprehensive password analysis (length: {len(password)})")
-        
-        if not password:
-            logger.error("No password provided for analysis")
-            return {"error": "No password provided"}
-        
-        results = {
-            "password_length": len(password),
-            "length":   self.check_length(password),
-            "variety":  self.check_character_variety(password),
-            "patterns": self.check_common_patterns(password),
-            "entropy":  self.check_entropy(password),
-            "pwned":    self.check_pwned(password) if check_breaches is True else self.breach_result('skipped')
-        }
-        
-        final = self.calculate_final_score(results)
-        results['final'] = final
-        results['coverage'] = {'local_strength': 'completed', 'breach_lookup': results['pwned']['status']}
-        results['status'] = 'partial' if results['pwned']['status'] == 'unavailable' else 'completed'
-        final['scope'] = 'Strength estimate with confirmed exposure penalty; not a safety verdict'
-        results['recommendations'] = self.generate_recommendations(results)
-        results['examples'] = [
-            "C0mpl3x!P@ssw0rd2024",
-            "Blue!Sky@Mountain#42",
-            "Summer$Beach%Wave!89"
-        ]
-        
-        logger.info(f"✅ Password analysis completed | Score: {final['score']} | Strength: {final['strength']}")
-        return results
+        """Bounded local estimate; return no password, hash, tokens or examples."""
+        if not isinstance(password, str) or not password or len(password) > 128 or type(check_breaches) is not bool:
+            return {'error': 'Enter 1-128 characters and valid boolean options'}
+        try:
+            from zxcvbn import zxcvbn
+            estimate = zxcvbn(password, max_length=128)
+            # zxcvbn raw output contains the secret and matched substrings: never serialize it.
+            log_guesses = float(estimate['guesses_log10'])
+            score = max(0, min(100, round(log_guesses / 14 * 100)))
+            rank = int(estimate['score'])
+            strength = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'][rank]
+            kinds = sorted({m.get('pattern') for m in estimate['sequence'] if m.get('pattern') in
+                            {'dictionary','spatial','repeat','sequence','regex','date'}})
+            descriptions = {
+                'dictionary':'Recognizable words, names or common-password fragments were detected.',
+                'spatial':'A keyboard path was detected.',
+                'repeat':'Repeated characters or blocks were detected.',
+                'sequence':'A predictable character sequence was detected.',
+                'regex':'A familiar pattern such as a year was detected.',
+                'date':'A date-like pattern was detected.'}
+            findings = [{'code': k, 'message': descriptions[k]} for k in kinds]
+            local = {'status':'completed','score':score,'strength':strength,'estimator':'zxcvbn',
+                     'estimator_rank':rank,'guesses_log10':round(log_guesses,2),
+                     'scope':'Model estimate of guess resistance, not entropy, crack time or a safety probability.',
+                     'score_policy':'password-guess-v1: min(100, round(log10(estimated guesses)/14*100))',
+                     'deductions':[{'reason':'Predictability and length under the guess model','points':100-score}],
+                     'findings':findings}
+        except Exception:
+            logger.warning('Local password estimation unavailable')
+            local = {'status':'unavailable','score':None,'strength':'Unknown','estimator':'zxcvbn',
+                     'scope':'Local estimator unavailable; no strength conclusion is possible.','findings':[],'deductions':[]}
+        pwned = self.check_pwned(password) if check_breaches else self.breach_result('skipped')
+        verdict = 'exposed' if pwned['status']=='found' else 'weak' if local['status']=='completed' and local['estimator_rank']<3 else 'review'
+        recommendations = []
+        if pwned['status']=='found': recommendations.append('Replace this password wherever it is used. Do not repair an exposed password by appending characters.')
+        if local['status']=='completed' and local['estimator_rank']<3:
+            recommendations.append('Use a password manager to create a unique random password, or independently select several random words.')
+        if local['findings']: recommendations.append('Avoid predictable names, dates, keyboard paths and repeated blocks; length alone does not remove these patterns.')
+        recommendations += ['Use a unique password for every account and enable MFA or a passkey when available.',
+                            'Breach exposure remains unknown.' if pwned['status'] in ('skipped','unavailable') else 'A dataset result is not proof of account security.']
+        return {'schema_version':2,'policy_version':'password-guess-v1','password_length':len(password),
+                'local_strength':local,'final':dict(local),'pwned':pwned,'verdict':verdict,
+                'coverage':{'local_strength':local['status'],'breach_lookup':pwned['status']},
+                'status':'partial' if local['status']=='unavailable' or pwned['status']=='unavailable' else 'completed',
+                'recommendations':recommendations,
+                'summary':['Local guess-resistance estimate: '+str(local['score'])+'/100.' if local['score'] is not None else 'Local strength could not be estimated.',
+                           'Breach dataset state: '+pwned['status']+'.',
+                           'Strength and exposure are separate: a strong-looking password can still be exposed.',
+                           'This check does not verify account ownership, reuse or MFA protection.'],
+                'privacy':{'stored':False,'returned':False,'external_request':'Only a five-character SHA-1 prefix is sent when breach lookup is selected.',
+                           'server_processing':'The entered password is sent over HTTPS to this application for analysis; it is not a browser-only check.'}}

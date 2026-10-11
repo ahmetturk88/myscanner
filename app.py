@@ -1710,16 +1710,20 @@ def ssl_checker():
 @login_required
 @check_permission('ssl_check')
 def api_ssl_checker():
-    data = request.get_json()
-    domain = data.get('domain', '').strip()
-    
-    if not domain:
-        return jsonify({"error": "No domain provided"}), 400
-    
-    analyzer = SSLAnalyzer()
-    result = analyzer.analyze_certificate(domain)
-    log_activity(current_user.username, 'ssl_check', f'Checked SSL for: {domain}')
-    return jsonify(result)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('domain'), str) or not data['domain'].strip() or len(data['domain']) > 2048:
+        return jsonify(error='Provide a domain or HTTPS URL of at most 2048 characters'), 400
+    try:
+        result = SSLAnalyzer().analyze_certificate(data['domain'])
+        log_activity(current_user.username, 'ssl_check', 'Completed TLS observation')
+        return jsonify(result), 200, {'Cache-Control':'no-store'}
+    except UnsafeTargetError:
+        return jsonify(error='Target could not be assessed under the public-network policy'), 400
+    except ValueError:
+        return jsonify(error='Provide a valid public domain or website URL'), 400
+    except Exception:
+        app.logger.error('TLS observation unavailable')
+        return jsonify(error='TLS observation is temporarily unavailable'), 503
 
 
 @app.route('/dashboard-v2')
@@ -1825,6 +1829,7 @@ def api_url_analyze():
 # ================================================================
 if __name__ == '__main__':
     app.run(debug=app.config["DEBUG"])
+
 
 
 

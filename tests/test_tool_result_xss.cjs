@@ -17,6 +17,7 @@ function setup(filename){
  const ctx={window:{scrollTo(){}},URL,console,Math,setTimeout(){},alert(){},document:{getElementById:node,createElement:tag=>new Element(tag),querySelectorAll(){return [];},addEventListener(){}},navigator:{clipboard:{writeText(){return Promise.resolve();}}}};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
  if(filename==='password_check.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/password_workspace.js'),'utf8'),ctx);ctx.renderResult=r=>ctx.window.PasswordWorkspace.render(r,node('password-results'));}
+ if(filename==='ssl_checker.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/ssl_workspace.js'),'utf8'),ctx);ctx.renderResult=r=>ctx.window.SSLWorkspace.render(r,node('ssl-results'));}
  const template=fs.readFileSync(path.join(root,'templates',filename),'utf8');
  for(const match of template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())vm.runInContext(match[1],ctx);
  if(filename==='ip_check.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/ip_workspace.js'),'utf8'),ctx);ctx.renderResult=ctx.window.renderResult;}
@@ -52,9 +53,9 @@ domain.ctx.renderResult({registrar:payload,created:payload,expires:payload,ip:pa
 collect(domain,'domain');
 domain.ctx.renderResult({dns:{},nameservers:{}});
 const ssl=setup('ssl_checker.html');
-ssl.ctx.renderResult({valid:true,grade:payload,days_remaining:payload,domain:payload,issuer:payload,expiry_date:payload,tls_version:payload,valid_from:payload,valid_until:payload,serial_number:payload});
-assert(ssl.elements['result-card'].innerHTML.includes('grade-unknown'));assert(!ssl.elements['result-card'].innerHTML.includes('grade-<'));collect(ssl,'SSL');
-ssl.ctx.renderResult({valid:true,grade:'A+',days_remaining:100});assert(ssl.elements['result-card'].innerHTML.includes('grade-a'));
+ssl.ctx.renderResult({valid:true,assessment:{score:Infinity,warning:payload},days_remaining:payload,domain:payload,issuer:payload,expiry_date:payload,tls_version:payload,valid_from:payload,valid_until:payload,serial_number:payload,subject_names:[payload],cipher:{name:payload},findings:[{title:payload,detail:payload}],summary:[payload]});
+assert(ssl.elements['ssl-results'].textContent.includes(payload));collect(ssl,'SSL');
+for(const valid of [true,false,null])ssl.ctx.renderResult({valid,assessment:{score:100}});
 const password=setup('password_check.html');
 password.ctx.renderResult({local_strength:{strength:payload,score:Infinity,findings:[{message:payload}],deductions:[{reason:payload,points:payload}]},pwned:{status:'found',message:payload,count:payload},summary:[payload],recommendations:[payload]});
 assert(password.elements['password-results'].textContent.includes(payload));collect(password,'password');

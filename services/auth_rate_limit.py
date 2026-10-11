@@ -49,6 +49,10 @@ def check_auth_request(endpoint, ip, email):
         consume_limit('login-account', email, 20, 900)
     elif endpoint == 'register':
         consume_limit('register-ip', ip, 5, 3600)
+    elif endpoint == 'forgot_password':
+        # Each request can send an email; bound abuse per client and per address.
+        consume_limit('reset-ip', ip, 10, 3600)
+        consume_limit('reset-account', email, 3, 3600)
 
 
 def check_verification_send(user_id):

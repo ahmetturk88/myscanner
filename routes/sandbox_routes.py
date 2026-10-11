@@ -93,11 +93,9 @@ def api_sandbox_analyze_file():
 
         return jsonify(final)
 
-    except Exception as e:
-        current_app.logger.error(f'[SANDBOX] Error: {e}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        current_app.logger.exception('[SANDBOX] File analysis failed')
+        return jsonify({'error': 'Sandbox analysis is temporarily unavailable. Please retry.'}), 500
 
 
 # ──────────────────────────────────────────────
@@ -124,8 +122,9 @@ def api_sandbox_hash_lookup():
         log_activity(current_user.username, 'file_scan', f'[SANDBOX] Hash lookup: {file_hash[:16]}...')
         return jsonify(result)
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        current_app.logger.exception('[SANDBOX] Request failed')
+        return jsonify({'error': 'Sandbox service is temporarily unavailable. Please retry.'}), 500
 
 
 # ──────────────────────────────────────────────
@@ -166,5 +165,6 @@ def api_sandbox_analyze_url():
 
     except UnsafeTargetError:
         raise
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        current_app.logger.exception('[SANDBOX] Request failed')
+        return jsonify({'error': 'Sandbox service is temporarily unavailable. Please retry.'}), 500

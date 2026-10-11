@@ -18,6 +18,14 @@ HYBRID_API_KEY = os.getenv('HYBRID_ANALYSIS_API_KEY', '')
 
 HYBRID_BASE = 'https://www.hybrid-analysis.com/api/v2'
 
+SUBMISSION_DISABLED = ('Sandbox submission is disabled: uploads to a third-party sandbox '
+                       'require an approved privacy policy and explicit user consent.')
+
+
+def submissions_enabled() -> bool:
+    """Uploading user files/URLs to a third party is opt-in by deployment."""
+    return os.getenv('HYBRID_ANALYSIS_SUBMISSIONS_ENABLED', '').strip().lower() == 'true'
+
 ENVIRONMENTS = {
     '300': 'Windows 10 64-bit',
     '200': 'Windows 7 32-bit',
@@ -98,6 +106,9 @@ class HybridAnalysisService:
             'error': None
         }
 
+        if not submissions_enabled():
+            result['error'] = SUBMISSION_DISABLED
+            return result
         if not self.ha_key:
             result['error'] = 'Hybrid Analysis API key not configured'
             return result
@@ -109,8 +120,9 @@ class HybridAnalysisService:
                 files={'file': (filename, file_content, 'application/octet-stream')},
                 data={
                     'environment_id': environment_id,
-                    'allow_community_access': True,
-                    'no_share_third_party': False,
+                    # Never publish user samples to the community or third parties.
+                    'allow_community_access': False,
+                    'no_share_third_party': True,
                     'comment': 'Submitted via MyScanner',
                 },
                 timeout=60
@@ -391,6 +403,8 @@ class HybridAnalysisService:
     # ──────────────────────────────────────────────
     def submit_url(self, url: str, environment_id: str = '300') -> dict:
         """إرسال URL للتحليل السلوكي في Sandbox."""
+        if not submissions_enabled():
+            return {'error': SUBMISSION_DISABLED, 'submitted': False}
         if not self.ha_key:
             return {'error': 'API key not configured', 'submitted': False}
 
@@ -401,7 +415,8 @@ class HybridAnalysisService:
                 data={
                     'url': url,
                     'environment_id': environment_id,
-                    'allow_community_access': True,
+                    'allow_community_access': False,
+                    'no_share_third_party': True,
                 },
                 timeout=30
             )

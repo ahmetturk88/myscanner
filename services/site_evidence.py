@@ -90,6 +90,10 @@ def assess_site(value, include_provider=False, include_discovery=False):
     if report['http']['status']=='completed':
         report['checks'].append({'name':'Security headers','status':'completed'})
         for row in report['header_observations']:
+            if row['status'] == 'missing':
+                report['findings'].append({'code':'missing_'+row['name'].lower().replace('-','_'), 'severity':'info',
+                    'title':'Header not observed: '+row['name'],
+                    'detail':'The final HTTP response did not publish this header. This is a configuration observation, not a confirmed vulnerability. '+row['note']})
             if row['name']=='X-Content-Type-Options' and row['status']=='present' and row['value'].strip().lower()!='nosniff':
                 report['findings'].append({'code':'nosniff_value','severity':'info','title':'Review MIME-sniffing policy','detail':'X-Content-Type-Options is present but its value is not nosniff.'})
     else:report['checks'].append({'name':'Security headers','status':'unavailable'})
@@ -106,7 +110,10 @@ def assess_site(value, include_provider=False, include_discovery=False):
     report['coverage_status']='completed' if completed==total and total else 'partial'
     report['assessment_status']=report['coverage_status']
     report['status']='success' if report['coverage_status']=='completed' else 'partial'
-    report['stats'].update(checks_completed=completed,checks_total=total)
+    report['stats'].update(checks_completed=completed, checks_total=total,
+        checks_not_requested=sum(c['status']=='not_requested' for c in report['checks']),
+        warning_count=sum(f['severity']=='warning' for f in report['findings']),
+        observation_count=len(report['findings']))
     report['performance']={'elapsed_ms':round((time.monotonic()-started)*1000),'scope':'Whole assessment elapsed time, not browser load time or a performance grade.'}
     report['missing_checks']=[c['name'] for c in selected if c['status'] not in ('completed','invalid')]
     report['scope']='Read-only public HTTP, DNS, TLS and static HTML observations. No exploit attempts, JavaScript execution, form submission or downloads.'

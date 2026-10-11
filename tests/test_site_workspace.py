@@ -144,3 +144,28 @@ class TemplateAndBoundaryTests(unittest.TestCase):
         self.assertEqual(result['content']['headings'],['Heading'])
         self.assertEqual(result['content']['images_missing_alt'],1)
         self.assertEqual(result['verdict'],'unknown')
+
+class ProviderObservationTests(unittest.TestCase):
+    def test_unverified_phishing_entry_is_usable_unknown_not_outage(self):
+        from services.web_assessment import provider_observation
+        r=provider_observation({'verdict':'harmless','trust_score':100,'phishing':{'in_database':True,'verified':False,'valid':False}})
+        self.assertEqual(r['status'],'completed');self.assertEqual(r['verdict'],'unknown')
+        self.assertEqual(r['phishing_status'],'unverified');self.assertTrue(r['evidence_warning'])
+    def test_partial_source_keeps_threat_and_sanitizes_errors(self):
+        from services.web_assessment import provider_observation
+        r=provider_observation({'verdict':'malicious','trust_score':5,'errors':['secret raw error'],'incomplete':True})
+        self.assertEqual(r['status'],'partial');self.assertEqual(r['verdict'],'malicious');self.assertEqual(r['error_count'],1)
+        self.assertNotIn('secret',str(r))
+    def test_request_failure_and_malformed_score_stay_unavailable(self):
+        from services.web_assessment import provider_observation
+        for value in ({'error':'Request timeout'}, {'error':'API error: 401'}, {'verdict':'harmless','trust_score':float('nan')}, {'verdict':'harmless','trust_score':True},None):
+            self.assertEqual(provider_observation(value)['status'],'unavailable')
+    def test_header_observations_and_optional_counts_are_consistent(self):
+        with patch('services.site_evidence.WebAssessment') as web:
+            web.return_value.analyze.return_value=fixture()
+            r=assess_site('example.com')
+        self.assertEqual(r['stats']['checks_not_requested'],3)
+        self.assertEqual(len(r['findings']),5)
+        self.assertEqual(r['stats']['observation_count'],5)
+        self.assertEqual(r['stats']['warning_count'],0)
+        self.assertIn('5 review observations',r['report_brief'][3])

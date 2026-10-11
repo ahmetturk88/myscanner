@@ -10,7 +10,8 @@ from datetime import datetime
 import json
 from services.upload_validation import FILE_MAX_SIZE, remove_temporary_upload
 
-@celery.task(bind=True, name='scan_url_task', soft_time_limit=1200, time_limit=1260)
+# Network phases are budgeted (services.url_analyzer); this is the hard stop.
+@celery.task(bind=True, name='scan_url_task', soft_time_limit=300, time_limit=330)
 def scan_url_task(self, url, user_id, scan_id, task_id):
     from app import app
     from services.url_scan_storage import claim_url_scan, save_url_scan, fail_url_scan

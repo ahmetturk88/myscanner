@@ -4,7 +4,9 @@
 # يدمج: URLDeepAnalyzer + URLAnalyzer + url.vet
 # =================================================================
 
+import copy
 import re
+import time
 from services.url_scan_coverage import apply_url_coverage, apply_phishing_evidence, urlvet_available
 import socket
 import ssl
@@ -22,6 +24,12 @@ from typing import Dict, Any, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Total network budget per analysis phase (seconds). A slow target can make
+# checks unavailable, but cannot hold a scan worker indefinitely.
+QUICK_BUDGET = 60
+DEEP_BUDGET = 90
+WHOIS_TIMEOUT = 10
 
 
 
@@ -103,6 +111,8 @@ class URLDeepAnalyzer:
 
         # تهيئة url.vet client (lazy loading)
         self._urlvet_client = None
+        # One url.vet analysis per URL per analyzer: quick and deep share it.
+        self._urlvet_results = {}
 
         logger.info("✅ URLDeepAnalyzer initialized successfully")
 
@@ -465,7 +475,7 @@ class URLDeepAnalyzer:
         try:
             import whois
             from datetime import timezone
-            w = whois.whois(domain)
+            w = whois.whois(domain, timeout=WHOIS_TIMEOUT)
 
             if w.creation_date:
                 if isinstance(w.creation_date, list):
@@ -809,8 +819,12 @@ class URLDeepAnalyzer:
                 'neutral_reasons': []
             }
 
+        if url in self._urlvet_results:
+            return copy.deepcopy(self._urlvet_results[url])
         try:
             result = self.urlvet_client.analyze_url(url)
+            if isinstance(result, dict) and not result.get('error'):
+                self._urlvet_results[url] = copy.deepcopy(result)
             return result
         except Exception as e:
             logger.error(f"url.vet integration error: {e}")
@@ -834,6 +848,7 @@ class URLDeepAnalyzer:
         يشمل: التحليل المحلي + url.vet
         """
         logger.info(f"🔍 Starting quick URL analysis for: {url}")
+        self.session.set_deadline(time.monotonic() + QUICK_BUDGET)
 
         try:
             url = validate_public_url(url).url
@@ -942,6 +957,7 @@ class URLDeepAnalyzer:
         يشمل: التحليل المحلي + url.vet
         """
         logger.info(f"🚀 Starting deep URL analysis for: {url}")
+        self.session.set_deadline(time.monotonic() + DEEP_BUDGET)
 
         try:
             url = validate_public_url(url).url

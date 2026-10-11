@@ -18,6 +18,16 @@ class TargetResolutionError(UnsafeTargetError):
     """DNS resolution failed; no connection was attempted."""
 
 
+class ScanBudgetExceeded(requests.exceptions.Timeout):
+    """The scan's total time budget ran out; the affected check is unavailable."""
+
+
+def _cap_timeout(timeout, remaining):
+    if isinstance(timeout, tuple):
+        return tuple(remaining if part is None else min(part, remaining) for part in timeout)
+    return min(timeout or 15, remaining)
+
+
 @dataclass(frozen=True)
 class PublicTarget:
     url: str
@@ -138,6 +148,11 @@ class PublicHTTPAdapter(HTTPAdapter):
         parts = urlsplit(normalize_url(request.url))
         # Recompute for every redirect; never forward another origin's Host.
         request.headers['Host'] = parts.netloc
+        if self.deadline is not None:
+            remaining = self.deadline - time.monotonic()
+            if remaining <= 0:
+                raise ScanBudgetExceeded('The scan time budget was reached before this request')
+            timeout = _cap_timeout(timeout, remaining)
         response = super().send(request, stream=True, timeout=timeout or 15,
                                 verify=verify, cert=cert, proxies=proxies)
         try:
@@ -145,7 +160,7 @@ class PublicHTTPAdapter(HTTPAdapter):
             for chunk in response.iter_content(65536):
                 content.extend(chunk)
                 if self.deadline is not None and time.monotonic() >= self.deadline:
-                    raise UnsafeTargetError('The response exceeded the scan time budget')
+                    raise ScanBudgetExceeded('The response exceeded the scan time budget')
                 if len(content) > self.response_limit:
                     raise UnsafeTargetError('The target response exceeds the scan size limit')
             response._content = bytes(content)
@@ -162,6 +177,12 @@ class PublicHTTPSession(requests.Session):
         self.max_redirects = 5
         self.mount('http://', PublicHTTPAdapter(response_limit=response_limit, deadline=deadline))
         self.mount('https://', PublicHTTPAdapter(response_limit=response_limit, deadline=deadline))
+
+    def set_deadline(self, deadline):
+        """Apply a total monotonic deadline to every later request and redirect."""
+        for adapter in self.adapters.values():
+            if isinstance(adapter, PublicHTTPAdapter):
+                adapter.deadline = deadline
 
     def request(self, method, url, **kwargs):
         return super().request(method, normalize_url(url), **kwargs)

@@ -45,7 +45,7 @@ class WorkerIsolationTests(unittest.TestCase):
     def test_runtime_workers_consume_disjoint_queues(self):
         from scripts import vps_runtime
         commands={}
-        for role in ('worker','tip-worker'):
+        for role in ('worker','tip-worker','bulk-worker'):
             with patch.object(vps_runtime,'configure'), patch.object(vps_runtime.os,'execvp') as launch:
                 vps_runtime.run(role)
                 commands[role]=launch.call_args.args[1]
@@ -54,4 +54,6 @@ class WorkerIsolationTests(unittest.TestCase):
             return set(command[command.index('-Q')+1].split(','))
         self.assertEqual(queues('worker'),{'scans','celery'})
         self.assertEqual(queues('tip-worker'),{'tip'})
+        self.assertEqual(queues('bulk-worker'),{'bulk'})
+        self.assertEqual(len({tuple(commands[role][-2:]) for role in commands}),3)
         self.assertNotEqual(commands['worker'][-1],commands['tip-worker'][-1])

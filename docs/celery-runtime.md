@@ -18,15 +18,18 @@ The local `.env` is loaded before configuration and service imports, without ove
 
 | Queue | Tasks |
 |---|---|
-| `scans` | Site, file, large-file and batch scans |
+| `scans` | URL, site, file, Sandbox file and evidence jobs (one target per job) |
+| `bulk` | Multi-item jobs: batch URL scan and bulk email check |
 | `tip` | IoC fetch/cleanup, MISP pull/push, source initialization |
 | `celery` | Default/legacy queue retained to drain existing messages |
 
 Linux worker:
 
 ```sh
-celery -A celery_worker:celery worker --loglevel=info --pool=prefork --concurrency=1 -Q scans,tip,celery
+celery -A celery_worker:celery worker --loglevel=info --pool=prefork --concurrency=1 -Q scans,tip,bulk,celery
 ```
+
+On the VPS rehearsal stack, `worker` consumes `scans,celery`, `tip-worker` consumes `tip` and `bulk-worker` consumes `bulk`, so one batch cannot delay single scans.
 
 Exactly one separate Beat process:
 

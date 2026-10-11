@@ -123,11 +123,18 @@ class DailyQuotaEndpointTests(unittest.TestCase):
         with patch.object(self.production,'enqueue_owned_task',return_value='task') as enqueue:
             r=self.client.post('/api/batch-scan',json={'urls':['https://example.invalid/a','https://example.invalid/b']});self.assertEqual(r.status_code,200);self.assertEqual(self.balance('url_analyzer'),1)
             r=self.client.post('/api/batch-scan',json={'urls':['https://example.invalid/a','https://example.invalid/b']});self.assertEqual(r.status_code,429);self.assertEqual(self.balance('url_analyzer'),1);self.assertEqual(enqueue.call_count,1)
-    def test_bulk_email_processes_and_charges_entire_validated_batch(self):
-        with patch.object(self.production,'AdvancedEmailChecker') as checker:
-            checker.return_value.check_all.return_value={'valid':True,'quality_score':50}
-            r=self.client.post('/api/bulk-email-check',json={'emails':['a@example.invalid','b@example.invalid']});self.assertEqual(r.status_code,200);self.assertEqual(checker.return_value.check_all.call_count,2);self.assertEqual(self.balance('email_check'),13)
-            r=self.client.post('/api/bulk-email-check',json={'emails':['a@example.invalid']*14});self.assertEqual(r.status_code,429);self.assertEqual(checker.return_value.check_all.call_count,2);self.assertEqual(self.balance('email_check'),13)
+    def test_bulk_email_charges_entire_validated_batch_before_queueing(self):
+        with patch.object(self.production,'enqueue_owned_task',return_value='task') as enqueue:
+            r=self.client.post('/api/bulk-email-check',json={'emails':['a@example.invalid',' b@example.invalid ']});self.assertEqual(r.status_code,202);self.assertEqual(r.json['task_id'],'task');self.assertEqual(self.balance('email_check'),13)
+            self.assertEqual(enqueue.call_args.args[1][0],['a@example.invalid','b@example.invalid'])
+            r=self.client.post('/api/bulk-email-check',json={'emails':['a@example.invalid']*14});self.assertEqual(r.status_code,429);self.assertEqual(enqueue.call_count,1);self.assertEqual(self.balance('email_check'),13)
+    def test_bulk_email_task_checks_every_accepted_address(self):
+        from tasks import bulk_email_task
+        with patch('services.email_checker.AdvancedEmailChecker') as checker,patch.object(bulk_email_task,'update_state'):
+            checker.return_value.check_all.side_effect=[{'valid':True,'quality_score':50,'verdict':'safe'},RuntimeError('private resolver detail')]
+            result=bulk_email_task.apply(args=(['a@example.invalid','b@example.invalid'],self.owner)).result
+        self.assertEqual(result['status'],'completed');self.assertEqual(result['stats']['total'],2);self.assertEqual(result['stats']['valid'],1)
+        self.assertNotIn('private',str(result))
     def test_malformed_batches_do_not_reserve_or_dispatch(self):
         with patch.object(self.production,'enqueue_owned_task') as enqueue,patch.object(self.production,'AdvancedEmailChecker') as checker:
             for path,field in [('/api/batch-scan','urls'),('/api/bulk-email-check','emails')]:

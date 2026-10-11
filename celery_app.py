@@ -17,7 +17,8 @@ def production_mode(env):
 if not production_mode(os.environ):
     load_dotenv()
 
-SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'scan_site_task', 'scan_file_task', 'batch_scan_task', 'scan_large_file_task')
+SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'scan_site_task', 'scan_file_task', 'batch_scan_task',
+              'scan_large_file_task', 'bulk_email_task', 'sandbox_file_task')
 TIP_TASKS = ('fetch_ioc_source_task', 'fetch_all_ioc_sources', 'cleanup_expired_iocs',
              'misp_pull_task', 'misp_push_task', 'initialize_tip_sources')
 

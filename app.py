@@ -1434,37 +1434,29 @@ def site_scanner():
 @login_required
 @check_permission('site_scan')
 def api_site_scan():
-    """API متطور لفحص المواقع الإلكترونية"""
-    data = request.get_json()
-    domain = data.get('domain', '').strip()
-    
-    if not domain:
-        return jsonify({"error": "No domain provided"}), 400
-    
-    app.logger.info(f'[INFO] Site scan requested by {current_user.username}')
-
-    
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('domain'), str):
+        return jsonify({'error': 'Provide an HTTP or HTTPS URL'}), 400
+    if any(type(data.get(flag, False)) is not bool for flag in ('include_provider', 'include_discovery')):
+        return jsonify({'error': 'Scan options must be true or false'}), 400
     try:
-        analyzer = SiteAnalyzer()
-        result = analyzer.comprehensive_analysis(domain)
-        
-        if "error" in result:
-            return jsonify({"error": result["error"]}), 400
-        
-        app.logger.info(f'[SUCCESS] Site scan completed for {domain} | Score: {result.get("security_score")}')
-
-        log_activity(current_user.username, 'site_scan', f'Scanned domain: {domain}')
-
-        
-        return jsonify(result)
-        
-    except UnsafeTargetError:
-        raise
-    except Exception as e:
-        app.logger.error(f'[ERROR] Site scan failed for {domain}: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Analysis error: {str(e)}"}), 500
+        result = SiteAnalyzer().comprehensive_analysis(data['domain'], include_provider=data.get('include_provider', False), include_discovery=data.get('include_discovery', False))
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 400
+        log_activity(current_user.username, 'site_scan', 'Read-only site evidence collected')
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except UnsafeTargetError as error:
+        from services.safe_http import TargetResolutionError
+        if isinstance(error, TargetResolutionError):
+            return jsonify({'error': 'Target DNS is temporarily unavailable; please retry'}), 503
+        return jsonify({'error': 'The target could not be assessed under the public-network policy'}), 400
+    except ValueError:
+        return jsonify({'error': 'Provide a valid public HTTP or HTTPS URL'}), 400
+    except Exception:
+        app.logger.error('Read-only site assessment failed')
+        return jsonify({'error': 'Site assessment is temporarily unavailable'}), 503
 # ================================================================
 # Password Checker
 # ================================================================

@@ -83,11 +83,9 @@ class PassiveSiteTests(unittest.TestCase):
         self.assertNotIn('risk_score', result)
 
     def test_comprehensive_analysis_does_not_call_dynamic_scanner(self):
-        with patch('services.site_analyzer.validate_public_url', return_value=SimpleNamespace(url='https://example.invalid/')), patch.object(self.analyzer.session, 'get', return_value=SimpleNamespace(status_code=200, url='https://example.invalid/', text='<html><title>Example Site Title</title></html>')), patch.object(self.analyzer, 'scan_vulnerabilities_dynamic', side_effect=AssertionError('Must not dispatch active analysis')):
-            patches = [patch.object(self.analyzer, name, return_value={}) for name in ['check_security_headers', 'check_ssl_advanced', 'analyze_robots_txt', 'analyze_sitemap', 'check_dns_records', 'check_phishing_indicators', 'check_reputation', 'analyze_performance']]
-            for item in patches:
-                item.start()
-                self.addCleanup(item.stop)
+        from test_site_workspace import fixture
+        with patch('services.site_evidence.WebAssessment') as assessment, patch.object(self.analyzer, 'scan_vulnerabilities_dynamic', side_effect=AssertionError('Must not dispatch active analysis')):
+            assessment.return_value.analyze.return_value = fixture()
             result = self.analyzer.comprehensive_analysis('https://example.invalid/')
         self.assertNotIn('error', result)
         self.assertEqual(result['analysis_mode'], 'passive')
@@ -102,3 +100,4 @@ class PassiveSiteTests(unittest.TestCase):
         result = {'analysis_mode': 'passive'}
         self.analyzer._save_cached_result(domain, result)
         self.assertEqual(self.analyzer._get_cached_result(domain), result)
+

@@ -1,6 +1,7 @@
 """Evidence-based, read-only web assessment. No engine-count or safety guarantees."""
 from datetime import datetime, timezone
 import ipaddress
+import math
 import os
 import re
 import ssl
@@ -13,10 +14,42 @@ import dns.resolver
 import requests
 
 from services.safe_http import PublicHTTPSession, UnsafeTargetError, normalize_url, public_connection, validate_public_url
-from services.url_scan_coverage import urlvet_available
+from services.url_scan_coverage import apply_phishing_evidence
 
 REDIRECT_CODES = {301, 302, 303, 307, 308}
 SHORTENERS = {'bit.ly', 't.co', 'tinyurl.com', 'is.gd', 'cutt.ly', 'rebrand.ly', 'shorturl.at'}
+
+
+def provider_observation(external):
+    """A usable unknown verdict is evidence, not a provider outage or safety."""
+    base = {'name': 'url.vet', 'status': 'unavailable'}
+    if not isinstance(external, dict):
+        return dict(base, reason='Provider response format was invalid', reason_code='invalid_response')
+    if external.get('error'):
+        error = str(external['error']).lower()
+        code = 'timeout' if 'timeout' in error else 'connection_failed' if 'connect' in error else 'http_error' if 'api error' in error else 'request_failed'
+        return dict(base, reason='Provider request failed ('+code+')', reason_code=code)
+    external = apply_phishing_evidence(dict(external))
+    verdict = external.get('verdict')
+    score = external.get('trust_score')
+    try:
+        valid_score = not isinstance(score, bool) and math.isfinite(float(score)) and 0 <= float(score) <= 100
+    except (ValueError, TypeError):
+        valid_score = False
+    if verdict not in ('harmless', 'unknown', 'suspicious', 'malicious') or not valid_score:
+        return dict(base, reason='Provider verdict or score format was invalid', reason_code='invalid_assessment')
+    errors = external.get('errors') or []
+    partial = bool(errors) or external.get('incomplete') is True
+    result = dict(base, status='partial' if partial else 'completed', verdict=verdict, trust_score=float(score),
+                  reason='Some provider checks were unavailable' if partial else 'Provider observations received',
+                  reason_code='partial_evidence' if partial else 'observed', incomplete=partial,
+                  error_count=len(errors) if isinstance(errors, list) else 1)
+    for key in ('red_flags', 'green_flags', 'neutral_reasons'):
+        items = external.get(key)
+        result[key] = [item[:1000] for item in items[:20] if isinstance(item, str)] if isinstance(items, list) else []
+    for key in ('phishing_status', 'evidence_warning', 'verdict_reported'):
+        if isinstance(external.get(key), str): result[key] = external[key][:1000]
+    return result
 
 
 def dns_records(host, types=('A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT'), deadline=None):
@@ -150,7 +183,13 @@ class WebAssessment:
                         content = {'status': 'completed', 'title': soup.title.get_text(' ', strip=True)[:200] if soup.title else '', 'forms': forms,
                                    'script_count': len(soup.find_all('script')), 'iframe_count': len(soup.find_all('iframe')),
                                    'sample_limited': len(response.content) > 1024*1024,
-                                   'note': 'Static HTML only. Scripts, downloads and forms are never executed or submitted.'}
+                                   'note': 'Static HTML only. Scripts, downloads and forms are never executed or submitted.',
+                                   'description': str((soup.find('meta', attrs={'name':re.compile('^description$', re.I)}) or {}).get('content',''))[:500],
+                                   'headings': [h.get_text(' ', strip=True)[:200] for h in soup.find_all(['h1','h2'],limit=10)],
+                                   'image_count': len(soup.find_all('img')), 'images_missing_alt': len([img for img in soup.find_all('img') if not img.get('alt')]),
+                                   'stylesheet_count': len(soup.find_all('link',rel='stylesheet')),
+                                   'viewport': str((soup.find('meta',attrs={'name':re.compile('^viewport$',re.I)}) or {}).get('content',''))[:200]}
+
                     else:
                         content = {'status': 'not_applicable', 'reason': 'No successful HTML page was returned'}
                     response.close()
@@ -185,11 +224,7 @@ class WebAssessment:
                         external = client.analyze_url(url)
                     finally:
                         client.session.close()
-                    if urlvet_available(external):
-                        provider = {'name':'url.vet', 'status':'completed', 'verdict': external['verdict'], 'trust_score': float(external['trust_score']),
-                                    'red_flags': external.get('red_flags', [])[:20], 'green_flags': external.get('green_flags', [])[:20]}
-                    else:
-                        provider.update(status='unavailable', reason='External analysis did not return a valid assessment')
+                    provider = provider_observation(external)
                 except (requests.exceptions.RequestException, ValueError, TypeError, AttributeError):
                     provider.update(status='unavailable', reason='External analysis unavailable')
             else:
@@ -207,4 +242,5 @@ class WebAssessment:
                 'assessment_scope':'local_and_provider' if include_provider else 'local',
                 'checks':checks, 'findings':findings, 'stats':{'checks_completed':completed_checks, 'checks_total':len(selected_checks), 'checks_not_requested':sum(c['status']=='not_requested' for c in checks), 'warning_count':len(warnings), 'redirect_count':max(0,len(http['chain'])-1)},
                 'limitations':['Read-only HTTP, DNS and TLS observations; no exploit attempts.', 'No browser execution, malware detonation or exhaustive threat-engine coverage.', 'A valid certificate and a responsive host do not prove that a page is trustworthy.']}
+
 

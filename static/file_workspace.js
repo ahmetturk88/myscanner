@@ -92,14 +92,17 @@
       if (seconds >= 20) $('loading-message').textContent = 'Still waiting for the server. Source availability and file complexity can affect the response time.';
     }, 1000);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 150000);
+    const timeout = setTimeout(() => controller.abort(), 330000);
     const form = new FormData(); form.append('file', selected);
     try {
       // The application fetch wrapper in csrf.js supplies the CSRF header.
-      const response = await fetch('/api/scan-file', { method: 'POST', body: form, signal: controller.signal, credentials: 'same-origin' });
-      if (response.redirected) throw new Error('Your session may have expired. Sign in again before starting another scan.');
-      let data;
-      try { data = await response.json(); } catch (_) { throw new Error('The server did not return a readable report. Try again after checking service status.'); }
+      const sent = await fetch('/api/scan-file', { method: 'POST', body: form, signal: controller.signal, credentials: 'same-origin' });
+      if (sent.redirected) throw new Error('Your session may have expired. Sign in again before starting another scan.');
+      if (sent.status === 202) $('loading-message').textContent = 'Your file is queued for analysis. This page will show the report when it is ready.';
+      // The scan runs in a background worker; resolve() waits for its report.
+      const job = typeof MyScannerTasks !== 'undefined' ? await MyScannerTasks.resolve(sent, { signal: controller.signal }) : { response: sent, data: await sent.json().catch(() => null) };
+      const response = job.response, data = job.data;
+      if (data === null) throw new Error('The server did not return a readable report. Try again after checking service status.');
       if (!response.ok || (data && data.error)) {
         const message = response.status === 401 ? 'Sign in before scanning a file.' : response.status === 413 ? 'The server rejected the file size. Maximum: 10 MiB.' : response.status >= 500 ? 'File analysis is temporarily unavailable. Try again later.' : data && typeof data.error === 'string' ? data.error : 'The file scan request was rejected.';
         throw new Error(message);

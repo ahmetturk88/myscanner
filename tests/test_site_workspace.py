@@ -99,16 +99,26 @@ class EndpointTests(unittest.TestCase):
         for data in (None,[],{}, {'domain':3},{'domain':'example.com','include_provider':'true'}):
             self.assertEqual(self.client.post('/api/site-scan',json=data).status_code,400)
         self.factory.assert_not_called()
-    def test_options_and_no_store_response(self):
-        self.factory.return_value.comprehensive_analysis.return_value={'verdict':'unknown'}
-        r=self.client.post('/api/site-scan',json={'domain':'example.com','include_discovery':True})
-        self.assertEqual(r.status_code,200);self.assertEqual(r.headers['Cache-Control'],'no-store')
-        self.factory.return_value.comprehensive_analysis.assert_called_once_with('example.com',include_provider=False,include_discovery=True)
+    def test_options_are_queued_and_analysis_runs_in_the_worker(self):
+        from services.evidence_jobs import run_evidence_job
+        with patch('services.evidence_jobs.queue_evidence_job',return_value=({'task_id':'t'},202)) as queued:
+            r=self.client.post('/api/site-scan',json={'domain':'example.com','include_discovery':True})
+        self.assertEqual(r.status_code,202)
+        kind,params=queued.call_args.args
+        self.assertEqual((kind,params),('site',{'domain':'example.com','include_provider':False,'include_discovery':True}))
+        self.factory.assert_not_called()
+        with self.app.app_context(),patch('services.site_analyzer.SiteAnalyzer') as analyzer:
+            analyzer.return_value.comprehensive_analysis.return_value={'verdict':'unknown'}
+            self.assertEqual(run_evidence_job(kind,params,1),{'status':'completed','result':{'verdict':'unknown'}})
+            analyzer.return_value.comprehensive_analysis.assert_called_once_with('example.com',include_provider=False,include_discovery=True)
     def test_dns_policy_and_internal_failures_are_distinct(self):
-        for error,status in [(TargetResolutionError('secret'),503),(UnsafeTargetError('secret'),400),(RuntimeError('secret'),503)]:
-            self.factory.return_value.comprehensive_analysis.side_effect=error
-            r=self.client.post('/api/site-scan',json={'domain':'example.com'})
-            self.assertEqual(r.status_code,status);self.assertNotIn('secret',r.get_data(as_text=True))
+        from services.evidence_jobs import run_evidence_job,DNS_UNAVAILABLE,POLICY_BLOCKED,UNAVAILABLE
+        params={'domain':'example.com','include_provider':False,'include_discovery':False}
+        for error,message in [(TargetResolutionError('secret'),DNS_UNAVAILABLE),(UnsafeTargetError('secret'),POLICY_BLOCKED),(RuntimeError('secret'),UNAVAILABLE['site'])]:
+            with self.app.app_context(),patch('services.site_analyzer.SiteAnalyzer') as analyzer:
+                analyzer.return_value.comprehensive_analysis.side_effect=error
+                result=run_evidence_job('site',params,1)
+            self.assertEqual(result,{'status':'failed','user_error':message});self.assertNotIn('secret',str(result))
 
 class TemplateAndBoundaryTests(unittest.TestCase):
     def test_template_loads_assets_and_optional_checks_start_unselected(self):
@@ -121,7 +131,7 @@ class TemplateAndBoundaryTests(unittest.TestCase):
         app.jinja_loader=ChoiceLoader([DictLoader({'base.html':'{% block head_extra %}{% endblock %}{% block content %}{% endblock %}'}),FileSystemLoader(str(root/'templates'))])
         with app.test_request_context('/'):
             soup=BeautifulSoup(render_template('site_scanner.html'),'html.parser')
-        self.assertTrue(soup.find('script',src='/static/site_workspace.js'))
+        self.assertTrue(soup.find('script',src=lambda value:value and value.split('?')[0]=='/static/site_workspace.js'))
         self.assertFalse(soup.select_one('#site-provider').has_attr('checked'))
         self.assertFalse(soup.select_one('#site-discovery').has_attr('checked'))
         self.assertFalse(soup.select('[onclick]'))

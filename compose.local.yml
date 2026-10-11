@@ -121,7 +121,7 @@ services:
 
   worker:
     <<: *application
-    command: [celery, -A, "celery_worker:celery", worker, --loglevel=info, --pool=prefork, --concurrency=1, -Q, "scans,tip,celery", --hostname, "local-worker@%h"]
+    command: [celery, -A, "celery_worker:celery", worker, --loglevel=info, --pool=prefork, --concurrency=1, -Q, "scans,tip,bulk,celery", --hostname, "local-worker@%h"]
     stop_grace_period: 60s
     depends_on:
       init-db: {condition: service_completed_successfully}

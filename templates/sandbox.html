@@ -900,11 +900,29 @@ async function analyzeFile() {
     const resp = await fetch('/api/sandbox/analyze-file', { method: 'POST', body: fd });
     const data = await resp.json();
     if (data.error) { showToast('❌ ' + data.error); hideProgress(); return; }
-    renderResults(data);
+    // The analysis runs in a background worker; wait for its stored result.
+    const result = await waitForTask(data.task_id);
+    renderResults(result);
   } catch(e) {
     showToast('❌ Network error: ' + e.message);
     hideProgress();
   }
+}
+
+async function waitForTask(taskId) {
+  const deadline = Date.now() + 11 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const resp = await fetch('/api/task-status/' + encodeURIComponent(taskId), { cache: 'no-store' });
+    const data = await resp.json();
+    if (!resp.ok || data.state === 'FAILURE') throw new Error(data.error || 'Analysis failed. Please retry.');
+    if (data.state === 'SUCCESS') {
+      const payload = data.result || {};
+      if (!payload.result) throw new Error('Analysis returned no result. Please retry.');
+      return payload.result;
+    }
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+  throw new Error('The analysis is taking longer than expected. Please check again later.');
 }
 
 /* ══════════════════════════════════════════
@@ -1002,21 +1020,13 @@ async function analyzeSandboxUrl() {
     });
     const data = await resp.json();
     if (data.error) { showToast('❌ ' + data.error); hideProgress(); return; }
-
-    const local = data.local_analysis || {};
-    const result = {
-      filename: url,
-      sha256: '—', md5: '—', sha1: '—',
-      verdict: data.verdict || local.verdict || 'unknown',
-      threat_score: 100 - (data.security_score || local.security_score || 50),
-      environment: 'URL Sandbox',
-      from_cache: false,
-      sources: data.sandbox_submission?.submitted ? { hybrid_analysis: 'submitted' } : {},
-      network: { domains: local.dns?.a_records || [] },
-      signatures: [],
-      static_analysis: { security_score: local.security_score || 50, static_verdict: local.verdict || 'unknown', indicators: local.recommendations || [] }
-    };
-    renderResults(result);
+    // URL analysis is queued like any URL scan; its report page tracks progress.
+    if (typeof data.result_url === 'string' && data.result_url.startsWith('/result/')) {
+      window.location.assign(data.result_url);
+      return;
+    }
+    showToast('❌ URL analysis could not be started.');
+    hideProgress();
   } catch(e) {
     showToast('❌ ' + e.message);
     hideProgress();

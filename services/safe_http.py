@@ -80,6 +80,22 @@ def _public_address(value):
     return address.is_global and not address.is_multicast
 
 
+def reject_non_public_literal(value):
+    """Normalize a URL and reject a non-public IP literal without any DNS lookup.
+
+    Hostnames are still resolved and pinned when the scan connects.
+    """
+    url = normalize_url(value)
+    host = urlsplit(url).hostname
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        return url
+    if not _public_address(str(literal)):
+        raise UnsafeTargetError('The target must resolve only to public IP addresses')
+    return url
+
+
 def validate_public_url(value):
     url = normalize_url(value)
     parts = urlsplit(url)

@@ -7,7 +7,7 @@ import subprocess
 import sys
 import unittest
 from unittest.mock import patch
-from celery_app import celery_settings, MyScannerCelery, require_broker, SCAN_TASKS, TIP_TASKS
+from celery_app import celery_settings, MyScannerCelery, require_broker, SCAN_TASKS, TIP_TASKS, BULK_TASKS
 ROOT=Path(__file__).resolve().parents[1]
 
 class CeleryConfigurationTests(unittest.TestCase):
@@ -40,9 +40,11 @@ class CeleryConfigurationTests(unittest.TestCase):
         for mode in ['development','production']:
             with self.assertRaises(RuntimeError):celery_settings({'APP_ENV':mode,'REDIS_URL':'memory://'})
     def test_all_known_tasks_have_explicit_routes_and_declared_queues(self):
-        c=celery_settings({});self.assertEqual({q.name for q in c['task_queues']},{'celery','scans','tip'});self.assertFalse(c['task_create_missing_queues'])
+        c=celery_settings({});self.assertEqual({q.name for q in c['task_queues']},{'celery','scans','tip','bulk'});self.assertFalse(c['task_create_missing_queues'])
         for name in SCAN_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'scans')
         for name in TIP_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'tip')
+        for name in BULK_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'bulk')
+        self.assertEqual(set(BULK_TASKS),{'batch_scan_task','bulk_email_task'})
     def test_schedule_uses_registered_tip_routes_and_has_no_quota_reset(self):
         c=celery_settings({});self.assertEqual(len(c['beat_schedule']),4)
         for name,entry in c['beat_schedule'].items():
@@ -54,7 +56,7 @@ class CeleryConfigurationTests(unittest.TestCase):
     def test_serialization_limits_and_ack_policy_are_explicit(self):
         c=celery_settings({});self.assertEqual(c['accept_content'],['json']);self.assertEqual(c['result_serializer'],'json');self.assertEqual(c['timezone'],'UTC');self.assertEqual(c['worker_prefetch_multiplier'],1);self.assertFalse(c['task_acks_late']);self.assertLess(c['task_soft_time_limit'],c['task_time_limit']);self.assertGreater(c['broker_transport_options']['visibility_timeout'],c['task_time_limit'])
     def test_worker_and_beat_commands_consume_all_declared_queues(self):
-        source=(ROOT/'render.yaml').read_text(encoding='utf-8');self.assertIn('-A celery_worker:celery worker',source);self.assertIn('-Q scans,tip,celery',source);self.assertIn('-A celery_worker:celery beat',source);self.assertNotIn('-A tasks',source);self.assertNotIn('worker -B',source)
+        source=(ROOT/'render.yaml').read_text(encoding='utf-8');self.assertIn('-A celery_worker:celery worker',source);self.assertIn('-Q scans,tip,bulk,celery',source);self.assertIn('-A celery_worker:celery beat',source);self.assertNotIn('-A tasks',source);self.assertNotIn('worker -B',source)
     def test_only_one_celery_constructor_remains_in_runtime_modules(self):
         constructors=[]
         for file in ['celery_app.py','celery_config.py','celery_worker.py','tasks.py','app.py']:

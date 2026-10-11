@@ -130,7 +130,7 @@ class ComposeConfigurationTests(unittest.TestCase):
         self.assertTrue(self.config['networks']['data']['internal'])
         for name in ['postgres','redis']:self.assertEqual(set(self.config['services'][name]['networks']),{'data'})
         command=self.config['services']['worker']['command']
-        self.assertIn('celery_worker:celery',command);self.assertIn('scans,tip,celery',command);self.assertIn('--pool=prefork',command)
+        self.assertIn('celery_worker:celery',command);self.assertIn('scans,tip,bulk,celery',command);self.assertIn('--pool=prefork',command)
     def test_upload_volume_is_shared_between_web_and_worker(self):
         services=self.config['services']
         sources=[]

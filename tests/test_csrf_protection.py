@@ -1,6 +1,7 @@
 """Offline CSRF tests with a disposable database and mocked scanner services."""
 from io import BytesIO
 from pathlib import Path
+import os
 import unittest
 from unittest.mock import patch
 
@@ -96,19 +97,19 @@ class CSRFProtectionTests(unittest.TestCase):
 
     def test_valid_token_allows_json_scanner_request(self):
         token = self.token()
-        with patch.object(self.production, 'URLDeepAnalyzer') as analyzer:
-            analyzer.return_value.comprehensive_analysis.return_value = {'verdict':'unknown'}
+        with patch('services.url_scan_request.queue_url_scan', return_value=({'scan_id': 1}, 202)) as queued:
             result = self.client.post('/api/url-analyze', json={'url':'https://example.invalid'}, headers={'X-CSRFToken':token})
-        self.assertEqual(result.status_code, 200)
-        analyzer.return_value.comprehensive_analysis.assert_called_once()
+        self.assertEqual(result.status_code, 202)
+        queued.assert_called_once_with('https://example.invalid')
 
     def test_valid_token_allows_file_upload(self):
         token = self.token()
-        with patch.object(self.production, 'FileDeepAnalyzer') as analyzer:
-            analyzer.return_value.comprehensive_analysis.return_value = {'verdict':'unknown'}
+        with patch('services.evidence_jobs.queue_evidence_job', return_value=({'task_id':'t'}, 202)) as queued:
             result = self.client.post('/api/file-deep-analysis', data={'file':(BytesIO(b'test-only'), 'sample.pdf')}, headers={'X-CSRFToken':token})
-        self.assertEqual(result.status_code, 200)
-        analyzer.return_value.comprehensive_analysis.assert_called_once()
+        self.assertEqual(result.status_code, 202)
+        kind, params = queued.call_args.args
+        self.assertEqual((kind, params['filename']), ('file_deep', 'sample.pdf'))
+        os.remove(params['path'])
 
     def test_vulnerability_stop_requires_token_and_still_checks_owner(self):
         token = self.token()
@@ -163,8 +164,7 @@ class CSRFProtectionTests(unittest.TestCase):
 
     def test_https_valid_token_requires_same_origin_referrer(self):
         token = self.token()
-        with patch.object(self.production, 'URLDeepAnalyzer') as analyzer:
-            analyzer.return_value.comprehensive_analysis.return_value = {'verdict':'unknown'}
+        with patch('services.url_scan_request.queue_url_scan', return_value=({'scan_id': 1}, 202)) as analyzer:
             for referrer in [None, 'https://external.example/page']:
                 headers = {'X-CSRFToken':token}
                 if referrer:
@@ -174,4 +174,4 @@ class CSRFProtectionTests(unittest.TestCase):
                 self.assertEqual(result.json['code'], 'csrf_failed')
             analyzer.assert_not_called()
             result = self.client.post('/api/url-analyze', base_url='https://localhost', json={'url':'https://example.invalid'}, headers={'X-CSRFToken':token, 'Referer':'https://localhost/scanner'})
-            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.status_code, 202)

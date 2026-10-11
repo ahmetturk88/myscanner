@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 import os, hashlib, json
 from datetime import datetime
 
-from services.hybrid_analysis import HybridAnalysisService
+from services.hybrid_analysis import HybridAnalysisService, ENVIRONMENTS
 from services.permissions import check_permission, reserve_request_quota
 from services.safe_http import UnsafeTargetError
 from services.upload_validation import read_validated_upload
@@ -41,61 +41,56 @@ def sandbox_page():
 # ──────────────────────────────────────────────
 #  API: تحليل ملف كامل
 # ──────────────────────────────────────────────
+def sandbox_file_report(file_content, filename, environment_id):
+    """Static analysis plus Hybrid Analysis/MalwareBazaar evidence (runs in a worker)."""
+    from services.file_deep_analyzer import FileDeepAnalyzer
+    static_result = FileDeepAnalyzer(use_exiftool=True).comprehensive_analysis(file_content, filename)
+    sandbox_result = HybridAnalysisService().comprehensive_analysis(file_content, filename, environment_id)
+    final = {
+        **sandbox_result,
+        'static_analysis': {
+            'security_score': static_result.get('security_score', 0),
+            'static_verdict': static_result.get('verdict', 'unknown'),
+            'file_type': static_result.get('file_type', {}),
+            'metadata': static_result.get('metadata', {}),
+            'strings': static_result.get('strings', [])[:50],
+            'pe_info': static_result.get('pe_info', {}),
+            'entropy': static_result.get('entropy', 0),
+            'indicators': static_result.get('indicators', []),
+        },
+        'analysis_type': 'comprehensive',
+    }
+    static_score = static_result.get('security_score', 100)
+    sandbox_score = sandbox_result.get('threat_score', 0)
+    final['combined_risk_score'] = min(100, max(sandbox_score, 100 - static_score))
+    return final
+
+
 @sandbox_bp.route('/api/sandbox/analyze-file', methods=['POST'])
 @login_required
 def api_sandbox_analyze_file():
-    current_app.logger.info(f'[SANDBOX] File analysis requested by {current_user.username}')
-
+    """Queue Sandbox file analysis; read the result from /api/task-status/<task_id>."""
     filename, file_content = read_validated_upload(
         request.files.get('file'), ALLOWED_EXTENSIONS, MAX_SIZE
     )
+    environment_id = request.form.get('environment_id', '300')
+    if environment_id not in ENVIRONMENTS:
+        return jsonify(error='Unsupported analysis environment'), 400
     failure = reserve_request_quota('file_scan')
     if failure is not None:
         return failure
-    environment_id = request.form.get('environment_id', '300')
-
+    from services.task_dispatch import enqueue_owned_task
+    from services.upload_validation import save_temporary_upload, remove_temporary_upload
+    from tasks import sandbox_file_task
+    temp_path = save_temporary_upload(file_content, filename, 'temp_uploads')
     try:
-        # ── Static Analysis (MyScanner) ──
-        from services.file_deep_analyzer import FileDeepAnalyzer
-        static_analyzer = FileDeepAnalyzer(use_exiftool=True)
-        static_result = static_analyzer.comprehensive_analysis(file_content, filename)
-
-        # ── Hybrid Analysis ──
-        sandbox = HybridAnalysisService()
-        sandbox_result = sandbox.comprehensive_analysis(file_content, filename, environment_id)
-
-        # ── دمج النتائج ──
-        final = {
-            **sandbox_result,
-            'static_analysis': {
-                'security_score': static_result.get('security_score', 0),
-                'static_verdict': static_result.get('verdict', 'unknown'),
-                'file_type': static_result.get('file_type', {}),
-                'metadata': static_result.get('metadata', {}),
-                'strings': static_result.get('strings', [])[:50],
-                'pe_info': static_result.get('pe_info', {}),
-                'entropy': static_result.get('entropy', 0),
-                'indicators': static_result.get('indicators', []),
-            },
-            'analysis_type': 'comprehensive',
-        }
-
-        # حساب الدرجة الكلية
-        static_score = static_result.get('security_score', 100)
-        sandbox_score = sandbox_result.get('threat_score', 0)
-        final['combined_risk_score'] = min(100, max(sandbox_score, 100 - static_score))
-
-        log_activity(
-            current_user.username,
-            'file_scan',
-            f'[SANDBOX] Analyzed: {filename} | Verdict: {final.get("verdict")}'
-        )
-
-        return jsonify(final)
-
+        task_id = enqueue_owned_task(sandbox_file_task, (temp_path, filename, current_user.id, environment_id), current_user.id)
     except Exception:
-        current_app.logger.exception('[SANDBOX] File analysis failed')
-        return jsonify({'error': 'Sandbox analysis is temporarily unavailable. Please retry.'}), 500
+        remove_temporary_upload(temp_path)
+        current_app.logger.exception('[SANDBOX] File analysis could not be queued')
+        return jsonify(error='Sandbox analysis is temporarily unavailable. Please try again later.'), 503
+    log_activity(current_user.username, 'file_scan', '[SANDBOX] File analysis queued')
+    return jsonify(task_id=task_id, status='started'), 202
 
 
 # ──────────────────────────────────────────────
@@ -132,39 +127,9 @@ def api_sandbox_hash_lookup():
 # ──────────────────────────────────────────────
 @sandbox_bp.route('/api/sandbox/analyze-url', methods=['POST'])
 @login_required
-@check_permission('url_analyzer')
 def api_sandbox_analyze_url():
-    data = request.get_json()
-    url = (data.get('url', '') or '').strip()
-    environment_id = data.get('environment_id', '300')
+    """URL Sandbox uses the queued URL scan pipeline; open result_url when done."""
+    data = request.get_json(silent=True)
+    from services.url_scan_request import queue_url_scan
+    return queue_url_scan(data.get('url') if isinstance(data, dict) else None)
 
-    if not url:
-        return jsonify({'error': 'No URL provided'}), 400
-
-    try:
-        sandbox = HybridAnalysisService()
-
-        # تحليل URL محلي أولاً
-        from services.url_analyzer import URLDeepAnalyzer
-        url_analyzer = URLDeepAnalyzer()
-        local_result = url_analyzer.comprehensive_analysis(url)
-
-        # إرسال URL للـ Sandbox
-        submit_result = sandbox.submit_url(url, environment_id)
-
-        final = {
-            'url': url,
-            'local_analysis': local_result,
-            'sandbox_submission': submit_result,
-            'verdict': local_result.get('verdict', 'unknown'),
-            'security_score': local_result.get('security_score', 0),
-        }
-
-        log_activity(current_user.username, 'url_analyzer', f'[SANDBOX] URL: {url[:80]}')
-        return jsonify(final)
-
-    except UnsafeTargetError:
-        raise
-    except Exception:
-        current_app.logger.exception('[SANDBOX] Request failed')
-        return jsonify({'error': 'Sandbox service is temporarily unavailable. Please retry.'}), 500

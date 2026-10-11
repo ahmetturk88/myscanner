@@ -17,7 +17,10 @@ def production_mode(env):
 if not production_mode(os.environ):
     load_dotenv()
 
-SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'scan_site_task', 'scan_file_task', 'batch_scan_task', 'scan_large_file_task')
+SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'scan_site_task', 'scan_file_task',
+              'scan_large_file_task', 'sandbox_file_task', 'evidence_job_task')
+# Multi-item jobs run on their own queue so one batch cannot delay single scans.
+BULK_TASKS = ('batch_scan_task', 'bulk_email_task')
 TIP_TASKS = ('fetch_ioc_source_task', 'fetch_all_ioc_sources', 'cleanup_expired_iocs',
              'misp_pull_task', 'misp_push_task', 'initialize_tip_sources')
 
@@ -67,9 +70,10 @@ def celery_settings(environ=None):
         'task_serializer': 'json', 'accept_content': ['json'], 'result_serializer': 'json',
         'timezone': 'UTC', 'enable_utc': True, 'task_track_started': True,
         'include': ['tasks'], 'task_default_queue': 'celery',
-        'task_queues': (Queue('celery'), Queue('scans'), Queue('tip')),
+        'task_queues': (Queue('celery'), Queue('scans'), Queue('tip'), Queue('bulk')),
         'task_create_missing_queues': False,
         'task_routes': {**{name: {'queue': 'scans'} for name in SCAN_TASKS},
+                        **{name: {'queue': 'bulk'} for name in BULK_TASKS},
                         **{name: {'queue': 'tip'} for name in TIP_TASKS}},
         'beat_schedule': {
             'expire-url-scan-jobs': {'task': 'expire_url_scan_jobs', 'schedule': 60, 'options': {'queue': 'scans'}},

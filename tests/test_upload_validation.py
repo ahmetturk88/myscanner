@@ -3,6 +3,7 @@
 from io import BytesIO
 from pathlib import Path
 import tempfile
+import os
 import unittest
 from unittest.mock import patch
 
@@ -110,10 +111,16 @@ class UploadEndpointTests(test_task_ownership.TaskOwnershipTests):
             self.assertFalse(path.exists())
 
     def test_deep_analysis_accepts_valid_file(self):
-        with patch('services.file_deep_analyzer.FileDeepAnalyzer.comprehensive_analysis', return_value={'verdict':'unknown'}):
+        from services.evidence_jobs import run_evidence_job
+        with patch('services.evidence_jobs.queue_evidence_job', return_value=({'task_id':'t'}, 202)) as queued:
             response = self.post_file('/api/file-deep-analysis')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()['verdict'], 'unknown')
+        self.assertEqual(response.status_code, 202)
+        kind, params = queued.call_args.args
+        self.assertTrue(os.path.exists(params['path']))
+        with patch('services.file_deep_analyzer.FileDeepAnalyzer.comprehensive_analysis', return_value={'verdict':'unknown'}):
+            result = run_evidence_job(kind, params, 1)
+        self.assertEqual(result, {'status':'completed', 'result':{'verdict':'unknown'}})
+        self.assertFalse(os.path.exists(params['path']))
 
 
 if __name__ == '__main__':

@@ -227,17 +227,16 @@ class ScannerEndpointTests(test_task_ownership.TaskOwnershipTests):
                 self.assertIn('error', result.json)
                 network.assert_not_called()
 
-    def test_valid_public_url_can_be_analyzed(self):
+    def test_valid_public_url_is_queued_without_web_network_access(self):
+        # Analysis runs in the URL worker; the web request only validates and queues.
         self.sign_in(self.owner)
-        page = requests.Response()
-        page.status_code = 200
-        page._content = b'<html><title>Example</title></html>'
-        with patch('services.safe_http.socket.getaddrinfo', return_value=records('8.8.8.8')), \
-             patch('services.url_analyzer.URLDeepAnalyzer.check_ssl_certificate', return_value={'valid':True}), \
-             patch('services.url_analyzer.URLDeepAnalyzer.check_dns_records', return_value={}), \
-             patch('services.url_analyzer.URLDeepAnalyzer.analyze_with_urlvet', return_value={'verdict':'unknown'}), \
-             patch.object(PublicHTTPSession, 'get', return_value=page):
+        with patch('celery_app.require_broker'), \
+             patch('services.url_scan_storage.enqueue_url_scan', return_value=7) as enqueue, \
+             patch('services.safe_http.socket.getaddrinfo') as dns, \
+             patch('services.safe_http.socket.socket') as network:
             result = self.client.post('/api/url-analyze', json={'url':'https://example.com'})
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json['domain'], 'example.com')
-        self.assertIn('security_score', result.json)
+        self.assertEqual(result.status_code, 202)
+        self.assertEqual(result.json['result_url'], '/result/7')
+        self.assertEqual(enqueue.call_args.args[1], 'https://example.com/')
+        dns.assert_not_called()
+        network.assert_not_called()

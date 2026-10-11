@@ -117,6 +117,64 @@ def scan_file_task(self, file_path, filename, user_id):
         remove_temporary_upload(file_path)
 
 
+@celery.task(bind=True, name='evidence_job_task', soft_time_limit=300, time_limit=330)
+def evidence_job_task(self, kind, params, user_id):
+    """Site, subdomain and file evidence collected outside the web process."""
+    from app import app
+    from services.evidence_jobs import run_evidence_job
+    with app.app_context():
+        return run_evidence_job(kind, params, user_id)
+
+
+@celery.task(bind=True, name='bulk_email_task', soft_time_limit=600, time_limit=630)
+def bulk_email_task(self, emails, user_id):
+    """Check up to 20 addresses; each accepted item was charged before queuing."""
+    from services.email_checker import AdvancedEmailChecker
+    checker = AdvancedEmailChecker(None)
+    results = []
+    for index, email in enumerate(emails[:20]):
+        self.update_state(state='RUNNING', meta={'progress': int(index / len(emails) * 100),
+                                                 'status': f'Checking {index + 1}/{len(emails)}...'})
+        try:
+            result = checker.check_all(email)
+        except Exception:
+            result = {'email': email, 'valid': False, 'verdict': 'unknown', 'error': 'Check unavailable'}
+        results.append({
+            "email": result.get("email", email),
+            "valid": result.get("valid", False),
+            "verdict": result.get("verdict", "unknown"),
+            "quality_score": result.get("quality_score", 0),
+            "is_disposable": result.get("is_disposable", False),
+            "deliverability": result.get("deliverability", "unknown"),
+        })
+    stats = {
+        "total": len(results),
+        "valid": sum(1 for r in results if r["valid"]),
+        "invalid": sum(1 for r in results if not r["valid"]),
+        "disposable": sum(1 for r in results if r.get("is_disposable", False)),
+        "safe": sum(1 for r in results if r.get("verdict") == "safe"),
+        "average_score": sum(r.get("quality_score", 0) for r in results) / len(results) if results else 0,
+    }
+    return {'status': 'completed', 'stats': stats, 'results': results}
+
+
+@celery.task(bind=True, name='sandbox_file_task', soft_time_limit=600, time_limit=630)
+def sandbox_file_task(self, file_path, filename, user_id, environment_id):
+    """Static analysis plus hash reputation for one uploaded Sandbox file."""
+    from routes.sandbox_routes import MAX_SIZE, sandbox_file_report
+    try:
+        self.update_state(state='RUNNING', meta={'progress': 10, 'status': 'Analyzing file...'})
+        with open(file_path, 'rb') as handle:
+            content = handle.read(MAX_SIZE + 1)
+        if len(content) > MAX_SIZE:
+            raise ValueError('File too large for Sandbox analysis')
+        return {'status': 'completed', 'result': sandbox_file_report(content, filename, environment_id)}
+    except Exception:
+        return {'status': 'failed', 'error': 'Sandbox analysis failed. Please retry.'}
+    finally:
+        remove_temporary_upload(file_path)
+
+
 @celery.task(bind=True, name='batch_scan_task')
 def batch_scan_task(self, urls, user_id):
     """فحص مجموعة روابط دفعة واحدة"""

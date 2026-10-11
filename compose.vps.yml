@@ -117,6 +117,18 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+  bulk-worker:
+    <<: *app
+    command: [bulk-worker]
+    restart: unless-stopped
+    depends_on:
+      seed: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, scripts/vps_runtime.py, health-bulk-worker]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
   beat:
     <<: *app
     command: [beat]

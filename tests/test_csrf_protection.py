@@ -1,6 +1,7 @@
 """Offline CSRF tests with a disposable database and mocked scanner services."""
 from io import BytesIO
 from pathlib import Path
+import os
 import unittest
 from unittest.mock import patch
 
@@ -103,11 +104,12 @@ class CSRFProtectionTests(unittest.TestCase):
 
     def test_valid_token_allows_file_upload(self):
         token = self.token()
-        with patch.object(self.production, 'FileDeepAnalyzer') as analyzer:
-            analyzer.return_value.comprehensive_analysis.return_value = {'verdict':'unknown'}
+        with patch('services.evidence_jobs.queue_evidence_job', return_value=({'task_id':'t'}, 202)) as queued:
             result = self.client.post('/api/file-deep-analysis', data={'file':(BytesIO(b'test-only'), 'sample.pdf')}, headers={'X-CSRFToken':token})
-        self.assertEqual(result.status_code, 200)
-        analyzer.return_value.comprehensive_analysis.assert_called_once()
+        self.assertEqual(result.status_code, 202)
+        kind, params = queued.call_args.args
+        self.assertEqual((kind, params['filename']), ('file_deep', 'sample.pdf'))
+        os.remove(params['path'])
 
     def test_vulnerability_stop_requires_token_and_still_checks_owner(self):
         token = self.token()

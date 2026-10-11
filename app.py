@@ -758,85 +758,31 @@ from services.file_threat_intel import get_file_threat_intel
 @app.route('/api/scan-file', methods=['POST'])
 @login_required
 def api_scan_file():
-    """
-    API الموحد لفحص الملفات
-    يستخدم: FileDeepAnalyzer + MalwareBazaar
-    """
-    
-    app.logger.info(f'📁 File scan requested by {current_user.username}')
-    
-    # ─────────────────────────────────────────────────────────────
-    # التحقق من الملف
-    # ─────────────────────────────────────────────────────────────
-    filename, file_content = read_validated_upload(
-        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
-    )
-    failure = reserve_request_quota('file_scan')
-    if failure is not None:
-        return failure
-    file_size = len(file_content)
-    try:
-        app.logger.info(f'📄 Processing file: {filename} ({file_size} bytes)')
-        
-        # ─────────────────────────────────────────────────────────────
-        # الفحص الشامل
-        # ─────────────────────────────────────────────────────────────
-        scanner = get_file_threat_intel()
-        result = scanner.comprehensive_file_scan(file_content, filename)
-        
-        # ─────────────────────────────────────────────────────────────
-        # تسجيل النشاط
-        # ─────────────────────────────────────────────────────────────
-        app.logger.info(
-            f'✅ File scan completed for {filename} | '
-            f'Verdict: {result["verdict"]} | '
-            f'Score: {result["security_score"]}/100'
-        )
-        
-        log_activity(
-            current_user.username,
-            'file_scan',
-            f'Scanned file: {filename} | Verdict: {result["verdict"]}'
-        )
-        
-        # Bind PDF export to this server-generated result and its owner.
-        from services.file_pdf_receipts import issue_file_pdf_receipt
-        try:
-            result['_pdf_receipt'] = issue_file_pdf_receipt(result, current_user.get_id(), app.config['SECRET_KEY'])
-        except (ValueError, TypeError):
-            result['_pdf_receipt'] = None
-            app.logger.error('File PDF receipt unavailable')
-        return jsonify(result)
-        
-    except Exception:
-        app.logger.exception('File scan failed')
-        return jsonify({"error": "File scan is temporarily unavailable. Please retry."}), 500
-        
-# ================================================================
-# File Deep Analysis API
-# ================================================================
+    """Queue the unified file scan (FileDeepAnalyzer + MalwareBazaar)."""
+    return _queue_file_job('file_scan')
+
 
 @app.route('/api/file-deep-analysis', methods=['POST'])
 @login_required
 def api_file_deep_analysis():
-    """API للتحليل العميق للملفات مع exiftool"""
+    """Queue static file analysis with exiftool metadata."""
+    return _queue_file_job('file_deep')
+
+
+def _queue_file_job(kind):
     filename, file_content = read_validated_upload(
         request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
     )
     failure = reserve_request_quota('file_scan')
     if failure is not None:
         return failure
-    try:
-        # ✅ التعديل هنا: إضافة use_exiftool=True
-        analyzer = FileDeepAnalyzer(use_exiftool=True)
-        result = analyzer.comprehensive_analysis(file_content, filename)
-        
-        return jsonify(result)
-        
-    except Exception:
-        app.logger.exception('File deep analysis failed')
-        return jsonify({"error": "File analysis is temporarily unavailable. Please retry."}), 500
-    # ================================================================
+    from services.evidence_jobs import queue_evidence_job
+    temp_path = save_temporary_upload(file_content, filename, UPLOAD_FOLDER)
+    log_activity(current_user.username, 'file_scan', f'File scan queued: {filename}')
+    return queue_evidence_job(kind, {'path': temp_path, 'filename': filename})
+
+
+# ================================================================
 # API: بدء فحص ملف غير متزامن
 # ================================================================
 
@@ -912,9 +858,12 @@ def task_status(task_id):
         result = task.result
         outcome = result.get('status') if isinstance(result, dict) else None
         if isinstance(outcome, str) and outcome in {'failed', 'error'}:
+            # Only evidence jobs set user_error, from a fixed set of messages.
+            message = result.get('user_error')
             response = {'state': 'FAILURE', 'outcome': 'failed',
                         'status': 'Task did not complete successfully',
-                        'error': 'Analysis failed. Please retry.', 'progress': 0}
+                        'error': message if isinstance(message, str) and 0 < len(message) <= 200 else 'Analysis failed. Please retry.',
+                        'progress': 0}
         else:
             messages = {'partial': 'Analysis finished with incomplete coverage',
                         'unavailable': 'Analysis unavailable'}
@@ -938,7 +887,8 @@ def task_status(task_id):
             'progress': 0
         }
     
-    return jsonify(response)
+    # Task results can contain scan reports; never let a browser or proxy cache them.
+    return jsonify(response), 200, {'Cache-Control': 'no-store'}
 
 
 # ================================================================
@@ -1428,24 +1378,15 @@ def api_site_scan():
         return jsonify({'error': 'Provide an HTTP or HTTPS URL'}), 400
     if any(type(data.get(flag, False)) is not bool for flag in ('include_provider', 'include_discovery')):
         return jsonify({'error': 'Scan options must be true or false'}), 400
+    from services.safe_http import reject_non_public_literal
     try:
-        result = SiteAnalyzer().comprehensive_analysis(data['domain'], include_provider=data.get('include_provider', False), include_discovery=data.get('include_discovery', False))
-        if result.get('error'):
-            return jsonify({'error': result['error']}), 400
-        log_activity(current_user.username, 'site_scan', 'Read-only site evidence collected')
-        response = jsonify(result)
-        response.headers['Cache-Control'] = 'no-store'
-        return response
-    except UnsafeTargetError as error:
-        from services.safe_http import TargetResolutionError
-        if isinstance(error, TargetResolutionError):
-            return jsonify({'error': 'Target DNS is temporarily unavailable; please retry'}), 503
+        reject_non_public_literal(data['domain'].strip())
+    except UnsafeTargetError:
         return jsonify({'error': 'The target could not be assessed under the public-network policy'}), 400
-    except ValueError:
-        return jsonify({'error': 'Provide a valid public HTTP or HTTPS URL'}), 400
-    except Exception:
-        app.logger.error('Read-only site assessment failed')
-        return jsonify({'error': 'Site assessment is temporarily unavailable'}), 503
+    from services.evidence_jobs import queue_evidence_job
+    log_activity(current_user.username, 'site_scan', 'Read-only site evidence queued')
+    return queue_evidence_job('site', {'domain': data['domain'], 'include_provider': data.get('include_provider', False),
+                                       'include_discovery': data.get('include_discovery', False)})
 # ================================================================
 # Password Checker
 # ================================================================
@@ -1501,17 +1442,9 @@ def subdomain_finder():
 @check_permission('subdomain_finder')
 def api_subdomain_finder():
     data = request.get_json(silent=True)
-    try:
-        result = SubdomainFinder().find_subdomains(data['domain'].strip(), include_ct=data.get('include_ct', True))
-        log_activity(current_user.username, 'subdomain_finder', 'Completed bounded domain discovery')
-        return jsonify(result), 200, {'Cache-Control':'no-store'}
-    except ValueError as error:
-        return jsonify(error=str(error)), 400
-    except UnsafeTargetError:
-        raise
-    except Exception:
-        app.logger.exception('Domain discovery failed')
-        return jsonify(error='Discovery temporarily unavailable. Please retry.'), 503
+    from services.evidence_jobs import queue_evidence_job
+    log_activity(current_user.username, 'subdomain_finder', 'Bounded domain discovery queued')
+    return queue_evidence_job('subdomain_discovery', {'domain': data['domain'].strip(), 'include_ct': data.get('include_ct', True)})
 
 
 # ================================================================
@@ -1524,21 +1457,15 @@ def api_subdomain_finder():
 @validate_web_scan_request('domain', 'include_provider', domain=True)
 @check_permission('subdomain_finder')
 def api_scan_subdomain():
-    from services.subdomain_finder import normalize_domain
-    from services.web_assessment import WebAssessment
     data = request.get_json(silent=True)
+    from services.subdomain_finder import normalize_domain
     try:
         domain = normalize_domain(data['domain'].strip())
-        result = WebAssessment().analyze('https://'+domain+'/', include_provider=data.get('include_provider', False))
-        log_activity(current_user.username, 'subdomain_scan', 'Completed read-only hostname assessment')
-        return jsonify(result), 200, {'Cache-Control':'no-store'}
     except ValueError as error:
         return jsonify(error=str(error)), 400
-    except UnsafeTargetError:
-        raise
-    except Exception:
-        app.logger.exception('Hostname assessment failed')
-        return jsonify(error='URL inspection temporarily unavailable. Please retry.'), 503
+    from services.evidence_jobs import queue_evidence_job
+    log_activity(current_user.username, 'subdomain_scan', 'Read-only hostname assessment queued')
+    return queue_evidence_job('subdomain_inspection', {'domain': domain, 'include_provider': data.get('include_provider', False)})
 
 # ================================================================
 # File Scanner  👈 👈 👈 أضف هنا

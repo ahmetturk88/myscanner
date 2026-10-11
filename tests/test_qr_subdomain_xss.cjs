@@ -29,6 +29,7 @@ function setup(name){
  const ctx={window:{scrollTo(){},location:{}},URL:TestURL,Blob,console,AbortController,setTimeout(){},clearTimeout(){},setInterval(){return 1;},clearInterval(){},document:{body:new Element('body'),getElementById:node,createElement:tag=>new Element(tag),addEventListener(){},activeElement:null},navigator:{clipboard:{writeText(value){copied.push(value);return Promise.resolve();}}},localStorage:{setItem(){}},fetch:async(url,options)=>{requests.push({url,body:options.body});return {ok:true,json:async()=>assessment()};}};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
  vm.runInContext(fs.readFileSync(path.join(root,'static/web_assessment_ui.js'),'utf8'),ctx);ctx.WebAssessmentUI=ctx.window.WebAssessmentUI;
+ vm.runInContext(fs.readFileSync(path.join(root,'static/task_poll.js'),'utf8'),ctx);ctx.MyScannerTasks=ctx.window.MyScannerTasks;  // loaded by base.html
  if(name==='qr_scanner.html'){for(const file of ['qr_payload.js','qr_workspace.js'])vm.runInContext(fs.readFileSync(path.join(root,'static',file),'utf8'),ctx);ctx.QRPayload=ctx.window.QRPayload;ctx.QRWorkspace=ctx.window.QRWorkspace;}
  if(name==='subdomain_finder.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/subdomain_workspace.js'),'utf8'),ctx);ctx.SubdomainWorkspace=ctx.window.SubdomainWorkspace;}
  const template=fs.readFileSync(path.join(root,'templates',name),'utf8');

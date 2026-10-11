@@ -117,6 +117,15 @@ def scan_file_task(self, file_path, filename, user_id):
         remove_temporary_upload(file_path)
 
 
+@celery.task(bind=True, name='evidence_job_task', soft_time_limit=300, time_limit=330)
+def evidence_job_task(self, kind, params, user_id):
+    """Site, subdomain and file evidence collected outside the web process."""
+    from app import app
+    from services.evidence_jobs import run_evidence_job
+    with app.app_context():
+        return run_evidence_job(kind, params, user_id)
+
+
 @celery.task(bind=True, name='bulk_email_task', soft_time_limit=600, time_limit=630)
 def bulk_email_task(self, emails, user_id):
     """Check up to 20 addresses; each accepted item was charged before queuing."""

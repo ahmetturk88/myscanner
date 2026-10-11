@@ -36,11 +36,15 @@ class WebEndpointTests(unittest.TestCase):
 
     def test_discovery_passes_source_choice_and_is_not_cached(self):
         self.login()
-        with patch.object(self.production,'SubdomainFinder') as finder:
-            finder.return_value.find_subdomains.return_value={'schema_version':2,'results':[]}
+        from services.evidence_jobs import run_evidence_job
+        with patch('services.evidence_jobs.queue_evidence_job',return_value=({'task_id':'t'},202)) as queued:
             r=self.client.post('/api/subdomain-finder',json={'domain':'example.com','include_ct':False})
+        self.assertEqual(r.status_code,202)
+        kind,params=queued.call_args.args
+        with patch('services.subdomain_finder.SubdomainFinder') as finder:
+            finder.return_value.find_subdomains.return_value={'schema_version':2,'results':[]}
+            self.assertEqual(run_evidence_job(kind,params,self.owner)['result'],{'schema_version':2,'results':[]})
             finder.return_value.find_subdomains.assert_called_once_with('example.com',include_ct=False)
-        self.assertEqual(r.status_code,200);self.assertEqual(r.headers['Cache-Control'],'no-store')
 
     def test_qr_opt_in_is_explicit_and_response_not_cached(self):
         self.login()
@@ -52,11 +56,16 @@ class WebEndpointTests(unittest.TestCase):
 
     def test_hostname_inspection_normalizes_and_preserves_deep_report(self):
         self.login()
+        from services.evidence_jobs import run_evidence_job
+        with patch('services.evidence_jobs.queue_evidence_job',return_value=({'task_id':'t'},202)) as queued:
+            r=self.client.post('/api/scan-subdomain',json={'domain':'WWW.EXAMPLE.com','include_provider':True})
+        self.assertEqual(r.status_code,202)
+        kind,params=queued.call_args.args
+        self.assertEqual(params['domain'],'www.example.com')
         with patch('services.web_assessment.WebAssessment') as analyzer:
             analyzer.return_value.analyze.return_value={'schema_version':2,'tls':{'status':'completed'}}
-            r=self.client.post('/api/scan-subdomain',json={'domain':'WWW.EXAMPLE.com','include_provider':True})
+            self.assertEqual(run_evidence_job(kind,params,self.owner)['result']['tls']['status'],'completed')
             analyzer.return_value.analyze.assert_called_once_with('https://www.example.com/',include_provider=True)
-        self.assertEqual(r.status_code,200);self.assertEqual(r.json['tls']['status'],'completed')
 
     def test_analysis_error_has_generic_503_and_does_not_expose_raw_error(self):
         self.login()

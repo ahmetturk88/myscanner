@@ -19,9 +19,9 @@ class TemplateTests(unittest.TestCase):
             with self.subTest(page=page):
                 rendered=env.get_template(page).render()
                 soup=BeautifulSoup(rendered,'html.parser')
-                if page=='password_check.html':
-                    self.assertIsNotNone(soup.find('script',src='/static/password_workspace.js'))
-                    self.assertIsNotNone(soup.select_one('#password-results'))
+                if page in ('password_check.html','ssl_checker.html'):
+                    self.assertIsNotNone(soup.find('script',src='/static/'+('password_workspace.js' if page=='password_check.html' else 'ssl_workspace.js')))
+                    self.assertIsNotNone(soup.select_one('#password-results' if page=='password_check.html' else '#ssl-results'))
                     continue
                 self.assertIsNotNone(soup.find('script',src='/static/scan_ui.js'))
                 renderer = {'domain_lookup.html':'/static/domain_workspace.js','ip_check.html':'/static/ip_workspace.js'}.get(page, 'function render')
@@ -60,7 +60,7 @@ class ExecutionTests(unittest.TestCase):
                             self.assertNotIn('url(',value)
 
     def test_original_text_is_recovered_without_double_escaping(self):
-        for label in ['IP stats-grid','email details-table','domain dns-list','SSL result-card','password password-results','email suggestions-list']:
+        for label in ['IP stats-grid','email details-table','domain dns-list','SSL ssl-results','password password-results','email suggestions-list']:
             with self.subTest(section=label):
                 section=next(s for s in self.output['sections'] if s['name']==label)
                 self.assertIn(self.output['payload'],BeautifulSoup(section['html'],'html.parser').get_text())

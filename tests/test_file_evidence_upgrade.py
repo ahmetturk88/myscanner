@@ -85,7 +85,7 @@ class FileEvidenceTests(unittest.TestCase):
     def test_heuristic_low_score_is_not_a_confirmed_malware_verdict(self):
         with patch.object(self.analyzer,'scan_with_yara',return_value={'risk_score':100,'matched_rules':['fixture']}), patch.object(self.analyzer,'check_hash_reputation',return_value={'status':'not_found','is_malicious':False}):
             result=self.analyzer.comprehensive_analysis(b'print("hello")','resume.py')
-        self.assertEqual(result['verdict'],'high_risk')
+        self.assertEqual(result['verdict'],'suspicious')  # file-evidence-v3: unconfirmed indicators request review
 
     def test_malformed_pdf_tokens_do_not_claim_launch(self):
         result=self.analyzer.extract_metadata_pdf(b'%PDF-1.4 /Launch')

@@ -34,8 +34,8 @@ sources including **url.vet**, **MalwareBazaar**, and **Hybrid Analysis**.
 - ✅ SSL Checker — certificate validation
 
 ### Files & Malware
-- ✅ File Scanner — malware analysis with 5 hash types + YARA rules
-- ✅ Sandbox Analyzer — behavioral analysis (file / hash / URL)
+- ✅ File Scanner — static inspection, hashes and MalwareBazaar reputation (local byte-pattern indicators, not YARA)
+- 🔄 Sandbox Analyzer — hash lookup only; file/URL submission disabled until consent and privacy terms exist
 - ✅ PDF Report Generator — professional reports
 
 ### Network & Identity
@@ -51,7 +51,6 @@ sources including **url.vet**, **MalwareBazaar**, and **Hybrid Analysis**.
 
 ## 🚧 In Progress
 - 🔄 Vulnerability Scanner (OpenVAS integration)
-- 🔄 Advanced malware sandbox (Cuckoo)
 - 🔄 Public API for developers
 
 ## 📦 Installation (Development)

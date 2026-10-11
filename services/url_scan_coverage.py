@@ -59,8 +59,14 @@ def apply_url_coverage(result):
     warning = provider.get('evidence_warning', '') if isinstance(provider, dict) else ''
     result['assessment_warning'] = warning or ('' if available else PARTIAL_WARNING)
     if isinstance(provider, dict) and provider.get('verdict') in ('suspicious', 'malicious') and result.get('verdict') != 'malicious':
-        result['verdict'] = provider['verdict']
-        result['verdict_icon'] = '🔴' if result['verdict'] == 'malicious' else '⚠️'
+        # Only a verified phishing entry confirms a threat; other provider
+        # threat verdicts mean "review" (policy url-evidence-v5).
+        confirmed = provider.get('phishing_status') == 'verified'
+        if confirmed:
+            result['verdict'] = 'malicious'
+        elif result.get('verdict') not in ('high_risk',):
+            result['verdict'] = 'suspicious'
+        result['verdict_icon'] = '🔴' if result['verdict'] in ('malicious', 'high_risk') else '⚠️'
         if result.get('summary', {}).get('level') == 'Low Risk':
             result['summary'] = {'level': 'Threat reported', 'color': 'red', 'message': warning or 'The provider reported a threat.'}
     if not available:

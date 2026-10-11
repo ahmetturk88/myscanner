@@ -23,6 +23,7 @@ import threading
 import time
 import json
 import hashlib
+import hmac
 import re
 import socket
 import dns.resolver
@@ -88,6 +89,8 @@ from services.runtime_security import security_settings
 app.config.update(security_settings())
 from services.trusted_proxy import configure_trusted_proxy, render_edge_candidate
 trusted_proxy = configure_trusted_proxy(app)
+from services.security_headers import init_security_headers
+init_security_headers(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Allow a 32 MB Sandbox file plus bounded multipart overhead.
@@ -293,8 +296,29 @@ info@myscanners.com
     send_email(user.email, subject, body_text, html_body=html_body)
 
 
+def _reset_fingerprint(user):
+    # Binds a reset link to the current password hash: once the password
+    # changes, every earlier link (including the one just used) is invalid.
+    return hashlib.sha256(user.password_hash.encode()).hexdigest()[:32]
+
+
+def password_policy_errors(password):
+    errors = []
+    if len(password) < 8:
+        errors.append('at least 8 characters')
+    if not re.search(r'[A-Z]', password):
+        errors.append('at least one uppercase letter')
+    if not re.search(r'[a-z]', password):
+        errors.append('at least one lowercase letter')
+    if not re.search(r'[0-9]', password):
+        errors.append('at least one number')
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        errors.append('at least one special character')
+    return errors
+
+
 def send_reset_email(user):
-    token = serializer.dumps(user.email, salt='password-reset')
+    token = serializer.dumps({'email': user.email, 'fp': _reset_fingerprint(user)}, salt='password-reset')
     base_url = os.getenv('BASE_URL', 'https://myscanners.com')
     link = f"{base_url}/reset-password/{token}"
     subject = '🔑 Reset your MyScanner password'
@@ -347,7 +371,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 @app.before_request
 def protect_auth_requests():
-    if request.method == 'POST' and request.endpoint in {'login', 'register'} and not current_user.is_authenticated:
+    if request.method == 'POST' and request.endpoint in {'login', 'register', 'forgot_password'} and not current_user.is_authenticated:
         try:
             # Middleware applies forwarded addresses only for configured
             # trusted peers. Direct clients cannot spoof this identity.
@@ -385,18 +409,7 @@ def register():
             return redirect(url_for('register'))
 
         # التحقق من قوة كلمة المرور
-        password_errors = []
-        if len(password) < 8:
-            password_errors.append('at least 8 characters')
-        if not re.search(r'[A-Z]', password):
-            password_errors.append('at least one uppercase letter')
-        if not re.search(r'[a-z]', password):
-            password_errors.append('at least one lowercase letter')
-        if not re.search(r'[0-9]', password):
-            password_errors.append('at least one number')
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            password_errors.append('at least one special character')
-        
+        password_errors = password_policy_errors(password)
         if password_errors:
             flash(f'Password must contain: {", ".join(password_errors)}', 'danger')
             return redirect(url_for('register'))
@@ -537,14 +550,14 @@ def forgot_password():
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     try:
-        email = serializer.loads(token, salt='password-reset', max_age=1800)
+        payload = serializer.loads(token, salt='password-reset', max_age=1800)
     except Exception:
+        payload = None
+    user = None
+    if isinstance(payload, dict) and isinstance(payload.get('email'), str):
+        user = User.query.filter_by(email=payload['email']).first()
+    if not user or not hmac.compare_digest(str(payload.get('fp', '')), _reset_fingerprint(user)):
         flash('Reset link is invalid or has expired.', 'danger')
-        return redirect(url_for('forgot_password'))
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        flash('User not found.', 'danger')
         return redirect(url_for('forgot_password'))
 
     if request.method == 'POST':
@@ -555,8 +568,9 @@ def reset_password(token):
             flash('Passwords do not match.', 'danger')
             return redirect(request.url)
 
-        if len(password) < 8:
-            flash('Password must be at least 8 characters.', 'danger')
+        password_errors = password_policy_errors(password)
+        if password_errors:
+            flash(f'Password must contain: {", ".join(password_errors)}', 'danger')
             return redirect(request.url)
 
         # ✅ استخدم bcrypt من extensions
@@ -672,8 +686,8 @@ def api_scan_result(scan_id):
             raw = None
 
     if isinstance(raw, dict) and isinstance(raw.get('local_analysis'), dict) and isinstance(raw.get('deep_analysis'), dict):
-        from services.url_assessment import assess_url
-        raw['aggregate_assessment'] = assess_url(raw['local_analysis'], raw['deep_analysis'])
+        from services.url_assessment import saved_assessment
+        raw['aggregate_assessment'] = saved_assessment(raw, raw['local_analysis'], raw['deep_analysis'])
 
     return jsonify({
         "id": scan.id, "url": scan.url,
@@ -816,11 +830,9 @@ def api_scan_file():
             app.logger.error('File PDF receipt unavailable')
         return jsonify(result)
         
-    except Exception as e:
-        app.logger.error(f'❌ File scan failed: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Scan error: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception('File scan failed')
+        return jsonify({"error": "File scan is temporarily unavailable. Please retry."}), 500
         
 # ================================================================
 # File Deep Analysis API
@@ -843,10 +855,9 @@ def api_file_deep_analysis():
         
         return jsonify(result)
         
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception('File deep analysis failed')
+        return jsonify({"error": "File analysis is temporarily unavailable. Please retry."}), 500
     # ================================================================
 # API: بدء فحص ملف غير متزامن
 # ================================================================
@@ -939,7 +950,7 @@ def task_status(task_id):
         response = {
             'state': 'FAILURE',
             'status': 'Task failed',
-            'error': str(task.info),
+            'error': 'Analysis failed. Please retry.',
             'progress': 0
         }
     else:
@@ -1409,8 +1420,8 @@ def download_pdf(scan_id):
         return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
     from services.url_scan_coverage import apply_url_coverage
     analysis = apply_url_coverage(saved['local_analysis'])
-    from services.url_assessment import assess_url
-    analysis['aggregate_assessment'] = assess_url(saved['local_analysis'], saved.get('deep_analysis', {}))
+    from services.url_assessment import saved_assessment
+    analysis['aggregate_assessment'] = saved_assessment(saved, saved['local_analysis'], saved.get('deep_analysis', {}))
 
     # توليد PDF
     buffer = generate_vulnerability_report(scan, analysis, current_user.username)
@@ -1753,8 +1764,8 @@ def api_url_analysis(scan_id):
         return jsonify(error='Saved analysis is unavailable. Start a new URL scan to generate a report.'), 409
     local_analysis = apply_url_coverage(saved['local_analysis'])
     deep_analysis = apply_url_coverage(saved['deep_analysis'])
-    from services.url_assessment import assess_url
-    aggregate = assess_url(local_analysis, deep_analysis)
+    from services.url_assessment import saved_assessment
+    aggregate = saved_assessment(saved, local_analysis, deep_analysis)
     app.logger.info(f'[SUCCESS] Saved URL analysis loaded for scan #{scan_id}')
     log_activity(current_user.username, 'url_analysis', f'Read saved URL report #{scan_id}')
     # تحليلات إضافية
@@ -1764,7 +1775,6 @@ def api_url_analysis(scan_id):
         "cookies": [],
         "security_headers": local_analysis.get("security_headers", {}).get("headers", {}),
         "tech_stack": [],
-        "screenshot": f"https://image.thum.io/get/1024x768/crop/{url}",
         "whois": {},
         "geo": {},
         "similar_sites": [],
@@ -1818,8 +1828,9 @@ def api_url_analyze():
         return jsonify(result)
     except UnsafeTargetError:
         raise
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception('Direct URL analysis failed')
+        return jsonify({"error": "URL analysis is temporarily unavailable. Please retry."}), 500
 
     
 

@@ -1,5 +1,6 @@
 """Run: python -m unittest discover -s tests -p test_task_ownership.py -v"""
 
+import atexit
 import importlib.util
 from io import BytesIO
 import os
@@ -16,25 +17,37 @@ from models import User, AsyncScanTask
 from services.task_dispatch import enqueue_owned_task
 
 
+_IMPORTED = {}
+
+
+def _import_production_app():
+    # `app` is imported once per process, so its disposable database must live
+    # for the whole process. Cleaning it per test class left later classes
+    # pointing at a deleted file and made results depend on test order.
+    if not _IMPORTED:
+        temporary = tempfile.TemporaryDirectory()
+        atexit.register(temporary.cleanup)
+        with patch.dict(os.environ, {
+            'DATABASE_URL': 'sqlite:///' + str(Path(temporary.name, 'import.db')),
+            'SECRET_KEY': 'test-only', 'IS_RENDER': '1',
+        }):
+            import app
+        _IMPORTED.update(temporary=temporary, production=app)
+    return _IMPORTED['temporary'], _IMPORTED['production']
+
+
 class TaskOwnershipTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Import the production endpoint functions using a disposable DB, not
         # a developer's configured DATABASE_URL or local .env database.
-        cls.temporary = tempfile.TemporaryDirectory()
-        with patch.dict(os.environ, {
-            'DATABASE_URL': 'sqlite:///' + str(Path(cls.temporary.name, 'import.db')),
-            'SECRET_KEY': 'test-only', 'IS_RENDER': '1',
-        }):
-            import app
-            cls.production = app
+        TaskOwnershipTests.temporary, TaskOwnershipTests.production = _import_production_app()
 
     @classmethod
     def tearDownClass(cls):
         with cls.production.app.app_context():
             db.session.remove()
             db.engine.dispose()
-        cls.temporary.cleanup()
 
     def setUp(self):
         self.app = Flask(__name__)

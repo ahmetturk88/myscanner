@@ -1061,18 +1061,13 @@ class FileDeepAnalyzer:
             verdict = "safe"
             verdict_icon = "✅"
             severity = "low"
-        elif security_score >= 60:
+        else:
+            # Byte patterns and metadata are review indicators, never a threat
+            # finding by themselves (file-evidence-v3). A hash match below can
+            # still raise the verdict to malicious.
             verdict = "suspicious"
             verdict_icon = "⚠️"
             severity = "medium"
-        elif security_score >= 30:
-            verdict = "high_risk"
-            verdict_icon = "🔴"
-            severity = "high"
-        else:
-            verdict = "high_risk"
-            verdict_icon = "🔴"
-            severity = "high"
         
         # تعديل الحكم للملفات العادية
         if is_benign and verdict in ["malicious", "high_risk"]:
@@ -1091,7 +1086,7 @@ class FileDeepAnalyzer:
             recommendations.append("⚠️ High risk detected - proceed with extreme caution")
             recommendations.append("📁 Run in isolated sandbox environment only")
         elif verdict == "suspicious":
-            recommendations.append("🔍 Suspicious indicators found - investigate further")
+            recommendations.append("🔍 Local indicators need review - no reputation source confirms a threat. Do not run the file until you trust its source.")
             if is_benign:
                 recommendations.append("ℹ️ Note: Some indicators may be false positives (file appears legitimate)")
         

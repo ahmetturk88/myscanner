@@ -40,7 +40,11 @@ class IntegrationTests(unittest.TestCase):
             r=a.comprehensive_analysis(output.getvalue(),'fixture.zip')
         self.assertEqual(r['coverage_status'],'partial')
         self.assertTrue(all(not values for values in r['iocs'].values()))
-        self.assertIn('Archive member contents and nested archives were not inspected',r['missing_checks'])
+        # Linux runs bounded payload inspection; other platforms skip it. Either
+        # way the report must state that archive members were not fully verified.
+        self.assertTrue(any('member' in str(check).lower() for check in r['missing_checks']), r['missing_checks'])
         from services.file_assessment import assess_file
         r['malwarebazaar']={'status':'not_found'}
-        self.assertEqual(assess_file(r)['score'],60)
+        unread=any('member contents' in str(check).lower() for check in r['missing_checks'])
+        # Unread members cost 30 more points than bounded static inspection.
+        self.assertEqual(assess_file(r)['score'],60 if unread else 90)

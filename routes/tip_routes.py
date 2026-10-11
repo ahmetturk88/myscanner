@@ -67,7 +67,7 @@ def api_tip_stats():
         stats = lookup.get_statistics()
         return jsonify({'success': True, 'stats': stats})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════
@@ -101,7 +101,7 @@ def api_tip_lookup():
         return jsonify({'success': True, 'result': result})
     except Exception as e:
         current_app.logger.error(f'[TIP] Lookup error: {e}')
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/lookup/url', methods=['POST'])
@@ -124,7 +124,7 @@ def api_tip_lookup_url():
         result = lookup.lookup_url(url=url, context='tip_lookup', user_id=current_user.id)
         return jsonify({'success': True, 'result': result})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/lookup/bulk', methods=['POST'])
@@ -158,7 +158,7 @@ def api_tip_lookup_bulk():
             'results': results,
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════
@@ -204,7 +204,7 @@ def api_tip_iocs():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════
@@ -239,7 +239,7 @@ def api_tip_sources():
             ]
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/sources/fetch/<int:source_id>', methods=['POST'])
@@ -252,7 +252,7 @@ def api_tip_fetch_source(source_id):
         task = fetch_ioc_source_task.delay(source_id)
         return jsonify({'success': True, 'task_id': task.id, 'message': f'Fetching source {source_id} in background'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/sources/fetch-all', methods=['POST'])
@@ -265,7 +265,7 @@ def api_tip_fetch_all():
         task = fetch_all_ioc_sources.delay()
         return jsonify({'success': True, 'task_id': task.id, 'message': 'Fetching all due sources in background'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/sources/initialize', methods=['POST'])
@@ -278,7 +278,7 @@ def api_tip_initialize():
         task = initialize_tip_sources.delay()
         return jsonify({'success': True, 'task_id': task.id})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════
@@ -311,7 +311,7 @@ def api_misp_pull():
         task = misp_pull_task.delay(days_back=days_back)
         return jsonify({'success': True, 'task_id': task.id})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/misp/push', methods=['POST'])
@@ -337,7 +337,7 @@ def api_misp_push():
         )
         return jsonify({'success': True, 'task_id': task.id})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════
@@ -386,7 +386,7 @@ def api_tip_add_ioc():
         return jsonify({'success': True, 'ioc': ioc.to_dict()}), 201
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 @tip_bp.route('/api/tip/iocs/<int:ioc_id>', methods=['DELETE'])
@@ -402,7 +402,7 @@ def api_tip_delete_ioc(ioc_id):
         db.session.commit()
         return jsonify({'success': True, 'message': f'IoC {ioc_id} deactivated'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════
@@ -442,4 +442,4 @@ def api_tip_matches():
             ]
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Threat intelligence service is temporarily unavailable.'}), 500

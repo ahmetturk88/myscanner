@@ -31,12 +31,13 @@ class DNSPartialTests(unittest.TestCase):
                  patch.object(analyzer,'analyze_with_urlvet',return_value={'verdict':'malicious','trust_score':0}):
                 result=analyzer.comprehensive_analysis('https://example.com')
             self.assertTrue(result['structure']['is_https'])
-            self.assertEqual(result['verdict'],'malicious')
+            # v5: an unverified provider threat verdict asks for review.
+            self.assertEqual(result['verdict'],'suspicious')
             self.assertIn('error',result['security_headers'])
             from services.url_assessment import assess_url
             assessment=assess_url(result, {})
             self.assertEqual(assessment['coverage'],'partial')
-            self.assertEqual(assessment['verdict'],'malicious')
+            self.assertEqual(assessment['verdict'],'suspicious')
         finally:
             analyzer.session.close()
 

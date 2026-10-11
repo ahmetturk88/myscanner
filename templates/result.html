@@ -597,6 +597,7 @@ function renderAggregate(assessment) {
       <p>${assessment.provisional ? 'Some sources could not be verified. Their coverage deductions are included in this score, separately from detected risk indicators.' : 'URL, connection, content and reputation evidence assessed together. Review the findings before deciding to visit.'}</p>
       <div class="hero-tags"><span>${assessment.provisional ? 'Limited coverage' : 'Assessment complete'}</span><span>${esc(count)} of 5 evidence categories assessed</span></div>
       ${assessment.threat_override ? '<p class="threat-callout">A reported threat overrides positive findings. Incomplete coverage does not cancel that finding.</p>' : ''}
+      ${assessment.current_policy ? `<p class="threat-callout">Recorded at scan time with policy ${esc(assessment.policy_version)}. The current policy (${esc(assessment.current_policy.policy_version)}) would report: ${esc(labels[assessment.current_policy.verdict] || 'Needs verification')}. Run a new scan for a current result.</p>` : ''}
     </div>
     <div class="overall-score"><span class="score-caption">${score === null ? 'ASSESSMENT STATUS' : 'OVERALL ASSESSMENT SCORE'}</span>
       ${score === null ? '<div class="score-incomplete">Assessment<br>incomplete</div><span class="score-note">No final safety score is available.</span>' : `<div class="score-number">${esc(score)}<span>/100</span></div><div class="score-track" aria-hidden="true"><span style="width:${score}%"></span></div><span class="score-note">Evidence + coverage index</span>`}</div>

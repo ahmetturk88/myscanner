@@ -25,8 +25,8 @@ def assess_file(report):
     score = 0 if confirmed or not valid else max(0, round(base - penalty))
     if report.get('verdict') in ('suspicious', 'high_risk'):
         score = min(score, 59 if report['verdict'] == 'suspicious' else 29)
-    return {'score': score, 'local_index': base if valid else None,
+    return {'score': score, 'confirmed': bool(confirmed), 'local_index': base if valid else None,
             'coverage_penalty': penalty, 'deductions': deductions,
             'coverage': 'partial' if partial or not valid else 'completed',
-            'policy_version': 'file-evidence-v2',
+            'policy_version': 'file-evidence-v3',
             'warning': 'Evidence and coverage index; not a safety probability. Zero may mean insufficient evidence or a confirmed threat; read the verdict.'}

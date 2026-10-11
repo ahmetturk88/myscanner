@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 import requests
-from services.safe_http import UnsafeTargetError, PublicHTTPSession
+from services.safe_http import UnsafeTargetError, PublicHTTPSession, ScanBudgetExceeded
 from services.web_assessment import WebAssessment, dns_records, response_chain
 from services.subdomain_finder import SubdomainFinder, normalize_domain
 
@@ -228,9 +228,20 @@ class ResponseBudgetTests(unittest.TestCase):
         raw=response(body=b'body')
         with PublicHTTPSession(deadline=1) as session:
             pool=Mock();pool.urlopen.return_value=raw
-            with patch.object(session.get_adapter('https://').poolmanager,'connection_from_host',return_value=pool),patch('services.safe_http.socket.getaddrinfo',return_value=addresses('8.8.8.8')),patch('services.safe_http.time.monotonic',return_value=2):
-                with self.assertRaises(UnsafeTargetError):session.get('https://example.com')
+            # The budget is still open when the request starts and runs out
+            # while the body is read: the transport must be closed.
+            with patch.object(session.get_adapter('https://').poolmanager,'connection_from_host',return_value=pool),patch('services.safe_http.socket.getaddrinfo',return_value=addresses('8.8.8.8')),patch('services.safe_http.time.monotonic',side_effect=[0.5,2,2,2]):
+                with self.assertRaises(ScanBudgetExceeded):session.get('https://example.com')
         self.assertTrue(raw.closed)
+
+    def test_expired_budget_opens_no_transport(self):
+        from test_ssrf_protection import response, records as addresses
+        raw=response(body=b'body')
+        with PublicHTTPSession(deadline=1) as session:
+            pool=Mock();pool.urlopen.return_value=raw
+            with patch.object(session.get_adapter('https://').poolmanager,'connection_from_host',return_value=pool),patch('services.safe_http.time.monotonic',return_value=2):
+                with self.assertRaises(ScanBudgetExceeded):session.get('https://example.com')
+        pool.urlopen.assert_not_called()
 
 if __name__=='__main__':unittest.main()
 

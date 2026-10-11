@@ -4,8 +4,10 @@
 # يدمج: URLDeepAnalyzer + URLAnalyzer + url.vet
 # =================================================================
 
+import copy
 import re
-from services.url_scan_coverage import apply_url_coverage, urlvet_available
+import time
+from services.url_scan_coverage import apply_url_coverage, apply_phishing_evidence, urlvet_available
 import socket
 import ssl
 import dns.resolver
@@ -22,6 +24,12 @@ from typing import Dict, Any, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Total network budget per analysis phase (seconds). A slow target can make
+# checks unavailable, but cannot hold a scan worker indefinitely.
+QUICK_BUDGET = 60
+DEEP_BUDGET = 90
+WHOIS_TIMEOUT = 10
 
 
 
@@ -103,6 +111,8 @@ class URLDeepAnalyzer:
 
         # تهيئة url.vet client (lazy loading)
         self._urlvet_client = None
+        # One url.vet analysis per URL per analyzer: quick and deep share it.
+        self._urlvet_results = {}
 
         logger.info("✅ URLDeepAnalyzer initialized successfully")
 
@@ -465,7 +475,7 @@ class URLDeepAnalyzer:
         try:
             import whois
             from datetime import timezone
-            w = whois.whois(domain)
+            w = whois.whois(domain, timeout=WHOIS_TIMEOUT)
 
             if w.creation_date:
                 if isinstance(w.creation_date, list):
@@ -809,8 +819,12 @@ class URLDeepAnalyzer:
                 'neutral_reasons': []
             }
 
+        if url in self._urlvet_results:
+            return copy.deepcopy(self._urlvet_results[url])
         try:
             result = self.urlvet_client.analyze_url(url)
+            if isinstance(result, dict) and not result.get('error'):
+                self._urlvet_results[url] = copy.deepcopy(result)
             return result
         except Exception as e:
             logger.error(f"url.vet integration error: {e}")
@@ -834,6 +848,7 @@ class URLDeepAnalyzer:
         يشمل: التحليل المحلي + url.vet
         """
         logger.info(f"🔍 Starting quick URL analysis for: {url}")
+        self.session.set_deadline(time.monotonic() + QUICK_BUDGET)
 
         try:
             url = validate_public_url(url).url
@@ -864,7 +879,8 @@ class URLDeepAnalyzer:
             security_score -= 25
         if results["phishing"]["is_phishing_suspected"]:
             security_score -= min(40, results["phishing"]["risk_score"])
-        if results["ssl"].get("valid") is False:
+        # Plain HTTP is already deducted above; only a failed HTTPS check counts here.
+        if parsed.scheme == 'https' and results["ssl"].get("valid") is False:
             security_score -= 30
         if results["security_headers"].get("score", 0) < 50:
             security_score -= 15
@@ -873,6 +889,7 @@ class URLDeepAnalyzer:
 
         security_score = max(0, min(100, security_score))
 
+        # Local heuristics never confirm a threat (policy url-evidence-v5).
         if security_score >= 80:
             verdict = "safe"
             verdict_icon = "✅"
@@ -880,7 +897,7 @@ class URLDeepAnalyzer:
             verdict = "suspicious"
             verdict_icon = "⚠️"
         else:
-            verdict = "malicious"
+            verdict = "high_risk"
             verdict_icon = "🔴"
 
         results["security_score"] = security_score
@@ -908,14 +925,15 @@ class URLDeepAnalyzer:
 
         # ⚡ إضافة url.vet
         urlvet_result = self.analyze_with_urlvet(url)
+        apply_phishing_evidence(urlvet_result)
         results["urlvet"] = urlvet_result
 
-        # دمج url.vet في الدرجة النهائية
-        if urlvet_result.get('verdict') == 'malicious':
+        # دمج url.vet: only a verified phishing entry confirms a threat.
+        if urlvet_result.get('phishing_status') == 'verified':
             results["security_score"] = max(0, security_score - 50)
             results["verdict"] = "malicious"
             results["verdict_icon"] = "🔴"
-        elif urlvet_result.get('verdict') == 'suspicious':
+        elif urlvet_result.get('verdict') in ('malicious', 'suspicious'):
             results["security_score"] = max(0, security_score - 25)
             if results["verdict"] != "malicious":
                 results["verdict"] = "suspicious"
@@ -939,6 +957,7 @@ class URLDeepAnalyzer:
         يشمل: التحليل المحلي + url.vet
         """
         logger.info(f"🚀 Starting deep URL analysis for: {url}")
+        self.session.set_deadline(time.monotonic() + DEEP_BUDGET)
 
         try:
             url = validate_public_url(url).url
@@ -1042,13 +1061,22 @@ class URLDeepAnalyzer:
         result["overall_risk_score"] = min(100, int(risk_score))
 
         # تحديد الحكم النهائي
-        if result["overall_risk_score"] >= 70:
+        # Heuristic risk never confirms a threat; a URLhaus match does (url-evidence-v5).
+        if result["osint"].get("urlhaus") is True:
             result["verdict"] = "malicious"
             result["verdict_icon"] = "💀"
             result["summary"] = {
-                "level": "Critical Risk",
+                "level": "Confirmed Threat",
                 "color": "red",
-                "message": "Multiple malicious indicators detected. DO NOT visit this URL!"
+                "message": "URLhaus lists this URL as malware. Do not visit it."
+            }
+        elif result["overall_risk_score"] >= 70:
+            result["verdict"] = "high_risk"
+            result["verdict_icon"] = "🔴"
+            result["summary"] = {
+                "level": "High Risk",
+                "color": "orange",
+                "message": "Multiple risk indicators found, but no reputation source confirms a threat. Do not enter data until you verify the site."
             }
         elif result["overall_risk_score"] >= 45:
             result["verdict"] = "high_risk"

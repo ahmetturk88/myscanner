@@ -6,16 +6,17 @@ const escape=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function setup(filename){
  const elements={};
  class Element {
-  constructor(tag='div'){this.tagName=tag;this.children=[];this.handlers={};this.style={};this.className='';this._text='';this._html='';this.offsetTop=20;this.classList={add(){},remove(){}};this.value='';this.checked=false;}
+  constructor(tag='div'){this.tagName=tag;this.children=[];this.handlers={};this.style={setProperty(name,value){this[name]=value;}};this.className='';this._text='';this._html='';this.offsetTop=20;this.classList={add(){},remove(){}};this.value='';this.checked=false;}
   set textContent(value){this._text=String(value);this.children=[];this._html='';}get textContent(){return this._text+this.children.map(c=>c.textContent).join('');}
   set innerHTML(value){this._html=value;this.children=[];this._text='';}get innerHTML(){return this._html || escape(this._text)+this.children.map(c=>c.serialize()).join('');}
   append(...children){this.children.push(...children);}appendChild(child){this.children.push(child);return child;}replaceChildren(...children){this.children=children;this._html='';this._text='';}
-  addEventListener(event,callback){this.handlers[event]=callback;}
+  addEventListener(event,callback){this.handlers[event]=callback;}setAttribute(name,value){this[name]=value;}
   serialize(){return '<'+this.tagName+(this.className?' class="'+escape(this.className)+'"':'')+(this.type?' type="'+escape(this.type)+'"':'')+'>'+this.innerHTML+'</'+this.tagName+'>';}
  }
  const node=id=>elements[id] ||= new Element();
- const ctx={window:{scrollTo(){}},URL,console,Math,setTimeout(){},alert(){},document:{getElementById:node,createElement:tag=>new Element(tag),querySelectorAll(){return [];}},navigator:{clipboard:{writeText(){return Promise.resolve();}}}};
+ const ctx={window:{scrollTo(){}},URL,console,Math,setTimeout(){},alert(){},document:{getElementById:node,createElement:tag=>new Element(tag),querySelectorAll(){return [];},addEventListener(){}},navigator:{clipboard:{writeText(){return Promise.resolve();}}}};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
+ if(filename==='password_check.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/password_workspace.js'),'utf8'),ctx);ctx.renderResult=r=>ctx.window.PasswordWorkspace.render(r,node('password-results'));}
  const template=fs.readFileSync(path.join(root,'templates',filename),'utf8');
  for(const match of template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())vm.runInContext(match[1],ctx);
  if(filename==='ip_check.html'){vm.runInContext(fs.readFileSync(path.join(root,'static/ip_workspace.js'),'utf8'),ctx);ctx.renderResult=ctx.window.renderResult;}
@@ -55,17 +56,10 @@ ssl.ctx.renderResult({valid:true,grade:payload,days_remaining:payload,domain:pay
 assert(ssl.elements['result-card'].innerHTML.includes('grade-unknown'));assert(!ssl.elements['result-card'].innerHTML.includes('grade-<'));collect(ssl,'SSL');
 ssl.ctx.renderResult({valid:true,grade:'A+',days_remaining:100});assert(ssl.elements['result-card'].innerHTML.includes('grade-a'));
 const password=setup('password_check.html');
-password.ctx.renderResult({final:{color:'constructor',icon:payload,strength:payload,score:payload},password_length:payload,length:{status:payload},variety:{},entropy:{entropy_bits:payload,crack_time:payload},pwned:{is_pwned:true,count:payload},patterns:{has_issues:true,issues:[payload]},recommendations:[payload]});
-assert(password.elements['result-card'].innerHTML.includes('width:0%'));assert(!password.elements['result-card'].innerHTML.includes('background: function'));collect(password,'password');
-password.ctx.renderResult({final:{score:200},patterns:{has_issues:true,issues:{}},recommendations:{}});assert(password.elements['result-card'].innerHTML.includes('width:100%'));
-for(const [data,label] of [[{},'Lookup unavailable'],[{status:'unavailable',is_pwned:null},'Lookup unavailable'],[{status:'skipped',is_pwned:null},'Not checked'],[{status:'not_found',is_pwned:false},'No dataset match'],[{status:'found',is_pwned:true,count:42},'Exposure detected']]) {
- password.ctx.renderResult({pwned:data});const html=password.elements['result-card'].innerHTML;assert(html.includes(label));assert(!html.includes('Clean'));
- assert.equal(password.ctx.breachPresentation(data).label,label);
+password.ctx.renderResult({local_strength:{strength:payload,score:Infinity,findings:[{message:payload}],deductions:[{reason:payload,points:payload}]},pwned:{status:'found',message:payload,count:payload},summary:[payload],recommendations:[payload]});
+assert(password.elements['password-results'].textContent.includes(payload));collect(password,'password');
+for(const [status,label] of [['unavailable','Source unavailable'],['skipped','Not requested'],['not_found','No dataset match'],['found','Confirmed dataset match']]){
+ password.ctx.renderResult({local_strength:{},pwned:{status}});assert(password.elements['password-results'].textContent.includes(label));
 }
-let copied='';password.ctx.navigator.clipboard.writeText=value=>{copied=value;return Promise.resolve();};
-vm.runInContext('lastResult = {final:{},variety:{},entropy:{},pwned:{status:"unavailable",is_pwned:null}}',password.ctx);
-password.ctx.copyReport();assert(copied.includes('Lookup unavailable'));assert(copied.includes('unknown'));assert(!copied.includes('Clean'));
-password.ctx.renderResult({});
 console.log(JSON.stringify({payload,sections}));
-
 

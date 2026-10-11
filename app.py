@@ -1471,8 +1471,8 @@ def password_check():
 @login_required
 def api_check_password():
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not isinstance(data.get('password'), str) or not data['password'].strip() or len(data['password']) > 1024:
-        return jsonify(error='Provide a password of 1-1024 characters'), 400
+    if not isinstance(data, dict) or not isinstance(data.get('password'), str) or not data['password'].strip() or len(data['password']) > 128:
+        return jsonify(error='Provide a password of 1-128 characters'), 400
     password = data['password']
     check_breaches = data.get('check_breaches', False)
     if not isinstance(check_breaches, bool):
@@ -1488,7 +1488,7 @@ def api_check_password():
             return jsonify({"error": result["error"]}), 400
         result.pop('password', None)
         log_activity(current_user.username, 'password_check', 'Checked password strength')
-        return jsonify(result)
+        return jsonify(result), 200, {'Cache-Control':'no-store'}
     except Exception:
         app.logger.error('Password analysis unavailable')
         return jsonify(error='Password analysis is temporarily unavailable. Please retry later.'), 503
@@ -1825,6 +1825,7 @@ def api_url_analyze():
 # ================================================================
 if __name__ == '__main__':
     app.run(debug=app.config["DEBUG"])
+
 
 
 

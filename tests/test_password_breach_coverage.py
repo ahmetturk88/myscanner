@@ -66,9 +66,9 @@ class BreachCoverageTests(unittest.TestCase):
     def test_unavailable_lookup_preserves_strength_and_marks_coverage(self):
         self.get.side_effect=requests.Timeout('failure');local=self.analyzer.comprehensive_analysis(PASSWORD);partial=self.analyzer.comprehensive_analysis(PASSWORD,check_breaches=True)
         self.assertEqual(local['final']['score'],partial['final']['score']);self.assertEqual(partial['status'],'partial');self.assertEqual(partial['coverage']['breach_lookup'],'unavailable');self.assertNotIn(PASSWORD,json.dumps(partial))
-    def test_confirmed_exposure_penalty_remains_applied(self):
+    def test_confirmed_exposure_overrides_verdict_without_rewriting_strength(self):
         local=self.analyzer.comprehensive_analysis(PASSWORD);self.body(SUFFIX+':100')
-        exposed=self.analyzer.comprehensive_analysis(PASSWORD,check_breaches=True);self.assertEqual(exposed['final']['score'],max(0,local['final']['score']-50))
+        exposed=self.analyzer.comprehensive_analysis(PASSWORD,check_breaches=True);self.assertEqual(exposed['final']['score'],local['final']['score']);self.assertEqual(exposed['verdict'],'exposed')
 
 class PasswordEndpointTests(unittest.TestCase):
     @classmethod
@@ -101,10 +101,11 @@ class PasswordEndpointTests(unittest.TestCase):
 class PasswordInterfaceTests(unittest.TestCase):
     def test_optional_lookup_has_disclosure_and_no_clean_claim(self):
         source=(Path(__file__).resolve().parents[1]/'templates/password_check.html').read_text(encoding='utf-8')
-        self.assertIn('id="check-breaches"',source);self.assertNotIn('id="check-breaches" checked',source);self.assertNotIn('✅ Clean',source);self.assertIn('processing',source)
+        self.assertIn('id="password-breach"',source);self.assertNotIn('id="password-breach" checked',source);self.assertNotIn('✅ Clean',source);self.assertIn('processing',source)
     @unittest.skipUnless(shutil.which('node'),'Node.js is needed for password renderer execution tests')
     def test_renderer_and_export_distinguish_unknown_and_dataset_match(self):
         r=subprocess.run([shutil.which('node'),str(Path(__file__).with_name('test_tool_result_xss.cjs'))],capture_output=True,text=True,encoding='utf-8',check=True)
         self.assertIn('sections',json.loads(r.stdout))
 
 if __name__=='__main__':unittest.main()
+

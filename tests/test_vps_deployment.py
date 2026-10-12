@@ -1,3 +1,4 @@
+import re
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -87,5 +88,15 @@ class DeploymentTests(unittest.TestCase):
         with patch.dict('os.environ',{},clear=True),patch.object(runtime,'secret') as read:
             with self.assertRaises(RuntimeError):runtime.configure('web')
             read.assert_not_called()
+    def test_gate_caddyfile_matches_base_apart_from_auth(self):
+        base=(ROOT/'deploy/Caddyfile').read_text()
+        gate=(ROOT/'deploy/Caddyfile.gate').read_text()
+        self.assertIn('{$GATE_USER} {$GATE_PASSWORD_HASH}',gate)
+        auth=re.search(r'\n    # Test-server gate.*?\n    }\n',gate,re.S).group(0)
+        self.assertEqual(gate.replace(auth,'\n'),base)
+    def test_gate_overlay_replaces_proxy_config(self):
+        gate=yaml.safe_load((ROOT/'compose.gate.yml').read_text())['services']['proxy']
+        self.assertEqual(gate['volumes'],['./deploy/Caddyfile.gate:/etc/caddy/Caddyfile:ro'])
+        self.assertIn(':?',gate['environment']['GATE_PASSWORD_HASH'])
 if __name__=='__main__':unittest.main()
 

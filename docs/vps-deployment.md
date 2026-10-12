@@ -83,3 +83,31 @@ in this isolated database. Existing accounts are never changed by the command.
 Open https://localhost:8443 and sign in. The local certificate is issued by
 Caddy's rehearsal CA; accept the browser warning only for this localhost test.
 Production account onboarding and real domain certificates are separate steps.
+
+## Password-gated test server
+
+A public test server (for example `test.myscanners.com`) keeps every page behind
+HTTP basic authentication until launch. On the server, after
+`python3 scripts/init_vps_stack.py`, edit `.env.vps.rehearsal`:
+
+```
+SITE_DOMAIN=test.myscanners.com
+HTTP_BIND=0.0.0.0:80
+HTTPS_BIND=0.0.0.0:443
+GATE_USER=<login name>
+GATE_PASSWORD_HASH='<output of the hash command>'
+```
+
+Create the hash interactively, so the password never lands in shell history:
+`docker run --rm -it caddy:2-alpine caddy hash-password`. Keep the single
+quotes: the bcrypt hash contains `$`, which Compose would otherwise expand.
+Start the stack with the gate overlay:
+
+```
+docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.gate.yml up -d --build
+```
+
+The overlay replaces the proxy's Caddyfile with `deploy/Caddyfile.gate`, which
+must stay identical to `deploy/Caddyfile` apart from the `basic_auth` block
+(enforced by `tests/test_vps_deployment.py`). Compose refuses to start when
+either gate variable is missing. Drop `-f compose.gate.yml` to open the site.

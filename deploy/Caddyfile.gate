@@ -1,0 +1,19 @@
+{
+    admin off
+}
+{$SITE_DOMAIN} {
+    # Test-server gate: every request needs the rehearsal credentials.
+    basic_auth {
+        {$GATE_USER} {$GATE_PASSWORD_HASH}
+    }
+    encode zstd gzip
+    request_body {
+        max_size 33MB
+    }
+    reverse_proxy web:8000 {
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up -CF-Connecting-IP
+        header_up -CF-Connecting-IPv6
+    }
+}

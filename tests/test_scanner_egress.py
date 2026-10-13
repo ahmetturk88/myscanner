@@ -43,4 +43,13 @@ class EgressTests(unittest.TestCase):
         self.assertTrue(all('--dport' not in r for r in loopback))
         self.assertTrue(all(r[r.index('--ctorigdstport')+1]=='53' for r in loopback))
 
+    def test_browser_role_opens_only_the_devtools_relay_hop(self):
+        relay=['-A','OUTPUT','-o','lo','-d','127.0.0.1/32','-p','tcp','--dport','9223','-j','ACCEPT']
+        browser=egress.rules((),'browser')
+        self.assertIn(relay,browser)
+        self.assertLess(browser.index(relay),next(i for i,r in enumerate(browser) if 'REJECT' in r))
+        self.assertEqual([r for r in browser if '127.0.0.1/32' in r and 'ACCEPT' in r],[relay])
+        for role in ('provider','web','worker'):
+            self.assertNotIn(relay,egress.rules((),role))
+
 if __name__=='__main__':unittest.main()

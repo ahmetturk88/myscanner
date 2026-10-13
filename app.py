@@ -689,12 +689,29 @@ def api_scan_result(scan_id):
         from services.url_assessment import saved_assessment
         raw['aggregate_assessment'] = saved_assessment(raw, raw['local_analysis'], raw['deep_analysis'])
 
+    from services.url_screenshot import screenshot_path
     return jsonify({
         "id": scan.id, "url": scan.url,
         "status": scan.status, "verdict": scan.verdict,
         "result_html": scan.result, "raw_report": raw,
+        "screenshot_url": f"/api/scan_screenshot/{scan.id}" if screenshot_path(scan.id).is_file() else None,
         "date": scan.date_posted.strftime("%Y-%m-%d %H:%M:%S")
     })
+
+
+@app.route('/api/scan_screenshot/<int:scan_id>')
+@login_required
+def api_scan_screenshot(scan_id):
+    from services.url_screenshot import screenshot_path
+    scan = db.session.get(Scan, scan_id)
+    if not scan or (scan.user_id != current_user.id and not current_user.is_admin):
+        return jsonify({"error": "Not found"}), 404
+    path = screenshot_path(scan.id)
+    if not path.is_file():
+        return jsonify({"error": "Not found"}), 404
+    response = send_file(path, mimetype='image/jpeg', max_age=0)
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @app.route('/api/recent_scans')
@@ -1167,6 +1184,8 @@ def admin_delete_scan(scan_id):
     scan = Scan.query.get_or_404(scan_id)
     db.session.delete(scan)
     db.session.commit()
+    from services.url_screenshot import remove_screenshot
+    remove_screenshot(scan_id)
     
     return jsonify({"success": True, "message": f"Scan {scan_id} deleted"})
 

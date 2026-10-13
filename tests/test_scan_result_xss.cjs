@@ -42,10 +42,18 @@ const analysis = {security_score:payload,verdict:payload,aggregate_assessment:{s
 url.ctx.renderResult({status:'completed',verdict:'safe'},analysis);
 for(const [id,el] of Object.entries(url.elements)) if(el.innerHTML) outputs.push({name:'URL '+id,html:el.innerHTML});
 assert(!url.elements['extra-sections'].innerHTML.includes('<img'));
+// Saved provider screenshot links are never loaded by the viewer's browser.
 analysis.urlvet.screenshot='https://images.example/screenshot.png?x=%22';
 url.ctx.renderResult({status:'completed',verdict:'safe'},analysis);
-assert(url.elements['extra-sections'].innerHTML.includes('https://images.example/screenshot.png'));
-outputs.push({name:'URL screenshot',html:url.elements['extra-sections'].innerHTML});
+assert(!url.elements['extra-sections'].innerHTML.includes('<img'));
+assert(!url.elements['verdict-area'].innerHTML.includes('<img'));
+for(const hostile of ['javascript:globalThis.pwned=1','https://evil.example/api/scan_screenshot/1','/api/scan_screenshot/1"onerror="x','/api/scan_screenshot/1/../x']){
+    url.ctx.renderResult({status:'completed',verdict:'safe',screenshot_url:hostile},analysis);
+    assert(!url.elements['verdict-area'].innerHTML.includes('<img'));
+}
+url.ctx.renderResult({status:'completed',verdict:'safe',screenshot_url:'/api/scan_screenshot/42'},analysis);
+assert(url.elements['verdict-area'].innerHTML.includes('src="/api/scan_screenshot/42"'));
+outputs.push({name:'URL screenshot',html:url.elements['verdict-area'].innerHTML});
 const file = context('file_scanner.html');
 const data = {security_score:payload,verdict:'safe',file_size_mb:payload,
     metadata:{is_pdf:true,is_script:true,is_archive:true,is_image:true,num_pages:payload,lines:payload,num_files:payload,width:payload,height:payload,

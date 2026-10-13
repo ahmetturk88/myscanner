@@ -46,10 +46,12 @@ class CeleryConfigurationTests(unittest.TestCase):
         for name in BULK_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'bulk')
         self.assertEqual(set(BULK_TASKS),{'batch_scan_task','bulk_email_task'})
     def test_schedule_uses_registered_tip_routes_and_has_no_quota_reset(self):
-        c=celery_settings({});self.assertEqual(len(c['beat_schedule']),4)
+        c=celery_settings({});self.assertEqual(len(c['beat_schedule']),5)
         for name,entry in c['beat_schedule'].items():
             if name == 'expire-url-scan-jobs':
                 self.assertEqual(entry['task'],'expire_url_scan_jobs');self.assertEqual(entry['options']['queue'],'scans');self.assertEqual(entry['schedule'],60)
+            elif name == 'prune-url-screenshots-daily':
+                self.assertEqual(entry['task'],'prune_url_screenshots');self.assertEqual(entry['options']['queue'],'scans');self.assertEqual(entry['schedule'],86400)
             else:self.assertIn(entry['task'],TIP_TASKS);self.assertEqual(entry['options']['queue'],'tip')
         self.assertEqual(c['beat_schedule']['fetch-ioc-sources-hourly']['schedule'],3600)
         self.assertEqual(c['beat_schedule']['misp-pull-daily']['kwargs'],{'days_back':7})

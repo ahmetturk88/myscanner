@@ -1,4 +1,5 @@
 """Offline rendering checks; JavaScript checks run when Node.js is available."""
+import re
 import json
 from pathlib import Path
 import shutil
@@ -60,12 +61,12 @@ class JavaScriptRenderingTests(unittest.TestCase):
                             self.assertEqual(attr, 'onclick')
                             self.assertIn(tag[attr], ['exportJSON()','copyReport()','exportCSV()','copyURLReport()'])
                         if attr.lower() in ['href','src']:
-                            self.assertTrue(tag[attr].startswith(('http://','https://')))
+                            self.assertTrue(tag[attr].startswith(('http://','https://')) or re.fullmatch(r'/api/scan_screenshot/\d+', tag[attr]))
 
     def test_screenshot_url_is_valid_and_has_no_inline_event_handler(self):
         section = next(s for s in self.sections if s['name']=='URL screenshot')
         image = BeautifulSoup(section['html'],'html.parser').find('img')
-        self.assertEqual(image['src'],'https://images.example/screenshot.png?x=%22')
+        self.assertEqual(image['src'],'/api/scan_screenshot/42')
         self.assertNotIn('onerror',image.attrs)
 
     def test_values_are_not_double_escaped(self):

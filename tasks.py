@@ -29,6 +29,9 @@ def scan_url_task(self, url, user_id, scan_id, task_id):
         local = analyzer.comprehensive_analysis(url)
         stage = 'deep_analysis'
         deep = analyzer.comprehensive_deep_analysis(url)
+        stage = 'screenshot'
+        from services.url_screenshot import capture_screenshot
+        capture_screenshot(url, scan_id)
         stage = 'save_report'
         with app.app_context():
             return save_url_scan(scan_id, user_id, url, local, deep)
@@ -57,6 +60,12 @@ def expire_url_scan_jobs():
     from services.url_scan_storage import expire_url_scans
     with app.app_context():
         return {'expired': expire_url_scans()}
+
+
+@celery.task(name='prune_url_screenshots')
+def prune_url_screenshots():
+    from services.url_screenshot import prune_screenshots
+    return {'removed': prune_screenshots()}
 
 
 @celery.task(bind=True, name='scan_site_task')

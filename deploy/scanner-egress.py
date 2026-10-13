@@ -31,6 +31,11 @@ def rules(exceptions=(), role="provider"):
     if role=='web':
         # Health endpoint only; user target transports allow 80/443, not 8000.
         result.append(['-A','OUTPUT','-d','127.0.0.1/32','-p','tcp','--dport','8000','-j','ACCEPT'])
+    if role=='browser':
+        # The headless-shell image relays DevTools 9222 -> 127.0.0.1:9223 with
+        # socat inside this namespace. Only that relay hop is opened; pages
+        # still cannot reach other loopback ports.
+        result.append(['-A','OUTPUT','-o','lo','-d','127.0.0.1/32','-p','tcp','--dport','9223','-j','ACCEPT'])
     for cidr in BLOCKED:
         result.append(['-A','OUTPUT','-d',cidr,'-j','REJECT'])
     result.append(['-A','OUTPUT','-p','tcp','-m','multiport','--dports','80,443,43,25' if role in ('web','worker') else '80,443,43','-j','ACCEPT'])

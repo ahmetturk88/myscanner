@@ -37,6 +37,7 @@ def _download(url, base_url):
     with requests.get(f'{base_url.rstrip("/")}/api/v1/screenshot', params={'url': url},
                       timeout=CAPTURE_TIMEOUT, stream=True, allow_redirects=False) as response:
         if response.status_code != 200:
+            logger.warning('Screenshot provider returned HTTP %s', response.status_code)
             return None
         content = bytearray()
         for chunk in response.iter_content(64 * 1024):
@@ -69,6 +70,8 @@ def capture_screenshot(url, scan_id, base_url=None):
         png = _download(url, base_url)
         jpeg = _to_jpeg(png) if png else None
         if not jpeg:
+            if png:
+                logger.warning('Screenshot rejected: not a bounded PNG; scan_id=%s', scan_id)
             return False
         target = screenshot_path(scan_id)
         target.parent.mkdir(parents=True, exist_ok=True)

@@ -228,6 +228,7 @@
   .stat-blue .stat-value { color: var(--accent); }
 
   .screenshot-img { width: 100%; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
+  .preview-note { color: var(--muted); font-size: .9rem; margin: 0; }
   .map-frame { width: 100%; height: 280px; border-radius: 10px; border: 1px solid var(--border); margin-top: 10px; }
   .chart-wrap { position: relative; height: 250px; margin-top: 10px; }
   .redirect-step { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-family: var(--mono); font-size: 12px; }
@@ -677,13 +678,15 @@ function renderResult(scanData, analysisData) {
     </div>`;
   }
 
-  // Screenshot from url.vet
-  const screenshotURL = ScanUI.webURL(urlvet.screenshot);
+  // Page preview stored by MyScanner. Saved provider links are ignored so the
+  // viewer's browser never contacts a third party about the scanned URL.
+  const screenshotURL = /^\/api\/scan_screenshot\/\d+$/.test(scanData?.screenshot_url || '') ? scanData.screenshot_url : '';
   if (screenshotURL) {
-    extraHTML += `<div class="section-card">
-      <div class="section-title">📸 Website Screenshot (url.vet)</div>
-      <img src="${esc(screenshotURL)}" alt="Screenshot" class="screenshot-img" loading="lazy" referrerpolicy="no-referrer">
-    </div>`;
+    const preview = `<section class="evidence-panel page-preview"><div class="panel-heading"><h3>📸 Page preview</h3></div>
+      <p class="preview-note">Captured by MyScanner's isolated browser during the scan, so you can see the page without opening it. A normal-looking page is not proof of safety.</p>
+      <img src="${esc(screenshotURL)}" alt="Screenshot of the scanned page" class="screenshot-img" loading="lazy">
+    </section>`;
+    mainHTML = mainHTML.replace('<div class="evidence-heading">', preview + '<div class="evidence-heading">');
   }
 
   // DNS Records
@@ -704,7 +707,7 @@ function renderResult(scanData, analysisData) {
   document.getElementById('verdict-area').innerHTML = mainHTML;
   
   document.getElementById('extra-sections').innerHTML = `<details class="report-disclosure"><summary><span><strong>Connection &amp; DNS</strong><small>Original URL, certificate and DNS records</small></span><span class="disclosure-action">View evidence</span></summary><div class="disclosure-body connection-grid">${extraHTML}</div></details>`;
-  const screenshot = document.querySelector('#extra-sections .screenshot-img');
+  const screenshot = document.querySelector('#verdict-area .screenshot-img');
   if (screenshot) screenshot.addEventListener('error', () => { screenshot.parentElement.style.display = 'none'; });
 
   // Deep Analysis Section (إذا موجود)

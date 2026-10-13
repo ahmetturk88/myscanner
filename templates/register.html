@@ -1,513 +1,80 @@
 {% extends "base.html" %}
-{% block title %}Register - MyScanner{% endblock %}
+{% block title %}Create account{% endblock %}
 
 {% block head_extra %}
-<style>
-  .auth-wrap {
-    min-height: calc(100vh - 60px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-    position: relative;
-  }
-
-  .auth-wrap::before {
-    content: '';
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 600px; height: 400px;
-    background: radial-gradient(ellipse, rgba(0,200,255,0.06) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .auth-card {
-    width: 100%;
-    max-width: 480px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    padding: 44px 40px;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.4);
-  }
-
-  .auth-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 24px; right: 24px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  }
-
-  .auth-head { text-align: center; margin-bottom: 36px; }
-
-  .auth-icon {
-    width: 60px; height: 60px;
-    background: linear-gradient(135deg, var(--accent), #006aff);
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 26px;
-    margin: 0 auto 18px;
-    box-shadow: 0 0 24px rgba(0,200,255,0.25);
-  }
-
-  .auth-head h2 {
-    font-family: var(--mono);
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 6px;
-  }
-
-  .auth-head p { font-size: 13px; color: var(--muted); }
-
-  .auth-field { margin-bottom: 20px; }
-
-  .auth-field label {
-    display: block;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
-
-  .auth-field input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    font-family: var(--sans);
-    font-size: 14px;
-    color: var(--text);
-    outline: none;
-    transition: border-color .2s, box-shadow .2s;
-    box-sizing: border-box;
-  }
-
-  .auth-field input::placeholder { color: var(--muted); }
-
-  .auth-field input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(0,200,255,0.1);
-    background: var(--surface3);
-  }
-
-  /* Password Requirements Box */
-  .password-requirements {
-    background: var(--surface2);
-    border-radius: 12px;
-    padding: 16px;
-    margin-top: 12px;
-    border: 1px solid var(--border);
-  }
-
-  .requirement {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 0;
-    font-size: 12px;
-    transition: all 0.2s;
-    font-family: var(--sans);
-  }
-
-  .requirement .icon {
-    width: 20px;
-    text-align: center;
-    font-size: 12px;
-  }
-
-  .requirement .text {
-    color: var(--muted);
-  }
-
-  .requirement.valid .text {
-    color: var(--green);
-  }
-
-  .requirement.valid .icon {
-    color: var(--green);
-  }
-
-  .requirement.invalid .text {
-    color: var(--muted);
-  }
-
-  .requirement.invalid .icon {
-    color: var(--muted);
-  }
-
-  /* Strength Meter */
-  .strength-meter {
-    margin-top: 12px;
-  }
-
-  .strength-bar {
-    height: 4px;
-    background: var(--surface3);
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-
-  .strength-fill {
-    width: 0%;
-    height: 100%;
-    transition: width 0.3s ease;
-  }
-
-  .strength-text {
-    font-size: 11px;
-    color: var(--muted);
-    font-family: var(--mono);
-  }
-
-  .strength-weak .strength-fill { width: 25%; background: #ff4560; }
-  .strength-fair .strength-fill { width: 50%; background: #ffd32a; }
-  .strength-good .strength-fill { width: 75%; background: #00e676; }
-  .strength-strong .strength-fill { width: 100%; background: var(--accent); }
-
-  /* Password match indicator */
-  .password-match {
-    font-size: 11px;
-    margin-top: 6px;
-    font-family: var(--mono);
-  }
-
-  .match-valid {
-    color: var(--green);
-  }
-
-  .match-invalid {
-    color: var(--red);
-  }
-
-  .auth-submit {
-    width: 100%;
-    padding: 14px;
-    background: var(--accent);
-    color: #000;
-    border: none;
-    border-radius: 12px;
-    font-family: var(--sans);
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: 10px;
-  }
-  .auth-submit:hover  { background: #00aad9; transform: translateY(-1px); }
-  .auth-submit:active { transform: scale(0.98); }
-  .auth-submit:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .auth-foot {
-    text-align: center;
-    margin-top: 28px;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .auth-foot a {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 600;
-  }
-  .auth-foot a:hover { text-decoration: underline; }
-
-  /* Checkbox group */
-  .checkbox-group {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin: 20px 0;
-    cursor: pointer;
-  }
-
-  .checkbox-group input {
-    width: 18px;
-    height: 18px;
-    margin-top: 2px;
-    cursor: pointer;
-  }
-
-  .checkbox-group span {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.4;
-  }
-
-  .checkbox-group a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
-  .checkbox-group a:hover {
-    text-decoration: underline;
-  }
-
-  /* Flash message improvements */
-  .flash-message {
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 13px;
-    margin-bottom: 20px;
-    font-weight: 500;
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261013-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261013-2') }}" defer></script>
 {% endblock %}
 
+{% block flashes %}{% endblock %}
+
 {% block content %}
-<div class="auth-wrap">
-  <div class="auth-card">
+<div class="pg" style="padding-top:10px">
+  <div class="auth">
+    {% set side_kicker = 'Free during testing' %}
+    {% set side_title %}See what a link is <em>really</em> hiding.{% endset %}
+    {% set side_text = 'One account gives you ten inspection tools and private reports that explain every verdict.' %}
+    {% include 'partials/auth_side.html' %}
 
-    <div class="auth-head">
-      <div class="auth-icon">🔐</div>
-      <h2>Create Account</h2>
-      <p>Join MyScanner — it's free</p>
-    </div>
+    <main class="auth-main">
+      <span class="pg-kicker">Create your account</span>
+      <h1>Start inspecting in a minute</h1>
+      <p class="pg-lead">No card required. Your reports stay private to your account.</p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash-message" style="
-            {% if category == 'success' %}background:var(--green-dim);color:var(--green);border:1px solid rgba(0,230,118,.3);
-            {% elif category == 'danger' %}background:var(--red-dim);color:var(--red);border:1px solid rgba(255,69,96,.3);
-            {% elif category == 'warning' %}background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(255,211,42,.3);
-            {% else %}background:var(--accent-dim);color:var(--accent);border:1px solid rgba(0,200,255,.3);{% endif %}
-          ">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+      {% include 'partials/auth_flashes.html' %}
+      {% set divider_text = 'sign up with email' %}
+      {% include 'partials/auth_social.html' %}
 
-    <form method="POST" action="{{ url_for('register') }}" id="registerForm">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-      <div class="auth-field">
-        <label>Full Name</label>
-        <input type="text" name="username" id="username" placeholder="Ahmed Sairafi" required autofocus>
-      </div>
-
-      <div class="auth-field">
-        <label>Email Address</label>
-        <input type="email" name="email" id="email" placeholder="you@example.com" required>
-      </div>
-
-      <div class="auth-field">
-        <label>Password</label>
-        <input type="password" name="password" id="password" placeholder="••••••••" required>
-        
-        <!-- Password Requirements -->
-        <div class="password-requirements" id="passwordRequirements">
-          <div class="requirement" id="req-length">
-            <span class="icon">✖</span>
-            <span class="text">At least 8 characters</span>
+      <form method="POST" action="{{ url_for('register') }}" id="registerForm" class="pg-form" data-busy="Creating account…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="pg-grid-2" style="gap:16px">
+          <div class="pg-field">
+            <label for="username">Username</label>
+            <div class="auth-field">
+              <input class="pg-input" type="text" name="username" id="username" autocomplete="username" placeholder="Your name" minlength="3" maxlength="40" required autofocus>
+              <span class="pg-ic ic-user"></span>
+            </div>
           </div>
-          <div class="requirement" id="req-uppercase">
-            <span class="icon">✖</span>
-            <span class="text">At least one uppercase letter (A-Z)</span>
-          </div>
-          <div class="requirement" id="req-lowercase">
-            <span class="icon">✖</span>
-            <span class="text">At least one lowercase letter (a-z)</span>
-          </div>
-          <div class="requirement" id="req-number">
-            <span class="icon">✖</span>
-            <span class="text">At least one number (0-9)</span>
-          </div>
-          <div class="requirement" id="req-special">
-            <span class="icon">✖</span>
-            <span class="text">At least one special character (!@#$%^&*)</span>
+          <div class="pg-field">
+            <label for="email">Email</label>
+            <div class="auth-field">
+              <input class="pg-input" type="email" name="email" id="email" autocomplete="email" placeholder="you@example.com" maxlength="120" required>
+              <span class="pg-ic ic-mail"></span>
+            </div>
           </div>
         </div>
-
-        <!-- Strength Meter -->
-        <div class="strength-meter" id="strengthMeter" style="display: none;">
-          <div class="strength-bar">
-            <div class="strength-fill"></div>
+        <div class="pg-field">
+          <label for="password">Password <small data-strength-label style="color:var(--soft);font-weight:600"></small></label>
+          <div class="auth-field">
+            <input class="pg-input" type="password" name="password" id="password" autocomplete="new-password" placeholder="Create a strong password" required style="padding-right:52px">
+            <span class="pg-ic ic-lock"></span>
+            <button type="button" class="auth-toggle" data-toggle-password="password" aria-label="Show password" aria-pressed="false"><span class="pg-ic ic-eye"></span></button>
           </div>
-          <div class="strength-text" id="strengthText">Password strength</div>
+          <div class="auth-strength" data-strength-for="password" data-level="0" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <ul class="auth-rules" aria-label="Password requirements">
+            <li data-rule="length">At least 8 characters</li>
+            <li data-rule="upper">An uppercase letter</li>
+            <li data-rule="lower">A lowercase letter</li>
+            <li data-rule="number">A number</li>
+            <li data-rule="special">A symbol such as ! @ # ?</li>
+          </ul>
+          <span class="auth-hint" data-capslock-for="password" hidden>Caps Lock is on</span>
         </div>
-      </div>
+        <div class="pg-field">
+          <label for="confirm_password">Confirm password</label>
+          <div class="auth-field">
+            <input class="pg-input" type="password" name="confirm_password" id="confirm_password" autocomplete="new-password" placeholder="Type it again" required style="padding-right:52px">
+            <span class="pg-ic ic-check"></span>
+            <button type="button" class="auth-toggle" data-toggle-password="confirm_password" aria-label="Show password" aria-pressed="false"><span class="pg-ic ic-eye"></span></button>
+          </div>
+          <span class="auth-match" data-match-for="password,confirm_password" aria-live="polite"></span>
+        </div>
+        <button type="submit" class="pg-btn primary" id="submitBtn" style="width:100%;margin-top:4px"><span data-label>Create account</span><span class="pg-ic ic-arrow"></span></button>
+        <p class="pg-note" style="margin:0;text-align:center">We'll email you a link to verify your address before your first sign-in.</p>
+      </form>
 
-      <div class="auth-field">
-        <label>Confirm Password</label>
-        <input type="password" name="confirm_password" id="confirmPassword" placeholder="••••••••" required>
-        <div class="password-match" id="matchMessage"></div>
-      </div>
-
-      <div class="checkbox-group">
-        <input type="checkbox" name="terms" id="terms" required>
-        <span>I agree to the <a href="#" target="_blank">Terms & Conditions</a> and <a href="#" target="_blank">Privacy Policy</a></span>
-      </div>
-
-      <button type="submit" class="auth-submit" id="submitBtn" disabled>Create Account →</button>
-
-    </form>
-
-    <div class="auth-foot">
-      Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
-    </div>
-
+      <p class="auth-foot">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+    </main>
   </div>
 </div>
-
-<script>
-  const passwordInput = document.getElementById('password');
-  const confirmInput = document.getElementById('confirmPassword');
-  const submitBtn = document.getElementById('submitBtn');
-  const termsCheckbox = document.getElementById('terms');
-  const strengthMeter = document.getElementById('strengthMeter');
-  const strengthText = document.getElementById('strengthText');
-  const strengthFill = document.querySelector('.strength-fill');
-
-  // Requirements elements
-  const reqLength = document.getElementById('req-length');
-  const reqUppercase = document.getElementById('req-uppercase');
-  const reqLowercase = document.getElementById('req-lowercase');
-  const reqNumber = document.getElementById('req-number');
-  const reqSpecial = document.getElementById('req-special');
-
-  function checkPasswordStrength(password) {
-    let score = 0;
-    
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++;
-    
-    return score;
-  }
-
-  function updateStrengthMeter(password) {
-    if (password.length === 0) {
-      strengthMeter.style.display = 'none';
-      return;
-    }
-    
-    strengthMeter.style.display = 'block';
-    const score = checkPasswordStrength(password);
-    
-    // Remove all classes
-    strengthMeter.classList.remove('strength-weak', 'strength-fair', 'strength-good', 'strength-strong');
-    
-    if (score <= 2) {
-      strengthMeter.classList.add('strength-weak');
-      strengthText.textContent = '⚠️ Weak password - try adding more variety';
-    } else if (score === 3) {
-      strengthMeter.classList.add('strength-fair');
-      strengthText.textContent = '🟡 Fair password - good start!';
-    } else if (score === 4) {
-      strengthMeter.classList.add('strength-good');
-      strengthText.textContent = '🟢 Good password - almost there!';
-    } else {
-      strengthMeter.classList.add('strength-strong');
-      strengthText.textContent = '🔒 Strong password - excellent!';
-    }
-  }
-
-  function updateRequirement(element, isValid, validIcon, invalidIcon) {
-    const iconSpan = element.querySelector('.icon');
-    if (isValid) {
-      element.classList.add('valid');
-      element.classList.remove('invalid');
-      iconSpan.innerHTML = '✓';
-    } else {
-      element.classList.add('invalid');
-      element.classList.remove('valid');
-      iconSpan.innerHTML = '✖';
-    }
-  }
-
-  function checkAllRequirements(password) {
-    const checks = {
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
-    };
-    
-    updateRequirement(reqLength, checks.length, '✓', '✖');
-    updateRequirement(reqUppercase, checks.uppercase, '✓', '✖');
-    updateRequirement(reqLowercase, checks.lowercase, '✓', '✖');
-    updateRequirement(reqNumber, checks.number, '✓', '✖');
-    updateRequirement(reqSpecial, checks.special, '✓', '✖');
-    
-    return Object.values(checks).every(v => v === true);
-  }
-
-  function checkPasswordMatch() {
-    const password = passwordInput.value;
-    const confirm = confirmInput.value;
-    const matchMessage = document.getElementById('matchMessage');
-    
-    if (confirm.length === 0) {
-      matchMessage.innerHTML = '';
-      return false;
-    }
-    
-    if (password === confirm) {
-      matchMessage.innerHTML = '✓ Passwords match';
-      matchMessage.className = 'password-match match-valid';
-      return true;
-    } else {
-      matchMessage.innerHTML = '✖ Passwords do not match';
-      matchMessage.className = 'password-match match-invalid';
-      return false;
-    }
-  }
-
-  function updateSubmitButton() {
-    const isTermsChecked = termsCheckbox.checked;
-    const isPasswordValid = checkAllRequirements(passwordInput.value);
-    const isPasswordMatch = passwordInput.value === confirmInput.value && confirmInput.value.length > 0;
-    const isUsernameValid = document.getElementById('username').value.trim().length > 0;
-    const isEmailValid = document.getElementById('email').value.trim().length > 0;
-    
-    submitBtn.disabled = !(isTermsChecked && isPasswordValid && isPasswordMatch && isUsernameValid && isEmailValid);
-  }
-
-  // Event listeners
-  passwordInput.addEventListener('input', function() {
-    checkAllRequirements(this.value);
-    updateStrengthMeter(this.value);
-    checkPasswordMatch();
-    updateSubmitButton();
-  });
-
-  confirmInput.addEventListener('input', function() {
-    checkPasswordMatch();
-    updateSubmitButton();
-  });
-
-  termsCheckbox.addEventListener('change', updateSubmitButton);
-
-  document.getElementById('username').addEventListener('input', updateSubmitButton);
-  document.getElementById('email').addEventListener('input', updateSubmitButton);
-
-  // Initial check
-  checkAllRequirements('');
-  updateSubmitButton();
-</script>
-
-<style>
-  .requirement.valid .text { color: #00e676; }
-  .requirement .icon { font-size: 12px; }
-  .password-match { margin-top: 6px; font-size: 11px; font-family: var(--mono); }
-  .match-valid { color: #00e676; }
-  .match-invalid { color: #ff4560; }
-</style>
-
 {% endblock %}

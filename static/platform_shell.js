@@ -14,5 +14,6 @@ const header=document.getElementById('platform-header'),progress=document.getEle
 function update(){queued=false;const y=window.scrollY||0;header.classList.toggle('is-scrolled',y>12);const height=document.documentElement.scrollHeight-window.innerHeight;progress.style.transform='scaleX('+(height>0?Math.max(0,Math.min(1,y/height)):0)+')';}
 window.addEventListener('scroll',()=>{if(!queued){queued=true;requestAnimationFrame(update);}},{passive:true});window.addEventListener('resize',update);update();
 document.getElementById('shell-year').textContent=String(new Date().getFullYear());
+document.querySelectorAll('.shell-menu').forEach(menu=>{document.addEventListener('click',e=>{if(menu.open&&!menu.contains(e.target))menu.open=false;});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});});
 document.getElementById('shell-top').addEventListener('click',()=>{window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});document.querySelector('.shell-brand').focus({preventScroll:true});});
 })();

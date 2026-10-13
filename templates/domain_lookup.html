@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Domain Intelligence{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='domain_workspace.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='domain_workspace.css',v='20261013-1') }}">
 <section class="domain-workspace">
 <header class="domain-hero"><div><span class="domain-eyebrow">DOMAIN INTELLIGENCE / READ ONLY</span><h1>Understand the domain.<br><em>See the evidence.</em></h1><p>Explore DNS records, registration history and the coverage behind every observation.</p><div class="domain-tags"><span>DNS · 7 record types</span><span>Registration · RDAP</span><span>Evidence export</span></div></div><svg viewBox="0 0 260 230" aria-hidden="true"><circle cx="130" cy="112" r="82"/><ellipse cx="130" cy="112" rx="35" ry="82"/><path d="M48 112h164M62 67h136M62 157h136M130 30v164"/><rect x="65" y="174" width="130" height="35" rx="12"/><text x="130" y="197" text-anchor="middle">.DOMAIN</text></svg></header>
 <form id="domain-form" class="domain-input-panel"><label for="domain-input">Domain name</label><div class="domain-input-row"><input id="domain-input" name="domain" placeholder="example.com" maxlength="253" required autocomplete="off" spellcheck="false"><button id="check-btn" type="submit">Explore domain ↗</button></div><p>Queries public DNS and registration sources. No target website is opened.</p></form>

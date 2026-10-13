@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Your security workspace{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static',filename='home_experience.css',v='20261009-1') }}">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static',filename='home_experience.css',v='20261013-1') }}">{% endblock %}
 {% block content %}
 <div class="hx hx-workspace" data-workspace data-recent-url="{{ url_for('api_recent_scans') }}" data-report-base="{{ url_for('result_page',scan_id=0) }}">
 <header class="hx-workspace-head"><div><div class="hx-eyebrow">YOUR SECURITY WORKSPACE</div><h1>Welcome back, <em>{{ current_user.username }}.</em></h1><p>Start an investigation. Revisit the evidence. Choose your next move.</p></div><a class="hx-button hx-secondary" href="{{ url_for('profile') }}">Account & reports ↗</a></header>
@@ -12,4 +12,4 @@
 <aside class="hx-workspace-note"><i class="fas fa-fingerprint" aria-hidden="true"></i><div><h3>Evidence first. Always.</h3><p>A dataset match, a heuristic warning and an unavailable check mean different things. Open a report to understand the distinction.</p></div></aside>
 </div>
 {% endblock %}
-{% block body_extra %}<script src="{{ url_for('static',filename='home_experience.js',v='20261009-1') }}" defer></script>{% endblock %}
+{% block body_extra %}<script src="{{ url_for('static',filename='home_experience.js',v='20261013-1') }}" defer></script>{% endblock %}

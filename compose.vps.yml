@@ -78,7 +78,12 @@ services:
     environment:
       <<: *environment
       ABUSEIPDB_API_KEY_FILE: /run/secrets/abuseipdb_api_key
-    secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key]
+      # Social sign-in: a provider is offered only when its id and secret are set.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET_FILE: /run/secrets/google_client_secret
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET_FILE: /run/secrets/github_client_secret
+    secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key, google_client_secret, github_client_secret]
     command: [web]
     restart: unless-stopped
     networks:
@@ -178,3 +183,5 @@ secrets:
   session_key: {file: '${SECRET_DIRECTORY:?Prepare secrets}/session_key'}
 
   abuseipdb_api_key: {file: '${SECRET_DIRECTORY:?Prepare secrets}/abuseipdb_api_key'}
+  google_client_secret: {file: '${SECRET_DIRECTORY:?Prepare secrets}/google_client_secret'}
+  github_client_secret: {file: '${SECRET_DIRECTORY:?Prepare secrets}/github_client_secret'}

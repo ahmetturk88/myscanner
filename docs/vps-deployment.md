@@ -127,3 +127,18 @@ echo "17 3 * * * root $PWD/scripts/vps_backup.sh >> /var/log/myscanner-backup.lo
 The archives are unencrypted and stay on the same server, so they protect
 against mistakes, not against losing the server. Before real users: copy them
 off the server encrypted and rehearse a restore into a separate database.
+
+## Google and GitHub sign-in
+
+A provider button appears only when both its client id and secret are set.
+Callback URLs (replace the host for production):
+
+- Google: `https://test.myscanners.com/auth/google/callback`
+- GitHub: `https://test.myscanners.com/auth/github/callback`
+
+Put the client ids in `.env.vps.rehearsal` (`GOOGLE_CLIENT_ID=…`,
+`GITHUB_CLIENT_ID=…`) and each secret in its own file,
+`.deploy/rehearsal/google_client_secret` and
+`.deploy/rehearsal/github_client_secret` (created empty by
+`scripts/init_vps_stack.py`; keep them mode 0444 inside the private directory).
+Recreate `web` afterwards. Only provider-verified email addresses are accepted.

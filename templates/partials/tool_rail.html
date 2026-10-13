@@ -1,0 +1,26 @@
+{# Shared toolbar on every inspection page: switcher, shortcuts and recent targets. #}
+{% set rail_tools = [
+ ('dashboard','URL Scanner','ic-link','#url-input','#home-scan-form','',true),
+ ('site_scanner','Site Scanner','ic-globe','#site-target','#site-form','',true),
+ ('qr_scanner','QR Scanner','ic-qr','','','',false),
+ ('email_check','Email Checker','ic-at','#email-input','','#check-btn',false),
+ ('password_check','Passwords','ic-key','#password-input','#password-form','',false),
+ ('file_scanner','File Scanner','ic-file','','','',false),
+ ('ip_check','IP Lookup','ic-server','#ip-input','#ip-form','',true),
+ ('domain_lookup','Domain Lookup','ic-search','#domain-input','#domain-form','',true),
+ ('subdomain_finder','Subdomains','ic-layers','#domain-input','#discovery-form','',true),
+ ('ssl_checker','SSL Checker','ic-lock','#ssl-target','#ssl-form','',true)
+] %}
+{% set active = request.endpoint if request.endpoint != 'landing' else 'dashboard' %}
+{% for endpoint, name, icon, input, form, trigger, remember in rail_tools if endpoint == active %}
+<div class="tx-rail" data-tool="{{ endpoint }}" data-input="{{ input }}" data-form="{{ form }}" data-trigger="{{ trigger }}" data-remember="{{ 'true' if remember else 'false' }}">
+ <div class="tx-rail-top">
+  <nav class="tx-crumbs" aria-label="Breadcrumb"><a href="{{ url_for('dashboard_v2') }}">Workspace</a><span aria-hidden="true">/</span><span>Tools</span><span aria-hidden="true">/</span><strong aria-current="page"><span class="pg-ic {{ icon }}"></span>{{ name }}</strong></nav>
+  <div class="tx-keys" aria-hidden="true">{% if input %}<span><kbd>/</kbd> focus input</span>{% endif %}<span><kbd>Ctrl</kbd><kbd>K</kbd> all tools</span></div>
+ </div>
+ <nav class="tx-switch" aria-label="Switch tool">
+  {% for e, n, i, _a, _b, _c, _d in rail_tools %}<a href="{{ url_for(e) }}"{% if e == active %} aria-current="page"{% endif %}><span class="pg-ic {{ i }}"></span>{{ n }}</a>{% endfor %}
+ </nav>
+ {% if remember %}<div class="tx-recent" hidden><span class="tx-recent-label"><span class="pg-ic ic-clock"></span>Recent</span><div class="tx-recent-list"></div><button type="button" class="tx-recent-clear">Clear</button></div>{% endif %}
+</div>
+{% endfor %}

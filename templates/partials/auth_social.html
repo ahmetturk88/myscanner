@@ -1,0 +1,8 @@
+{% if oauth_providers %}
+<div class="auth-social">
+  {% for provider in oauth_providers %}
+  <a href="{{ url_for('oauth_start', provider=provider, next=request.args.get('next')) if request.args.get('next') else url_for('oauth_start', provider=provider) }}"><img src="{{ url_for('static', filename='icons/' ~ provider ~ '.svg') }}" alt="" width="20" height="20">{{ 'Continue with Google' if provider == 'google' else 'Continue with GitHub' }}</a>
+  {% endfor %}
+</div>
+<div class="auth-divider">or {{ divider_text }}</div>
+{% endif %}

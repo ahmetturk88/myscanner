@@ -4,7 +4,7 @@ if os.getenv('APP_ENV', '').lower() != 'production' and os.getenv('RENDER', '').
     load_dotenv()
 
 from extensions import db, login_manager, bcrypt
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer
@@ -20,6 +20,7 @@ from urllib.parse import urljoin, urlparse
 from io import BytesIO
 import requests
 import threading
+import secrets
 import time
 import json
 import hashlib
@@ -527,6 +528,58 @@ def login():
 
     return render_template('login.html')
 
+@app.context_processor
+def inject_oauth_providers():
+    if request.endpoint in ('login', 'register'):
+        from services.oauth_login import enabled_providers
+        return {'oauth_providers': enabled_providers()}
+    return {}
+
+
+@app.route('/auth/<provider>/start')
+def oauth_start(provider):
+    from services.oauth_login import OAuthError, start
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    from services.login_redirect import safe_login_redirect
+    session['oauth_next'] = safe_login_redirect(request.args.get('next'), url_for('dashboard'))
+    try:
+        return redirect(start(provider, url_for('oauth_callback', provider=provider, _external=True), session))
+    except OAuthError as error:
+        flash(str(error), 'warning')
+        return redirect(url_for('login'))
+
+
+@app.route('/auth/<provider>/callback')
+def oauth_callback(provider):
+    from services.oauth_login import OAuthError, finish, unique_username
+    target = session.pop('oauth_next', None) or url_for('dashboard')
+    try:
+        email, name = finish(provider, request.args, url_for('oauth_callback', provider=provider, _external=True), session)
+    except OAuthError as error:
+        flash(str(error), 'warning')
+        return redirect(url_for('login'))
+    user = User.query.filter_by(email=email).first()
+    if user is None:
+        user = User(username=unique_username(name, email, lambda c: User.query.filter_by(username=c).first() is not None),
+                    email=email, is_verified=True, role='user')
+        user.set_password(secrets.token_urlsafe(32))
+        db.session.add(user)
+        log_activity(user.username, 'register', f'Account created with {provider}')
+    elif not user.is_verified:
+        # The provider proved ownership of this address; whoever set the
+        # unverified account's password may not own it, so drop that password.
+        user.is_verified = True
+        user.set_password(secrets.token_urlsafe(32))
+    user.last_login = datetime.utcnow()
+    db.session.commit()
+    login_user(user)
+    log_activity(user.username, 'login', f'Signed in with {provider} from {request.remote_addr}')
+    flash(f'Welcome, {user.username}!', 'success')
+    from services.login_redirect import safe_login_redirect
+    return redirect(safe_login_redirect(target, url_for('dashboard')))
+
+
 @app.route('/logout', methods=['POST'])
 @login_required
 def logout():
@@ -587,8 +640,10 @@ def reset_password(token):
 @app.route('/profile')
 @login_required
 def profile():
+    from services.account_overview import daily_allowance, scan_counts
     scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(10).all()
-    return render_template('profile.html', scans=scans)
+    return render_template('profile.html', scans=scans, counts=scan_counts(current_user.id),
+                           allowance=daily_allowance(current_user))
 
 
 # ================================================================
@@ -717,10 +772,11 @@ def api_scan_screenshot(scan_id):
 @app.route('/api/recent_scans')
 @login_required
 def api_recent_scans():
+    limit = min(max(request.args.get('limit', 15, type=int) or 15, 1), 100)
     if current_user.is_admin:
-        scans = Scan.query.order_by(Scan.date_posted.desc()).limit(15).all()
+        scans = Scan.query.order_by(Scan.date_posted.desc()).limit(limit).all()
     else:
-        scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(15).all()
+        scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(limit).all()
 
     data = []
     for scan in scans:
@@ -1565,11 +1621,13 @@ def contact():
         # إرسال البريد الإلكتروني
         try:
             # استخدم الدالة المساعدة التي لديك في app.py
-            send_email(
+            # send_email reports failure by returning False, not by raising.
+            if not send_email(
                 to_email="ahmetsayrafi538213@gmail.com",
                 subject=f"[MyScanner Contact] {subject} from {name}",
                 body=email_body
-            )
+            ):
+                raise RuntimeError('Contact email was not accepted by the mail provider.')
             # نعود برد JSON للنموذج (AJAX) بدلاً من إعادة التوجيه
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"success": True, "message": "Message sent successfully!"}), 200
@@ -1664,7 +1722,9 @@ def api_ssl_checker():
 @app.route('/dashboard-v2')
 @login_required
 def dashboard_v2():
-    return render_template('dashboard-v2.html')
+    from services.account_overview import daily_allowance, scan_counts
+    return render_template('dashboard-v2.html', counts=scan_counts(current_user.id),
+                           allowance=daily_allowance(current_user))
 
 @app.route('/api/url-analysis/<int:scan_id>')
 @login_required

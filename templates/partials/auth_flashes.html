@@ -1,0 +1,5 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="auth-flash {{ category if category in ['success','danger','warning','info'] else 'info' }}" role="{{ 'alert' if category in ['danger','warning'] else 'status' }}">{{ message }}</div>
+{% endfor %}
+{% endwith %}

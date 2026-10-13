@@ -4,7 +4,7 @@ if os.getenv('APP_ENV', '').lower() != 'production' and os.getenv('RENDER', '').
     load_dotenv()
 
 from extensions import db, login_manager, bcrypt
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer
@@ -20,6 +20,7 @@ from urllib.parse import urljoin, urlparse
 from io import BytesIO
 import requests
 import threading
+import secrets
 import time
 import json
 import hashlib
@@ -526,6 +527,58 @@ def login():
         return redirect(safe_login_redirect(next_page, url_for('dashboard')))
 
     return render_template('login.html')
+
+@app.context_processor
+def inject_oauth_providers():
+    if request.endpoint in ('login', 'register'):
+        from services.oauth_login import enabled_providers
+        return {'oauth_providers': enabled_providers()}
+    return {}
+
+
+@app.route('/auth/<provider>/start')
+def oauth_start(provider):
+    from services.oauth_login import OAuthError, start
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    from services.login_redirect import safe_login_redirect
+    session['oauth_next'] = safe_login_redirect(request.args.get('next'), url_for('dashboard'))
+    try:
+        return redirect(start(provider, url_for('oauth_callback', provider=provider, _external=True), session))
+    except OAuthError as error:
+        flash(str(error), 'warning')
+        return redirect(url_for('login'))
+
+
+@app.route('/auth/<provider>/callback')
+def oauth_callback(provider):
+    from services.oauth_login import OAuthError, finish, unique_username
+    target = session.pop('oauth_next', None) or url_for('dashboard')
+    try:
+        email, name = finish(provider, request.args, url_for('oauth_callback', provider=provider, _external=True), session)
+    except OAuthError as error:
+        flash(str(error), 'warning')
+        return redirect(url_for('login'))
+    user = User.query.filter_by(email=email).first()
+    if user is None:
+        user = User(username=unique_username(name, email, lambda c: User.query.filter_by(username=c).first() is not None),
+                    email=email, is_verified=True, role='user')
+        user.set_password(secrets.token_urlsafe(32))
+        db.session.add(user)
+        log_activity(user.username, 'register', f'Account created with {provider}')
+    elif not user.is_verified:
+        # The provider proved ownership of this address; whoever set the
+        # unverified account's password may not own it, so drop that password.
+        user.is_verified = True
+        user.set_password(secrets.token_urlsafe(32))
+    user.last_login = datetime.utcnow()
+    db.session.commit()
+    login_user(user)
+    log_activity(user.username, 'login', f'Signed in with {provider} from {request.remote_addr}')
+    flash(f'Welcome, {user.username}!', 'success')
+    from services.login_redirect import safe_login_redirect
+    return redirect(safe_login_redirect(target, url_for('dashboard')))
+
 
 @app.route('/logout', methods=['POST'])
 @login_required

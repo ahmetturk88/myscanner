@@ -44,11 +44,13 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='report_summary.css', v='20261013-1') }}">
     <script src="{{ url_for('static', filename='report_summary.js', v='20261013-1') }}"></script>
     <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-mark.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261013-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='icons.css',v='20261013-2') }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261013-2') }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
 
+    {% block flashes %}
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
     <div class="flash-wrap">
@@ -59,6 +61,7 @@
     <script>setTimeout(()=>{document.querySelectorAll('.flash-msg').forEach(f=>f.remove());},4000);</script>
     {% endif %}
     {% endwith %}
+    {% endblock %}
 
 
     {% include 'partials/platform_nav.html' %}
@@ -66,7 +69,7 @@
     <main id="platform-main" tabindex="-1">{% block content %}{% endblock %}</main>
 
     {% include 'partials/platform_footer.html' %}
-    <script src="{{ url_for('static',filename='platform_shell.js',v='20261013-1') }}" defer></script>
+    <script src="{{ url_for('static',filename='platform_shell.js',v='20261013-2') }}" defer></script>
 
     {% block body_extra %}{% endblock %}
 

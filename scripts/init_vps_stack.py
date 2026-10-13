@@ -18,7 +18,7 @@ def initialize(root=ROOT):
         # Compose file secrets bind-mount host files without UID remapping.
         # World-readable inode within a private host directory permits non-root containers.
         os.chmod(path,0o444)
-    for name in ('urlhaus_auth_key', 'abuseipdb_api_key'):
+    for name in ('urlhaus_auth_key', 'abuseipdb_api_key', 'google_client_secret', 'github_client_secret'):
         optional=directory/name
         if optional.is_symlink():raise RuntimeError('Optional secret path must not be a symbolic link.')
         if not optional.exists():

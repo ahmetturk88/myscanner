@@ -116,3 +116,78 @@
     tick(); setInterval(tick, 30000);
   });
 })();
+
+/* Sign-in and registration helpers. */
+(function () {
+  'use strict';
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll('[data-ticker]').forEach(box => {
+    const lines = [...box.children];
+    if (reduced) { lines.forEach(l => l.classList.add('on')); return; }
+    let i = 0;
+    (function step() {
+      if (i < lines.length) { lines[i++].classList.add('on'); setTimeout(step, 700); return; }
+      setTimeout(() => { lines.forEach(l => l.classList.remove('on')); i = 0; setTimeout(step, 600); }, 3200);
+    })();
+  });
+
+  document.querySelectorAll('[data-toggle-password]').forEach(button => {
+    const input = document.getElementById(button.dataset.togglePassword);
+    if (!input) return;
+    button.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      button.setAttribute('aria-pressed', String(show));
+      button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      input.focus();
+    });
+  });
+
+  document.querySelectorAll('[data-capslock-for]').forEach(hint => {
+    const input = document.getElementById(hint.dataset.capslockFor);
+    if (!input) return;
+    const check = event => { hint.hidden = !(event.getModifierState && event.getModifierState('CapsLock')); };
+    input.addEventListener('keyup', check);
+    input.addEventListener('keydown', check);
+    input.addEventListener('blur', () => { hint.hidden = true; });
+  });
+
+  // Mirrors the server password policy in app.password_policy_errors.
+  const RULES = {
+    length: v => v.length >= 8, upper: v => /[A-Z]/.test(v), lower: v => /[a-z]/.test(v),
+    number: v => /[0-9]/.test(v), special: v => /[!@#$%^&*(),.?":{}|<>]/.test(v)
+  };
+  document.querySelectorAll('[data-strength-for]').forEach(meter => {
+    const input = document.getElementById(meter.dataset.strengthFor);
+    const rules = document.querySelectorAll('[data-rule]');
+    const label = document.querySelector('[data-strength-label]');
+    if (!input) return;
+    input.addEventListener('input', () => {
+      const value = input.value;
+      let met = 0;
+      rules.forEach(item => { const ok = RULES[item.dataset.rule] && RULES[item.dataset.rule](value); item.classList.toggle('met', !!ok); if (ok) met++; });
+      const level = !value ? 0 : met <= 2 ? 1 : met === 3 ? 2 : met === 4 ? 3 : (value.length >= 12 ? 4 : 3);
+      meter.dataset.level = String(level);
+      if (label) label.textContent = ['', 'Weak', 'Fair', 'Good', 'Strong'][level];
+    });
+  });
+
+  document.querySelectorAll('[data-match-for]').forEach(note => {
+    const [first, second] = note.dataset.matchFor.split(',').map(id => document.getElementById(id));
+    if (!first || !second) return;
+    const check = () => {
+      if (!second.value) { note.textContent = ''; note.className = 'auth-match'; return; }
+      const same = first.value === second.value;
+      note.textContent = same ? 'Passwords match' : 'Passwords do not match yet';
+      note.className = 'auth-match ' + (same ? 'ok' : 'bad');
+    };
+    first.addEventListener('input', check); second.addEventListener('input', check);
+  });
+
+  document.querySelectorAll('form[data-busy]').forEach(form => form.addEventListener('submit', () => {
+    const button = form.querySelector('button[type=submit]');
+    if (!button || !form.checkValidity()) return;
+    setTimeout(() => { button.disabled = true; const label = button.querySelector('[data-label]'); if (label) label.textContent = form.dataset.busy; }, 0);
+  }));
+})();

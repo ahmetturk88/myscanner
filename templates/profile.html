@@ -2,8 +2,8 @@
 {% block title %}My Profile{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261013-1') }}">
-<script src="{{ url_for('static', filename='pages.js', v='20261013-1') }}" defer></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261013-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261013-2') }}" defer></script>
 {% endblock %}
 
 {% set c = counts or {'total': scans|length, 'malicious': scans|selectattr('verdict','equalto','malicious')|list|length, 'review': 0, 'harmless': scans|selectattr('verdict','equalto','harmless')|list|length, 'unresolved': 0} %}

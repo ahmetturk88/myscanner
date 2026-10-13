@@ -1,0 +1,26 @@
+<aside class="auth-side">
+  <div class="pg-grid" aria-hidden="true"></div>
+  <a class="auth-brand" href="/"><img src="{{ url_for('static', filename='brand/myscanner-mark.png') }}" alt="" width="44" height="44"><span>My<span>Scanner</span></span></a>
+  <div>
+    <span class="pg-eyebrow"><span class="pg-live"></span>{{ side_kicker }}</span>
+    <h2>{{ side_title }}</h2>
+    <p>{{ side_text }}</p>
+  </div>
+  <div class="auth-orbit" aria-hidden="true">
+    <div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+    <div class="core"><span class="pg-ic ic-shield"></span></div>
+    <div class="orbit">
+      <span class="sat s1"><span class="pg-ic ic-link"></span></span>
+      <span class="sat s2"><span class="pg-ic ic-file"></span></span>
+      <span class="sat s3"><span class="pg-ic ic-at"></span></span>
+      <span class="sat s4"><span class="pg-ic ic-lock"></span></span>
+    </div>
+  </div>
+  <div class="auth-ticker" data-ticker aria-hidden="true">
+    <div><span>dns.resolve</span><span class="ok">public ✓</span></div>
+    <div><span>tls.verify</span><span class="ok">valid ✓</span></div>
+    <div><span>urlhaus.lookup</span><span class="ok">not listed</span></div>
+    <div><span>page.forms</span><span class="warn">login form found</span></div>
+    <div><span>verdict</span><span class="warn">needs review</span></div>
+  </div>
+</aside>

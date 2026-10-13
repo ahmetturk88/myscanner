@@ -137,7 +137,7 @@ class StaticContentTests(unittest.TestCase):
                 self.assertNotIn('wa-float', text, path.name)
 
     def test_page_icons_exist(self):
-        css = (ROOT / 'static/pages.css').read_text()
+        css = (ROOT / 'static/icons.css').read_text()
         for name in re.findall(r'url\(icons/([a-z]+)\.svg\)', css):
             self.assertTrue((ROOT / 'static/icons' / f'{name}.svg').is_file(), name)
 

@@ -587,8 +587,10 @@ def reset_password(token):
 @app.route('/profile')
 @login_required
 def profile():
+    from services.account_overview import daily_allowance, scan_counts
     scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(10).all()
-    return render_template('profile.html', scans=scans)
+    return render_template('profile.html', scans=scans, counts=scan_counts(current_user.id),
+                           allowance=daily_allowance(current_user))
 
 
 # ================================================================
@@ -717,10 +719,11 @@ def api_scan_screenshot(scan_id):
 @app.route('/api/recent_scans')
 @login_required
 def api_recent_scans():
+    limit = min(max(request.args.get('limit', 15, type=int) or 15, 1), 100)
     if current_user.is_admin:
-        scans = Scan.query.order_by(Scan.date_posted.desc()).limit(15).all()
+        scans = Scan.query.order_by(Scan.date_posted.desc()).limit(limit).all()
     else:
-        scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(15).all()
+        scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.date_posted.desc()).limit(limit).all()
 
     data = []
     for scan in scans:
@@ -1565,11 +1568,13 @@ def contact():
         # إرسال البريد الإلكتروني
         try:
             # استخدم الدالة المساعدة التي لديك في app.py
-            send_email(
+            # send_email reports failure by returning False, not by raising.
+            if not send_email(
                 to_email="ahmetsayrafi538213@gmail.com",
                 subject=f"[MyScanner Contact] {subject} from {name}",
                 body=email_body
-            )
+            ):
+                raise RuntimeError('Contact email was not accepted by the mail provider.')
             # نعود برد JSON للنموذج (AJAX) بدلاً من إعادة التوجيه
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"success": True, "message": "Message sent successfully!"}), 200
@@ -1664,7 +1669,9 @@ def api_ssl_checker():
 @app.route('/dashboard-v2')
 @login_required
 def dashboard_v2():
-    return render_template('dashboard-v2.html')
+    from services.account_overview import daily_allowance, scan_counts
+    return render_template('dashboard-v2.html', counts=scan_counts(current_user.id),
+                           allowance=daily_allowance(current_user))
 
 @app.route('/api/url-analysis/<int:scan_id>')
 @login_required

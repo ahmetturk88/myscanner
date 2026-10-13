@@ -2,358 +2,131 @@
 {% block title %}My Profile{% endblock %}
 
 {% block head_extra %}
-<style>
-  .profile-wrap {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 52px 24px 100px;
-  }
-
-  /* Header */
-  .profile-header {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    margin-bottom: 24px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .profile-header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  }
-
-  .profile-avatar {
-    width: 64px; height: 64px;
-    background: linear-gradient(135deg, var(--accent), #006aff);
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--mono);
-    font-size: 26px;
-    font-weight: 700;
-    color: #000;
-    flex-shrink: 0;
-    box-shadow: 0 0 24px rgba(0,200,255,0.2);
-  }
-
-  .profile-info h2 {
-    font-family: var(--mono);
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 4px;
-    text-align: left;
-  }
-
-  .profile-info p {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.8;
-  }
-
-  .profile-plan {
-    margin-left: auto;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    padding: 5px 14px;
-    border-radius: 20px;
-    background: var(--accent-dim);
-    color: var(--accent);
-    border: 1px solid rgba(0,200,255,0.25);
-    flex-shrink: 0;
-  }
-
-  .profile-plan.admin {
-    background: var(--yellow-dim);
-    color: var(--yellow);
-    border-color: rgba(255,211,42,0.25);
-  }
-
-  /* Stats */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-    transition: border-color .2s;
-  }
-
-  .stat-card:hover { border-color: rgba(0,200,255,0.2); }
-
-  .stat-card .num {
-    font-family: var(--mono);
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 4px;
-  }
-
-  .stat-card .lbl {
-    font-size: 12px;
-    color: var(--muted);
-    font-family: var(--mono);
-    letter-spacing: 0.5px;
-  }
-
-  /* Cards */
-  .info-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 28px;
-    margin-bottom: 20px;
-  }
-
-  .card-title {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .info-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .info-row:last-child { border-bottom: none; }
-  .info-row .k { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; }
-  .info-row .v { color: var(--text); font-weight: 600; }
-
-  /* Scans Table */
-  .scans-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  .scans-table th {
-    background: var(--surface2);
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 10px 14px;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .scans-table td {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    color: var(--text);
-  }
-
-  .scans-table tr:last-child td { border-bottom: none; }
-  .scans-table tr:hover td { background: var(--surface2); }
-
-  .v-badge {
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-  }
-  .v-harmless   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(0,230,118,.3); }
-  .v-malicious  { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,69,96,.3); }
-  .v-suspicious { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,211,42,.3); }
-  .v-unknown, .v-pending, .v-error { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
-
-  .empty-state {
-    text-align: center;
-    padding: 48px;
-    color: var(--muted);
-    font-size: 14px;
-  }
-
-  .empty-state a { color: var(--accent); text-decoration: none; }
-
-  /* Action buttons */
-  .action-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 4px;
-  }
-
-  .btn-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all .2s;
-  }
-
-  .btn-home   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-home:hover { background: var(--surface3); color: var(--text); }
-  .btn-logout { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,69,96,.25); }
-  .btn-logout:hover { background: rgba(255,69,96,0.2); color: var(--red); }
-
-  @media (max-width: 600px) {
-    .stats-row { grid-template-columns: 1fr 1fr; }
-    .profile-header { flex-direction: column; text-align: center; }
-    .profile-plan { margin: 0 auto; }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261013-1') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261013-1') }}" defer></script>
 {% endblock %}
 
+{% set c = counts or {'total': scans|length, 'malicious': scans|selectattr('verdict','equalto','malicious')|list|length, 'review': 0, 'harmless': scans|selectattr('verdict','equalto','harmless')|list|length, 'unresolved': 0} %}
+{% set denom = c.total if c.total else 1 %}
+{% set launch = [
+  ('dashboard','URL Scanner','ic-link'),('site_scanner','Site Scanner','ic-globe'),('file_scanner','File Scanner','ic-file'),
+  ('email_check','Email Checker','ic-at'),('ip_check','IP Lookup','ic-server'),('domain_lookup','Domain Lookup','ic-search'),
+  ('ssl_checker','SSL Checker','ic-lock'),('subdomain_finder','Subdomains','ic-layers'),('qr_scanner','QR Scanner','ic-qr'),('password_check','Passwords','ic-key')
+] %}
+
 {% block content %}
-<div class="profile-wrap">
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
 
-  <!-- Header -->
-  <div class="profile-header">
-    <div class="profile-avatar">{{ current_user.username[0].upper() }}</div>
-    <div class="profile-info">
-      <h2>{{ current_user.username }}</h2>
-      <p>{{ current_user.email }}</p>
-      <p style="margin-top:2px;">Member since {{ current_user.date_joined.strftime('%B %Y') }}</p>
-    </div>
-    {% if current_user.is_admin %}
-      <span class="profile-plan admin">⚡ ADMIN</span>
-    {% else %}
-      <span class="profile-plan">FREE PLAN</span>
-    {% endif %}
-  </div>
-
-  <!-- Stats -->
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="num">{{ scans | length }}</div>
-      <div class="lbl">Total Scans</div>
-    </div>
-    <div class="stat-card">
-      <div class="num" style="color:var(--red);">
-        {{ scans | selectattr('verdict', 'equalto', 'malicious') | list | length }}
+  <section class="pg-card pg-profile-head pg-reveal">
+    <div class="pg-avatar-ring"><div>{{ current_user.username[:1]|upper }}</div></div>
+    <div style="min-width:0">
+      <span class="pg-kicker" style="margin-bottom:8px">Your account</span>
+      <h1 style="overflow-wrap:anywhere">{{ current_user.username }}</h1>
+      <p style="overflow-wrap:anywhere">{{ current_user.email }}{% if current_user.date_joined %} · Member since {{ current_user.date_joined.strftime('%B %Y') }}{% endif %}</p>
+      <div class="pg-tags">
+        {% if current_user.is_verified %}<span class="pg-pill ok">✓ Email verified</span>{% else %}<span class="pg-pill warn">Email not verified</span>{% endif %}
+        {% if current_user.is_admin %}<span class="pg-pill info">⚡ Administrator</span>{% elif current_user.role == 'premium' %}<span class="pg-pill info">Premium</span>{% else %}<span class="pg-pill muted">Free plan</span>{% endif %}
       </div>
-      <div class="lbl">Malicious Found</div>
     </div>
-    <div class="stat-card">
-      <div class="num" style="color:var(--green);">
-        {{ scans | selectattr('verdict', 'equalto', 'harmless') | list | length }}
-      </div>
-      <div class="lbl">Safe URLs</div>
+    <div class="pg-actions">
+      <a class="pg-btn primary" href="{{ url_for('dashboard') }}"><span class="pg-ic ic-zap"></span>New scan</a>
+      <a class="pg-btn" href="{{ url_for('dashboard_v2') }}">Workspace</a>
     </div>
-  </div>
+  </section>
 
-  <!-- Account Info -->
-  <div class="info-card">
-    <div class="card-title">Account Information</div>
-    <div class="info-row">
-      <span class="k">NAME</span>
-      <span class="v">{{ current_user.username }}</span>
-    </div>
-    <div class="info-row">
-      <span class="k">EMAIL</span>
-      <span class="v">{{ current_user.email }}</span>
-    </div>
-    <div class="info-row">
-      <span class="k">VERIFIED</span>
-      <span class="v">
-        {% if current_user.is_verified %}
-          <span style="color:var(--green);">✓ Verified</span>
+  <section class="pg-grid-4 pg-metrics" style="margin-top:22px" aria-label="Your URL scan totals">
+    <div class="pg-card pg-metric pg-reveal"><div class="pg-metric-top">URL scans <span class="pg-ic ic-activity pg-tone-cyan"></span></div><strong class="pg-tone-cyan" data-count="{{ c.total }}">{{ c.total }}</strong><small>All time</small></div>
+    <div class="pg-card pg-metric pg-reveal" style="--d:.06s"><div class="pg-metric-top">Confirmed threats <span class="pg-ic ic-alert pg-tone-rose"></span></div><strong class="pg-tone-rose" data-count="{{ c.malicious }}">{{ c.malicious }}</strong><small>Backed by a reputation source</small></div>
+    <div class="pg-card pg-metric pg-reveal" style="--d:.12s"><div class="pg-metric-top">Needs review <span class="pg-ic ic-eye pg-tone-amber"></span></div><strong class="pg-tone-amber" data-count="{{ c.review }}">{{ c.review }}</strong><small>Indicators without confirmation</small></div>
+    <div class="pg-card pg-metric pg-reveal" style="--d:.18s"><div class="pg-metric-top">No indicators <span class="pg-ic ic-check pg-tone-green"></span></div><strong class="pg-tone-green" data-count="{{ c.harmless }}">{{ c.harmless }}</strong><small>Full coverage, nothing found</small></div>
+  </section>
+
+  <section class="pg-split" style="margin-top:22px">
+    <div style="display:grid;gap:22px">
+      <div class="pg-card pg-reveal">
+        <div class="pg-card-title"><h3><span class="pg-ic ic-gauge"></span>Verdict mix</h3><span class="pg-count">{{ c.total }} scan{{ '' if c.total == 1 else 's' }}</span></div>
+        <div class="pg-stack" data-meters>
+          <span style="background:var(--rose)" data-fill="{{ (100 * c.malicious / denom)|round(1) }}"></span>
+          <span style="background:var(--amber)" data-fill="{{ (100 * c.review / denom)|round(1) }}"></span>
+          <span style="background:var(--green)" data-fill="{{ (100 * c.harmless / denom)|round(1) }}"></span>
+          <span style="background:#64748b" data-fill="{{ (100 * c.unresolved / denom)|round(1) }}"></span>
+        </div>
+        <div class="pg-legend-row">
+          <span><i style="background:var(--rose)"></i>Threat {{ c.malicious }}</span>
+          <span><i style="background:var(--amber)"></i>Review {{ c.review }}</span>
+          <span><i style="background:var(--green)"></i>No indicators {{ c.harmless }}</span>
+          <span><i style="background:#64748b"></i>Incomplete or unknown {{ c.unresolved }}</span>
+        </div>
+      </div>
+
+      <div class="pg-card pg-reveal">
+        <div class="pg-card-title"><h3><span class="pg-ic ic-activity"></span>Recent URL scans</h3><a class="pg-scan-view" href="{{ url_for('dashboard_v2') }}">All history <span class="pg-ic ic-arrow" style="width:16px;height:16px"></span></a></div>
+        {% if scans %}
+        <div class="pg-scan-list">
+          {% for scan in scans %}
+          <div class="pg-scan">
+            <span class="pg-scan-id">#{{ scan.id }}</span>
+            <a class="pg-scan-url" data-web-url="{{ scan.url }}" target="_blank" rel="noopener noreferrer" title="{{ scan.url }}">{{ scan.url }}</a>
+            <span class="verdict-badge v-{{ scan.verdict if scan.verdict in ['harmless','malicious','suspicious','high_risk','unknown','pending','error'] else 'unknown' }}">{{ scan.verdict|replace('_',' ')|upper }}</span>
+            <a class="pg-scan-view" href="{{ url_for('result_page', scan_id=scan.id) }}">Report <span class="pg-ic ic-arrow" style="width:15px;height:15px"></span></a>
+          </div>
+          {% endfor %}
+        </div>
         {% else %}
-          <span style="color:var(--red);">✗ Not Verified</span>
+        <div class="pg-empty">
+          <div class="pg-badge"><span class="pg-ic ic-search"></span></div>
+          <p>No scans yet. Your first report is one link away.</p>
+          <div class="pg-actions" style="justify-content:center;margin-top:18px"><a class="pg-btn primary" href="{{ url_for('dashboard') }}">Scan your first URL <span class="pg-ic ic-arrow"></span></a></div>
+        </div>
         {% endif %}
-      </span>
-    </div>
-    <div class="info-row">
-      <span class="k">ROLE</span>
-      <span class="v">{% if current_user.is_admin %}Administrator{% else %}Free User{% endif %}</span>
-    </div>
-    <div class="info-row">
-      <span class="k">JOINED</span>
-      <span class="v">{{ current_user.date_joined.strftime('%Y-%m-%d') }}</span>
-    </div>
-  </div>
-
-  <!-- Recent Scans -->
-  <div class="info-card">
-    <div class="card-title">Recent Scans</div>
-    {% if scans %}
-      <div style="overflow-x:auto;">
-        <table class="scans-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>URL</th>
-              <th>Verdict</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for scan in scans %}
-            <tr>
-              <td style="color:var(--muted); font-family:var(--mono); font-size:11px;">{{ scan.id }}</td>
-              <td>
-                <a data-web-url="{{ scan.url }}" target="_blank" rel="noopener"
-                   style="color:var(--accent); text-decoration:none; font-size:12px; font-family:var(--mono);
-                          max-width:280px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                  {{ scan.url }}
-                </a>
-              </td>
-              <td>
-                <span class="v-badge v-{{ scan.verdict }}">{{ scan.verdict | upper }}</span>
-              </td>
-              <td style="color:var(--muted); font-family:var(--mono); font-size:11px;">
-                {{ scan.date_posted.strftime('%Y-%m-%d') }}
-              </td>
-              <td>
-                <a href="{{ url_for('result_page', scan_id=scan.id) }}"
-                   style="color:var(--accent); font-family:var(--mono); font-size:11px; text-decoration:none; font-weight:700;">
-                  View →
-                </a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
       </div>
-    {% else %}
-      <div class="empty-state">
-        No scans yet. <a href="{{ url_for('landing') }}">Scan your first URL →</a>
+    </div>
+
+    <div style="display:grid;gap:22px">
+      <div class="pg-card pg-reveal" style="--d:.08s">
+        <div class="pg-card-title"><h3><span class="pg-ic ic-calendar"></span>Today's allowance</h3></div>
+        {% if allowance %}
+        <div class="pg-quota" data-meters>
+          {% for row in allowance %}
+          <div class="pg-quota-row">
+            <span>{{ row.label }}</span>
+            <b>{% if row.limit is none %}Unlimited{% else %}{{ row.remaining }} / {{ row.limit }}{% endif %}</b>
+            <div class="pg-meter"><i class="{{ 'low' if row.limit is not none and row.percent <= 25 else '' }}" data-fill="{{ row.percent }}"></i></div>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="pg-note">Resets in <strong data-reset-countdown style="color:var(--ink)">—</strong> (00:00 UTC).</p>
+        {% else %}
+        <p>Allowance details are unavailable right now.</p>
+        {% endif %}
       </div>
-    {% endif %}
-  </div>
 
-  <!-- Actions -->
-  <div class="action-row">
-    <a href="{{ url_for('landing') }}" class="btn-action btn-home">← Back to Scanner</a>
-    <form method="POST" action="{{ url_for('logout') }}" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn-action btn-logout">Logout</button></form>
-  </div>
+      <div class="pg-card pg-reveal" style="--d:.14s">
+        <div class="pg-card-title"><h3><span class="pg-ic ic-user"></span>Account &amp; security</h3></div>
+        <dl class="pg-kv">
+          <div><dt>Username</dt><dd>{{ current_user.username }}</dd></div>
+          <div><dt>Email</dt><dd>{{ current_user.email }}</dd></div>
+          <div><dt>Status</dt><dd>{% if current_user.is_verified %}<span class="pg-tone-green">Verified</span>{% else %}<span class="pg-tone-amber">Not verified</span>{% endif %}</dd></div>
+          <div><dt>Role</dt><dd>{% if current_user.is_admin %}Administrator{% elif current_user.role == 'premium' %}Premium{% else %}Free user{% endif %}</dd></div>
+          {% if current_user.date_joined %}<div><dt>Joined</dt><dd>{{ current_user.date_joined.strftime('%d %b %Y') }}</dd></div>{% endif %}
+        </dl>
+        <div class="pg-actions" style="margin-top:20px">
+          <a class="pg-btn" href="{{ url_for('forgot_password') }}"><span class="pg-ic ic-key"></span>Change password</a>
+          <form method="POST" action="{{ url_for('logout') }}" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="pg-btn danger"><span class="pg-ic ic-logout"></span>Sign out</button></form>
+        </div>
+        <p class="pg-note">Password changes use a one-time link sent to your verified email.</p>
+      </div>
+    </div>
+  </section>
 
+  <section class="pg-card pg-reveal" style="margin-top:22px">
+    <div class="pg-card-title"><h3><span class="pg-ic ic-zap"></span>Quick launch</h3></div>
+    <div class="pg-launch">
+      {% for endpoint, name, icon in launch %}
+      <a href="{{ url_for(endpoint) }}"><span class="pg-ic {{ icon }}"></span><strong>{{ name }}</strong></a>
+      {% endfor %}
+    </div>
+  </section>
 </div>
 {% endblock %}

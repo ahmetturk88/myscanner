@@ -1,624 +1,213 @@
 {% extends "base.html" %}
 
-{% block title %}About Us - MyScanner{% endblock %}
+{% block title %}About{% endblock %}
 
 {% block head_extra %}
-<style>
-    .about-container {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 40px 20px;
-    }
-
-    /* Hero Section */
-    .about-hero {
-        text-align: center;
-        margin-bottom: 60px;
-        position: relative;
-    }
-
-    .about-hero h1 {
-        font-family: var(--mono);
-        font-size: 56px;
-        background: linear-gradient(135deg, var(--text), var(--accent));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 20px;
-    }
-
-    .about-hero p {
-        color: var(--muted);
-        font-size: 18px;
-        max-width: 700px;
-        margin: 0 auto;
-        line-height: 1.8;
-    }
-
-    .hero-glow {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: min(600px, 100%);
-        height: 300px;
-        background: radial-gradient(ellipse, rgba(0,200,255,0.08), transparent);
-        pointer-events: none;
-        z-index: -1;
-    }
-
-    /* Mission & Vision Cards */
-    .mission-section {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 30px;
-        margin-bottom: 80px;
-    }
-
-    .mission-card, .vision-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 40px;
-        text-align: center;
-        transition: all 0.3s;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .mission-card::before, .vision-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        background: linear-gradient(90deg, var(--accent), var(--green));
-    }
-
-    .mission-card:hover, .vision-card:hover {
-        transform: translateY(-5px);
-        border-color: var(--accent);
-    }
-
-    .mission-icon, .vision-icon {
-        width: 70px;
-        height: 70px;
-        background: linear-gradient(135deg, var(--accent-dim), var(--surface3));
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 20px;
-        font-size: 32px;
-    }
-
-    .mission-card h2, .vision-card h2 {
-        font-family: var(--mono);
-        font-size: 24px;
-        margin-bottom: 16px;
-    }
-
-    .mission-card p, .vision-card p {
-        color: var(--muted);
-        line-height: 1.7;
-    }
-
-    /* Stats Section */
-    .stats-showcase {
-        background: linear-gradient(135deg, var(--surface), var(--surface2));
-        border-radius: 30px;
-        padding: 60px 40px;
-        margin-bottom: 80px;
-        border: 1px solid var(--border);
-        text-align: center;
-    }
-
-    .stats-showcase h2 {
-        font-family: var(--mono);
-        font-size: 28px;
-        margin-bottom: 40px;
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 30px;
-    }
-
-    .stat-item {
-        text-align: center;
-    }
-
-    .stat-number {
-        font-size: 48px;
-        font-weight: 700;
-        font-family: var(--mono);
-        color: var(--accent);
-        margin-bottom: 8px;
-    }
-
-    .stat-label {
-        font-size: 14px;
-        color: var(--muted);
-    }
-
-    /* Services Grid */
-    .services-showcase {
-        margin-bottom: 80px;
-    }
-
-    .section-title {
-        text-align: center;
-        font-family: var(--mono);
-        font-size: 32px;
-        margin-bottom: 16px;
-    }
-
-    .section-subtitle {
-        text-align: center;
-        color: var(--muted);
-        margin-bottom: 48px;
-        font-size: 16px;
-    }
-
-    .services-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 25px;
-    }
-
-    .service-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 30px;
-        transition: all 0.3s;
-    }
-
-    .service-card:hover {
-        transform: translateY(-5px);
-        border-color: var(--accent);
-    }
-
-    .service-icon {
-        width: 55px;
-        height: 55px;
-        background: var(--surface2);
-        border-radius: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        margin-bottom: 20px;
-    }
-
-    .service-card h3 {
-        font-size: 18px;
-        margin-bottom: 12px;
-    }
-
-    .service-card p {
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    /* Timeline Section */
-    .timeline-section {
-        margin-bottom: 80px;
-    }
-
-    .timeline {
-        position: relative;
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px 0;
-    }
-
-    .timeline::before {
-        content: '';
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 2px;
-        height: 100%;
-        background: linear-gradient(180deg, var(--accent), transparent);
-    }
-
-    .timeline-item {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 40px;
-        position: relative;
-    }
-
-    .timeline-item:nth-child(odd) {
-        flex-direction: row;
-    }
-
-    .timeline-item:nth-child(even) {
-        flex-direction: row-reverse;
-    }
-
-    .timeline-content {
-        width: 45%;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 20px;
-        transition: all 0.3s;
-    }
-
-    .timeline-content:hover {
-        border-color: var(--accent);
-        transform: scale(1.02);
-    }
-
-    .timeline-year {
-        font-family: var(--mono);
-        font-size: 14px;
-        color: var(--accent);
-        margin-bottom: 8px;
-    }
-
-    .timeline-title {
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-
-    .timeline-desc {
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    .timeline-dot {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 12px;
-        height: 12px;
-        background: var(--accent);
-        border-radius: 50%;
-        top: 20px;
-    }
-
-    /* Team Section */
-    .team-section {
-        margin-bottom: 80px;
-    }
-
-    .team-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 30px;
-    }
-
-    .team-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 30px;
-        text-align: center;
-        transition: all 0.3s;
-    }
-
-    .team-card:hover {
-        transform: translateY(-5px);
-        border-color: var(--accent);
-    }
-
-    .team-avatar {
-        width: 120px;
-        height: 120px;
-        background: linear-gradient(135deg, var(--surface3), var(--surface2));
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 20px;
-        font-size: 48px;
-        border: 2px solid var(--accent);
-    }
-
-    .team-name {
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-
-    .team-role {
-        font-size: 12px;
-        color: var(--accent);
-        margin-bottom: 12px;
-    }
-
-    .team-bio {
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    /* Tech Stack Section */
-    .tech-section {
-        margin-bottom: 80px;
-    }
-
-    .tech-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-        gap: 20px;
-        text-align: center;
-    }
-
-    .tech-item {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 20px;
-        transition: all 0.3s;
-    }
-
-    .tech-item:hover {
-        border-color: var(--accent);
-        transform: translateY(-3px);
-    }
-
-    .tech-icon {
-        font-size: 32px;
-        margin-bottom: 10px;
-    }
-
-    .tech-name {
-        font-size: 12px;
-        color: var(--muted);
-    }
-
-    /* CTA Section */
-    .cta-section {
-        background: linear-gradient(135deg, var(--surface), var(--surface2));
-        border-radius: 30px;
-        padding: 60px 40px;
-        text-align: center;
-        border: 1px solid var(--border);
-    }
-
-    .cta-section h2 {
-        font-family: var(--mono);
-        font-size: 28px;
-        margin-bottom: 16px;
-    }
-
-    .cta-section p {
-        color: var(--muted);
-        margin-bottom: 30px;
-        max-width: 500px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    .cta-buttons {
-        display: flex;
-        gap: 20px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
-    .btn-primary, .btn-secondary {
-        padding: 12px 28px;
-        border-radius: 12px;
-        font-weight: 700;
-        text-decoration: none;
-        transition: all 0.2s;
-    }
-
-    .btn-primary {
-        background: var(--accent);
-        color: #000;
-    }
-
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px -5px rgba(0,200,255,0.3);
-    }
-
-    .btn-secondary {
-        background: transparent;
-        border: 1px solid var(--border);
-        color: var(--text);
-    }
-
-    .btn-secondary:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-    }
-
-    /* Responsive */
-    @media (max-width: 900px) {
-        .mission-section {
-            grid-template-columns: 1fr;
-        }
-
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .timeline::before {
-            left: 20px;
-        }
-
-        .timeline-item,
-        .timeline-item:nth-child(odd),
-        .timeline-item:nth-child(even) {
-            flex-direction: column;
-            margin-left: 40px;
-        }
-
-        .timeline-content {
-            width: 100%;
-        }
-
-        .timeline-dot {
-            left: 20px;
-        }
-
-        .about-hero h1 {
-            font-size: 36px;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261013-1') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261013-1') }}" defer></script>
 {% endblock %}
 
+{% set tools = [
+  ('dashboard','URL Scanner','Destination, redirects, page content and reputation evidence for one link.','links','ic-link',true),
+  ('site_scanner','Site Scanner','Read-only HTTP, TLS, DNS and security-header review of a website.','links','ic-globe',true),
+  ('qr_scanner','QR Scanner','Decode a QR code locally and see where it leads before you act.','links','ic-qr',true),
+  ('email_check','Email Checker','MX, SPF, DMARC and reputation evidence for an address or domain.','identity','ic-at',true),
+  ('password_check','Password Security','Guess resistance and optional breach-exposure check.','identity','ic-key',true),
+  ('file_scanner','File Scanner','Static inspection and hash reputation. Files are never executed.','files','ic-file',true),
+  ('ip_check','IP Lookup','Network metadata and community abuse reports for a public IP.','network','ic-server',true),
+  ('domain_lookup','Domain Lookup','Registration and DNS observations for a domain.','network','ic-search',true),
+  ('subdomain_finder','Subdomain Finder','Certificate-transparency and bounded DNS discovery.','network','ic-layers',true),
+  ('ssl_checker','SSL Checker','Verified TLS handshake and certificate details.','network','ic-lock',true),
+  ('sandbox.sandbox_page','Sandbox','Behavioral analysis of files and links.','soon','ic-box',false),
+  ('vuln.vuln_dashboard','Vulnerability Scanner','Authorized active testing of your own assets.','soon','ic-bug',false),
+  ('tip.tip_dashboard','Threat Intelligence','Search indicators across curated feeds.','soon','ic-brain',false)
+] %}
+
 {% block content %}
-<div class="about-container">
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
 
-    <!-- Hero Section -->
-    <div class="about-hero">
-        <div class="hero-glow"></div>
-        <h1>About MyScanner</h1>
-        <p>MyScanner helps people and small teams check links, files, emails, domains and IP addresses &mdash; and shows what was checked, what was found and what remains unknown.</p>
+  <section class="pg-hero">
+    <div class="pg-reveal">
+      <span class="pg-eyebrow"><span class="pg-live"></span>About MyScanner</span>
+      <h1>Evidence <em>before</em> trust.</h1>
+      <p class="pg-lead">MyScanner checks links, files, emails, domains and IP addresses, then shows you exactly what was checked, what was found and what is still unknown. No black boxes and no guesses dressed up as facts.</p>
+      <div class="pg-actions">
+        {% if current_user.is_authenticated %}
+        <a class="pg-btn primary" href="{{ url_for('dashboard_v2') }}">Open your workspace <span class="pg-ic ic-arrow"></span></a>
+        {% else %}
+        <a class="pg-btn primary" href="{{ url_for('register') }}">Create a free account <span class="pg-ic ic-arrow"></span></a>
+        {% endif %}
+        <a class="pg-btn" href="#how-it-works">See how a scan works</a>
+      </div>
+      <div class="pg-hero-meta">
+        <span class="pg-chip"><span class="pg-ic ic-shield"></span>Isolated scanning network</span>
+        <span class="pg-chip"><span class="pg-ic ic-eye"></span>Every source named</span>
+        <span class="pg-chip"><span class="pg-ic ic-lock"></span>Reports visible only to you</span>
+      </div>
     </div>
 
-    <!-- Mission & Vision -->
-    <div class="mission-section">
-        <div class="mission-card">
-            <div class="mission-icon">
-                <i class="fas fa-bullseye"></i>
-            </div>
-            <h2>Our Mission</h2>
-            <p>Give anyone a clear, evidence-based answer before they click, open or trust something online &mdash; with the reasons behind it.</p>
-        </div>
-        <div class="vision-card">
-            <div class="vision-icon">
-                <i class="fas fa-eye"></i>
-            </div>
-            <h2>How We Work</h2>
-            <p>A verdict is only as strong as its evidence. We name every source, report failed checks as unknown rather than safe, and only call something malicious when a reputation source confirms it.</p>
-        </div>
+    <div class="pg-console pg-reveal" style="--d:.15s" data-console aria-label="Example of a scan as it runs">
+      <div class="pg-scanbeam" aria-hidden="true"></div>
+      <div class="pg-console-bar" aria-hidden="true"><i></i><i></i><i></i><span>myscanner · url-evidence</span></div>
+      <div class="pg-console-body">
+        <div class="pg-console-line"><b>01</b><span class="info">target</span> https://login-example.app/verify</div>
+        <div class="pg-console-line"><b>02</b>resolve DNS <span class="ok">✓ public address</span></div>
+        <div class="pg-console-line"><b>03</b>TLS handshake <span class="ok">✓ certificate valid</span></div>
+        <div class="pg-console-line"><b>04</b>redirect chain <span class="ok">✓ 1 hop</span></div>
+        <div class="pg-console-line"><b>05</b>page content <span class="warn">! login form on a 4-day-old domain</span></div>
+        <div class="pg-console-line"><b>06</b>URLhaus <span class="ok">not listed</span></div>
+        <div class="pg-console-line"><b>07</b>phishing database <span class="warn">reported, unverified</span></div>
+        <div class="pg-console-line"><b>08</b>page preview <span class="ok">✓ captured in isolation</span></div>
+        <div class="pg-console-verdict">verdict: NEEDS REVIEW. Indicators found, no confirming source. <span class="pg-cursor"></span></div>
+      </div>
     </div>
+  </section>
 
-    <!-- Status -->
-    <div class="stats-showcase">
-        <h2>Where We Are</h2>
-        <p class="section-subtitle">MyScanner is in pre-launch development. Services are being reviewed and tested before public release; features marked &ldquo;Coming soon&rdquo; are not available yet.</p>
-    </div>
+  <section class="pg-section pg-stats" aria-label="MyScanner in numbers">
+    <div class="pg-stat"><strong data-count="10">10</strong><span>live inspection tools</span></div>
+    <div class="pg-stat"><strong data-count="5">5</strong><span>evidence categories behind every URL verdict</span></div>
+    <div class="pg-stat"><strong data-count="3">3</strong><span>independent reputation feeds cross-checked</span></div>
+    <div class="pg-stat"><strong data-count="0">0</strong><span>“malicious” labels without a confirming source</span></div>
+  </section>
 
-    <!-- Services -->
-<div class="services-showcase">
-    <h2 class="section-title">What We Offer</h2>
-    <p class="section-subtitle">Each tool reports its scope and its limits.</p>
-    <div class="services-grid">
-        <div class="service-card">
-            <div class="service-icon">🔗</div>
-            <h3>URL Scanner</h3>
-            <p>Connection, redirects, content and reputation evidence</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🌐</div>
-            <h3>Site Scanner</h3>
-            <p>Read-only HTTP, DNS, TLS and header review</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">📧</div>
-            <h3>Email Checker</h3>
-            <p>MX, SPF, DMARC and blocklist evidence</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">📁</div>
-            <h3>File Scanner</h3>
-            <p>Static inspection and hash reputation</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🔎</div>
-            <h3>Domain Lookup</h3>
-            <p>DNS and registration data</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">📍</div>
-            <h3>IP Lookup</h3>
-            <p>Network metadata and community abuse reports</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🔒</div>
-            <h3>SSL Checker</h3>
-            <p>Verified TLS handshake and certificate details</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🧭</div>
-            <h3>Subdomain Finder</h3>
-            <p>Certificate-transparency and bounded DNS discovery</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">📱</div>
-            <h3>QR Scanner</h3>
-            <p>Decode locally, check the destination only if you choose</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🔑</div>
-            <h3>Password Security</h3>
-            <p>Guessing resistance and optional breach-exposure check</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🧪</div>
-            <h3>Sandbox</h3>
-            <p>Behavioral analysis · Coming soon</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🛡️</div>
-            <h3>Vulnerability Scanner</h3>
-            <p>Authorized active testing · Coming soon</p>
-        </div>
-        <div class="service-card">
-            <div class="service-icon">🧠</div>
-            <h3>Threat Intelligence</h3>
-            <p>Indicator search · Coming soon</p>
-        </div>
+  <section class="pg-section">
+    <div class="pg-head pg-reveal">
+      <span class="pg-kicker">Why we exist</span>
+      <h2>Most scanners give you a color. <em>We give you the reasons.</em></h2>
+      <p>A green tick that hides a failed check is worse than no answer. MyScanner is built on three rules we never break.</p>
     </div>
-</div>
+    <div class="pg-grid-3">
+      <article class="pg-card glow pg-principle pg-reveal">
+        <div class="pg-badge"><span class="pg-ic ic-eye"></span></div>
+        <span class="pg-num">RULE 01</span>
+        <h3>Show the evidence</h3>
+        <p>Every verdict lists the checks behind it, the sources that answered and the ones that did not.</p>
+      </article>
+      <article class="pg-card glow pg-principle pg-reveal" style="--d:.1s">
+        <div class="pg-badge"><span class="pg-ic ic-alert"></span></div>
+        <span class="pg-num">RULE 02</span>
+        <h3>Unknown is not safe</h3>
+        <p>If a check cannot run, the report says so. A missing answer is never turned into a clean result.</p>
+      </article>
+      <article class="pg-card glow pg-principle pg-reveal" style="--d:.2s">
+        <div class="pg-badge"><span class="pg-ic ic-target"></span></div>
+        <span class="pg-num">RULE 03</span>
+        <h3>Confirm before you accuse</h3>
+        <p>Local heuristics can only ask for review. “Malicious” needs a reputation source that confirms it.</p>
+      </article>
+    </div>
+  </section>
 
-    <!-- Team -->
-    <div class="team-section">
-        <h2 class="section-title">Who Builds It</h2>
-        <div class="team-grid">
-            <div class="team-card">
-                <div class="team-avatar">
-                    <i class="fas fa-user-tie"></i>
-                </div>
-                <div class="team-name">Ahmed Sairafi</div>
-                <div class="team-role">Founder &amp; Lead Developer</div>
-                <div class="team-bio">Designs and builds MyScanner.</div>
-            </div>
-        </div>
+  <section class="pg-section" id="how-it-works">
+    <div class="pg-head center pg-reveal">
+      <span class="pg-kicker">How a scan works</span>
+      <h2>From a pasted link to a report you can defend.</h2>
     </div>
+    <div class="pg-timeline">
+      <div class="pg-step pg-reveal"><div class="pg-step-dot"><span class="pg-ic ic-link"></span></div><h3>1. You submit</h3><p>A link, file, address or domain. We validate it and refuse private-network targets up front.</p></div>
+      <div class="pg-step pg-reveal" style="--d:.12s"><div class="pg-step-dot"><span class="pg-ic ic-shield"></span></div><h3>2. Isolated collection</h3><p>Workers fetch evidence from a filtered network that cannot reach internal systems.</p></div>
+      <div class="pg-step pg-reveal" style="--d:.24s"><div class="pg-step-dot"><span class="pg-ic ic-layers"></span></div><h3>3. Cross-checking</h3><p>Findings are compared with reputation feeds such as URLhaus, MalwareBazaar and phishing databases.</p></div>
+      <div class="pg-step pg-reveal" style="--d:.36s"><div class="pg-step-dot"><span class="pg-ic ic-file"></span></div><h3>4. Evidence report</h3><p>You get the verdict, the reasons, the coverage gaps and a page preview, all private to your account.</p></div>
+    </div>
+  </section>
 
-    <!-- Tech Stack -->
-    <div class="tech-section">
-        <h2 class="section-title">Built With</h2>
-        <div class="tech-grid">
-            <div class="tech-item"><div class="tech-icon">🐍</div><div class="tech-name">Python</div></div>
-            <div class="tech-item"><div class="tech-icon">🌊</div><div class="tech-name">Flask</div></div>
-            <div class="tech-item"><div class="tech-icon">🐘</div><div class="tech-name">PostgreSQL</div></div>
-            <div class="tech-item"><div class="tech-icon">⚡</div><div class="tech-name">Celery &amp; Redis</div></div>
-            <div class="tech-item"><div class="tech-icon">📦</div><div class="tech-name">Docker</div></div>
-        </div>
+  <section class="pg-section">
+    <div class="pg-head pg-reveal">
+      <span class="pg-kicker">The toolkit</span>
+      <h2>One workspace, <em>ten ways</em> to look closer.</h2>
     </div>
+    <div class="pg-filters pg-reveal" data-filter-group="#about-tools .pg-tool" role="group" aria-label="Filter tools">
+      <button class="pg-filter" type="button" data-filter="all" aria-pressed="true">All</button>
+      <button class="pg-filter" type="button" data-filter="links" aria-pressed="false">Links &amp; pages</button>
+      <button class="pg-filter" type="button" data-filter="identity" aria-pressed="false">Identity</button>
+      <button class="pg-filter" type="button" data-filter="files" aria-pressed="false">Files</button>
+      <button class="pg-filter" type="button" data-filter="network" aria-pressed="false">Infrastructure</button>
+      <button class="pg-filter" type="button" data-filter="soon" aria-pressed="false">Coming soon</button>
+    </div>
+    <div class="pg-grid-4" id="about-tools">
+      {% for endpoint, name, description, category, icon, live in tools %}
+      <a class="pg-card glow pg-tool{% if not live %} soon{% endif %}" data-category="{{ category }}" href="{{ url_for(endpoint) }}">
+        <div class="pg-badge"><span class="pg-ic {{ icon }}"></span></div>
+        <h3>{{ name }}</h3>
+        <p>{{ description }}</p>
+        <div class="pg-tool-foot"><span>{{ 'Open tool' if live else 'Coming soon' }}</span><span class="pg-ic ic-arrow"></span></div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
 
-    <!-- CTA -->
-    <div class="cta-section">
-        <h2>Try MyScanner</h2>
-        <p>Create a free account to check your first link, file or domain.</p>
-        <div class="cta-buttons">
-            <a href="{{ url_for('register') }}" class="btn-primary">Create a free account</a>
-            <a href="{{ url_for('contact') }}" class="btn-secondary">Contact us</a>
-        </div>
+  <section class="pg-section">
+    <div class="pg-grid-2" style="align-items:center">
+      <div class="pg-reveal">
+        <span class="pg-kicker">Security by design</span>
+        <h2>We scan the dangerous parts of the internet. <em>So we built a cage first.</em></h2>
+        <p style="margin-top:18px;font-size:17px">A security tool that can be turned against its own users is a liability. These protections run under every scan today.</p>
+      </div>
+      <div class="pg-card pg-reveal" style="--d:.1s">
+        <ul class="pg-check-list" style="grid-template-columns:1fr">
+          <li><span class="pg-tick"><span class="pg-ic ic-check"></span></span><span><strong>Network isolation</strong>Scanners run behind gateways that block private, loopback and cloud-metadata addresses.</span></li>
+          <li><span class="pg-tick"><span class="pg-ic ic-check"></span></span><span><strong>Nothing is executed</strong>Files get static inspection only; pages are rendered in a separate, isolated browser.</span></li>
+          <li><span class="pg-tick"><span class="pg-ic ic-check"></span></span><span><strong>Your reports stay yours</strong>Results and previews are served only to the account that ran the scan.</span></li>
+          <li><span class="pg-tick"><span class="pg-ic ic-check"></span></span><span><strong>No silent sharing</strong>Optional third-party checks are off until you choose them, and each one is named.</span></li>
+        </ul>
+      </div>
     </div>
+  </section>
+
+  <section class="pg-section">
+    <div class="pg-card pg-founder pg-reveal">
+      <div class="pg-avatar-ring"><div>AS</div></div>
+      <div>
+        <span class="pg-kicker">Who builds it</span>
+        <h2 style="font-size:clamp(28px,3vw,38px)">Ahmed Sairafi</h2>
+        <p style="margin-top:6px;color:var(--cyan);font-weight:600">Founder &amp; Lead Developer · Istanbul</p>
+        <p style="margin-top:16px;max-width:640px">I started MyScanner because people deserve straight answers about the links and files they receive, from small business owners to people who just got a strange message. Every feature is designed, built and tested here, in the open.</p>
+        <div class="pg-actions" style="margin-top:22px">
+          <a class="pg-btn" href="{{ url_for('contact') }}"><span class="pg-ic ic-chat"></span>Talk to me</a>
+          <a class="pg-btn" href="https://github.com/ahmetturk88/myscanner" target="_blank" rel="noopener noreferrer"><span class="pg-ic ic-code"></span>View the code</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pg-section pg-reveal" aria-label="Technology">
+    <div class="pg-head center"><span class="pg-kicker">Built with</span></div>
+    <div class="pg-marquee">
+      <div class="pg-marquee-track">
+        {% for copy in range(2) %}
+        {% for code, name in [('PY','Python'),('FL','Flask'),('PG','PostgreSQL'),('CE','Celery'),('RD','Redis'),('DK','Docker'),('CD','Caddy'),('CH','Headless Chromium'),('GO','url.vet engine')] %}
+        <span class="pg-tech"{% if copy == 1 %} aria-hidden="true"{% endif %}><i>{{ code }}</i>{{ name }}</span>
+        {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="pg-section">
+    <div class="pg-head pg-reveal">
+      <span class="pg-kicker">Where we are</span>
+      <h2>Pre-launch, and moving fast.</h2>
+      <p>MyScanner is being tested on its own servers before public release. Here is what is live and what comes next.</p>
+    </div>
+    <div class="pg-road">
+      <div class="pg-card pg-reveal" style="--c:var(--green)"><h3><span class="pg-pill ok">Now</span>Live in testing</h3><ul><li>Ten inspection tools</li><li>URL verdicts cross-checked with three reputation feeds</li><li>Isolated page previews</li><li>Automatic daily database backups</li></ul></div>
+      <div class="pg-card pg-reveal" style="--d:.1s;--c:var(--cyan)"><h3><span class="pg-pill info">Next</span>Coming up</h3><ul><li>Plain-language report explanations with AI</li><li>Arabic interface</li><li>Public launch</li></ul></div>
+      <div class="pg-card pg-reveal" style="--d:.2s;--c:var(--violet)"><h3><span class="pg-pill muted">Later</span>On the roadmap</h3><ul><li>Sandbox behavioral analysis</li><li>Authorized vulnerability scanning</li><li>Threat-intelligence search</li></ul></div>
+    </div>
+  </section>
+
+  <section class="pg-section pg-cta pg-reveal">
+    <h2>See what a link is <em>really</em> hiding.</h2>
+    <p>Free during testing. No card, no tracking pixels: just evidence.</p>
+    <div class="pg-actions">
+      {% if current_user.is_authenticated %}
+      <a class="pg-btn primary" href="{{ url_for('dashboard') }}">Scan a link now <span class="pg-ic ic-arrow"></span></a>
+      {% else %}
+      <a class="pg-btn primary" href="{{ url_for('register') }}">Create a free account <span class="pg-ic ic-arrow"></span></a>
+      {% endif %}
+      <a class="pg-btn" href="{{ url_for('contact') }}">Contact us</a>
+    </div>
+  </section>
 </div>
 {% endblock %}

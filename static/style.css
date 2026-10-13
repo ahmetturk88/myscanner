@@ -106,15 +106,6 @@ nav a:hover {
     color: #0c1487;
     margin-bottom: 20px;
 }
-.whatsapp-float {
-  position: fixed;   
-  bottom: 20px;      
-  right: 20px;     
-  z-index: 100;     
-  cursor: pointer;
-  transition: transform 0.3s ease;
-}
-
 .table-container {
     width: 90%;             
     max-width: 1000px;      
@@ -300,7 +291,7 @@ footer a {
 .unknown { background:#6c757d; color:#fff; padding:4px 8px; border-radius:6px; }
 
 #scans-table td { max-width: 300px; word-break: break-word; }
-.summary { font-size: 13px; color: #333; }
+.summary { font-size: 14.5px; color: #333; }
 #text{
     display: flex;
 }

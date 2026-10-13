@@ -117,9 +117,9 @@ def oversized_request(error):
     return jsonify({'error': 'Upload request too large.'}), 413
 
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
-from services.provider_credentials import abuseipdb_key
+from services.provider_credentials import abuseipdb_key, resend_key
 ABUSEIPDB_API_KEY = abuseipdb_key()
-RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+RESEND_API_KEY = resend_key()
 # File Scanner Settings
 UPLOAD_FOLDER = 'temp_uploads'
 ALLOWED_EXTENSIONS = {'exe', 'dll', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', '7z', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'scr', 'msi'}
@@ -187,7 +187,7 @@ from email.mime.multipart import MIMEMultipart
 import resend
 
 # تأكد من تعيين مفتاح Resend
-resend.api_key = os.getenv('RESEND_API_KEY')
+resend.api_key = RESEND_API_KEY
 
 # ثوابت البريد الإلكتروني
 FROM_EMAIL = os.getenv('FROM_EMAIL', 'info@myscanners.com')

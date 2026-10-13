@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" class="no-js">
 <head>
+    {% set tool_endpoints = ['dashboard','site_scanner','qr_scanner','email_check','password_check','file_scanner','ip_check','domain_lookup','subdomain_finder','ssl_checker'] %}
+    {% set is_tool = request is defined and request.endpoint is defined and current_user.is_authenticated and (request.endpoint in tool_endpoints or request.endpoint == 'landing') %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>MyScanner — {% block title %}{% endblock %}</title>
@@ -46,6 +48,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-mark.png') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='icons.css',v='20261013-2') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261013-2') }}">
+    {% if is_tool %}<link rel="stylesheet" href="{{ url_for('static',filename='tool_experience.css',v='20261013-2') }}">{% endif %}
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -66,10 +69,11 @@
 
     {% include 'partials/platform_nav.html' %}
 
-    <main id="platform-main" tabindex="-1">{% block content %}{% endblock %}</main>
+    <main id="platform-main" tabindex="-1"{% if is_tool %} class="tx-page"{% endif %}>{% if is_tool %}{% include 'partials/tool_rail.html' %}{% endif %}{% block content %}{% endblock %}</main>
 
     {% include 'partials/platform_footer.html' %}
     <script src="{{ url_for('static',filename='platform_shell.js',v='20261013-2') }}" defer></script>
+    {% if is_tool %}<script src="{{ url_for('static',filename='tool_experience.js',v='20261013-2') }}" defer></script>{% endif %}
 
     {% block body_extra %}{% endblock %}
 

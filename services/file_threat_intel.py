@@ -232,10 +232,21 @@ class FileThreatIntel:
                 "✅ File appears safe. Still, always be cautious "
                 "when executing files from untrusted sources."
             )
+        elif verdict == 'suspicious':
+            recommendations.append(
+                "⚠️ Local indicators need review. Do not open the file "
+                "until another tool or a trusted reviewer has checked it."
+            )
+        elif verdict == 'not_found':
+            recommendations.append(
+                "ℹ️ No reputation match for this file's fingerprint. That is "
+                "not a safety verdict; check unfamiliar files with another "
+                "tool before opening them."
+            )
         else:
             recommendations.append(
-                f"⚠️ File risk level: {verdict.upper()}. "
-                f"Consider scanning with additional tools."
+                "⚠️ Reputation evidence is unavailable or incomplete. "
+                "Check the file with another tool before opening it."
             )
         
         # إضافة توصيات التحليل المحلي

@@ -53,6 +53,7 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual(p['verdict'],'unknown');self.assertIs(p['phishing']['valid'],False)
             empty=client._parse_response('https://example.invalid',{'result':{'verdict':'Safe','trust_score':100}})
             self.assertIsNone(empty['phishing']['in_database']);self.assertEqual(empty['phishing_status'],'unavailable')
+            self.assertIsNone(empty['screenshot'])
         finally:client.session.close()
 
 if __name__=='__main__':unittest.main()

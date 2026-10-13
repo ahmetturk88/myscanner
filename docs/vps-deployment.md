@@ -83,3 +83,47 @@ in this isolated database. Existing accounts are never changed by the command.
 Open https://localhost:8443 and sign in. The local certificate is issued by
 Caddy's rehearsal CA; accept the browser warning only for this localhost test.
 Production account onboarding and real domain certificates are separate steps.
+
+## Password-gated test server
+
+A public test server (for example `test.myscanners.com`) keeps every page behind
+HTTP basic authentication until launch. On the server, after
+`python3 scripts/init_vps_stack.py`, edit `.env.vps.rehearsal`:
+
+```
+SITE_DOMAIN=test.myscanners.com
+HTTP_BIND=0.0.0.0:80
+HTTPS_BIND=0.0.0.0:443
+GATE_USER=<login name>
+GATE_PASSWORD_HASH='<output of the hash command>'
+```
+
+Create the hash interactively, so the password never lands in shell history:
+`docker run --rm -it caddy:2-alpine caddy hash-password`. Keep the single
+quotes: the bcrypt hash contains `$`, which Compose would otherwise expand.
+Start the stack with the gate overlay:
+
+```
+docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.gate.yml up -d --build
+```
+
+The overlay replaces the proxy's Caddyfile with `deploy/Caddyfile.gate`, which
+must stay identical to `deploy/Caddyfile` apart from the `basic_auth` block
+(enforced by `tests/test_vps_deployment.py`). Compose refuses to start when
+either gate variable is missing. Drop `-f compose.gate.yml` to open the site.
+
+## Daily database backup
+
+`scripts/vps_backup.sh` writes a PostgreSQL custom-format dump and a SHA-256
+file to `/var/backups/myscanner` (root-only), checks the archive catalogue with
+`pg_restore --list` before publishing it, and deletes only its own archives
+older than `KEEP_DAYS` (default 14). Run it once by hand, then schedule it:
+
+```
+sudo scripts/vps_backup.sh
+echo "17 3 * * * root $PWD/scripts/vps_backup.sh >> /var/log/myscanner-backup.log 2>&1" | sudo tee /etc/cron.d/myscanner-backup
+```
+
+The archives are unencrypted and stay on the same server, so they protect
+against mistakes, not against losing the server. Before real users: copy them
+off the server encrypted and rehearse a restore into a separate database.

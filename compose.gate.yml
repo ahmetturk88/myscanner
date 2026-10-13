@@ -1,0 +1,9 @@
+# Password gate for a public test server. Use with compose.vps.yml:
+#   docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.gate.yml up -d --build
+services:
+  proxy:
+    environment:
+      GATE_USER: ${GATE_USER:?set GATE_USER}
+      GATE_PASSWORD_HASH: ${GATE_PASSWORD_HASH:?set GATE_PASSWORD_HASH}
+    volumes:
+      - ./deploy/Caddyfile.gate:/etc/caddy/Caddyfile:ro

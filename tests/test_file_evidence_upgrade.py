@@ -71,6 +71,15 @@ class FileEvidenceTests(unittest.TestCase):
         self.assertIsNone(result['security_score'])
         self.assertEqual(result['verdict'],'unknown')
 
+    def test_recommendation_explains_verdict_without_raw_codes(self):
+        scanner=FileThreatIntel.__new__(FileThreatIntel);scanner.mb_client=None
+        local={'security_score':100,'verdict':'safe','recommendations':[]}
+        result=scanner._merge_results(local,{'status':'not_found','is_malicious':False},'form.docx',b'test')
+        self.assertEqual(result['verdict'],'not_found')
+        first=result['recommendations'][0]
+        self.assertNotIn('NOT_FOUND',first)
+        self.assertIn('not a safety verdict',first)
+
     def test_familiar_name_or_domain_does_not_suppress_observations(self):
         self.assertFalse(self.analyzer._is_likely_benign(b'https://google.com','resume.pdf')[0])
         self.assertFalse(self.analyzer._is_false_positive('PDF_URI_Action',b'/URI',b'/URI https://google.com', 'cv.pdf'))

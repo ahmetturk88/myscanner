@@ -111,3 +111,19 @@ The overlay replaces the proxy's Caddyfile with `deploy/Caddyfile.gate`, which
 must stay identical to `deploy/Caddyfile` apart from the `basic_auth` block
 (enforced by `tests/test_vps_deployment.py`). Compose refuses to start when
 either gate variable is missing. Drop `-f compose.gate.yml` to open the site.
+
+## Daily database backup
+
+`scripts/vps_backup.sh` writes a PostgreSQL custom-format dump and a SHA-256
+file to `/var/backups/myscanner` (root-only), checks the archive catalogue with
+`pg_restore --list` before publishing it, and deletes only its own archives
+older than `KEEP_DAYS` (default 14). Run it once by hand, then schedule it:
+
+```
+sudo scripts/vps_backup.sh
+echo "17 3 * * * root $PWD/scripts/vps_backup.sh >> /var/log/myscanner-backup.log 2>&1" | sudo tee /etc/cron.d/myscanner-backup
+```
+
+The archives are unencrypted and stay on the same server, so they protect
+against mistakes, not against losing the server. Before real users: copy them
+off the server encrypted and rehearse a restore into a separate database.

@@ -245,8 +245,10 @@ class URLVetClient:
                 'brand_mismatch': brand_check.get('is_mismatch', False)
             },
 
-            # لقطة الشاشة
-            'screenshot': f"{self.base_url}/api/v1/screenshot?url={url}",
+            # No browser-facing screenshot link: the provider address is
+            # internal on the VPS, and a public provider would receive the
+            # scanned URL from the viewer's browser.
+            'screenshot': None,
 
             # معلومات إضافية
             'incomplete': data.get('incomplete', False),

@@ -191,3 +191,41 @@
     setTimeout(() => { button.disabled = true; const label = button.querySelector('[data-label]'); if (label) label.textContent = form.dataset.busy; }, 0);
   }));
 })();
+
+/* Password recovery helpers. */
+(function () {
+  'use strict';
+  document.querySelectorAll('[data-cooldown]').forEach(counter => {
+    const link = document.getElementById('send-again'), unit = document.querySelector('[data-cooldown-unit]');
+    let left = Number(counter.dataset.cooldown) || 60;
+    const timer = setInterval(() => {
+      left -= 1;
+      counter.textContent = String(Math.max(0, left));
+      if (left <= 0) {
+        clearInterval(timer);
+        counter.textContent = 'now'; if (unit) unit.textContent = '';
+        if (link) { link.removeAttribute('aria-disabled'); link.style.pointerEvents = ''; link.style.opacity = ''; }
+      }
+    }, 1000);
+  });
+
+  const suggest = document.getElementById('suggest-password');
+  if (suggest && window.crypto && window.crypto.getRandomValues) {
+    suggest.addEventListener('click', () => {
+      const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%^&*?'];
+      const all = sets.join(''), pick = s => s[crypto.getRandomValues(new Uint32Array(1))[0] % s.length];
+      const chars = sets.map(pick);
+      while (chars.length < 18) chars.push(pick(all));
+      for (let i = chars.length - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [chars[i], chars[j]] = [chars[j], chars[i]]; }
+      const value = chars.join('');
+      ['password', 'confirm_password'].forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.value = value; input.type = 'text';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+      });
+      const label = suggest.querySelector('span:last-child');
+      if (label) label.textContent = 'Shown so you can save it in your password manager';
+    });
+  }
+})();

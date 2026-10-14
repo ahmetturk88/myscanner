@@ -117,9 +117,9 @@ def oversized_request(error):
     return jsonify({'error': 'Upload request too large.'}), 413
 
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
-from services.provider_credentials import abuseipdb_key
+from services.provider_credentials import abuseipdb_key, resend_key
 ABUSEIPDB_API_KEY = abuseipdb_key()
-RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+RESEND_API_KEY = resend_key()
 # File Scanner Settings
 UPLOAD_FOLDER = 'temp_uploads'
 ALLOWED_EXTENSIONS = {'exe', 'dll', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', '7z', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'scr', 'msi'}
@@ -187,7 +187,7 @@ from email.mime.multipart import MIMEMultipart
 import resend
 
 # تأكد من تعيين مفتاح Resend
-resend.api_key = os.getenv('RESEND_API_KEY')
+resend.api_key = RESEND_API_KEY
 
 # ثوابت البريد الإلكتروني
 FROM_EMAIL = os.getenv('FROM_EMAIL', 'info@myscanners.com')
@@ -195,7 +195,7 @@ FROM_NAME = os.getenv('FROM_NAME', 'MyScanner Security')
 
 
 def send_email(to_email: str, subject: str, body: str,
-               html_body: Optional[str] = None) -> bool:
+               html_body: Optional[str] = None, reply_to: Optional[str] = None) -> bool:
     """
     إرسال إيميل عبر Resend API مع دعم HTML
     ملاحظة: تم تحويلها إلى إرسال متزامن (synchronous) بدلاً من thread منفصل،
@@ -212,6 +212,8 @@ def send_email(to_email: str, subject: str, body: str,
         }
         if html_body:
             params["html"] = html_body
+        if reply_to:
+            params["reply_to"] = [reply_to]
 
         resp = resend.Emails.send(params)
         app.logger.info(f"[EMAIL] Sent to {to_email} | ID: {resp.get('id')}")
@@ -223,79 +225,15 @@ def send_email(to_email: str, subject: str, body: str,
 
 
 def send_verification_email(user):
+    from services.email_templates import action_email
     token = serializer.dumps(user.email, salt='email-verify')
     base_url = os.getenv('BASE_URL', 'https://myscanners.com')
     link = f"{base_url}/verify/{token}"
-    
-    subject = '✅ Verify your MyScanner account'
-    
-    # نسخة HTML احترافية
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="UTF-8"></head>
-    <body style="margin:0;padding:0;background:#0a0a14;font-family:'Segoe UI',Arial,sans-serif;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-                <td align="center" style="padding:40px 20px;">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background:#10101a;border-radius:16px;border:1px solid #2a2a45;overflow:hidden;">
-                        <tr>
-                            <td style="background:linear-gradient(135deg,#00c8ff20,#006aff10);padding:32px;text-align:center;border-bottom:1px solid #2a2a45;">
-                                <div style="font-size:32px;margin-bottom:8px;">🛡️</div>
-                                <h1 style="margin:0;color:#00c8ff;font-family:'Courier New',monospace;font-size:24px;">MyScanner</h1>
-                                <p style="margin:4px 0 0;color:#6a6a90;font-size:13px;">Advanced Cybersecurity Platform</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:40px 32px;">
-                                <h2 style="color:#dde0f0;margin:0 0 16px;font-size:20px;">Welcome, {user.username}! 👋</h2>
-                                <p style="color:#6a6a90;line-height:1.7;margin:0 0 28px;">
-                                    Please verify your email address to activate your MyScanner account 
-                                    and start securing your digital assets.
-                                </p>
-                                <div style="text-align:center;margin:32px 0;">
-                                    <a href="{link}" style="display:inline-block;background:#00c8ff;color:#000;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-                                        ✅ Verify My Email
-                                    </a>
-                                </div>
-                                <div style="background:#18182a;border-radius:8px;padding:16px;">
-                                    <p style="color:#6a6a90;font-size:12px;margin:0 0 8px;">Or copy this link:</p>
-                                    <p style="color:#00c8ff;font-size:11px;word-break:break-all;margin:0;font-family:'Courier New',monospace;">{link}</p>
-                                </div>
-                                <p style="color:#6a6a90;font-size:12px;margin:24px 0 0;text-align:center;">
-                                    ⏰ This link expires in <strong style="color:#ffd32a;">1 hour</strong>
-                                    <br>If you didn't create this account, ignore this email.
-                                </p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:20px 32px;border-top:1px solid #2a2a45;text-align:center;">
-                                <p style="color:#6a6a90;font-size:11px;margin:0;">
-                                    © 2025 MyScanner · <a href="https://myscanners.com" style="color:#00c8ff;text-decoration:none;">myscanners.com</a>
-                                    <br>info@myscanners.com
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-    """
-    
-    body_text = f"""Hello {user.username},
-
-Please verify your email: {link}
-
-This link expires in 1 hour.
-
-— MyScanner Team
-info@myscanners.com
-"""
-    
-    send_email(user.email, subject, body_text, html_body=html_body)
-
+    html_body, body = action_email(
+        'Verify your email address', f'Welcome, {user.username}!',
+        ['Confirm this address to activate your MyScanner account and start inspecting links, files and domains.'],
+        'Verify my email', link, 'This link expires in 1 hour. If you did not create an account, you can ignore this email.')
+    send_email(user.email, 'Verify your MyScanner account', body, html_body)
 
 def _reset_fingerprint(user):
     # Binds a reset link to the current password hash: once the password
@@ -319,22 +257,28 @@ def password_policy_errors(password):
 
 
 def send_reset_email(user):
+    from services.email_templates import action_email
     token = serializer.dumps({'email': user.email, 'fp': _reset_fingerprint(user)}, salt='password-reset')
     base_url = os.getenv('BASE_URL', 'https://myscanners.com')
     link = f"{base_url}/reset-password/{token}"
-    subject = '🔑 Reset your MyScanner password'
-    body = f"""Hello {user.username},
+    html_body, body = action_email(
+        'Reset your password', f'Hello {user.username},',
+        ['We received a request to reset the password for your MyScanner account. Choose a new one with the button below.'],
+        'Choose a new password', link,
+        'This link works once and expires in 30 minutes. If you did not ask for it, ignore this email: your password stays the same.')
+    send_email(user.email, 'Reset your MyScanner password', body, html_body)
 
-Click the link below to reset your password:
 
-{link}
-
-This link expires in 30 minutes.
-
-— MyScanner Team
-info@myscanners.com
-"""
-    send_email(user.email, subject, body)
+def send_password_changed_email(user):
+    from services.email_templates import action_email
+    base_url = os.getenv('BASE_URL', 'https://myscanners.com')
+    html_body, body = action_email(
+        'Your password was changed', f'Hello {user.username},',
+        [f'The password for your MyScanner account was changed on {datetime.utcnow():%d %b %Y at %H:%M} UTC.'],
+        'Sign in', f'{base_url}/login',
+        'If this was not you, reset your password immediately from the sign-in page and contact info@myscanners.com.',
+        tone='#fbbf24')
+    send_email(user.email, 'Your MyScanner password was changed', body, html_body)
 
 # ================================================================
 # Database Models
@@ -595,9 +539,17 @@ def forgot_password():
         user  = User.query.filter_by(email=email).first()
         if user:
             send_reset_email(user)
-        flash('If that email exists, a reset link has been sent.', 'info')
-        return redirect(url_for('login'))
-    return render_template('forgot_password.html')
+        # Same answer whether or not the account exists (no enumeration).
+        session['reset_sent_to'] = mask_email(email)
+        return redirect(url_for('forgot_password'))
+    return render_template('forgot_password.html', sent_to=session.pop('reset_sent_to', None))
+
+
+def mask_email(email):
+    name, _, domain = (email or '').partition('@')
+    if not name or not domain:
+        return 'your inbox'
+    return (name[:2] if len(name) > 2 else name[:1]) + '•' * max(2, min(len(name) - 2, 6)) + '@' + domain
 
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
@@ -630,11 +582,13 @@ def reset_password(token):
         from extensions import bcrypt
         user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
         db.session.commit()
+        send_password_changed_email(user)
+        log_activity(user.username, 'password_reset', f'Password reset from {request.remote_addr}')
 
         flash('Password updated! You can now log in.', 'success')
         return redirect(url_for('login'))
 
-    return render_template('reset_password.html', token=token)
+    return render_template('reset_password.html', token=token, account=mask_email(user.email))
 
 
 @app.route('/profile')
@@ -1623,9 +1577,11 @@ def contact():
             # استخدم الدالة المساعدة التي لديك في app.py
             # send_email reports failure by returning False, not by raising.
             if not send_email(
-                to_email="ahmetsayrafi538213@gmail.com",
+                # Sent to the routed support address so replies default to it.
+                to_email=os.getenv('CONTACT_INBOX', 'info@myscanners.com'),
                 subject=f"[MyScanner Contact] {subject} from {name}",
-                body=email_body
+                body=email_body,
+                reply_to=email if re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+', email) and len(email) <= 254 else None
             ):
                 raise RuntimeError('Contact email was not accepted by the mail provider.')
             # نعود برد JSON للنموذج (AJAX) بدلاً من إعادة التوجيه

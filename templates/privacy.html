@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261014-1') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+{% endblock %}
+
+{% set sections = [
+  ('summary','At a glance'),('who','Who we are'),('collect','What we collect'),('use','How we use it'),
+  ('scans','What happens to what you scan'),('third','Services we rely on'),('cookies','Cookies & storage'),
+  ('retention','How long we keep data'),('rights','Your rights'),('security','How we protect data'),
+  ('children','Children'),('changes','Changes'),('contact','Contact')
+] %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="legal-hero pg-reveal">
+    <span class="pg-eyebrow"><span class="pg-live"></span>Privacy Policy</span>
+    <h1>Your data, <em>explained plainly.</em></h1>
+    <p class="pg-lead" style="font-size:18px">We built MyScanner to show evidence, not to collect it. This page explains what we keep, why, who else is involved and how to get it deleted.</p>
+    <div class="legal-meta">
+      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Effective 14 October 2026</span>
+      <span class="pg-chip"><span class="pg-ic ic-clock"></span>About 8 minutes to read</span>
+      <button class="pg-mini" type="button" data-print style="margin:0"><span class="pg-ic ic-file"></span><span>Print or save as PDF</span></button>
+    </div>
+  </header>
+
+  <div class="legal">
+    <nav class="legal-toc" aria-label="On this page"><b>On this page</b>{% for id, name in sections %}<a href="#{{ id }}">{{ name }}</a>{% endfor %}</nav>
+
+    <article class="legal-body">
+      <section id="summary">
+        <h2><span>01</span>At a glance</h2>
+        <div class="legal-glance" style="margin-top:0">
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-shield"></span></div><h3>No selling, no ads</h3><p>We never sell your data and we run no advertising or tracking pixels.</p></div>
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-lock"></span></div><h3>Reports stay private</h3><p>Your scan reports are visible only to you and to platform administrators.</p></div>
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-eye"></span></div><h3>Sources are named</h3><p>When a check asks an outside service, the report says which one.</p></div>
+        </div>
+      </section>
+
+      <section id="who">
+        <h2><span>02</span>Who we are</h2>
+        <p>MyScanner (“we”, “us”) is an online platform for inspecting links, websites, files, email addresses, domains, IP addresses and QR codes, operated by Ahmed Sairafi in Istanbul, Türkiye. We are responsible for the personal data described here.</p>
+        <p>The platform is currently in pre-launch testing. Contact: <a href="mailto:info@myscanners.com">info@myscanners.com</a>.</p>
+      </section>
+
+      <section id="collect">
+        <h2><span>03</span>What we collect</h2>
+        <table class="legal-table">
+          <thead><tr><th>Data</th><th>Details</th></tr></thead>
+          <tbody>
+            <tr><td>Account</td><td>Username, email address and a one-way (bcrypt) hash of your password. We never store your password itself.</td></tr>
+            <tr><td>Social sign-in</td><td>If you sign in with Google or GitHub, we receive your verified email address and display name. We do not receive your password or access to your other data.</td></tr>
+            <tr><td>Scan inputs and results</td><td>The links, domains, IP addresses, email addresses and files you submit, and the reports we produce, including page previews for URL scans.</td></tr>
+            <tr><td>Contact messages</td><td>Name, email, optional company and phone, subject and message text.</td></tr>
+            <tr><td>Technical data</td><td>IP address, request time and basic request details in server and security logs; sign-in activity.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="use">
+        <h2><span>04</span>How we use it</h2>
+        <ul>
+          <li><strong>To provide the service:</strong> run the inspections you request, save your reports and show your history.</li>
+          <li><strong>To run your account:</strong> sign-in, email verification, password resets and security notices.</li>
+          <li><strong>To keep the platform safe:</strong> rate limits, daily allowances, abuse prevention and investigating misuse.</li>
+          <li><strong>To answer you:</strong> reply to contact messages and security reports.</li>
+        </ul>
+        <p>We rely on performing our contract with you, our legitimate interest in a secure service, and, where needed, your consent (for example, optional checks you switch on). We do not use your data for advertising or sell it to anyone.</p>
+      </section>
+
+      <section id="scans">
+        <h2><span>05</span>What happens to what you scan</h2>
+        <ul>
+          <li><strong>Links and websites</strong> are fetched by our servers from an isolated network, and a page preview is captured in an isolated browser.</li>
+          <li><strong>Files</strong> are inspected statically and never executed. The uploaded copy is deleted when the inspection finishes; only the report and file fingerprints (hashes) are kept.</li>
+          <li><strong>Passwords</strong> are analysed for strength and are not stored or included in reports. If you choose the breach check, only the first five characters of the password's SHA-1 hash leave our server (k-anonymity), never the password.</li>
+          <li><strong>Email addresses</strong> are checked through DNS records. A direct mail-server check runs only if you tick it, and the receiving mail server then sees the address.</li>
+          <li><strong>QR codes</strong> are decoded in your browser; you decide whether to inspect the destination.</li>
+        </ul>
+        <p>Please do not scan content you are not allowed to share, such as private documents or links containing secrets.</p>
+      </section>
+
+      <section id="third">
+        <h2><span>06</span>Services we rely on</h2>
+        <p>Some checks send the specific item being inspected (for example a URL, domain, IP address or file hash) to an outside service. They do not receive your account details.</p>
+        <table class="legal-table">
+          <thead><tr><th>Provider</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>netcup GmbH (Germany)</td><td>Server hosting in the EU.</td></tr>
+            <tr><td>Cloudflare</td><td>Domain name service and routing of mail sent to our addresses.</td></tr>
+            <tr><td>Resend</td><td>Delivery of account emails (verification, password reset, notices).</td></tr>
+            <tr><td>Google, GitHub</td><td>Optional sign-in.</td></tr>
+            <tr><td>abuse.ch (URLhaus, MalwareBazaar)</td><td>Reputation lookups for URLs and file hashes.</td></tr>
+            <tr><td>Phishing databases (e.g. PhishTank)</td><td>Phishing reputation of URLs.</td></tr>
+            <tr><td>AbuseIPDB, ipwho.is</td><td>IP address reputation and network information.</td></tr>
+            <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Optional password breach check using a hash prefix only.</td></tr>
+            <tr><td>crt.sh, Google Public DNS, registries (RDAP/WHOIS)</td><td>Certificate history, DNS and registration data.</td></tr>
+            <tr><td>Google Fonts, cdnjs</td><td>Fonts and icons loaded by your browser when you view our pages.</td></tr>
+          </tbody>
+        </table>
+        <p>Some of these providers are outside Türkiye and the EU. Where data is transferred, we rely on the safeguards those providers offer.</p>
+      </section>
+
+      <section id="cookies">
+        <h2><span>07</span>Cookies &amp; storage</h2>
+        <ul>
+          <li><strong>Session cookie:</strong> keeps you signed in. Strictly necessary.</li>
+          <li><strong>“Keep me signed in” cookie:</strong> only if you choose it.</li>
+          <li><strong>Security token:</strong> protects forms against cross-site request forgery.</li>
+          <li><strong>Browser storage:</strong> the inspection pages remember your last few targets (never passwords, emails or files) on your device only. You can clear them with the “Clear” button.</li>
+        </ul>
+        <p>We use no advertising or analytics cookies.</p>
+      </section>
+
+      <section id="retention">
+        <h2><span>08</span>How long we keep data</h2>
+        <ul>
+          <li><strong>Account and reports:</strong> while your account exists. Ask us to delete it at any time.</li>
+          <li><strong>Page previews:</strong> deleted automatically after 30 days.</li>
+          <li><strong>Uploaded files:</strong> deleted as soon as the inspection finishes.</li>
+          <li><strong>Server logs:</strong> kept for a limited period for security and rotated automatically.</li>
+          <li><strong>Backups:</strong> daily database backups are kept for 14 days.</li>
+          <li><strong>Contact messages:</strong> kept as long as needed to handle your request.</li>
+        </ul>
+      </section>
+
+      <section id="rights">
+        <h2><span>09</span>Your rights</h2>
+        <p>Depending on where you live (including under the GDPR and Türkiye's KVKK), you can ask us to:</p>
+        <ul>
+          <li>tell you what data we hold about you and give you a copy;</li>
+          <li>correct inaccurate data;</li>
+          <li>delete your account and data;</li>
+          <li>restrict or object to certain processing;</li>
+          <li>withdraw consent for optional checks at any time.</li>
+        </ul>
+        <p>Email <a href="mailto:info@myscanners.com">info@myscanners.com</a> from the address on your account. We answer within 30 days. You may also complain to your data protection authority.</p>
+      </section>
+
+      <section id="security">
+        <h2><span>10</span>How we protect data</h2>
+        <p>Passwords are hashed with bcrypt; connections use HTTPS; scanners run in an isolated network that cannot reach internal systems; reports and previews are served only to their owner; sign-in and password-reset requests are rate-limited; and we change-notify you by email when your password changes. No system is perfectly secure: if you find a vulnerability, please <a href="{{ url_for('contact', topic='Security Report') }}">report it</a>.</p>
+      </section>
+
+      <section id="children">
+        <h2><span>11</span>Children</h2>
+        <p>MyScanner is not intended for children under 16, and we do not knowingly collect their data. If you believe a child has created an account, contact us and we will delete it.</p>
+      </section>
+
+      <section id="changes">
+        <h2><span>12</span>Changes</h2>
+        <p>We will update this page when our practices change and change the effective date above. For significant changes we will notify signed-in users by email or on the platform.</p>
+      </section>
+
+      <section id="contact">
+        <h2><span>13</span>Contact</h2>
+        <p>Questions or requests about your data: <a href="mailto:info@myscanners.com">info@myscanners.com</a> · <a href="{{ url_for('contact') }}">contact form</a>. See also our <a href="{{ url_for('terms') }}">Terms of Service</a>.</p>
+      </section>
+    </article>
+  </div>
+</div>
+{% endblock %}

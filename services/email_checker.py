@@ -109,11 +109,13 @@ class AdvancedEmailChecker:
                 self._cache_set(cache_key, result, 3600)
                 return result
             
+            reached = False
             for pref, mx in mx_servers[:3]:
                 smtp = None
                 try:
                     smtp = PublicSMTP(timeout=timeout)
                     smtp.connect(mx, 25)
+                    reached = True
                     hello = smtp.ehlo('checker.local')
                     if not isinstance(hello, tuple) or hello[0] != 250:
                         continue
@@ -155,6 +157,8 @@ class AdvancedEmailChecker:
                 finally:
                     if smtp is not None:
                         smtp.close()
+            if not reached:
+                result["message"] = "No mail server could be reached on port 25; outbound SMTP may be blocked on this network."
                     
         except Exception:
             result["message"] = "SMTP verification could not be completed"

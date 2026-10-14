@@ -87,6 +87,8 @@ services:
       RESEND_API_KEY_FILE: /run/secrets/resend_api_key
       FROM_EMAIL: ${FROM_EMAIL:-info@myscanners.com}
       BASE_URL: https://${SITE_DOMAIN:-localhost}
+      # Optional SMTP recipient probe; most hosts block outbound port 25, so it is off unless enabled.
+      EMAIL_SMTP_PROBE: ${EMAIL_SMTP_PROBE:-off}
     secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key, google_client_secret, github_client_secret, resend_api_key]
     command: [web]
     restart: unless-stopped

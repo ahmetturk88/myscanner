@@ -71,6 +71,7 @@
         </div>
         <button type="submit" class="pg-btn primary" id="submitBtn" style="width:100%;margin-top:4px"><span data-label>Create account</span><span class="pg-ic ic-arrow"></span></button>
         <p class="pg-note" style="margin:0;text-align:center">We'll email you a link to verify your address before your first sign-in.</p>
+        <p class="pg-note auth-legal" style="margin:0;text-align:center">By creating an account you agree to the <a href="{{ url_for('terms') }}">Terms of Service</a> and <a href="{{ url_for('privacy') }}">Privacy Policy</a>.</p>
       </form>
 
       <p class="auth-foot">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>

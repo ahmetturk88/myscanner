@@ -20,6 +20,6 @@
    <nav aria-label="Footer contact"><h3>Connect</h3><a href="{{ url_for('about') }}"><span class="pg-ic ic-eye"></span>About MyScanner</a><a href="{{ url_for('contact') }}"><span class="pg-ic ic-chat"></span>Contact &amp; feedback</a><a href="mailto:info@myscanners.com"><span class="pg-ic ic-mail"></span>info@myscanners.com</a><a href="tel:+905518414487"><span class="pg-ic ic-phone"></span>+90 551 841 44 87</a><a href="{{ url_for('contact', topic='Security Report') }}"><span class="pg-ic ic-shield"></span>Report a vulnerability</a></nav>
   </div>
   <div class="shell-principles"><span><b>01</b> Evidence with context</span><span><b>02</b> Coverage made visible</span><span><b>03</b> Public-target boundaries</span></div>
-  <div class="shell-footer-bottom"><p>© <span id="shell-year">2026</span> MyScanner <span class="shell-credit">/ Built by Ahmed Sairafi in Istanbul</span></p><p>Inspect responsibly. Use authorized targets.</p><button type="button" id="shell-top">Back to top ↑</button></div>
+  <div class="shell-footer-bottom"><p>© <span id="shell-year">2026</span> MyScanner <span class="shell-credit">/ Built by Ahmed Sairafi in Istanbul</span></p><p class="shell-legal"><a href="{{ url_for('privacy') }}">Privacy Policy</a><a href="{{ url_for('terms') }}">Terms of Service</a><span>Inspect responsibly. Use authorized targets.</span></p><button type="button" id="shell-top">Back to top ↑</button></div>
  </div>
 </footer>

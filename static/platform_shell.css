@@ -70,4 +70,5 @@
 .shell-github img{width:18px;height:18px}
 @media(max-width:800px){.shell-footer-cta-band{grid-template-columns:1fr;padding:30px 24px;gap:22px;margin-bottom:44px}}
 @media(prefers-reduced-motion:reduce){.shell-cta-glow,.shell-status-dot,.shell-menu-panel{animation:none}}
-.shell-explore:hover span{transform:none}
+.shell-explore:hover span{transform:none}.shell-legal{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px}.shell-legal a{color:#a2c6e0;text-decoration:none}.shell-legal a:hover{color:#a4edff;text-decoration:underline}
+@media(max-width:600px){.shell-footer-bottom>p.shell-legal{max-width:none}}

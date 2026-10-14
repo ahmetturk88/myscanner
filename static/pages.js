@@ -229,3 +229,19 @@
     });
   }
 })();
+
+/* Legal pages: highlight the section in view. */
+(function () {
+  'use strict';
+  const links = [...document.querySelectorAll('.legal-toc a[href^="#"]')];
+  if (!links.length || !('IntersectionObserver' in window)) return;
+  const byId = new Map(links.map(link => [link.getAttribute('href').slice(1), link]));
+  const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    links.forEach(link => link.classList.remove('on'));
+    const link = byId.get(entry.target.id); if (link) link.classList.add('on');
+  }), {rootMargin: '-30% 0px -60% 0px'});
+  byId.forEach((_, id) => { const section = document.getElementById(id); if (section) observer.observe(section); });
+  const print = document.querySelector('[data-print]');
+  if (print) print.addEventListener('click', () => window.print());
+})();

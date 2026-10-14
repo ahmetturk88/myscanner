@@ -386,7 +386,7 @@ def register():
         user.ssl_check_remaining = 15
         user.qr_scan_remaining = 15
         user.subdomain_finder_remaining = 5
-        user.password_check_remaining = 3
+        user.password_check_remaining = 15
         
         db.session.add(user)
         db.session.commit()

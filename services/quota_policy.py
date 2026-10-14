@@ -10,7 +10,7 @@ DAILY_LIMITS = {
         'ssl_check': 15,
         'qr_scan': 15,
         'subdomain_finder': 5,
-        'password_check': 3,
+        'password_check': 15,
         'sandbox_analysis': 3
     },
 

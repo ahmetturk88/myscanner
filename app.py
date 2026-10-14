@@ -1577,7 +1577,8 @@ def contact():
             # استخدم الدالة المساعدة التي لديك في app.py
             # send_email reports failure by returning False, not by raising.
             if not send_email(
-                to_email="ahmetsayrafi538213@gmail.com",
+                # Sent to the routed support address so replies default to it.
+                to_email=os.getenv('CONTACT_INBOX', 'info@myscanners.com'),
                 subject=f"[MyScanner Contact] {subject} from {name}",
                 body=email_body,
                 reply_to=email if re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+', email) and len(email) <= 254 else None

@@ -76,6 +76,7 @@ class RecoveryTests(unittest.TestCase):
         self.client.post('/contact', data={'csrf_token': self.token, 'name': 'Visitor', 'email': 'visitor@example.com',
                                            'subject': 'Feedback', 'message': 'Hi'}, headers={'X-Requested-With': 'XMLHttpRequest'})
         self.assertEqual(self.sent[-1][1]['reply_to'], 'visitor@example.com')
+        self.assertEqual(self.sent[-1][1]['to_email'], 'info@myscanners.com')
         self.client.post('/contact', data={'csrf_token': self.token, 'name': 'X', 'email': 'a@b.c, evil@example.com',
                                            'subject': 'Feedback', 'message': 'Hi'}, headers={'X-Requested-With': 'XMLHttpRequest'})
         self.assertIsNone(self.sent[-1][1]['reply_to'])

@@ -184,6 +184,7 @@ class AdvancedEmailChecker:
         if result['domain_status']=='not_found':
             for key in ('spf','dmarc'):result[key]['status']='not_found'
             result['mx']['infrastructure']=[]
+            result['mx']['scope']='Not applicable: the domain does not exist in DNS.'
             return result
         result['mx']['records']=[{'preference':r.preference,'exchange':str(r.exchange).rstrip('.')} for r in records]
         result['mx']['exists']=bool(records)

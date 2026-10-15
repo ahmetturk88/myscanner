@@ -82,6 +82,6 @@ class EndpointTests(unittest.TestCase):
     def test_template_renders_native_assets(self):
         self.app.jinja_loader=ChoiceLoader([DictLoader({'base.html':'{% block head_extra %}{% endblock %}{% block content %}{% endblock %}'}),FileSystemLoader(str(ROOT/'templates'))])
         with self.app.test_request_context('/'):soup=BeautifulSoup(render_template('ssl_checker.html'),'html.parser')
-        self.assertTrue(soup.find('script',src='/static/ssl_workspace.js'));self.assertFalse(soup.select('[onclick]'))
+        self.assertTrue(soup.find('script',src=lambda s:s and s.split('?')[0]=='/static/ssl_workspace.js'));self.assertFalse(soup.select('[onclick]'))
 
 if __name__=='__main__':unittest.main()

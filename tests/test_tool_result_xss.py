@@ -20,7 +20,7 @@ class TemplateTests(unittest.TestCase):
                 rendered=env.get_template(page).render()
                 soup=BeautifulSoup(rendered,'html.parser')
                 if page in ('password_check.html','ssl_checker.html'):
-                    self.assertIsNotNone(soup.find('script',src='/static/'+('password_workspace.js' if page=='password_check.html' else 'ssl_workspace.js')))
+                    name='/static/'+('password_workspace.js' if page=='password_check.html' else 'ssl_workspace.js');self.assertIsNotNone(soup.find('script',src=lambda s:s and s.split('?')[0]==name))
                     self.assertIsNotNone(soup.select_one('#password-results' if page=='password_check.html' else '#ssl-results'))
                     continue
                 self.assertIsNotNone(soup.find('script',src='/static/scan_ui.js'))

@@ -2,3 +2,4 @@
 
 /* Report presence is a review signal; elevated provider confidence is distinct. */
 .ip-warning{background:#302719;border-color:#94712a;border-left-color:#fbbf24;color:#fde68a}.ip-source-card .state-matched{color:#fde68a;border-color:#94712a;background:#302719}.ip-warning-high{background:#341b28;border-color:#a63c51;border-left-color:#f87171;color:#fecaca}.ip-source-high .state-matched{color:#fecaca;border-color:#b44859;background:#371c29}
+.ip-warning-info{background:#10263a;border-color:#2c5f80;border-left-color:#38bdf8;color:#cfe8fb}

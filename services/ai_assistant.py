@@ -49,7 +49,7 @@ EXPLAIN_FORMAT = """Return only one JSON object, with no text before or after it
  "technical_notes": ["a short note for technical readers"]}
 Use at most 6 reasons, 5 next_steps, 4 not_checked and 5 technical_notes. Use empty lists when there is nothing to say."""
 
-CHAT_RULES = """You are now answering follow-up questions about the report below. Answer in the language the user writes in. Keep each answer under 180 words. Stay on this report and on general online safety; politely decline unrelated requests. Write plain text: short paragraphs or lines starting with "- ". No HTML, no tables."""
+CHAT_RULES = """You are now answering follow-up questions about the report below. Answer in the language the user writes in. Keep each answer under 180 words. Stay on this report and on general online safety; politely decline unrelated requests. Write plain text: short paragraphs or lines starting with "- ". No Markdown symbols such as ** or #, no HTML, no tables."""
 
 
 class AIUnavailable(Exception):
@@ -168,11 +168,19 @@ def _complete(system, turns, want_json, max_tokens, validate):
 
 # ---------------------------------------------------------------- answers
 
+def _plain(value):
+    """Strip HTML-like tags and Markdown emphasis; the page shows plain text."""
+    value = re.sub(r'<[^>]{0,200}>', '', value)
+    value = re.sub(r'(\*\*|__|`)', '', value)
+    value = re.sub(r'(?m)^\s{0,3}#{1,6}\s+', '', value)
+    value = re.sub(r'(?m)^(\s*)[*•]\s+', r'\1- ', value)
+    return value.strip()
+
+
 def _text(value, limit):
     if not isinstance(value, str):
         return ''
-    value = re.sub(r'<[^>]{0,200}>', '', value).strip()
-    return value[:limit]
+    return _plain(value)[:limit]
 
 
 def _strings(value, count, limit):

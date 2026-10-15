@@ -52,6 +52,12 @@ class EvidenceAndParsingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ai_assistant.parse_explanation(bad)
 
+    def test_markdown_and_tags_become_plain_text(self):
+        with patch.object(ai_assistant, 'providers', return_value=PROVIDERS[1:]), \
+             patch('services.ai_assistant.requests.post', return_value=groq_reply('## Result\n**DNSSEC** is `on`.\n* first\n  • second\n<script>x</script>')):
+            answer, _ = ai_assistant.chat('url', '{}', [], 'q')
+        self.assertEqual(answer, 'Result\nDNSSEC is on.\n- first\n  - second\nx')
+
     def test_untrusted_evidence_is_delimited_and_rules_forbid_following_it(self):
         with patch.object(ai_assistant, 'providers', return_value=PROVIDERS[:1]), \
              patch('services.ai_assistant.requests.post', return_value=gemini_reply(json.dumps(GOOD))) as post:

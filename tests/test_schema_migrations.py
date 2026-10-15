@@ -67,6 +67,25 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(sa.inspect(self.engine).get_table_names(), ['user'])
         with self.engine.connect() as connection:
             self.assertEqual(connection.exec_driver_sql('select username from user').scalar(), 'owner')
+    def test_versioned_schema_behind_head_gains_the_ai_assistant_columns(self):
+        legacy = sa.MetaData()
+        for table in self.metadata.sorted_tables:
+            if table.name != 'ai_context':
+                table.to_metadata(legacy)
+        user = legacy.tables['user']
+        user._columns.remove(user.c.ai_assistant_remaining)
+        legacy.create_all(self.engine)
+        with self.engine.begin() as connection:
+            connection.exec_driver_sql('CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)')
+            connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('d4e52098ab61')")
+            connection.execute(sa.text("INSERT INTO user (id, username, email, password_hash) VALUES (1, 'owner', 'o@example.invalid', 'h')"))
+        upgrade_database(self.engine)
+        inspector = sa.inspect(self.engine)
+        self.assertIn('ai_assistant_remaining', {c['name'] for c in inspector.get_columns('user')})
+        self.assertIn('ai_context', inspector.get_table_names())
+        with self.engine.connect() as connection:
+            self.assertEqual(connection.execute(sa.text('select count(*) from user')).scalar(), 1)
+            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), 'e7a1c4b2d9f0')
     def test_unknown_revision_does_not_stamp_or_change_schema(self):
         with self.engine.begin() as connection:
             connection.exec_driver_sql('CREATE TABLE alembic_version (version_num VARCHAR(32))')

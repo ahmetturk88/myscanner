@@ -207,7 +207,7 @@ and answers are validated and rendered as text.
   for users); cached explanations are free and failed calls are refunded.
 - Contexts are kept 30 days, at most 50 per user.
 
-Check the setup from the server: `docker compose ... exec web python scripts/ai_selfcheck.py`.
+Check the setup from the server: `docker compose ... exec web python -m services.ai_selfcheck`.
 
 ## Google and GitHub sign-in
 

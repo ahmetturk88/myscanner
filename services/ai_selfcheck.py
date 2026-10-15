@@ -1,18 +1,16 @@
 """Check the AI assistant configuration from inside the web container.
 
-    docker compose ... exec web python scripts/ai_selfcheck.py
+    docker compose ... exec web python -m services.ai_selfcheck
 
 Prints which providers have a key, whether the configured model exists, and
 whether a tiny explanation request succeeds. Keys are never printed.
 """
 import json
-import os
 import sys
 
 import requests
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from services import ai_assistant  # noqa: E402
+from services import ai_assistant
 
 
 def models(name, key):

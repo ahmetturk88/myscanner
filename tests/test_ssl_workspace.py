@@ -38,10 +38,41 @@ class TLSObservationTests(unittest.TestCase):
         self.cert['notAfter']=(datetime.now(timezone.utc)+timedelta(days=5)).strftime('%b %d %H:%M:%S %Y GMT')
         r=SSLAnalyzer().analyze_certificate('example.com');self.assertTrue(r['valid']);self.assertEqual(r['assessment']['score'],100)
         self.assertIsNone(r['grade']);self.assertEqual(r['findings'][0]['severity'],'warning')
-    def test_verification_failure_is_invalid_without_unverified_retry(self):
+    def test_verification_failure_is_invalid_and_never_leaks_details(self):
         self.context.wrap_socket.side_effect=ssl.SSLCertVerificationError('private details')
         r=SSLAnalyzer().analyze_certificate('example.com');self.assertFalse(r['valid']);self.assertEqual(r['status'],'invalid')
-        self.context.wrap_socket.assert_called_once();self.assertNotIn('private details',str(r))
+        self.assertNotIn('private details',str(r));self.assertNotIn('details_unverified',r)
+    def expired_der(self,names=('example.com',),self_signed=True):
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+        key=ec.generate_private_key(ec.SECP256R1());subject=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,names[0])])
+        issuer=subject if self_signed else x509.Name([x509.NameAttribute(NameOID.ORGANIZATION_NAME,'Other CA')])
+        now=datetime.now(timezone.utc)
+        cert=(x509.CertificateBuilder().subject_name(subject).issuer_name(issuer).public_key(key.public_key()).serial_number(255)
+              .not_valid_before(now-timedelta(days=400)).not_valid_after(now-timedelta(days=10))
+              .add_extension(x509.SubjectAlternativeName([x509.DNSName(n) for n in names]),critical=False).sign(key,hashes.SHA256()))
+        return cert.public_bytes(serialization.Encoding.DER)
+    def untrusted_handshake(self,code,der):
+        error=ssl.SSLCertVerificationError('private details');error.verify_code=code
+        second=MagicMock();tls=second.__enter__.return_value
+        tls.getpeercert.return_value=der;tls.version.return_value='TLSv1.2';tls.cipher.return_value=('ECDHE-RSA-AES128-GCM-SHA256','TLSv1.2',128)
+        self.context.wrap_socket.side_effect=[error,second]
+        return SSLAnalyzer().analyze_certificate('example.com')
+    def test_expired_certificate_is_named_and_details_marked_untrusted(self):
+        r=self.untrusted_handshake(10,self.expired_der(self_signed=False))
+        self.assertEqual((r['valid'],r['status'],r['reason_code'],r['details_unverified']),(False,'invalid','expired',True))
+        self.assertEqual(r['findings'][0]['title'],'Certificate has expired');self.assertLess(r['days_remaining'],0)
+        checks={c['name']:c['status'] for c in r['checks']}
+        self.assertEqual((checks['Validity period'],checks['Hostname identity'],checks['Verified handshake']),('invalid','completed','invalid'))
+        self.assertEqual(self.context.verify_mode,ssl.CERT_NONE);self.assertNotIn('private details',str(r))
+    def test_self_signed_and_hostname_mismatch_are_named(self):
+        r=self.untrusted_handshake(18,self.expired_der(('other.example',)))
+        checks={c['name']:c['status'] for c in r['checks']}
+        self.assertEqual((r['reason_code'],checks['Chain trust'],checks['Hostname identity']),('self_signed','invalid','invalid'))
+        r=self.untrusted_handshake(62,self.expired_der(('*.example.org',),self_signed=False))
+        self.assertEqual((r['reason_code'],r['findings'][0]['title']),('hostname_mismatch','Hostname does not match'))
     def test_network_failures_are_unknown_not_invalid(self):
         for error,code in [(socket.timeout(),'connection_timeout'),(OSError('secret'),'tls_unavailable')]:
             self.context.wrap_socket.side_effect=error;r=SSLAnalyzer().analyze_certificate('example.com')

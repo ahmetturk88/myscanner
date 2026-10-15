@@ -152,6 +152,10 @@ class DomainAnalyzer:
                 except (ValueError, TypeError, AttributeError):
                     result[target] = None
             return result
+        except HTTPError as error:
+            # RDAP answers 404 for a name the registry does not hold.
+            status = getattr(getattr(error, 'response', None), 'status_code', None)
+            return {'_whois_status': 'not_found' if status == 404 else 'unavailable', 'registration_source': 'RDAP'}
         except Exception:
             return {'_whois_status': 'unavailable', 'registration_source': 'RDAP'}
 
@@ -171,12 +175,23 @@ class DomainAnalyzer:
             result.update(self._get_whois_info(domain))
             registration_status = result.pop('_whois_status')
             result['coverage'] = {'dns': dns_status, 'whois': registration_status}
-            completed = sum(v['status'] != 'unavailable' for v in self.dns_evidence.values()) + (registration_status == 'assessed')
+            completed = sum(v['status'] != 'unavailable' for v in self.dns_evidence.values()) + (registration_status in ('assessed', 'not_found'))
+            # Every lookup answering NXDOMAIN means the name itself is absent from DNS.
+            nxdomain = bool(self.dns_evidence) and all(v['status'] == 'not_found' for v in self.dns_evidence.values())
+            result['domain_status'] = 'not_found' if nxdomain else 'found'
+            if nxdomain:
+                result['verdict'] = 'no_domain'
+                result['findings'].append({'severity': 'warning', 'code': 'nxdomain', 'title': 'This domain does not exist in DNS',
+                                           'detail': 'Every DNS lookup answered NXDOMAIN' + (' and the registry has no registration record' if registration_status == 'not_found' else '') + '. Nothing can be reached at this name; check the spelling.'})
             result['assessment'] = {'checks_completed': completed, 'checks_total': 8, 'score': round(completed / 8 * 100), 'label': 'Metadata coverage', 'warning': 'Coverage is not a safety score.'}
             result['coverage_status'] = 'completed' if completed == 8 else 'partial'
             result['ip'] = next((r['value'] for r in result['dns'] if r['type'] == 'A'), None)
             result['analyzed_at'] = datetime.now(timezone.utc).isoformat()
-            result['summary'] = [f"Metadata lookup for {domain}.", f"{completed} of 8 metadata checks returned usable responses.", f"{len(result['dns'])} DNS observations were returned; absence and outages are distinguished.", 'Registration data is available.' if registration_status == 'assessed' else 'Registration data could not be retrieved; this does not mean the domain is unregistered.', 'These observations do not establish that the domain is safe.']
+            registration_line = {'assessed': 'Registration data is available.', 'not_found': 'The registry returned no registration record for this name.'}.get(registration_status, 'Registration data could not be retrieved; this does not mean the domain is unregistered.')
+            if nxdomain:
+                result['summary'] = [f"Metadata lookup for {domain}.", 'The domain does not exist in DNS (NXDOMAIN) for any record type.', registration_line, 'No website or mail server can be reached at this name.', 'Check the spelling of the domain.']
+            else:
+                result['summary'] = [f"Metadata lookup for {domain}.", f"{completed} of 8 metadata checks returned usable responses.", f"{len(result['dns'])} DNS observations were returned; absence and outages are distinguished.", registration_line, 'These observations do not establish that the domain is safe.']
             return result
         finally:
             self.session.close()

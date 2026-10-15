@@ -13,6 +13,20 @@ class DomainWorkspaceTests(unittest.TestCase):
         rows,status=a._get_dns_records('example.com');self.assertEqual(rows[0]['type'],'CNAME');self.assertEqual(a.dns_evidence['AAAA']['status'],'no_record');self.assertEqual(status,'assessed')
     def test_failure_is_not_absence_or_safe(self):
         a=self.analyzer();a._json=Mock(side_effect=RuntimeError('private-secret'));r=a.analyze_domain('example.com');self.assertEqual(r['assessment']['score'],0);self.assertEqual(r['verdict'],'unknown');self.assertNotIn('private-secret',str(r));self.assertEqual(r['dns_evidence']['A']['status'],'unavailable')
+    def test_nxdomain_everywhere_reports_missing_domain(self):
+        from requests.exceptions import HTTPError
+        a=self.analyzer();rdap404=HTTPError(response=Mock(status_code=404))
+        a._json=Mock(side_effect=[{'Status':3}]*7+[{'services':[[['com'],['https://registry.example/']]]},rdap404])
+        r=a.analyze_domain('missing-xyz.com')
+        self.assertEqual((r['domain_status'],r['verdict'],r['assessment']['score']),('not_found','no_domain',100))
+        self.assertEqual(r['findings'][0]['code'],'nxdomain');self.assertIn('NXDOMAIN',' '.join(r['summary']));self.assertIn('no registration record',' '.join(r['summary']))
+    def test_existing_domain_without_records_is_not_nxdomain(self):
+        a=self.analyzer();a._json=Mock(side_effect=[{'Status':0}]*7+[RuntimeError()])
+        r=a.analyze_domain('example.com');self.assertEqual(r['domain_status'],'found');self.assertNotEqual(r['verdict'],'no_domain')
+    def test_rdap_server_error_is_unavailable_not_absent(self):
+        from requests.exceptions import HTTPError
+        a=self.analyzer();a._json=Mock(side_effect=[{'services':[[['com'],['https://registry.example/']]]},HTTPError(response=Mock(status_code=503))])
+        self.assertEqual(a._get_whois_info('example.com')['_whois_status'],'unavailable')
     def test_rdap_dates_and_identity(self):
         a=self.analyzer();a._json=Mock(side_effect=[{'services':[[['com'],['https://registry.example/']]]},{'objectClassName':'domain','ldhName':'example.com','events':[{'eventAction':'registration','eventDate':'2000-01-01T00:00:00Z'}]}]);r=a._get_whois_info('example.com');self.assertGreater(r['age_days'],9000);self.assertIsNone(r['days_until_expiry'])
     def test_rdap_wrong_identity_is_unavailable(self):

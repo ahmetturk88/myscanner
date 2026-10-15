@@ -1,0 +1,7 @@
+# Public launch on the canonical domain. Use with compose.vps.yml instead of compose.gate.yml:
+#   docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.launch.yml up -d
+# SITE_DOMAIN must be the bare domain (for example myscanners.com); www and test redirect to it.
+services:
+  proxy:
+    volumes:
+      - ./deploy/Caddyfile.launch:/etc/caddy/Caddyfile:ro

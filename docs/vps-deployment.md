@@ -147,9 +147,48 @@ sudo scripts/vps_backup.sh
 echo "17 3 * * * root $PWD/scripts/vps_backup.sh >> /var/log/myscanner-backup.log 2>&1" | sudo tee /etc/cron.d/myscanner-backup
 ```
 
-The archives are unencrypted and stay on the same server, so they protect
-against mistakes, not against losing the server. Before real users: copy them
-off the server encrypted and rehearse a restore into a separate database.
+Local archives are unencrypted and stay on the same server, so on their own they
+protect against mistakes, not against losing the server.
+
+### Encrypted off-site copy
+
+Set `OFFSITE_REMOTE` and the script also encrypts each dump with
+[age](https://age-encryption.org) and uploads it with rclone, then deletes
+remote copies older than `OFFSITE_KEEP_DAYS` (default 30). Only the age
+**public** key lives on the server; a stolen server cannot read the copies.
+
+1. On your own computer, create the key pair and keep the file safe (password
+   manager plus an offline copy). Without it the backups cannot be restored.
+   `age-keygen -o myscanner-backup-key.txt` prints the public key (`age1…`).
+2. On the server, store only that public key:
+   `sudo install -d -m 700 /etc/myscanner` then write it to
+   `/etc/myscanner/backup-recipients.txt`.
+3. Install the tools: `sudo apt install age rclone`.
+4. Create an rclone remote as root (for Cloudflare R2: an S3 remote with
+   `provider=Cloudflare`, a bucket-scoped Object Read & Write token and
+   `no_check_bucket=true`).
+5. Write `/etc/myscanner/backup.env` (mode 600):
+
+```
+OFFSITE_REMOTE=r2:myscanner-backups
+OFFSITE_KEEP_DAYS=30
+```
+
+Run `sudo scripts/vps_backup.sh` once; it ends with `PASS: off-site …`. Any
+upload problem makes the run fail, so the cron log shows it.
+
+### Restore rehearsal
+
+Download one `.dump.age` and its `.sha256`, then on a machine that has the key:
+
+```
+age -d -i myscanner-backup-key.txt -o myscanner-YYYYMMDD-HHMMSS.dump myscanner-YYYYMMDD-HHMMSS.dump.age
+sha256sum -c myscanner-YYYYMMDD-HHMMSS.dump.sha256
+pg_restore --list myscanner-YYYYMMDD-HHMMSS.dump | head
+```
+
+Restore into a separate, empty database to prove the archive is usable; never
+over the live one during a rehearsal.
 
 ## Google and GitHub sign-in
 

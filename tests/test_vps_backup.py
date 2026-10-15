@@ -1,4 +1,4 @@
-"""The VPS backup script: validated archive, checksum, bounded retention."""
+"""The VPS backup script: validated archive, checksum, bounded retention, encrypted off-site copy."""
 import os
 from pathlib import Path
 import shutil
@@ -15,6 +15,21 @@ case "$*" in
   *) exit 3 ;;
 esac
 '''
+# Stand-ins: age "encrypts" by prefixing, rclone maps REMOTE:path onto a local directory.
+FAKE_AGE = '''#!/usr/bin/env bash
+[ "$1" = -R ] && [ -s "$2" ] && [ "$3" = -o ] || exit 9
+{ printf 'AGE:'; cat "$5"; } > "$4"
+'''
+FAKE_RCLONE = '''#!/usr/bin/env bash
+echo "$*" >> "$RCLONE_LOG"
+path() { echo "$REMOTE_DIR/${1#remote:}"; }
+case "$1" in
+  copyto) [ -n "$FAIL_UPLOAD" ] && exit 1; mkdir -p "$(dirname "$(path "$3")")"; cp "$2" "$(path "$3")" ;;
+  lsf) [ -n "$SHORT_UPLOAD" ] && { echo 1; exit 0; }; stat -c %s "$(path "${@: -1}")" ;;
+  delete) exit 0 ;;
+  *) exit 4 ;;
+esac
+'''
 
 
 @unittest.skipUnless(shutil.which('bash') and shutil.which('sha256sum'), 'needs bash and coreutils')
@@ -24,7 +39,13 @@ class VPSBackupTests(unittest.TestCase):
         bin_dir = self.tmp/'bin';bin_dir.mkdir()
         (bin_dir/'docker').write_text(FAKE_DOCKER);os.chmod(bin_dir/'docker', 0o755)
         self.backups = self.tmp/'backups'
-        self.env = {**os.environ, 'PATH': f'{bin_dir}:{os.environ["PATH"]}', 'BACKUP_DIR': str(self.backups)}
+        for name, body in (('age', FAKE_AGE), ('rclone', FAKE_RCLONE)):
+            (bin_dir/name).write_text(body);os.chmod(bin_dir/name, 0o755)
+        self.remote, self.log = self.tmp/'remote', self.tmp/'rclone.log'
+        self.recipients = self.tmp/'recipients.txt';self.recipients.write_text('age1examplepublickey\n')
+        self.env = {**os.environ, 'PATH': f'{bin_dir}:{os.environ["PATH"]}', 'BACKUP_DIR': str(self.backups),
+                    'BACKUP_CONFIG': str(self.tmp/'absent.env'), 'REMOTE_DIR': str(self.remote), 'RCLONE_LOG': str(self.log)}
+        self.offsite = {'OFFSITE_REMOTE': 'remote:bucket', 'AGE_RECIPIENTS': str(self.recipients)}
 
     def run_script(self, **extra):
         return subprocess.run(['bash', str(SCRIPT)], env={**self.env, **extra}, capture_output=True, text=True, timeout=30)
@@ -59,6 +80,38 @@ class VPSBackupTests(unittest.TestCase):
     def test_invalid_retention_is_rejected(self):
         self.assertEqual(self.run_script(KEEP_DAYS='0').returncode, 2)
         self.assertFalse(self.backups.exists())
+
+    def test_offsite_copy_is_encrypted_uploaded_and_pruned(self):
+        result = self.run_script(**self.offsite, OFFSITE_KEEP_DAYS='30')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        name = next(self.backups.glob('myscanner-*.dump')).name
+        uploaded = self.remote/'bucket'/(name + '.age')
+        self.assertEqual(uploaded.read_bytes(), b'AGE:PGDMP-fixture')
+        self.assertTrue((self.remote/'bucket'/(name + '.sha256')).exists())
+        self.assertIn('delete --min-age 30d', self.log.read_text())
+        self.assertEqual([p.name for p in self.backups.iterdir() if p.name.startswith('.')], [])
+        self.assertIn('PASS: off-site', result.stdout)
+
+    def test_offsite_failures_are_reported_and_leave_no_partial_files(self):
+        for failure in ('FAIL_UPLOAD', 'SHORT_UPLOAD'):
+            result = self.run_script(**self.offsite, **{failure: '1'})
+            self.assertNotEqual(result.returncode, 0, failure)
+            self.assertEqual([p.name for p in self.backups.iterdir() if p.name.startswith('.')], [])
+            self.assertGreaterEqual(len(list(self.backups.glob('myscanner-*.dump'))), 1)
+
+    def test_offsite_needs_a_recipient_key_and_valid_retention(self):
+        self.recipients.write_text('')
+        self.assertEqual(self.run_script(**self.offsite).returncode, 2)
+        self.recipients.write_text('age1examplepublickey\n')
+        self.assertEqual(self.run_script(**self.offsite, OFFSITE_KEEP_DAYS='x').returncode, 2)
+        self.assertFalse(self.backups.exists())
+
+    def test_settings_can_come_from_the_config_file(self):
+        config = self.tmp/'backup.env'
+        config.write_text(f"OFFSITE_REMOTE=remote:bucket\nAGE_RECIPIENTS={self.recipients}\n")
+        result = self.run_script(BACKUP_CONFIG=str(config))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(list((self.remote/'bucket').glob('*.age'))), 1)
 
 
 if __name__ == '__main__':

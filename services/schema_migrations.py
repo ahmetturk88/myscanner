@@ -47,6 +47,7 @@ def upgrade_database(engine, schema_role=None):
     with engine.begin() as connection:
         if schema_role is not None:
             connection.exec_driver_sql('SELECT pg_advisory_xact_lock(67384021)')
+            connection.exec_driver_sql("SET LOCAL lock_timeout = '60s'")
             connection.exec_driver_sql('SET LOCAL ROLE myscanner_schema_owner')
         inspector = sa.inspect(connection)
         existing = set(inspector.get_table_names())

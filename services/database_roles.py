@@ -43,6 +43,8 @@ def provision_roles(engine, application_password, migration_password, database=D
     with engine.begin() as connection:
         # Serialize cooperating initializers and suppress credential-bearing DDL logs.
         connection.exec_driver_sql('SELECT pg_advisory_xact_lock(67384021)')
+        # Fail with an error instead of waiting forever behind a stuck session.
+        connection.exec_driver_sql("SET LOCAL lock_timeout = '60s'")
         connection.exec_driver_sql("SET LOCAL log_statement = 'none'")
         connection.exec_driver_sql("SET LOCAL log_min_error_statement = 'panic'")
         identity = connection.exec_driver_sql('SELECT current_user, current_database()').one()
@@ -60,6 +62,8 @@ def provision_roles(engine, application_password, migration_password, database=D
         # Driver-bound values, no user-controlled identifiers. Caller never logs exceptions.
         connection.exec_driver_sql('ALTER ROLE myscanner_app PASSWORD %s', (application_password,))
         connection.exec_driver_sql('ALTER ROLE myscanner_migrator PASSWORD %s', (migration_password,))
+        # A crashed or forgotten application transaction must not hold table locks indefinitely.
+        connection.exec_driver_sql("ALTER ROLE myscanner_app SET idle_in_transaction_session_timeout = '5min'")
         connection.exec_driver_sql('GRANT myscanner_schema_owner TO myscanner_migrator')
         connection.exec_driver_sql('ALTER SCHEMA public OWNER TO myscanner_schema_owner')
         objects = connection.exec_driver_sql("SELECT c.relname, c.relkind, r.rolname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relkind IN ('r','p','S','v','m','f')").all()

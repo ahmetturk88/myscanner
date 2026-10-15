@@ -98,5 +98,15 @@ class DeploymentTests(unittest.TestCase):
         gate=yaml.safe_load((ROOT/'compose.gate.yml').read_text())['services']['proxy']
         self.assertEqual(gate['volumes'],['./deploy/Caddyfile.gate:/etc/caddy/Caddyfile:ro'])
         self.assertIn(':?',gate['environment']['GATE_PASSWORD_HASH'])
+    def test_launch_caddyfile_is_base_plus_alias_redirects(self):
+        base=(ROOT/'deploy/Caddyfile').read_text()
+        launch=(ROOT/'deploy/Caddyfile.launch').read_text()
+        self.assertTrue(launch.startswith(base));extra=launch[len(base):]
+        self.assertIn('www.{$SITE_DOMAIN}, test.{$SITE_DOMAIN} {',extra)
+        self.assertIn('redir https://{$SITE_DOMAIN}{uri} permanent',extra)
+        self.assertNotIn('basic_auth',launch);self.assertNotIn('reverse_proxy',extra)
+    def test_launch_overlay_replaces_proxy_config(self):
+        launch=yaml.safe_load((ROOT/'compose.launch.yml').read_text())['services']['proxy']
+        self.assertEqual(launch['volumes'],['./deploy/Caddyfile.launch:/etc/caddy/Caddyfile:ro'])
 if __name__=='__main__':unittest.main()
 

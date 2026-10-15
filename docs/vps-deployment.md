@@ -112,6 +112,29 @@ must stay identical to `deploy/Caddyfile` apart from the `basic_auth` block
 (enforced by `tests/test_vps_deployment.py`). Compose refuses to start when
 either gate variable is missing. Drop `-f compose.gate.yml` to open the site.
 
+## Public launch on the main domain
+
+`compose.launch.yml` replaces the gate overlay. It mounts `deploy/Caddyfile.launch`,
+which is `deploy/Caddyfile` plus one block that permanently redirects
+`www.$SITE_DOMAIN` and `test.$SITE_DOMAIN` to `https://$SITE_DOMAIN`.
+
+1. In `.env.vps.rehearsal` set `SITE_DOMAIN=myscanners.com` and remove the
+   `GATE_*` lines.
+2. In Cloudflare DNS point `myscanners.com` (A), `www` and `test` at the VPS with
+   **DNS only** (grey cloud). The proxy reads the client address from the TCP
+   connection and drops Cloudflare headers, so a proxied (orange) record would
+   make every visitor look like Cloudflare to rate limits. Leave MX, SPF,
+   DKIM and DMARC records unchanged.
+3. Once `dig +short myscanners.com` returns the VPS address, recreate the proxy
+   and web services so Caddy requests certificates and `BASE_URL` follows:
+
+```
+docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlvet.yml -f compose.egress.yml -f compose.app-egress.yml -f compose.launch.yml up -d --force-recreate proxy web
+```
+
+4. Update the OAuth callback URLs at Google and GitHub to
+   `https://myscanners.com/auth/<provider>/callback`.
+
 ## Daily database backup
 
 `scripts/vps_backup.sh` writes a PostgreSQL custom-format dump and a SHA-256

@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const LANG = {
-    ar: {dir: 'rtl', explain: 'اشرح لي التقرير بالعربي'},
+    ar: {dir: 'rtl', explain: 'Explain in Arabic · اشرح بالعربي'},
     en: {dir: 'ltr', explain: 'Explain in English'},
   };
   const SECTIONS = [
@@ -128,7 +128,7 @@
     for (const language of ['ar', 'en']) {
       const button = el('button', 'ai-explain', LANG[language].explain);
       button.type = 'button';
-      button.dir = LANG[language].dir;
+      button.dir = 'auto';
       button.addEventListener('click', async () => {
         busy(true, language === 'ar' ? 'جارٍ تحليل الأدلة…' : 'Reading the evidence…');
         try {

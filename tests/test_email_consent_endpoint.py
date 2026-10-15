@@ -14,9 +14,9 @@ class ConsentEndpointTests(unittest.TestCase):
         tree=ast.parse((Path(__file__).resolve().parents[1]/'app.py').read_text())
         function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='api_check_email')
         function.decorator_list=[]
-        scope={'app':self.app,'request':request,'jsonify':jsonify,'current_user':SimpleNamespace(username='test'),'AdvancedEmailChecker':self.factory,'redis_client':None,'log_activity':Mock()}
+        scope={'app':self.app,'request':request,'jsonify':jsonify,'current_user':SimpleNamespace(username='test'),'AdvancedEmailChecker':self.factory,'redis_client':None,'log_activity':Mock(),'SMTP_PROBE_ENABLED':True}
         exec(compile(ast.Module(body=[function],type_ignores=[]),'app.py','exec'),scope)
-        self.endpoint=scope['api_check_email']
+        self.endpoint=scope['api_check_email'];self.scope=scope
     def test_invalid_consent_and_payload_do_not_start_analysis(self):
         for payload in ([],{'email':42},{'email':'u@example.org','verify_smtp':'true'}):
             with self.app.test_request_context(json=payload):self.assertEqual(self.endpoint()[1],400)
@@ -27,6 +27,10 @@ class ConsentEndpointTests(unittest.TestCase):
             if consent:payload['verify_smtp']=True
             with self.app.test_request_context(json=payload):self.endpoint()
             self.checker.check_all.assert_called_with('u@example.org',verify_smtp=consent)
+    def test_disabled_probe_never_runs_even_with_consent(self):
+        self.scope['SMTP_PROBE_ENABLED']=False
+        with self.app.test_request_context(json={'email':'u@example.org','verify_smtp':True}):self.endpoint()
+        self.checker.check_all.assert_called_with('u@example.org',verify_smtp=False)
     def test_success_response_uses_one_score_and_verdict(self):
         self.checker.check_all.return_value={
             'email':'u@example.org','domain':'example.org','verdict':'review','valid':True,

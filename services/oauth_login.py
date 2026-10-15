@@ -80,8 +80,9 @@ def start(provider, redirect_uri, session):
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
         params.update(code_challenge=challenge, code_challenge_method='S256')
         pending['verifier'] = verifier
-    if provider == 'google':
-        params['prompt'] = 'select_account'
+    # Both providers otherwise reuse the account already signed in at the provider,
+    # so after signing out here the next click would silently pick it again.
+    params['prompt'] = 'select_account'
     session['oauth_pending'] = pending
     return config['authorize'] + '?' + urlencode(params)
 

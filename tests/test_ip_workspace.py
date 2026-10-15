@@ -28,7 +28,11 @@ class IPWorkspaceTests(unittest.TestCase):
     def test_metadata_mismatch_rejected_and_responses_closed(self):
         a=self.analyzer();r=response({'success':True,'ip':'1.1.1.1'});a.session.get.return_value=r;result=a.analyze_ip('8.8.8.8');self.assertEqual(result['coverage']['metadata'],'unavailable');r.close.assert_called_once()
     def test_report_severity_tracks_confidence_not_count(self):
-        for score, severity in [(0,'warning'),(49,'warning'),(50,'high'),(100,'high')]:
+        for score, severity in [(0,'info'),(1,'warning'),(49,'warning'),(50,'high'),(100,'high')]:
             a=self.analyzer();a.session.get.side_effect=[response({},503),response({'data':{'ipAddress':'8.8.8.8','abuseConfidenceScore':score,'totalReports':235}})]
             r=a.analyze_ip('8.8.8.8','key');self.assertEqual(r['findings'][0]['severity'],severity);self.assertEqual(r['total_reports'],235);self.assertEqual(r['verdict'],'reported')
+    def test_whitelisted_reports_are_discounted_but_still_reported(self):
+        a=self.analyzer();a.session.get.side_effect=[response({},503),response({'data':{'ipAddress':'8.8.8.8','abuseConfidenceScore':12,'totalReports':131,'isWhitelisted':True}})]
+        r=a.analyze_ip('8.8.8.8','key');f=r['findings'][0]
+        self.assertEqual((f['severity'],f['code'],r['verdict'],r['reputation']['is_whitelisted']),('info','abuse_reports_discounted','reported',True));self.assertIn('whitelisted',f['detail'])
 if __name__=='__main__':unittest.main()

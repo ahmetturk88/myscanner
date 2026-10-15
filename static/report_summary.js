@@ -22,6 +22,13 @@ function lines(kind,raw){
   out.push(arr(assessment.missing_checks).length?`${assessment.missing_checks.length} coverage gaps were reported. Review the missing-check section before relying on the index.`:'Read the recorded scope: this report is not a guarantee of safety.');
  }else if(kind==='email'){
   const dns=obj(d.dns_evidence),rep=obj(d.reputation_evidence),smtp=obj(d.smtp_details);
+  if(dns.domain_status==='not_found'){
+   out.push('The domain of this address does not exist in DNS (NXDOMAIN).');
+   out.push('No mail server can receive email for it, so messages to this address cannot be delivered.');
+   out.push('Blocklist, registration and mailbox checks were skipped because there is no domain to check.');
+   out.push('Check the address for typos; a working address needs a registered domain.');
+   return out;
+  }
   out.push('This report describes email-domain configuration and the checks actually performed; it does not establish ownership.');
   out.push(obj(dns.mx).exists===true?'Mail-routing MX records were reported.':obj(dns.mx).exists===false?'No MX records were reported by the DNS check.':'Mail routing was not verified.');
   out.push(d.blacklisted===true||rep.is_blacklisted===true?'A blocklist match was reported; review the source and its scope.':rep.coverage_status==='completed'?'No match was reported in the checked MX-address datasets; mailbox reputation was not established.':'Blocklist coverage is incomplete or unavailable.');

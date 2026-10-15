@@ -8,6 +8,14 @@ def assess_email(report):
     reputation=report.get('blacklist') if isinstance(report.get('blacklist'),dict) else {}
     domain=report.get('domain_info') if isinstance(report.get('domain_info'),dict) else {}
     categories=[];findings=[];missing=[]
+    if dns.get('domain_status')=='not_found':
+        # A domain absent from DNS cannot receive mail; partial-coverage scoring would understate that.
+        weights=(('routing','Mail routing',20),('authentication','Sender authentication',25),('reputation','Domain reputation',25),('mailbox','Mailbox acceptance',15),('identity','Domain history',15))
+        return {'policy_version':'email-evidence-v2','score':0,'evidence_score':0,'risk_deduction':100,'coverage_penalty':0,'verdict':'no_domain','coverage':'completed',
+                'categories':[{'key':k,'label':l,'weight':w,'risk_deduction':w,'coverage_deduction':0,'status':'assessed'} for k,l,w in weights],
+                'findings':[{'category':'routing','deduction':100,'message':'The domain does not exist in DNS (NXDOMAIN), so this address cannot receive email.'}],
+                'missing_checks':[],'not_checked':['Blocklist, registration and mailbox checks were skipped because there is no domain to check.'],
+                'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}
     def category(key,label,weight,checks,risks):
         gaps=[label+': '+item for item in checks if item]
         risk=min(weight,sum(points for points,message in risks));coverage=min(weight-risk,5*len(gaps))

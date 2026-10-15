@@ -43,6 +43,11 @@ class EngineTests(unittest.TestCase):
         mx=SimpleNamespace(preference=5,exchange='mx.example.org.')
         with patch('services.email_checker.dns.resolver.resolve',return_value=[mx]),patch('services.email_checker.PublicSMTP',return_value=smtp):r=self.c.check_smtp('user@example.org')
         self.assertIsNone(r['valid']);smtp.rcpt.assert_not_called();self.assertNotIn('secret',str(r))
+    def test_unreachable_port_25_is_explained(self):
+        smtp=MagicMock();smtp.connect.side_effect=OSError(101,'Network is unreachable')
+        mx=SimpleNamespace(preference=5,exchange='mx.example.org.')
+        with patch('services.email_checker.dns.resolver.resolve',return_value=[mx]),patch('services.email_checker.PublicSMTP',return_value=smtp):r=self.c.check_smtp('user@example.org')
+        self.assertIsNone(r['valid']);self.assertIn('port 25',r['message']);smtp.rcpt.assert_not_called()
     def test_unified_contract_has_no_legacy_safe_or_deliverable_claim(self):
         with patch.object(self.c,'validate_format',return_value=(True,'u@example.org',{})),patch.object(self.c,'check_dns_records',return_value={}),patch.object(self.c,'check_blacklists',return_value={}),patch.object(self.c,'check_domain_info',return_value={}),patch.object(self.c,'check_smtp',return_value={'valid':True,'coverage_status':'checked'}):r=self.c.check_all('u@example.org',verify_smtp=True)
         self.assertEqual(r['quality_score'],r['assessment']['score']);self.assertEqual(r['verdict'],r['assessment']['verdict']);self.assertEqual(r['deliverability'],'PROBE_ACCEPTED');self.assertNotEqual(r['verdict'],'safe')

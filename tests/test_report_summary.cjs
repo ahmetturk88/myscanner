@@ -8,6 +8,7 @@ for(const kind of ['url','email','ssl','ip','domain','site']){const result=lines
 assert(lines('url',{analysis:{urlvet:{ssl_info:{has_tls:true,chain_valid:true},content:{has_login_form:true}}}}).join(' ').includes('login form'));
 assert(lines('ssl',{valid:'true'}).join(' ').includes('not established'));
 assert(lines('email',{blacklisted:true}).join(' ').includes('blocklist match'));
+assert(lines('email',{dns_evidence:{domain_status:'not_found'}}).join(' ').includes('NXDOMAIN'));assert(!lines('email',{dns_evidence:{domain_status:'found'}}).join(' ').includes('NXDOMAIN'));
 // Provider strings are inserted only as text, never markup.
 const hostile=lines('ssl',{tls_version:'<img onerror=alert(1)>'});assert(hostile.some(s=>s.includes('<img')));
 const fs=require('node:fs');const source=fs.readFileSync(require.resolve('../static/report_summary.js'),'utf8');assert(!source.includes('.innerHTML'));assert(source.includes('p.textContent=sentence'));

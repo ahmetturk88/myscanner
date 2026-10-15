@@ -26,7 +26,7 @@ def reserve_request_quota(service, cost=1):
     except QuotaUserMissing:
         return jsonify(error='User not found'), 401
     except DailyQuotaExceeded as error:
-        return jsonify(error=f'Daily limit reached for {service}.', remaining=error.remaining), 429
+        return jsonify(error="Today's allowance for this tool is used up. It resets at 00:00 UTC.", service=service, remaining=error.remaining), 429
     except DailyQuotaUnavailable:
         current_app.logger.error('Daily quota storage unavailable')
         return jsonify(error='Scan allowance temporarily unavailable. Please try again later.'), 503

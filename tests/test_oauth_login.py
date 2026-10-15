@@ -46,6 +46,10 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(query['code_challenge_method'][0], 'S256')
         self.assertNotIn('gsecret', str(query))
 
+    def test_both_providers_always_show_the_account_picker(self):
+        for provider in ('google', 'github'):
+            self.assertEqual(self.start(provider)[1]['prompt'], ['select_account'], provider)
+
     def finish(self, session, args, http):
         with patch.dict(os.environ, ENV, clear=True):
             return oauth_login.finish(session['oauth_pending']['provider'] if 'oauth_pending' in session else 'google', args, 'https://app.example/cb', session, http=http)

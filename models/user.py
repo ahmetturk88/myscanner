@@ -34,7 +34,7 @@ class User(db.Model, UserMixin):
     ssl_check_remaining        = db.Column(db.Integer, default=15)
     qr_scan_remaining          = db.Column(db.Integer, default=15)
     subdomain_finder_remaining = db.Column(db.Integer, default=5)
-    password_check_remaining   = db.Column(db.Integer, default=3)
+    password_check_remaining   = db.Column(db.Integer, default=15)
 
     scans = db.relationship('Scan', backref='owner', lazy=True)
 

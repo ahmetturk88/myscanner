@@ -119,6 +119,8 @@ def oversized_request(error):
 ABSTRACT_API_KEY = os.getenv('ABSTRACT_API_KEY')
 from services.provider_credentials import abuseipdb_key, resend_key
 ABUSEIPDB_API_KEY = abuseipdb_key()
+# Direct SMTP recipient probes need outbound port 25, which many hosts block.
+SMTP_PROBE_ENABLED = os.getenv('EMAIL_SMTP_PROBE', 'on').strip().lower() in ('1', 'true', 'on', 'yes')
 RESEND_API_KEY = resend_key()
 # File Scanner Settings
 UPLOAD_FOLDER = 'temp_uploads'
@@ -384,7 +386,7 @@ def register():
         user.ssl_check_remaining = 15
         user.qr_scan_remaining = 15
         user.subdomain_finder_remaining = 5
-        user.password_check_remaining = 3
+        user.password_check_remaining = 15
         
         db.session.add(user)
         db.session.commit()
@@ -1224,7 +1226,7 @@ def admin_toggle_admin(user_id):
 @app.route('/email-check')
 @login_required
 def email_check():
-    return render_template('email_check.html')
+    return render_template('email_check.html', smtp_probe_enabled=SMTP_PROBE_ENABLED)
 
 
 @app.route('/api/check-email', methods=['POST'])
@@ -1246,7 +1248,7 @@ def api_check_email():
 
     try:
         checker = AdvancedEmailChecker(redis_client)
-        result = checker.check_all(email, verify_smtp=data.get("verify_smtp", False))
+        result = checker.check_all(email, verify_smtp=data.get("verify_smtp", False) and SMTP_PROBE_ENABLED)
 
         if not result.get("valid"):
             app.logger.warning(f'[WARNING] Invalid email format: {email}')

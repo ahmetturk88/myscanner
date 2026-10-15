@@ -6,7 +6,60 @@ from urllib.parse import urlsplit
 from datetime import datetime, timezone
 from services.safe_http import validate_public_url, normalize_url, public_connection, UnsafeTargetError, TargetResolutionError
 
+# OpenSSL verify codes mapped to the check they fail and a plain explanation.
+VERIFY_REASONS = {
+    9: ('not_yet_valid', 4, 'Certificate is not yet valid', 'The certificate validity period has not started yet.'),
+    10: ('expired', 4, 'Certificate has expired', 'The certificate validity period has ended. Browsers will warn visitors.'),
+    18: ('self_signed', 2, 'Self-signed certificate', 'The certificate is signed by itself, not by a trusted certificate authority.'),
+    19: ('self_signed_chain', 2, 'Untrusted root in chain', 'The chain ends in a self-signed root that is not in the trusted store.'),
+    20: ('untrusted_issuer', 2, 'Issuer not trusted', 'The issuing certificate could not be found or is not trusted.'),
+    21: ('incomplete_chain', 2, 'Incomplete certificate chain', 'The server did not send the intermediate certificates needed to verify it.'),
+    23: ('revoked', 2, 'Certificate revoked', 'The certificate has been revoked by its issuer.'),
+    62: ('hostname_mismatch', 3, 'Hostname does not match', 'The certificate was not issued for this hostname.'),
+}
+
+
+def _hostname_matches(host, names):
+    host = host.lower().rstrip('.')
+    for name in names:
+        name = name.lower().rstrip('.')
+        if name == host or (name.startswith('*.') and '.' in host and host.split('.', 1)[1] == name[2:]):
+            return True
+    return False
+
+
 class SSLAnalyzer:
+    def _unverified_details(self, host):
+        """Read the presented certificate without trusting it, to explain a failed verification."""
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        with public_connection(host, timeout=8) as connection:
+            with context.wrap_socket(connection, server_hostname=host) as tls:
+                binary = tls.getpeercert(binary_form=True)
+                version, cipher = tls.version(), tls.cipher()
+        cert = x509.load_der_x509_certificate(binary)
+        def name(value):
+            for oid in (NameOID.ORGANIZATION_NAME, NameOID.COMMON_NAME):
+                attrs = value.get_attributes_for_oid(oid)
+                if attrs:
+                    return str(attrs[0].value)
+            return 'Not provided'
+        try:
+            sans = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+            names = [str(v) for v in sans.get_values_for_type(x509.DNSName)][:100]
+        except x509.ExtensionNotFound:
+            names = []
+        before, after = cert.not_valid_before_utc, cert.not_valid_after_utc
+        return {'issuer': name(cert.issuer), 'subject': name(cert.subject), 'valid_from': before.isoformat(), 'valid_until': after.isoformat(),
+                'expiry_date': after.date().isoformat(), 'days_remaining': int((after - datetime.now(timezone.utc)).total_seconds() // 86400),
+                'serial_number': format(cert.serial_number, 'X'), 'certificate_sha256': hashlib.sha256(binary).hexdigest(), 'subject_names': names,
+                'self_signed': cert.issuer == cert.subject, 'tls_version': version,
+                'cipher': {'name': cipher[0], 'protocol_label': cipher[1], 'secret_bits': cipher[2]} if cipher else None,
+                '_before': before, '_after': after}
+
     def analyze_certificate(self, domain):
         if not isinstance(domain,str) or not domain.strip() or len(domain)>2048:
             raise ValueError('Provide a domain or HTTPS URL of at most 2048 characters')
@@ -58,11 +111,29 @@ class SSLAnalyzer:
             report.update(status='unavailable',reason_code='dns_unavailable',error_msg='Target DNS unavailable; certificate validity remains unknown.')
         except UnsafeTargetError:
             raise
-        except ssl.SSLCertVerificationError:
+        except ssl.SSLCertVerificationError as error:
             checks[1]['status']='invalid'
-            report.update(status='invalid',valid=False,reason_code='certificate_verification_failed',
-                          error_msg='Certificate verification failed. The trust chain, hostname or validity period did not pass verification.')
-            report['findings'].append({'severity':'danger','title':'Certificate verification failed','detail':'Do not treat this connection as verified. The failed verification does not identify every certificate defect.'})
+            reason=VERIFY_REASONS.get(getattr(error,'verify_code',None))
+            report.update(status='invalid',valid=False,reason_code=reason[0] if reason else 'certificate_verification_failed',
+                          error_msg=f'Certificate verification failed: {reason[2].lower()}.' if reason else 'Certificate verification failed. The trust chain, hostname or validity period did not pass verification.')
+            if reason:checks[reason[1]]['status']='invalid'
+            report['findings'].append({'severity':'danger','title':reason[2] if reason else 'Certificate verification failed',
+                                       'detail':(reason[3]+' ' if reason else '')+'Do not treat this connection as verified.'})
+            try:
+                details=self._unverified_details(host)
+            except Exception:
+                details=None
+            if details:
+                before,after=details.pop('_before'),details.pop('_after')
+                now=datetime.now(timezone.utc)
+                # Facts read from the presented (untrusted) certificate; trust itself stays failed.
+                checks[4]['status']='completed' if before<=now<after else 'invalid'
+                checks[3]['status']='completed' if _hostname_matches(host,details['subject_names']) else 'invalid'
+                if details['self_signed'] or (reason and reason[1]==2):checks[2]['status']='invalid'
+                checks[5]['status']='completed' if details['tls_version'] else 'unavailable'
+                checks[6]['status']='completed'
+                report.update(details,details_unverified=True)
+                report['connection_note']='Certificate details below were read from an untrusted handshake made only to explain the failure.'
         except (socket.timeout,TimeoutError):
             report.update(reason_code='connection_timeout',error_msg='TLS connection timed out; certificate validity remains unknown.')
         except Exception:

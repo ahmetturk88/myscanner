@@ -109,11 +109,13 @@ class AdvancedEmailChecker:
                 self._cache_set(cache_key, result, 3600)
                 return result
             
+            reached = False
             for pref, mx in mx_servers[:3]:
                 smtp = None
                 try:
                     smtp = PublicSMTP(timeout=timeout)
                     smtp.connect(mx, 25)
+                    reached = True
                     hello = smtp.ehlo('checker.local')
                     if not isinstance(hello, tuple) or hello[0] != 250:
                         continue
@@ -155,6 +157,8 @@ class AdvancedEmailChecker:
                 finally:
                     if smtp is not None:
                         smtp.close()
+            if not reached:
+                result["message"] = "No mail server could be reached on port 25; outbound SMTP may be blocked on this network."
                     
         except Exception:
             result["message"] = "SMTP verification could not be completed"
@@ -168,14 +172,24 @@ class AdvancedEmailChecker:
                   "dmarc":{"exists":False,"record":None,"policy":None,"status":"unavailable"},
                   "dkim":{"exists":None,"status":"not_checked","records":[]},
                   "mx":{"exists":False,"records":[],"status":"unavailable"},"txt":{"records":[]}}
+        nonexistent=set()
         def lookup(name, kind):
             try:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:return [], 'unavailable'
                 return list(dns.resolver.resolve(name,kind,lifetime=min(3,remaining))), 'found'
-            except (dns.resolver.NXDOMAIN,dns.resolver.NoAnswer):return [], "not_found"
+            except dns.resolver.NXDOMAIN:
+                nonexistent.add(name);return [], "not_found"
+            except dns.resolver.NoAnswer:return [], "not_found"
             except Exception:return [], "unavailable"
         records,status=lookup(domain,'MX');result['mx']['status']=status
+        # NXDOMAIN means the name itself is absent from DNS, not merely that it lacks MX records.
+        result['domain_status']='not_found' if domain in nonexistent else 'unavailable' if status=='unavailable' else 'found'
+        if result['domain_status']=='not_found':
+            for key in ('spf','dmarc'):result[key]['status']='not_found'
+            result['mx']['infrastructure']=[]
+            result['mx']['scope']='Not applicable: the domain does not exist in DNS.'
+            return result
         result['mx']['records']=[{'preference':r.preference,'exchange':str(r.exchange).rstrip('.')} for r in records]
         result['mx']['exists']=bool(records)
         records,status=lookup(domain,'TXT')
@@ -332,15 +346,25 @@ class AdvancedEmailChecker:
         
         domain = normalized.split('@')[-1]
         
-        smtp_result = self.check_smtp(normalized) if verify_smtp else {
-            'valid': None, 'coverage_status': 'skipped',
-            'message': 'Direct SMTP recipient verification was not requested.', 'servers': []
-        }
         dns_result = self.check_dns_records(domain)
+        if dns_result.get('domain_status') == 'not_found':
+            smtp_result = {'valid': None, 'coverage_status': 'not_applicable',
+                           'message': 'No mail server to contact: the domain does not exist in DNS.', 'servers': []}
+        elif verify_smtp:
+            smtp_result = self.check_smtp(normalized)
+        else:
+            smtp_result = {'valid': None, 'coverage_status': 'skipped',
+                           'message': 'Direct SMTP recipient verification was not requested.', 'servers': []}
         is_disposable = domain in DISPOSABLE_DOMAINS
         is_free = domain in FREE_DOMAINS
-        blacklist_result = self.check_blacklists(domain, mx_records=dns_result.get("mx",{}).get("infrastructure",[]))
-        domain_info = self.check_domain_info(domain)
+        if dns_result.get('domain_status') == 'not_found':
+            # Nothing to query: no mail servers to list-check and no registration to look up.
+            blacklist_result = {'is_blacklisted': False, 'total_lists': 0, 'blacklisted_on': [], 'clean_on': [], 'unavailable_on': [],
+                                'coverage_status': 'not_applicable', 'checks': [], 'scope': 'Not applicable: the domain does not exist in DNS.'}
+            domain_info = {'domain': domain, 'age_days': None, 'registrar': None, 'status': 'not_applicable'}
+        else:
+            blacklist_result = self.check_blacklists(domain, mx_records=dns_result.get("mx",{}).get("infrastructure",[]))
+            domain_info = self.check_domain_info(domain)
         
         report = {
             "email": normalized,

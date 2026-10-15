@@ -31,6 +31,29 @@ class AssessmentTests(unittest.TestCase):
             self.assertEqual(c.check_all('user@example.org')['smtp']['coverage_status'],'skipped');smtp.assert_not_called()
             c.check_all('user@example.org',verify_smtp=True);smtp.assert_called_once_with('user@example.org')
             with self.assertRaises(ValueError):c.check_all('user@example.org',verify_smtp='true')
+    def test_nonexistent_domain_scores_zero_with_full_coverage(self):
+        r=self.baseline();r['dns']={'domain_status':'not_found','mx':{'status':'not_found','records':[]}}
+        r['blacklist']={'coverage_status':'not_applicable'};r['smtp']={'coverage_status':'not_applicable'};r['domain_info']={}
+        a=assess_email(r)
+        self.assertEqual((a['score'],a['verdict'],a['coverage'],a['missing_checks']),(0,'no_domain','completed',[]))
+        self.assertIn('NXDOMAIN',a['findings'][0]['message'])
+        self.assertEqual(sum(c['risk_deduction'] for c in a['categories']),100)
+    def test_nxdomain_stops_lookups_and_skips_network_checks(self):
+        import dns.resolver
+        c=AdvancedEmailChecker();self.addCleanup(c.executor.shutdown,wait=False)
+        with patch('services.email_checker.dns.resolver.resolve',side_effect=dns.resolver.NXDOMAIN()) as resolve:
+            r=c.check_dns_records('missing.example')
+        self.assertEqual(r['domain_status'],'not_found');resolve.assert_called_once()
+        self.assertEqual([r[k]['status'] for k in ('mx','spf','dmarc')],['not_found']*3)
+        with patch.object(c,'validate_format',return_value=(True,'a@missing.example',{})),patch.object(c,'check_dns_records',return_value=r),patch.object(c,'check_blacklists') as bl,patch.object(c,'check_domain_info') as whois,patch.object(c,'check_smtp') as smtp:
+            report=c.check_all('a@missing.example',verify_smtp=True)
+        bl.assert_not_called();whois.assert_not_called();smtp.assert_not_called()
+        self.assertEqual((report['verdict'],report['quality_score']),('no_domain',0))
+    def test_missing_mx_on_existing_domain_is_not_nxdomain(self):
+        import dns.resolver
+        c=AdvancedEmailChecker();self.addCleanup(c.executor.shutdown,wait=False)
+        with patch('services.email_checker.dns.resolver.resolve',side_effect=dns.resolver.NoAnswer()):r=c.check_dns_records('example.org')
+        self.assertEqual((r['domain_status'],r['mx']['status']),('found','not_found'))
     def test_dns_failure_is_unavailable_and_dkim_is_not_checked(self):
         c=AdvancedEmailChecker();self.addCleanup(c.executor.shutdown,wait=False)
         with patch('services.email_checker.dns.resolver.resolve',side_effect=TimeoutError()):r=c.check_dns_records('example.org')

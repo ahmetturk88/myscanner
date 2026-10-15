@@ -37,7 +37,7 @@ class User(UserMixin, db.Model):
     ssl_check_remaining = db.Column(db.Integer, default=15)
     qr_scan_remaining = db.Column(db.Integer, default=15)
     subdomain_finder_remaining = db.Column(db.Integer, default=5)
-    password_check_remaining = db.Column(db.Integer, default=3)
+    password_check_remaining = db.Column(db.Integer, default=15)
     sandbox_remaining = db.Column(db.Integer, default=5)
 
 

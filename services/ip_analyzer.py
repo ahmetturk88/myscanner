@@ -82,6 +82,7 @@ class IPAnalyzer:
             result['last_reported_at'] = self._text(data.get('lastReportedAt'))
             result['usage_type'] = self._text(data.get('usageType'))
             result['is_tor'] = data.get('isTor') if type(data.get('isTor')) is bool else None
+            result['is_whitelisted'] = data.get('isWhitelisted') if type(data.get('isWhitelisted')) is bool else None
             return result
         except Exception as error:
             return {'status':'unavailable','source':'AbuseIPDB','reason':self._reason(error)}
@@ -113,7 +114,13 @@ class IPAnalyzer:
             result['analyzed_at'] = datetime.now(timezone.utc).isoformat()
             result['findings'] = []
             if reputation['status'] == 'matched':
-                result['findings'].append({'code':'abuse_reports','severity':'high' if reputation['score'] >= 50 else 'warning','title':'Elevated provider confidence in abuse reports' if reputation['score'] >= 50 else 'Community abuse reports — review advised','detail':f"AbuseIPDB returned {reputation['reports']} reports in 90 days and a provider confidence score of {reputation['score']}/100. Review the source evidence; reports do not prove every use of this shared IP is malicious."})
+                score, reports = reputation['score'], reputation['reports']
+                if reputation.get('is_whitelisted') is True or score == 0:
+                    # Busy shared infrastructure (public DNS, CDNs) collects stray reports that AbuseIPDB itself discounts.
+                    reason = 'AbuseIPDB lists this address as whitelisted' if reputation.get('is_whitelisted') is True else 'AbuseIPDB gives these reports a confidence score of 0/100'
+                    result['findings'].append({'code':'abuse_reports_discounted','severity':'info','title':'Reports exist, but the provider discounts them','detail':f"AbuseIPDB returned {reports} reports in 90 days. {reason}, which is typical for widely shared infrastructure such as public DNS or CDNs. This is not a safety guarantee."})
+                else:
+                    result['findings'].append({'code':'abuse_reports','severity':'high' if score >= 50 else 'warning','title':'Elevated provider confidence in abuse reports' if score >= 50 else 'Community abuse reports — review advised','detail':f"AbuseIPDB returned {reports} reports in 90 days and a provider confidence score of {score}/100. Review the source evidence; reports do not prove every use of this shared IP is malicious."})
             result['summary'] = [f"Public IPv{address.version} address {ip}.", f"Network organization: {result.get('org') or result.get('isp') or 'unavailable'}; ASN: {result.get('asn') or 'unavailable'}.", f"Approximate network location: {result.get('country') or 'unavailable'}. This does not locate an individual.", f"AbuseIPDB returned {reputation['reports']} reports in its 90-day window." if reputation['status'] in ('matched','not_found') else 'AbuseIPDB evidence was not available; no reputation conclusion is possible.', 'Metadata and missing reports do not establish safety.']
             return result
         finally:

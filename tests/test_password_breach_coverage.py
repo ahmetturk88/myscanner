@@ -92,7 +92,7 @@ class PasswordEndpointTests(unittest.TestCase):
             r=self.client.post('/api/check-password',json={'password':PASSWORD,'check_breaches':'false'});self.assertEqual(r.status_code,400);analyzer.assert_not_called()
         from extensions import db
         from models import User
-        db.session.expire_all();self.assertEqual(db.session.get(User,self.owner).password_check_remaining,3)
+        db.session.expire_all();self.assertEqual(db.session.get(User,self.owner).password_check_remaining,15)
     def test_analyzer_failure_is_generic_and_closes_session(self):
         with patch.object(self.production,'PasswordAnalyzer') as analyzer:
             analyzer.return_value.comprehensive_analysis.side_effect=RuntimeError(PASSWORD)

@@ -152,7 +152,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
         for path in ['/api/scan-file','/api/file-deep-analysis','/api/async-scan-file']:
             self.assertEqual(self.client.post(path,data={'file':(BytesIO(b'x'),'bad.xyz')},content_type='multipart/form-data').status_code,400)
         for payload in [None,[],{}, {'password':123},{'password':''}]:self.assertEqual(self.client.post('/api/check-password',json=payload).status_code,400)
-        self.assertEqual(self.balance('file_scan'),5);self.assertEqual(self.balance('password_check'),3)
+        self.assertEqual(self.balance('file_scan'),5);self.assertEqual(self.balance('password_check'),15)
     def test_accepted_broker_failure_does_not_reset_reservation(self):
         with patch.object(self.production,'enqueue_owned_task',side_effect=RuntimeError('broker unavailable')):
             r=self.client.post('/api/async-scan-file',data={'file':(BytesIO(b'x'),'a.pdf')},content_type='multipart/form-data');self.assertEqual(r.status_code,503)

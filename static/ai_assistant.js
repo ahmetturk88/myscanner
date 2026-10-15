@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const LANG = {
-    ar: {dir: 'rtl', explain: 'Explain in Arabic · اشرح بالعربي'},
+    ar: {dir: 'rtl', explain: 'Explain in Arabic'},
     en: {dir: 'ltr', explain: 'Explain in English'},
   };
   const SECTIONS = [

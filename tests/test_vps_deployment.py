@@ -44,7 +44,7 @@ class DeploymentTests(unittest.TestCase):
         for name in ('web','worker','beat','seed'):
             service=self.config['services'][name]
             expected={'db_app_password','redis_password','session_key'}
-            if name=='web':expected.update({'abuseipdb_api_key','google_client_secret','github_client_secret','resend_api_key'})
+            if name=='web':expected.update({'abuseipdb_api_key','google_client_secret','github_client_secret','resend_api_key','gemini_api_key','groq_api_key'})
             self.assertEqual(set(service['secrets']),expected)
             self.assertTrue(service['read_only']);self.assertIn('ALL',service['cap_drop'])
         self.assertEqual(self.config['services']['migrate']['secrets'],['db_migration_password'])

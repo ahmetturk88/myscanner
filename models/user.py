@@ -35,6 +35,7 @@ class User(db.Model, UserMixin):
     qr_scan_remaining          = db.Column(db.Integer, default=15)
     subdomain_finder_remaining = db.Column(db.Integer, default=5)
     password_check_remaining   = db.Column(db.Integer, default=15)
+    ai_assistant_remaining     = db.Column(db.Integer, default=10)
 
     scans = db.relationship('Scan', backref='owner', lazy=True)
 

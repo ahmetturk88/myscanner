@@ -190,6 +190,25 @@ pg_restore --list myscanner-YYYYMMDD-HHMMSS.dump | head
 Restore into a separate, empty database to prove the archive is usable; never
 over the live one during a rehearsal.
 
+## AI assistant
+
+Report pages offer an AI explanation (Arabic or English) and follow-up questions.
+The assistant explains the evidence; verdicts stay with the scanners. Report
+evidence is sent as delimited, untrusted data with secrets and images removed,
+and answers are validated and rendered as text.
+
+- Providers are tried in `AI_PROVIDERS` order (default `gemini,groq`); the next
+  one answers when one fails or is rate limited. Models: `AI_GEMINI_MODEL`
+  (default `gemini-flash-latest`) and `AI_GROQ_MODEL` (default
+  `openai/gpt-oss-120b`), both overridable in `.env.vps.rehearsal`.
+- Keys live in `.deploy/rehearsal/gemini_api_key` and `groq_api_key` (empty
+  disables a provider; with both empty the panel is hidden).
+- Each new explanation or chat answer costs one `ai_assistant` unit (10 per day
+  for users); cached explanations are free and failed calls are refunded.
+- Contexts are kept 30 days, at most 50 per user.
+
+Check the setup from the server: `docker compose ... exec web python scripts/ai_selfcheck.py`.
+
 ## Google and GitHub sign-in
 
 A provider button appears only when both its client id and secret are set.

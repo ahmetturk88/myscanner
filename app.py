@@ -387,6 +387,7 @@ def register():
         user.qr_scan_remaining = 15
         user.subdomain_finder_remaining = 5
         user.password_check_remaining = 15
+        user.ai_assistant_remaining = 10
         
         db.session.add(user)
         db.session.commit()
@@ -1691,6 +1692,136 @@ def dashboard_v2():
     from services.account_overview import daily_allowance, scan_counts
     return render_template('dashboard-v2.html', counts=scan_counts(current_user.id),
                            allowance=daily_allowance(current_user))
+
+# ================================================================
+# AI assistant: explains saved report evidence; never decides verdicts
+# ================================================================
+
+AI_CONTEXT_DAYS = 30
+AI_CONTEXTS_PER_USER = 50
+
+
+@app.context_processor
+def inject_ai_assistant():
+    from services.ai_assistant import enabled
+    return {'ai_assistant_enabled': current_user.is_authenticated and enabled()}
+
+
+def _owned_ai_context(context_id):
+    from models import AIContext
+    if not isinstance(context_id, str) or len(context_id) != 36:
+        return None
+    context = db.session.get(AIContext, context_id)
+    if context is None or context.user_id != current_user.id:
+        return None
+    return context
+
+
+def _ai_json(value, default):
+    try:
+        data = json.loads(value or '')
+    except (TypeError, ValueError):
+        return default
+    return data if isinstance(data, type(default)) else default
+
+
+@app.route('/api/ai/contexts', methods=['POST'])
+@login_required
+def api_ai_create_context():
+    from models import AIContext
+    from services import ai_assistant
+    if not ai_assistant.enabled():
+        return jsonify(error='The AI assistant is not available right now.'), 503
+    if (request.content_length or 0) > 1024 * 1024:
+        return jsonify(error='This report is too large for the AI assistant.'), 413
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or data.get('tool') not in ai_assistant.TOOLS or not isinstance(data.get('evidence'), (dict, list)):
+        return jsonify(error='Invalid AI request'), 400
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    # Retention: contexts expire after 30 days and each user keeps the newest 50.
+    AIContext.query.filter(AIContext.created_at < now - timedelta(days=AI_CONTEXT_DAYS)).delete(synchronize_session=False)
+    stale = [row.id for row in AIContext.query.filter_by(user_id=current_user.id).order_by(AIContext.created_at.desc())
+             .offset(AI_CONTEXTS_PER_USER - 1).with_entities(AIContext.id).all()]
+    if stale:
+        AIContext.query.filter(AIContext.id.in_(stale)).delete(synchronize_session=False)
+    context = AIContext(id=str(uuid.uuid4()), user_id=current_user.id, tool=data['tool'],
+                        evidence=ai_assistant.sanitize_evidence(data['evidence']), explanations='{}', chat='[]', created_at=now)
+    db.session.add(context)
+    db.session.commit()
+    return jsonify(id=context.id), 201
+
+
+@app.route('/api/ai/contexts/<context_id>')
+@login_required
+def api_ai_get_context(context_id):
+    context = _owned_ai_context(context_id)
+    if context is None:
+        return jsonify(error='Not found'), 404
+    return jsonify(tool=context.tool, explanations=_ai_json(context.explanations, {}), chat=_ai_json(context.chat, []))
+
+
+@app.route('/api/ai/contexts/<context_id>/explain', methods=['POST'])
+@login_required
+def api_ai_explain(context_id):
+    from services import ai_assistant
+    from services.daily_quota import refund_quota
+    context = _owned_ai_context(context_id)
+    if context is None:
+        return jsonify(error='Not found'), 404
+    data = request.get_json(silent=True)
+    language = data.get('language') if isinstance(data, dict) else None
+    if language not in ai_assistant.LANGUAGES:
+        return jsonify(error='Choose Arabic or English'), 400
+    explanations = _ai_json(context.explanations, {})
+    if isinstance(explanations.get(language), dict):
+        return jsonify(explanation=explanations[language], cached=True)
+    failure = reserve_request_quota('ai_assistant')
+    if failure:
+        return failure
+    try:
+        explanation, provider = ai_assistant.explain(context.tool, context.evidence, language)
+    except ai_assistant.AIUnavailable as error:
+        app.logger.warning('AI explanation unavailable: %s', error)
+        refund_quota(current_user.id, 'ai_assistant')
+        return jsonify(error='The AI assistant could not answer right now. Your allowance was not used. Please try again in a minute.'), 503
+    explanations[language] = explanation
+    context.explanations = json.dumps(explanations, ensure_ascii=False)
+    db.session.commit()
+    log_activity(current_user.username, 'ai_assistant', f'AI explanation ({context.tool}, {language}, {provider})')
+    return jsonify(explanation=explanation, cached=False)
+
+
+@app.route('/api/ai/contexts/<context_id>/chat', methods=['POST'])
+@login_required
+def api_ai_chat(context_id):
+    from services import ai_assistant
+    from services.daily_quota import refund_quota
+    context = _owned_ai_context(context_id)
+    if context is None:
+        return jsonify(error='Not found'), 404
+    data = request.get_json(silent=True)
+    message = data.get('message') if isinstance(data, dict) else None
+    if not isinstance(message, str) or not message.strip():
+        return jsonify(error='Write a question first'), 400
+    message = message.strip()
+    if len(message) > ai_assistant.CHAT_MESSAGE_LIMIT:
+        return jsonify(error=f'Keep questions under {ai_assistant.CHAT_MESSAGE_LIMIT} characters'), 400
+    history = _ai_json(context.chat, [])
+    failure = reserve_request_quota('ai_assistant')
+    if failure:
+        return failure
+    try:
+        answer, provider = ai_assistant.chat(context.tool, context.evidence, history, message)
+    except ai_assistant.AIUnavailable as error:
+        app.logger.warning('AI chat unavailable: %s', error)
+        refund_quota(current_user.id, 'ai_assistant')
+        return jsonify(error='The AI assistant could not answer right now. Your allowance was not used. Please try again in a minute.'), 503
+    history += [{'role': 'user', 'text': message}, {'role': 'assistant', 'text': answer}]
+    context.chat = json.dumps(history[-40:], ensure_ascii=False)
+    db.session.commit()
+    log_activity(current_user.username, 'ai_assistant', f'AI chat ({context.tool}, {provider})')
+    return jsonify(answer=answer)
+
 
 @app.route('/api/url-analysis/<int:scan_id>')
 @login_required

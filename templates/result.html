@@ -620,6 +620,7 @@ function renderAggregate(assessment) {
 
 function renderResult(scanData, analysisData) {
     if(typeof ReportSummary!=='undefined')ReportSummary.schedule('url',{scan:scanData,analysis:analysisData},'#verdict-area');
+    if(window.AIAssistant)AIAssistant.attach({tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#verdict-area',after:true});
   document.getElementById('loading-area').style.display = 'none';
   const verdictArea = document.getElementById('verdict-area');
   verdictArea.style.display = 'block';

@@ -108,7 +108,7 @@
         throw new Error(message);
       }
       if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.verdict !== 'string') throw new Error('The server returned an incomplete report. No safety conclusion is available.');
-      lastResult = data; render(data);
+      lastResult = data; render(data); if (window.AIAssistant) AIAssistant.attach({tool: 'file', evidence: data, mount: '#result-card'});
       $('result-card').hidden = false;
       $('report-title').focus({preventScroll: true});
       $('result-card').scrollIntoView({behavior: 'auto', block: 'start'});

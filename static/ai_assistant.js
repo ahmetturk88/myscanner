@@ -1,15 +1,11 @@
 /* AI explanation and follow-up chat for a finished report. Every answer is inserted as text, never HTML. */
 (function (root) {
   'use strict';
-  const LANG = {
-    ar: {dir: 'rtl', explain: 'Explain in Arabic'},
-    en: {dir: 'ltr', explain: 'Explain in English'},
-  };
   const SECTIONS = [
-    ['reasons', {ar: 'لماذا هذه النتيجة', en: 'Why this result'}],
-    ['next_steps', {ar: 'ماذا تفعل الآن', en: 'What to do now'}],
-    ['not_checked', {ar: 'ما لم يتم التحقق منه', en: 'What was not confirmed'}],
-    ['technical_notes', {ar: 'ملاحظات تقنية', en: 'Technical notes'}],
+    ['reasons', 'Why this result'],
+    ['next_steps', 'What to do now'],
+    ['not_checked', 'What was not confirmed'],
+    ['technical_notes', 'Technical notes'],
   ];
   let panel = null;
 
@@ -42,20 +38,14 @@
     return data;
   }
 
-  function isArabic(text) {
-    return /[؀-ۿ]/.test(text || '');
-  }
-
-  function renderExplanation(target, data, language) {
+  function renderExplanation(target, data) {
     target.replaceChildren();
-    target.dir = LANG[language].dir;
-    target.lang = language;
     target.append(el('h3', 'ai-headline', data.headline), el('p', 'ai-summary', data.summary));
-    for (const [key, titles] of SECTIONS) {
+    for (const [key, title] of SECTIONS) {
       const items = Array.isArray(data[key]) ? data[key] : [];
       if (!items.length) continue;
       const section = el('section', 'ai-section ai-' + key.replace('_', '-'));
-      section.append(el('h4', '', titles[language]));
+      section.append(el('h4', '', title));
       const list = el('ul');
       for (const item of items) {
         const row = el('li');
@@ -74,7 +64,7 @@
 
   function addMessage(log, role, text) {
     const bubble = el('div', 'ai-msg ai-msg-' + role, text);
-    bubble.dir = isArabic(text) ? 'rtl' : 'ltr';
+    bubble.dir = 'auto';
     log.append(bubble);
     log.scrollTop = log.scrollHeight;
     return bubble;
@@ -103,7 +93,7 @@
     const input = el('textarea');
     input.rows = 2;
     input.maxLength = 1000;
-    input.placeholder = 'Ask about this report… / اسأل عن هذا التقرير…';
+    input.placeholder = 'Ask about this report…';
     input.setAttribute('aria-label', 'Ask the AI assistant about this report');
     const send = el('button', 'ai-send', 'Ask');
     send.type = 'submit';
@@ -125,25 +115,22 @@
       box.classList.toggle('ai-busy', on);
     }
 
-    for (const language of ['ar', 'en']) {
-      const button = el('button', 'ai-explain', LANG[language].explain);
-      button.type = 'button';
-      button.dir = 'auto';
-      button.addEventListener('click', async () => {
-        busy(true, language === 'ar' ? 'جارٍ تحليل الأدلة…' : 'Reading the evidence…');
-        try {
-          const id = await ensureContext();
-          const data = await call('POST', `/api/ai/contexts/${encodeURIComponent(id)}/explain`, {language});
-          renderExplanation(output, data.explanation, language);
-          output.hidden = false;
-          chat.hidden = false;
-          busy(false, data.cached ? (language === 'ar' ? 'شرح محفوظ، لم يُحتسب من رصيدك.' : 'Saved explanation, not counted again.') : '');
-        } catch (error) {
-          busy(false, error.message);
-        }
-      });
-      buttons.append(button);
-    }
+    const explain = el('button', 'ai-explain', 'Explain this report');
+    explain.type = 'button';
+    explain.addEventListener('click', async () => {
+      busy(true, 'Reading the evidence…');
+      try {
+        const id = await ensureContext();
+        const data = await call('POST', `/api/ai/contexts/${encodeURIComponent(id)}/explain`, {language: 'en'});
+        renderExplanation(output, data.explanation);
+        output.hidden = false;
+        chat.hidden = false;
+        busy(false, data.cached ? 'Saved explanation, not counted again.' : '');
+      } catch (error) {
+        busy(false, error.message);
+      }
+    });
+    buttons.append(explain);
     const ask = el('button', 'ai-explain ai-ask-only', 'Ask a question');
     ask.type = 'button';
     ask.addEventListener('click', () => { chat.hidden = false; input.focus(); });
@@ -161,7 +148,6 @@
         const id = await ensureContext();
         const data = await call('POST', `/api/ai/contexts/${encodeURIComponent(id)}/chat`, {message});
         pending.textContent = data.answer;
-        pending.dir = isArabic(data.answer) ? 'rtl' : 'ltr';
         busy(false, '');
       } catch (error) {
         pending.remove();

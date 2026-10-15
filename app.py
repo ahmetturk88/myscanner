@@ -1771,7 +1771,7 @@ def api_ai_explain(context_id):
     data = request.get_json(silent=True)
     language = data.get('language') if isinstance(data, dict) else None
     if language not in ai_assistant.LANGUAGES:
-        return jsonify(error='Choose Arabic or English'), 400
+        return jsonify(error='Unsupported language'), 400
     explanations = _ai_json(context.explanations, {})
     if isinstance(explanations.get(language), dict):
         return jsonify(explanation=explanations[language], cached=True)

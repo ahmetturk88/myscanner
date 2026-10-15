@@ -21,7 +21,7 @@ TOOLS = {
     'ip': 'IP lookup', 'domain': 'Domain lookup', 'ssl': 'SSL/TLS checker',
     'subdomain': 'Subdomain finder', 'qr': 'QR code scanner',
 }
-LANGUAGES = {'ar': 'Arabic', 'en': 'English'}
+LANGUAGES = {'en': 'Write every text value in clear English.'}
 EVIDENCE_LIMIT = 30000
 CHAT_MESSAGE_LIMIT = 1000
 CHAT_HISTORY_TURNS = 10
@@ -49,7 +49,7 @@ EXPLAIN_FORMAT = """Return only one JSON object, with no text before or after it
  "technical_notes": ["a short note for technical readers"]}
 Use at most 6 reasons, 5 next_steps, 4 not_checked and 5 technical_notes. Use empty lists when there is nothing to say."""
 
-CHAT_RULES = """You are now answering follow-up questions about the report below. Answer in the language the user writes in. Keep each answer under 180 words. Stay on this report and on general online safety; politely decline unrelated requests. Write plain text: short paragraphs or lines starting with "- ". No Markdown symbols such as ** or #, no HTML, no tables."""
+CHAT_RULES = """You are now answering follow-up questions about the report below. Answer in English. Keep each answer under 180 words. Stay on this report and on general online safety; politely decline unrelated requests. Write plain text: short paragraphs or lines starting with "- ". No Markdown symbols such as ** or #, no HTML, no tables."""
 
 
 class AIUnavailable(Exception):
@@ -218,8 +218,7 @@ def _chat_answer(raw):
 
 
 def explain(tool, evidence_json, language):
-    language_rule = ('Write every text value in clear Modern Standard Arabic. Keep technical names such as DNS, SPF, DMARC, TLS, IP and URLs in Latin letters.'
-                     if language == 'ar' else 'Write every text value in clear English.')
+    language_rule = LANGUAGES[language]
     turns = [{'role': 'user', 'text': f'{_evidence_turn(tool, evidence_json)}\n\nExplain this report. {language_rule}\n\n{EXPLAIN_FORMAT}'}]
     return _complete(SYSTEM_PROMPT, turns, True, 4096, parse_explanation)
 

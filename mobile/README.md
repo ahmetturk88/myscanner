@@ -1,6 +1,6 @@
 # MyScanner mobile app
 
-Expo (SDK 58) app for Android, using the website's mobile API at `/api/mobile/v1`.
+Expo (SDK 57, the version Expo Go on Google Play supports) app for Android, using the website's mobile API at `/api/mobile/v1`.
 The API address is `expo.extra.apiBaseUrl` in `app.json`.
 
 ## Try it on your phone (Expo Go)

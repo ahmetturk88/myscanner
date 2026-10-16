@@ -10,7 +10,7 @@ rules are identical for the app and the site.
 """
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, redirect, request, session, url_for
 from flask_login import current_user
 
 from extensions import db
@@ -19,7 +19,7 @@ from models import User
 from services import mobile_auth
 
 mobile_bp = Blueprint('mobile', __name__, url_prefix='/api/mobile/v1')
-PUBLIC = {'mobile.login'}
+PUBLIC = {'mobile.login', 'mobile.oauth_start', 'mobile.oauth_exchange', 'mobile.providers'}
 
 # The app's tool names, mapped to the website endpoints that do the work.
 TOOLS = {
@@ -77,6 +77,40 @@ def login():
     db.session.commit()
     log_activity(user.username, 'login', 'Signed in to the mobile app')
     return jsonify(token=token, expires_at=expires.isoformat() + 'Z', user=_profile(user))
+
+
+@mobile_bp.route('/auth/oauth/<provider>')
+def oauth_start(provider):
+    """Begin Google/GitHub sign-in in the phone's browser; the callback returns a code to the app."""
+    from services.oauth_login import OAuthError, start
+    redirect_uri = request.args.get('redirect', '')
+    challenge = request.args.get('challenge', '')
+    if not mobile_auth.APP_REDIRECT.match(redirect_uri) or not mobile_auth.CHALLENGE.match(challenge):
+        return jsonify(error='Invalid sign-in request'), 400
+    session['mobile_oauth'] = {'provider': provider, 'redirect': redirect_uri, 'challenge': challenge}
+    try:
+        return redirect(start(provider, url_for('oauth_callback', provider=provider, _external=True), session))
+    except OAuthError as error:
+        session.pop('mobile_oauth', None)
+        return redirect(mobile_auth.app_return(redirect_uri, error=str(error)))
+
+
+@mobile_bp.route('/auth/oauth/exchange', methods=['POST'])
+def oauth_exchange():
+    data = request.get_json(silent=True)
+    data = data if isinstance(data, dict) else {}
+    user = mobile_auth.redeem_code(data.get('code'), data.get('verifier'))
+    if user is None:
+        return jsonify(error='Sign-in expired. Please try again.'), 401
+    token, expires = mobile_auth.issue(user, data.get('device'))
+    log_activity(user.username, 'login', 'Mobile app sign-in completed')
+    return jsonify(token=token, expires_at=expires.isoformat() + 'Z', user=_profile(user))
+
+
+@mobile_bp.route('/auth/providers')
+def providers():
+    from services.oauth_login import enabled_providers
+    return jsonify(providers=enabled_providers())
 
 
 @mobile_bp.route('/auth/logout', methods=['POST'])

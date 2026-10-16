@@ -506,10 +506,16 @@ def oauth_start(provider):
 @app.route('/auth/<provider>/callback')
 def oauth_callback(provider):
     from services.oauth_login import OAuthError, finish, unique_username
+    from services.mobile_auth import app_return, oauth_code
     target = session.pop('oauth_next', None) or url_for('dashboard')
+    # Started from the mobile app: hand back a one-time code, not a website session.
+    mobile = session.pop('mobile_oauth', None)
+    mobile = mobile if isinstance(mobile, dict) and mobile.get('provider') == provider else None
     try:
         email, name = finish(provider, request.args, url_for('oauth_callback', provider=provider, _external=True), session)
     except OAuthError as error:
+        if mobile:
+            return redirect(app_return(mobile['redirect'], error=str(error)))
         flash(str(error), 'warning')
         return redirect(url_for('login'))
     user = User.query.filter_by(email=email).first()
@@ -526,6 +532,9 @@ def oauth_callback(provider):
         user.set_password(secrets.token_urlsafe(32))
     user.last_login = datetime.utcnow()
     db.session.commit()
+    if mobile:
+        log_activity(user.username, 'login', f'Signed in to the mobile app with {provider}')
+        return redirect(app_return(mobile['redirect'], code=oauth_code(user.id, mobile['challenge'])))
     login_user(user)
     log_activity(user.username, 'login', f'Signed in with {provider} from {request.remote_addr}')
     flash(f'Welcome, {user.username}!', 'success')

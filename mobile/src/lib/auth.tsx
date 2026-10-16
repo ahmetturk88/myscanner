@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform } from 'react-native';
 
 import { api, loadToken, saveToken, setSignedOutHandler, type User } from '@/lib/api';
+import { providerSignIn } from '@/lib/oauth';
 
 type AuthState = {
   ready: boolean;
   user: User | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWith: (provider: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   forget: () => Promise<void>;
@@ -42,6 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh,
     signIn: async (email, password) => {
       const result = await api.login(email.trim(), password, `${Platform.OS} app`);
+      await saveToken(result.token);
+      setUser(result.user);
+    },
+    signInWith: async (provider) => {
+      const { code, verifier } = await providerSignIn(provider);
+      const result = await api.exchange(code, verifier, `${Platform.OS} app`);
       await saveToken(result.token);
       setUser(result.user);
     },

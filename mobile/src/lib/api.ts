@@ -167,6 +167,9 @@ export const api = {
   login: (email: string, password: string, device: string) =>
     request<{ token: string; user: User }>('/auth/login', { body: { email, password, device } }),
   logout: () => request('/auth/logout', { method: 'POST', body: {} }),
+  providers: () => request<{ providers: string[] }>('/auth/providers'),
+  exchange: (code: string, verifier: string, device: string) =>
+    request<{ token: string; user: User }>('/auth/oauth/exchange', { body: { code, verifier, device } }),
   me: () => request<{ user: User }>('/me'),
   deleteAccount: (confirm_email: string) => request('/account/delete', { body: { confirm_email } }),
   tool: (name: string, body: unknown) => request(`/tools/${name}`, { body }),

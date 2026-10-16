@@ -1,17 +1,29 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 
 import { BrandMark } from '@/components/brand';
 import { Appear } from '@/components/motion';
 import { Button, ErrorText, Field, Muted, Screen } from '@/components/ui';
-import { SITE } from '@/lib/api';
+import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { colors } from '@/lib/theme';
 
 export default function Login() {
-  const { signIn } = useAuth();
+  const { signIn, signInWith } = useAuth();
+  const [providers, setProviders] = useState<string[]>([]);
+  const [providerBusy, setProviderBusy] = useState<string | null>(null);
+  useEffect(() => { api.providers().then((d) => setProviders(d.providers)).catch(() => {}); }, []);
+
+  async function withProvider(provider: string) {
+    setProviderBusy(provider); setError(null);
+    try {
+      await signInWith(provider);
+    } catch (e: any) {
+      setError(e.message);
+    } finally { setProviderBusy(null); }
+  }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,11 +67,23 @@ export default function Login() {
               textContentType="password" placeholder="Your password" onSubmitEditing={submit} returnKeyType="go" />
             <ErrorText>{error}</ErrorText>
             <Button label="Sign in" onPress={submit} busy={busy} disabled={!email.trim() || !password} />
+            {providers.length ? (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
+                  <Text style={{ color: colors.faint, fontSize: 13 }}>or</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
+                </View>
+                {providers.map((p) => (
+                  <Button key={p} kind="secondary" label={`Continue with ${p === 'github' ? 'GitHub' : 'Google'}`}
+                    onPress={() => withProvider(p)} busy={providerBusy === p} disabled={!!providerBusy} />
+                ))}
+              </View>
+            ) : null}
             <View style={{ gap: 14, alignItems: 'center', marginTop: 6 }}>
               {link('/register', 'Create a free account')}
               {link('/forgot-password', 'Forgot your password?')}
             </View>
-            <Muted center>{'Signed up with Google or GitHub? Use "Forgot your password?" once to set a password. Google sign-in in the app is coming soon.'}</Muted>
           </View>
         </Appear>
       </Screen>

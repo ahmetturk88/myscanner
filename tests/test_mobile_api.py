@@ -1,6 +1,9 @@
 """Mobile app API: token sign-in, cookie isolation, tool access and account deletion."""
+import base64
+import hashlib
 import json
 import unittest
+from urllib.parse import parse_qs, urlparse
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -154,6 +157,43 @@ class MobileApiTests(unittest.TestCase):
             self.assertEqual(LogEntry.query.filter_by(username='owner').count(), 0)
         self.assertEqual(self.client.get('/api/mobile/v1/me', headers=self.auth(token)).status_code, 401)
         self.assertEqual(self.client.get('/api/mobile/v1/me', headers=self.auth(other_token)).status_code, 200)
+
+    def oauth_round_trip(self, redirect='myscanner://auth', verifier='v' * 50, email='owner@example.invalid'):
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
+        with patch('services.oauth_login.credentials', return_value=('id', 'secret')):
+            start = self.client.get(f'/api/mobile/v1/auth/oauth/google?redirect={redirect}&challenge={challenge}')
+        self.assertEqual(start.status_code, 302);self.assertIn('accounts.google.com', start.headers['Location'])
+        with patch('services.oauth_login.finish', return_value=(email, 'Owner')):
+            back = self.client.get('/auth/google/callback?code=x&state=y')
+        self.assertEqual(back.status_code, 302)
+        return back.headers['Location']
+
+    def test_google_sign_in_returns_a_one_time_code_bound_to_the_app(self):
+        location = self.oauth_round_trip(redirect='exp://192.168.1.5:8081/--/auth')
+        self.assertTrue(location.startswith('exp://192.168.1.5:8081/--/auth?code='))
+        code = parse_qs(urlparse(location).query)['code'][0]
+        with self.client.session_transaction() as session:
+            self.assertNotIn('_user_id', session)  # no website session is created
+        bad = self.client.post('/api/mobile/v1/auth/oauth/exchange', json={'code': code, 'verifier': 'w' * 50})
+        self.assertEqual(bad.status_code, 401)
+        good = self.client.post('/api/mobile/v1/auth/oauth/exchange', json={'code': code, 'verifier': 'v' * 50, 'device': 'Pixel'})
+        self.assertEqual(good.status_code, 200);self.assertEqual(good.json['user']['username'], 'owner')
+        again = self.client.post('/api/mobile/v1/auth/oauth/exchange', json={'code': code, 'verifier': 'v' * 50})
+        self.assertEqual(again.status_code, 401)
+        self.assertEqual(self.client.get('/api/mobile/v1/me', headers=self.auth(good.json['token'])).status_code, 200)
+
+    def test_google_sign_in_rejects_foreign_redirects_and_reports_failures_to_the_app(self):
+        challenge = 'c' * 43
+        for redirect in ('https://evil.example/auth', 'myscanner://other', 'exp://host/--/auth?x=1', ''):
+            response = self.client.get(f'/api/mobile/v1/auth/oauth/google?redirect={redirect}&challenge={challenge}')
+            self.assertEqual(response.status_code, 400, redirect)
+        self.assertEqual(self.client.get('/api/mobile/v1/auth/oauth/google?redirect=myscanner://auth&challenge=short').status_code, 400)
+        from services.oauth_login import OAuthError
+        with patch('services.oauth_login.credentials', return_value=('id', 'secret')):
+            self.client.get(f'/api/mobile/v1/auth/oauth/google?redirect=myscanner://auth&challenge={challenge}')
+        with patch('services.oauth_login.finish', side_effect=OAuthError('Sign-in was cancelled.')):
+            back = self.client.get('/auth/google/callback?error=access_denied')
+        self.assertTrue(back.headers['Location'].startswith('myscanner://auth?error=Sign-in+was+cancelled'))
 
     def test_account_deletion_on_the_website_needs_the_email_and_csrf(self):
         with self.client.session_transaction() as session:

@@ -1,0 +1,151 @@
+/**
+ * Client for MyScanner's mobile API (/api/mobile/v1).
+ * The sign-in token lives in the device's secure storage and is sent as a bearer token.
+ */
+import Constants from 'expo-constants';
+import { fetch as streamingFetch } from 'expo/fetch';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+const TOKEN_KEY = 'myscanner.token';
+export const SITE = String(Constants.expoConfig?.extra?.apiBaseUrl || 'https://myscanners.com').replace(/\/$/, '');
+const BASE = `${SITE}/api/mobile/v1`;
+
+let token: string | null = null;
+let onSignedOut: (() => void) | null = null;
+
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+// Secure storage on the phone; the browser preview falls back to localStorage.
+const store = Platform.OS === 'web'
+  ? {
+      get: async () => globalThis.localStorage?.getItem(TOKEN_KEY) ?? null,
+      set: async (v: string) => globalThis.localStorage?.setItem(TOKEN_KEY, v),
+      remove: async () => globalThis.localStorage?.removeItem(TOKEN_KEY),
+    }
+  : {
+      get: () => SecureStore.getItemAsync(TOKEN_KEY),
+      set: (v: string) => SecureStore.setItemAsync(TOKEN_KEY, v),
+      remove: () => SecureStore.deleteItemAsync(TOKEN_KEY),
+    };
+
+export async function loadToken() {
+  token = await store.get();
+  return token;
+}
+
+export async function saveToken(value: string | null) {
+  token = value;
+  if (value) await store.set(value);
+  else await store.remove();
+}
+
+/** Called when the server says the token is no longer valid. */
+export function setSignedOutHandler(handler: () => void) {
+  onSignedOut = handler;
+}
+
+function headers(json = true): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/json' };
+  if (json) h['Content-Type'] = 'application/json';
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
+async function failure(response: { status: number; json(): Promise<any> }) {
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401 && token) {
+    await saveToken(null);
+    onSignedOut?.();
+  }
+  const fallback = response.status === 429 ? "Today's allowance is used up. It resets at 00:00 UTC."
+    : response.status >= 500 ? 'MyScanner is unavailable right now. Please try again in a minute.'
+    : 'Something went wrong. Please try again.';
+  return new ApiError(typeof data.error === 'string' ? data.error : fallback, response.status);
+}
+
+export async function request<T = any>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(BASE + path, {
+      method: options.method || (options.body === undefined ? 'GET' : 'POST'),
+      headers: headers(),
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+  } catch {
+    throw new ApiError('No connection. Check your internet and try again.', 0);
+  }
+  if (!response.ok) throw await failure(response);
+  return response.json();
+}
+
+/**
+ * POST and read a streamed AI answer (server-sent events).
+ * onText receives the whole answer so far; resolves with the final event.
+ */
+export async function stream(path: string, body: unknown, onText: (text: string) => void): Promise<any> {
+  let response;
+  try {
+    response = await streamingFetch(BASE + path, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+  } catch {
+    throw new ApiError('No connection. Check your internet and try again.', 0);
+  }
+  if (!response.ok) throw await failure(response);
+  const type = response.headers.get('Content-Type') || '';
+  if (!type.includes('text/event-stream') || !response.body) return response.json();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  let final: any = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    let cut: number;
+    while ((cut = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, cut);
+      buffer = buffer.slice(cut + 2);
+      for (const line of block.split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        let event: any;
+        try { event = JSON.parse(line.slice(5)); } catch { continue; }
+        if (typeof event.delta === 'string') { text += event.delta; onText(text); }
+        else if (typeof event.error === 'string') throw new ApiError(event.error, 503);
+        else if (event.done) final = event;
+      }
+    }
+    if (done) break;
+  }
+  if (!final) throw new ApiError('The answer was interrupted. Please try again.', 0);
+  return final;
+}
+
+/** Same clean-up the website applies to AI text: no tags, no Markdown emphasis or headings. */
+export function plain(text: string) {
+  return String(text)
+    .replace(/<[^>]{0,200}>/g, '')
+    .replace(/\*\*|__|`/g, '')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^(\s*)[*•]\s+/gm, '$1- ')
+    .trim();
+}
+
+export type Allowance = { service: string; label: string; remaining: number | null; limit: number | null; percent: number }[];
+export type User = { id: number; username: string; email: string; role: string; allowance: Allowance };
+
+export const api = {
+  login: (email: string, password: string, device: string) =>
+    request<{ token: string; user: User }>('/auth/login', { body: { email, password, device } }),
+  logout: () => request('/auth/logout', { method: 'POST', body: {} }),
+  me: () => request<{ user: User }>('/me'),
+  deleteAccount: (confirm_email: string) => request('/account/delete', { body: { confirm_email } }),
+  tool: (name: string, body: unknown) => request(`/tools/${name}`, { body }),
+  recent: () => request<{ scans: { id: number; url: string; verdict: string; summary: string; date: string }[] }>('/scans/recent'),
+  scanStatus: (id: number) => request<{ id: number; status: string; verdict: string | null }>(`/scans/${id}/status`),
+  scan: (id: number) => request(`/scans/${id}`),
+  createContext: (tool: string, evidence: unknown) => request<{ id: string }>('/ai/contexts', { body: { tool, evidence } }),
+};

@@ -181,7 +181,7 @@ export const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.md, gap: 12 },
   button: { minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  primaryShadow: { shadowColor: colors.cyan, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  primaryShadow: { shadowColor: colors.cyan, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
   secondary: { backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.line2 },
   danger: { backgroundColor: 'rgba(251,113,133,.08)', borderWidth: 1, borderColor: 'rgba(251,113,133,.4)' },
   buttonText: { fontSize: 16, fontWeight: '800' },

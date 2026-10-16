@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Delete your account{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261013-3') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261013-3') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+  <section class="pg-card pg-reveal" style="max-width:640px;margin:0 auto">
+    <span class="pg-kicker">Account</span>
+    <h1 style="margin:10px 0 12px">Delete your account</h1>
+    <p class="pg-lead">This permanently deletes your MyScanner account and everything stored with it. It cannot be undone.</p>
+    <ul class="pg-note" style="line-height:1.9;margin:14px 0 18px;padding-inline-start:20px">
+      <li>Your profile, saved reports and scan history</li>
+      <li>Your AI assistant conversations and explanations</li>
+      <li>Your verified targets, and the mobile app's sign-ins on every device</li>
+      <li>The activity records linked to your account</li>
+    </ul>
+    <p class="pg-note">Backups roll over on their own, so copies of deleted data disappear from them within 30 days.</p>
+    <form method="POST" action="{{ url_for('delete_account') }}" class="pg-form" data-busy="Deleting…" style="margin-top:20px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="pg-field">
+        <label for="confirm_email">Type your account email to confirm: <strong>{{ current_user.email }}</strong></label>
+        <input class="pg-input" type="email" name="confirm_email" id="confirm_email" autocomplete="off" required>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button type="submit" class="pg-btn danger"><span class="pg-ic ic-alert"></span><span data-label>Delete my account permanently</span></button>
+        <a class="pg-btn" href="{{ url_for('profile') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

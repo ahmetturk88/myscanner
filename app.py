@@ -308,6 +308,12 @@ app.register_blueprint(health_bp)
 from routes.file_pdf import file_pdf_bp
 app.register_blueprint(file_pdf_bp)
 
+# Mobile app API: authorised only by app tokens in the Authorization header,
+# never by the session cookie, so the cookie-based CSRF check does not apply.
+from routes.mobile_api import mobile_bp
+csrf.exempt(mobile_bp)
+app.register_blueprint(mobile_bp)
+
 # ================================================================
 # Auth Routes
 # ================================================================
@@ -584,6 +590,8 @@ def reset_password(token):
         # ✅ استخدم bcrypt من extensions
         from extensions import bcrypt
         user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        from services.mobile_auth import revoke_all
+        revoke_all(user.id)  # a reset signs the app out on every device
         db.session.commit()
         send_password_changed_email(user)
         log_activity(user.username, 'password_reset', f'Password reset from {request.remote_addr}')
@@ -592,6 +600,23 @@ def reset_password(token):
         return redirect(url_for('login'))
 
     return render_template('reset_password.html', token=token, account=mask_email(user.email))
+
+
+@app.route('/account/delete', methods=['GET', 'POST'])
+@login_required
+def delete_account():
+    from services.account_deletion import delete_account as remove, matches
+    if request.method == 'POST':
+        if not matches(current_user, request.form.get('confirm_email')):
+            flash('Type your account email address exactly to confirm.', 'danger')
+            return redirect(url_for('delete_account'))
+        user_id = current_user.id
+        logout_user()
+        remove(user_id)
+        log_activity(None, 'account_deleted', f'Account #{user_id} deleted from the website')
+        flash('Your account and its data have been deleted.', 'info')
+        return redirect(url_for('landing'))
+    return render_template('delete_account.html')
 
 
 @app.route('/profile')

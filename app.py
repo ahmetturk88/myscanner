@@ -1518,6 +1518,10 @@ def file_scanner():
 def search():
     return render_template('search.html')
 
+@app.route('/favicon.ico')
+def favicon():
+    return send_file(os.path.join(app.static_folder, 'brand', 'myscanner-favicon.png'), mimetype='image/png', max_age=86400)
+
 @app.route('/products')
 def products():
     return render_template('products.html')

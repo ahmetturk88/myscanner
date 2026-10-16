@@ -12,7 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-    <link rel="icon" href="{{ url_for('static', filename='brand/myscanner-mark.png') }}" type="image/png">
+    <link rel="icon" href="{{ url_for('static', filename='brand/myscanner-favicon.svg', v='20261016') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ url_for('static', filename='brand/myscanner-favicon.png', v='20261016') }}" type="image/png" sizes="64x64">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="{{ url_for('static', filename='csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='task_poll.js', v='20261013-1') }}"></script>
@@ -48,7 +49,7 @@
     {% if ai_assistant_enabled %}<script>window.MYSCANNER_AI = true;</script>
     <link rel="stylesheet" href="{{ url_for('static', filename='ai_assistant.css', v='20261015-2') }}">
     <script src="{{ url_for('static', filename='ai_assistant.js', v='20261015-4') }}" defer></script>{% endif %}
-    <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-mark.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-apple-touch.png',v='20261016') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='icons.css',v='20261013-2') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261014-1') }}">
     {% if is_tool %}<link rel="stylesheet" href="{{ url_for('static',filename='tool_experience.css',v='20261013-2') }}">{% endif %}

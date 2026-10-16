@@ -134,6 +134,32 @@ export function plain(text: string) {
     .trim();
 }
 
+/** Upload one file as multipart form data (the file scanner). */
+export async function upload<T = any>(path: string, file: { uri: string; name: string; mimeType?: string | null }): Promise<T> {
+  const form = new FormData();
+  form.append('file', { uri: file.uri, name: file.name, type: file.mimeType || 'application/octet-stream' } as any);
+  let response: Response;
+  try {
+    response = await fetch(BASE + path, { method: 'POST', headers: headers(false), body: form });
+  } catch {
+    throw new ApiError('No connection. Check your internet and try again.', 0);
+  }
+  if (!response.ok) throw await failure(response);
+  return response.json();
+}
+
+/** Poll a background task until it finishes; returns its result. */
+export async function waitForTask(taskId: string, onStatus: (status: string) => void, isAlive: () => boolean = () => true) {
+  for (let i = 0; i < 150 && isAlive(); i++) {
+    const task: any = await request(`/tasks/${encodeURIComponent(taskId)}`);
+    if (task.state === 'SUCCESS') return task.result;
+    if (task.state === 'FAILURE') throw new ApiError(task.error || 'Analysis failed. Please retry.', 0);
+    onStatus(task.status || 'Working…');
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  throw new ApiError('This is taking longer than usual. Please try again later.', 0);
+}
+
 export type Allowance = { service: string; label: string; remaining: number | null; limit: number | null; percent: number }[];
 export type User = { id: number; username: string; email: string; role: string; allowance: Allowance };
 

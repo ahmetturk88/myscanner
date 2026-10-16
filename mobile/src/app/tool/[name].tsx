@@ -1,20 +1,16 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { AIPanel } from '@/components/ai';
-import { Details } from '@/components/details';
-import { Body, Button, Card, ErrorText, Field, Muted, Screen, VerdictBadge } from '@/components/ui';
-import { api, request } from '@/lib/api';
+import { Icon } from '@/components/icon';
+import { Appear } from '@/components/motion';
+import { ResultCard } from '@/components/result';
+import { Button, Card, ErrorText, Field, Header, Muted, Screen } from '@/components/ui';
+import { api, waitForTask } from '@/lib/api';
 import { colors } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
-
-/** Pick a verdict-like value from any tool's result. */
-function headline(result: any): { verdict?: string; score?: number } {
-  const verdict = result?.verdict ?? result?.risk_level ?? result?.assessment?.verdict ?? result?.final?.strength ?? result?.status;
-  const score = [result?.score, result?.risk_score, result?.final?.score, result?.assessment?.score].find((s) => typeof s === 'number');
-  return { verdict: typeof verdict === 'string' ? verdict : undefined, score };
-}
 
 export default function ToolScreen() {
   const { name } = useLocalSearchParams<{ name: string }>();
@@ -27,52 +23,49 @@ export default function ToolScreen() {
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
-  if (!tool) return <Screen><ErrorText>Unknown tool.</ErrorText></Screen>;
-
-  async function waitFor(taskId: string) {
-    for (let i = 0; i < 120 && alive.current; i++) {
-      const task: any = await request(`/tasks/${encodeURIComponent(taskId)}`);
-      if (task.state === 'SUCCESS') return task.result;
-      if (task.state === 'FAILURE') throw new Error(task.error || 'Analysis failed. Please retry.');
-      setProgress(task.status || 'Working…');
-      await new Promise((r) => setTimeout(r, 2500));
-    }
-    throw new Error('This is taking longer than usual. Please try again later.');
-  }
+  if (!tool || !tool.field || !tool.body) return <Screen><Header title="Tool" /><ErrorText>Unknown tool.</ErrorText></Screen>;
+  const { field, body } = tool;
 
   async function run() {
     setBusy(true); setError(null); setResult(null); setProgress(null);
     try {
-      let data: any = await api.tool(tool!.name, tool!.body(value.trim()));
-      if (data?.task_id) data = await waitFor(data.task_id);
-      if (tool!.field.secure) setValue('');
+      let data: any = await api.tool(tool!.name, body(value.trim()));
+      if (data?.task_id) data = await waitForTask(data.task_id, setProgress, () => alive.current);
+      if (field.secure) setValue('');
       setResult(data);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
       setError(e.message);
     } finally { setBusy(false); setProgress(null); }
   }
 
-  const top = headline(result);
   return (
     <Screen>
-      <Stack.Screen options={{ title: tool.title }} />
-      <Muted>{tool.hint}</Muted>
+      <Header title={tool.title} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+          backgroundColor: tool.color + '22', borderWidth: 1, borderColor: tool.color + '59' }}>
+          <Icon name={tool.icon} size={26} color={tool.color} />
+        </View>
+        <Text style={{ flex: 1, color: colors.muted, fontSize: 15, lineHeight: 21 }}>{tool.hint}</Text>
+      </View>
       <Card>
-        <Field label={tool.field.label} value={value} onChangeText={setValue} placeholder={tool.field.placeholder}
-          secureTextEntry={tool.field.secure} autoCapitalize="none" autoCorrect={false} keyboardType={tool.field.keyboard ?? 'default'}
+        <Field label={field.label} value={value} onChangeText={setValue} placeholder={field.placeholder} icon={tool.icon}
+          secureTextEntry={field.secure} autoCapitalize="none" autoCorrect={false} keyboardType={field.keyboard ?? 'default'}
           onSubmitEditing={run} returnKeyType="go" />
-        {tool.field.secure ? <Muted>Sent over HTTPS for analysis and never stored. Only a short hash prefix is used for the breach check.</Muted> : null}
+        {field.secure ? <Muted>Sent over HTTPS for analysis and never stored. Only a short hash prefix is used for the breach check.</Muted> : null}
+        <Button label="Check" icon="shield" onPress={run} busy={busy} disabled={!value.trim()} />
+        {busy && progress ? (
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <ActivityIndicator color={colors.cyan} /><Text style={{ color: colors.soft }}>{progress}</Text>
+          </View>
+        ) : null}
         <ErrorText>{error}</ErrorText>
-        <Button label="Check" onPress={run} busy={busy} disabled={!value.trim()} />
-        {busy && progress ? <><ActivityIndicator color={colors.cyan} /><Body>{progress}</Body></> : null}
       </Card>
       {result ? (
         <>
-          <Card>
-            {top.verdict ? <VerdictBadge verdict={top.verdict} score={top.score} /> : null}
-            <Details data={result} />
-          </Card>
-          <AIPanel tool={tool.aiTool} evidence={result} />
+          <Appear><ResultCard result={result} title="Result" /></Appear>
+          <Appear delay={120}><AIPanel tool={tool.aiTool} evidence={result} /></Appear>
         </>
       ) : null}
     </Screen>

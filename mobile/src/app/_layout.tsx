@@ -20,16 +20,17 @@ function Navigator() {
   }, [ready]);
   if (!ready) return null;
   return (
-    <Stack screenOptions={{ headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text, contentStyle: { backgroundColor: colors.bg } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
       <Stack.Protected guard={!!user}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="scan/[id]" options={{ title: 'URL report' }} />
-        <Stack.Screen name="tool/[name]" options={{ title: '' }} />
-        <Stack.Screen name="qr" options={{ title: 'Scan a QR code', presentation: 'modal' }} />
-        <Stack.Screen name="delete-account" options={{ title: 'Delete account' }} />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="scan/[id]" />
+        <Stack.Screen name="tool/[name]" />
+        <Stack.Screen name="file" />
+        <Stack.Screen name="qr" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="delete-account" />
       </Stack.Protected>
       <Stack.Protected guard={!user}>
-        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ animation: 'fade' }} />
       </Stack.Protected>
     </Stack>
   );

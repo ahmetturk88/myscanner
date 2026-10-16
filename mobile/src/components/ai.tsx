@@ -1,9 +1,13 @@
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { Button, Card, ErrorText, Field, Muted, styles as ui } from '@/components/ui';
+import { Icon } from '@/components/icon';
+import { TypingDots } from '@/components/motion';
+import { Button, Card, ErrorText, Muted, styles as ui } from '@/components/ui';
 import { api, plain, stream } from '@/lib/api';
-import { colors } from '@/lib/theme';
+import { colors, gradients } from '@/lib/theme';
 
 type Explanation = {
   headline: string; summary: string;
@@ -73,10 +77,19 @@ function ExplanationView({ data }: { data: Explanation }) {
 
 export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: string }) {
   const mine = role === 'user';
+  const body = text ? <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 23, writingDirection: 'auto' }}>{text}</Text> : <TypingDots />;
+  if (mine) {
+    return (
+      <LinearGradient colors={gradients.user} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ alignSelf: 'flex-end', maxWidth: '86%', borderRadius: 20, borderBottomRightRadius: 6, paddingVertical: 11, paddingHorizontal: 15 }}>
+        {body}
+      </LinearGradient>
+    );
+  }
   return (
-    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', backgroundColor: mine ? '#1d4ed8' : colors.surface2,
-      borderRadius: 16, borderWidth: mine ? 0 : 1, borderColor: colors.line, paddingVertical: 10, paddingHorizontal: 14 }}>
-      <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 23, writingDirection: 'auto' }}>{text || '…'}</Text>
+    <View style={{ alignSelf: 'flex-start', maxWidth: '90%', backgroundColor: colors.surface2, borderRadius: 20, borderBottomLeftRadius: 6,
+      borderWidth: 1, borderColor: colors.line, paddingVertical: 11, paddingHorizontal: 15 }}>
+      {body}
     </View>
   );
 }
@@ -85,6 +98,7 @@ export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: strin
 export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown }) {
   const context = useRef<string | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
+  const [explaining, setExplaining] = useState(false);
   const [chat, setChat] = useState<{ role: 'user' | 'assistant'; text: string }[]>([]);
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
@@ -96,14 +110,15 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
   }
 
   async function explain() {
-    setBusy(true); setError(null);
+    setBusy(true); setExplaining(true); setError(null);
     try {
       const id = await ensureContext();
       const final = await stream(`/ai/contexts/${id}/explain`, { language: 'en' }, (text) => setExplanation(parse(text)));
       setExplanation(final.explanation);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
       setError(e.message);
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setExplaining(false); }
   }
 
   async function ask() {
@@ -124,15 +139,28 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
   }
 
   return (
-    <Card style={{ borderColor: '#3b5f80' }}>
-      <Text style={ui.kicker}>✦ AI ASSISTANT</Text>
-      <Text style={{ color: colors.text, fontSize: 19, fontWeight: '800' }}>Understand this report</Text>
-      <Muted>A plain-language explanation of the evidence. Ask follow-up questions in any language. Each answer uses 1 of your 10 daily AI requests.</Muted>
-      {!explanation ? <Button label="Explain this report" onPress={explain} busy={busy && !chat.length} /> : <ExplanationView data={explanation} />}
+    <Card glow>
+      <Text style={ui.kicker}>✦ AI EXPLANATION</Text>
+      {!explanation && !explaining ? (
+        <>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>Understand this report</Text>
+          <Muted>A plain-language explanation of the evidence, then ask anything in any language. Uses 1 of your daily AI answers.</Muted>
+          <Button label="Explain with AI" icon="spark" onPress={explain} />
+        </>
+      ) : explanation ? <ExplanationView data={explanation} /> : <TypingDots />}
       {chat.map((m, i) => <Bubble key={i} role={m.role} text={m.text} />)}
-      <Field label="Ask a question about this report" value={question} onChangeText={setQuestion} placeholder="Is it safe to open?"
-        multiline maxLength={1000} style={{ minHeight: 70, paddingTop: 12, textAlignVertical: 'top' }} />
-      <Button label="Ask" kind="secondary" onPress={ask} busy={busy && !!chat.length} disabled={!question.trim()} />
+      {explanation && !explaining ? (
+        <View style={[ui.inputWrap, { paddingRight: 6 }]}>
+          <TextInput value={question} onChangeText={setQuestion} placeholder="Ask about this report…" placeholderTextColor={colors.faint}
+            style={ui.input} multiline maxLength={1000} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Ask" onPress={ask} disabled={!question.trim() || busy}
+            style={{ opacity: !question.trim() || busy ? 0.5 : 1 }}>
+            <LinearGradient colors={gradients.accent} style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="send" size={18} color={colors.onAccent} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      ) : null}
       <ErrorText>{error}</ErrorText>
       <Text style={{ color: colors.faint, fontSize: 12, lineHeight: 18 }}>{"AI can make mistakes. The verdict comes from MyScanner's checks, not from the AI. Never type passwords or personal data."}</Text>
     </Card>

@@ -72,3 +72,7 @@
 @media(prefers-reduced-motion:reduce){.shell-cta-glow,.shell-status-dot,.shell-menu-panel{animation:none}}
 .shell-explore:hover span{transform:none}.shell-legal{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px}.shell-legal a{color:#a2c6e0;text-decoration:none}.shell-legal a:hover{color:#a4edff;text-decoration:underline}
 @media(max-width:600px){.shell-footer-bottom>p.shell-legal{max-width:none}}
+
+/* Phone header: brand, actions and the menu button always fit on one row. */
+@media(max-width:600px){.shell-nav{gap:8px;padding:0 12px}.shell-brand{gap:8px;min-width:0;flex-shrink:1}.shell-brand img{width:34px;height:34px}.shell-brand>span{font-size:18px;white-space:nowrap}.shell-brand small{display:none}.shell-account{gap:6px;flex-shrink:0}.shell-login{white-space:nowrap;padding:9px 12px;font-size:13px}.shell-scan{padding:9px}.shell-menu summary{padding:3px;gap:0}.shell-menu .shell-caret{display:none}.shell-avatar{width:30px;height:30px}.shell-mobile-toggle{flex-shrink:0;width:38px;height:38px}.shell-menu-panel{position:fixed;top:78px;right:12px;left:12px;width:auto}}
+@media(max-width:360px){.shell-brand>span{font-size:16px}.shell-login{padding:8px 10px}}

@@ -9,6 +9,20 @@ from services.database_roles import provision_roles, validate_passwords, transfe
 from services.database_role_check import expect_denied
 
 class DatabaseRoleTests(unittest.TestCase):
+    def test_provisioning_bounds_lock_waits_and_idle_application_transactions(self):
+        connection=Mock()
+        connection.exec_driver_sql.return_value.one.return_value=('myscanner_bootstrap','myscanner_vps')
+        connection.exec_driver_sql.return_value.all.return_value=[]
+        connection.execute.return_value.first.return_value=None
+        engine=Mock()
+        engine.url.drivername,engine.url.host,engine.url.database,engine.url.username='postgresql+psycopg2','postgres','myscanner_vps','myscanner_bootstrap'
+        engine.begin.return_value.__enter__=Mock(return_value=connection);engine.begin.return_value.__exit__=Mock(return_value=False)
+        with patch('services.database_roles.sa.inspect') as inspect:
+            inspect.return_value.has_table.return_value=False
+            provision_roles(engine,'a'*64,'b'*64,'myscanner_vps','myscanner_bootstrap')
+        statements=[call.args[0] for call in connection.exec_driver_sql.call_args_list]
+        self.assertLess(statements.index("SET LOCAL lock_timeout = '60s'"),statements.index('ALTER SCHEMA public OWNER TO myscanner_schema_owner'))
+        self.assertIn("ALTER ROLE myscanner_app SET idle_in_transaction_session_timeout = '5min'",statements)
     def test_table_ownership_moves_before_dependent_sequences(self):
         connection=Mock()
         connection.dialect.identifier_preparer.quote.side_effect=lambda value: '"'+value+'"'

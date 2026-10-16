@@ -12,7 +12,7 @@ LABELS = {
     'url_analyzer': 'URL scans', 'site_scan': 'Site scans', 'file_scan': 'File scans',
     'email_check': 'Email checks', 'ip_check': 'IP lookups', 'domain_lookup': 'Domain lookups',
     'ssl_check': 'SSL checks', 'qr_scan': 'QR scans', 'subdomain_finder': 'Subdomain searches',
-    'password_check': 'Password checks',
+    'password_check': 'Password checks', 'ai_assistant': 'AI assistant',
 }
 REVIEW_VERDICTS = ('suspicious', 'high_risk')
 

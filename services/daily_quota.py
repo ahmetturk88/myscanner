@@ -102,3 +102,21 @@ def reset_expired_quotas(now=None):
             return connection.execute(update(User).where(expired).values(**_reset_values(expired, instant))).rowcount
     except SQLAlchemyError as error:
         raise DailyQuotaUnavailable('Daily quota storage unavailable.') from error
+
+def refund_quota(user_id, service, cost=1, now=None):
+    """Return units reserved today when the paid-for work never happened.
+
+    Bounded by the daily limit and skipped after a rollover, so it can never
+    raise a balance above what the day allows.
+    """
+    _validate(service, cost)
+    instant, midnight = _clock(now)
+    field = getattr(User, service + '_remaining')
+    limit = _limit(service)
+    same_day = User.scans_reset_date >= midnight
+    try:
+        with db.engine.begin() as connection:
+            connection.execute(update(User).where(User.id == user_id, same_day, ~_admin(), field.isnot(None))
+                               .values({field: case((field + cost > limit, limit), else_=field + cost)}))
+    except SQLAlchemyError as error:
+        raise DailyQuotaUnavailable('Daily quota storage unavailable.') from error

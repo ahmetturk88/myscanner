@@ -20,7 +20,7 @@ class AllowanceTests(unittest.TestCase):
     def user(self, **kw):
         base = dict(is_admin=False, role='user', scans_reset_date=datetime(2026, 10, 13, 1), **{
             s + '_remaining': 0 for s in ('site_scan', 'file_scan', 'url_analyzer', 'email_check', 'ip_check',
-                                          'domain_lookup', 'ssl_check', 'qr_scan', 'subdomain_finder', 'password_check')})
+                                          'domain_lookup', 'ssl_check', 'qr_scan', 'subdomain_finder', 'password_check', 'ai_assistant')})
         base.update(kw)
         return NS(**base)
 
@@ -89,7 +89,7 @@ class PageTests(unittest.TestCase):
         soup = BeautifulSoup(self.client.get('/profile').data, 'html.parser')
         self.assertEqual([el.get_text() for el in soup.select('.pg-metric strong')], ['13', '1', '2', '9'])
         self.assertEqual(len(soup.select('.pg-scan')), 10)
-        self.assertEqual(len(soup.select('.pg-quota-row')), 10)
+        self.assertEqual(len(soup.select('.pg-quota-row')), 11)
 
     def test_recent_scans_limit_is_bounded(self):
         self.sign_in()

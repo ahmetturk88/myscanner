@@ -12,7 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-    <link rel="icon" href="{{ url_for('static', filename='brand/myscanner-mark.png') }}" type="image/png">
+    <link rel="icon" href="{{ url_for('static', filename='brand/myscanner-favicon.svg', v='20261016') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ url_for('static', filename='brand/myscanner-favicon.png', v='20261016') }}" type="image/png" sizes="64x64">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="{{ url_for('static', filename='csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='task_poll.js', v='20261013-1') }}"></script>
@@ -45,9 +46,16 @@
     </style>
     <link rel="stylesheet" href="{{ url_for('static', filename='report_summary.css', v='20261013-1') }}">
     <script src="{{ url_for('static', filename='report_summary.js', v='20261014-1') }}"></script>
-    <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-mark.png') }}">
+    {% if ai_assistant_available %}<script>window.MYSCANNER_AI = {{ 'true' if ai_assistant_enabled else 'false' }};
+    window.MYSCANNER_AI_WIDGET = {{ 'false' if request.endpoint in ('login', 'register', 'forgot_password', 'reset_password') else 'true' }};
+    window.MYSCANNER_AI_USER = {{ (current_user.username if current_user.is_authenticated else '')|tojson }};
+    window.MYSCANNER_AI_LOGIN = {{ url_for('login')|tojson }};
+    window.MYSCANNER_AI_REGISTER = {{ url_for('register')|tojson }};</script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='ai_assistant.css', v='20261016-1') }}">
+    <script src="{{ url_for('static', filename='ai_assistant.js', v='20261016-1') }}" defer></script>{% endif %}
+    <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-apple-touch.png',v='20261016') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='icons.css',v='20261013-2') }}">
-    <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261014-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261016-1') }}">
     {% if is_tool %}<link rel="stylesheet" href="{{ url_for('static',filename='tool_experience.css',v='20261013-2') }}">{% endif %}
     {% block head_extra %}{% endblock %}
 </head>

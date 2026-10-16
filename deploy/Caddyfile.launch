@@ -2,7 +2,9 @@
     admin off
 }
 {$SITE_DOMAIN} {
-    encode zstd gzip
+    # AI answers stream as server-sent events; compression would hold them back.
+    @compressible not path /api/ai/*
+    encode @compressible zstd gzip
     request_body {
         max_size 33MB
     }

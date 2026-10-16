@@ -9,7 +9,7 @@ class ShellTests(unittest.TestCase):
   return env.get_template('base.html').render(current_user=SimpleNamespace(is_authenticated=authenticated,username='<img src=x onerror=alert(1)>'),request=SimpleNamespace(path='/'),url_for=lambda endpoint,**kw:'/static/'+kw['filename'] if endpoint=='static' else '/'+endpoint,csrf_token=lambda:'csrf-fixture',get_flashed_messages=lambda **kw:[])
  def test_anonymous_navigation_and_brand(self):
   html=self.render();self.assertIn('Sign in',html);self.assertNotIn('Sign out',html)
-  self.assertIn('brand/myscanner-mark.png',html);self.assertIn('brand/myscanner-logo.png',html)
+  self.assertIn('brand/myscanner-mark.svg',html);self.assertIn('brand/myscanner-logo.png',html)
   self.assertEqual(html.count('data-shell-tool '),10)
  def test_authenticated_logout_is_post_and_escaped(self):
   html=self.render(True);self.assertIn('method="POST" action="/logout"',html)
@@ -24,6 +24,12 @@ class ShellTests(unittest.TestCase):
   self.assertIn("dialog.showModal()",js);self.assertIn("addEventListener('close'",js)
   self.assertIn('prefers-reduced-motion',css);self.assertIn('textContent',js)
  def test_assets_are_original_pngs(self):
-  for name in ('myscanner-mark.png','myscanner-logo.png'):
+  for name in ('myscanner-mark.png','myscanner-logo.png','myscanner-favicon.png','myscanner-apple-touch.png'):
    self.assertTrue((ROOT/'static/brand'/name).read_bytes().startswith(b'\x89PNG\r\n\x1a\n'))
+  for name in ('myscanner-mark.svg','myscanner-favicon.svg'):
+   svg=(ROOT/'static/brand'/name).read_text()
+   self.assertTrue(svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"'));self.assertNotIn('<script',svg)
+ def test_favicon_links(self):
+  html=self.render()
+  self.assertIn('brand/myscanner-favicon.svg',html);self.assertIn('brand/myscanner-apple-touch.png',html)
 if __name__=='__main__':unittest.main()

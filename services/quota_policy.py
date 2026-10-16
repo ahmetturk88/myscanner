@@ -11,6 +11,7 @@ DAILY_LIMITS = {
         'qr_scan': 15,
         'subdomain_finder': 5,
         'password_check': 15,
+        'ai_assistant': 10,
         'sandbox_analysis': 3
     },
 
@@ -25,6 +26,7 @@ DAILY_LIMITS = {
         'qr_scan': 999999,
         'subdomain_finder': 999999,
         'password_check': 999999,
+        'ai_assistant': 100,
         'sandbox_analysis': 20
     },
     'admin': {
@@ -38,6 +40,7 @@ DAILY_LIMITS = {
         'qr_scan': 999999,
         'subdomain_finder': 999999,
         'password_check': 999999,
+        'ai_assistant': 999999,
         'sandbox_analysis': 999999
     }
 }
@@ -54,6 +57,7 @@ SERVICE_COST = {
     'qr_scan': 1,
     'subdomain_finder': 1,
     'password_check': 1,
+    'ai_assistant': 1,
     'sandbox_analysis': 1
 }
 

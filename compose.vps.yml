@@ -95,6 +95,7 @@ services:
       AI_PROVIDERS: ${AI_PROVIDERS:-gemini,groq}
       AI_GEMINI_MODEL: ${AI_GEMINI_MODEL:-gemini-flash-latest}
       AI_GROQ_MODEL: ${AI_GROQ_MODEL:-openai/gpt-oss-120b}
+      AI_GEMINI_THINKING_BUDGET: ${AI_GEMINI_THINKING_BUDGET:-0}
     secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key, google_client_secret, github_client_secret, resend_api_key, gemini_api_key, groq_api_key]
     command: [web]
     restart: unless-stopped

@@ -4,7 +4,7 @@ if os.getenv('APP_ENV', '').lower() != 'production' and os.getenv('RENDER', '').
     load_dotenv()
 
 from extensions import db, login_manager, bcrypt
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, session, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer
@@ -1708,7 +1708,8 @@ AI_CONTEXTS_PER_USER = 50
 @app.context_processor
 def inject_ai_assistant():
     from services.ai_assistant import enabled
-    return {'ai_assistant_enabled': current_user.is_authenticated and enabled()}
+    available = enabled()
+    return {'ai_assistant_available': available, 'ai_assistant_enabled': available and current_user.is_authenticated}
 
 
 def _owned_ai_context(context_id):
@@ -1764,11 +1765,64 @@ def api_ai_get_context(context_id):
     return jsonify(tool=context.tool, explanations=_ai_json(context.explanations, {}), chat=_ai_json(context.chat, []))
 
 
+AI_UNAVAILABLE = 'The AI assistant could not answer right now. Your allowance was not used. Please try again in a minute.'
+AI_INTERRUPTED = 'The answer was interrupted. Your allowance was not used. Please try again.'
+
+
+def _ai_event(payload):
+    return f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
+
+
+def _ai_stream(chunks, finish, label):
+    """Stream answer text as server-sent events, then a final event from finish(text).
+
+    The generator runs after the view has returned, so it captures plain values
+    and does its database work in its own app context. The allowance was
+    reserved before the stream starts; it is refunded when no complete answer
+    reaches the user.
+    """
+    from services import ai_assistant
+    from services.daily_quota import refund_quota
+    user_id, username = current_user.id, current_user.username
+
+    def generate():
+        parts, provider = [], None
+        try:
+            for provider, text in chunks:
+                parts.append(text)
+                yield _ai_event({'delta': text})
+            with app.app_context():
+                payload = finish(''.join(parts))
+        except (ai_assistant.AIUnavailable, ValueError) as error:
+            app.logger.warning('AI %s unavailable: %s', label, error)
+            with app.app_context():
+                refund_quota(user_id, 'ai_assistant')
+            yield _ai_event({'error': AI_INTERRUPTED if parts else AI_UNAVAILABLE})
+            return
+        with app.app_context():
+            log_activity(username, 'ai_assistant', f'AI {label} ({provider})')
+        yield _ai_event({'done': True, **payload})
+
+    return Response(generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache, no-store', 'X-Accel-Buffering': 'no'})
+
+
+def _ai_message(data):
+    """The validated question from a chat request, or an error response."""
+    message = data.get('message') if isinstance(data, dict) else None
+    if not isinstance(message, str) or not message.strip():
+        return None, (jsonify(error='Write a question first'), 400)
+    message = message.strip()
+    from services.ai_assistant import CHAT_MESSAGE_LIMIT
+    if len(message) > CHAT_MESSAGE_LIMIT:
+        return None, (jsonify(error=f'Keep questions under {CHAT_MESSAGE_LIMIT} characters'), 400)
+    return message, None
+
+
 @app.route('/api/ai/contexts/<context_id>/explain', methods=['POST'])
 @login_required
 def api_ai_explain(context_id):
     from services import ai_assistant
-    from services.daily_quota import refund_quota
     context = _owned_ai_context(context_id)
     if context is None:
         return jsonify(error='Not found'), 404
@@ -1776,55 +1830,85 @@ def api_ai_explain(context_id):
     language = data.get('language') if isinstance(data, dict) else None
     if language not in ai_assistant.LANGUAGES:
         return jsonify(error='Unsupported language'), 400
-    explanations = _ai_json(context.explanations, {})
-    if isinstance(explanations.get(language), dict):
-        return jsonify(explanation=explanations[language], cached=True)
+    cached = _ai_json(context.explanations, {}).get(language)
+    if isinstance(cached, dict):
+        return jsonify(explanation=cached, cached=True)
     failure = reserve_request_quota('ai_assistant')
     if failure:
         return failure
-    try:
-        explanation, provider = ai_assistant.explain(context.tool, context.evidence, language)
-    except ai_assistant.AIUnavailable as error:
-        app.logger.warning('AI explanation unavailable: %s', error)
-        refund_quota(current_user.id, 'ai_assistant')
-        return jsonify(error='The AI assistant could not answer right now. Your allowance was not used. Please try again in a minute.'), 503
-    explanations[language] = explanation
-    context.explanations = json.dumps(explanations, ensure_ascii=False)
-    db.session.commit()
-    log_activity(current_user.username, 'ai_assistant', f'AI explanation ({context.tool}, {language}, {provider})')
-    return jsonify(explanation=explanation, cached=False)
+
+    def finish(text):
+        from models import AIContext
+        explanation = ai_assistant.parse_explanation(text)
+        row = db.session.get(AIContext, context_id)
+        if row is not None:
+            saved = _ai_json(row.explanations, {})
+            saved[language] = explanation
+            row.explanations = json.dumps(saved, ensure_ascii=False)
+            db.session.commit()
+        return {'explanation': explanation, 'cached': False}
+
+    return _ai_stream(ai_assistant.explain_stream(context.tool, context.evidence, language), finish,
+                      f'explanation, {context.tool}')
 
 
 @app.route('/api/ai/contexts/<context_id>/chat', methods=['POST'])
 @login_required
 def api_ai_chat(context_id):
     from services import ai_assistant
-    from services.daily_quota import refund_quota
     context = _owned_ai_context(context_id)
     if context is None:
         return jsonify(error='Not found'), 404
-    data = request.get_json(silent=True)
-    message = data.get('message') if isinstance(data, dict) else None
-    if not isinstance(message, str) or not message.strip():
-        return jsonify(error='Write a question first'), 400
-    message = message.strip()
-    if len(message) > ai_assistant.CHAT_MESSAGE_LIMIT:
-        return jsonify(error=f'Keep questions under {ai_assistant.CHAT_MESSAGE_LIMIT} characters'), 400
+    message, error = _ai_message(request.get_json(silent=True))
+    if error:
+        return error
     history = _ai_json(context.chat, [])
     failure = reserve_request_quota('ai_assistant')
     if failure:
         return failure
-    try:
-        answer, provider = ai_assistant.chat(context.tool, context.evidence, history, message)
-    except ai_assistant.AIUnavailable as error:
-        app.logger.warning('AI chat unavailable: %s', error)
-        refund_quota(current_user.id, 'ai_assistant')
-        return jsonify(error='The AI assistant could not answer right now. Your allowance was not used. Please try again in a minute.'), 503
-    history += [{'role': 'user', 'text': message}, {'role': 'assistant', 'text': answer}]
-    context.chat = json.dumps(history[-40:], ensure_ascii=False)
-    db.session.commit()
-    log_activity(current_user.username, 'ai_assistant', f'AI chat ({context.tool}, {provider})')
-    return jsonify(answer=answer)
+
+    def finish(text):
+        from models import AIContext
+        answer = ai_assistant.plain(text)
+        if not answer:
+            raise ValueError('empty answer')
+        row = db.session.get(AIContext, context_id)
+        if row is not None:
+            turns = _ai_json(row.chat, []) + [{'role': 'user', 'text': message}, {'role': 'assistant', 'text': answer}]
+            row.chat = json.dumps(turns[-40:], ensure_ascii=False)
+            db.session.commit()
+        return {'answer': answer}
+
+    return _ai_stream(ai_assistant.chat_stream(context.tool, context.evidence, history, message), finish,
+                      f'chat, {context.tool}')
+
+
+@app.route('/api/ai/assistant', methods=['POST'])
+@login_required
+def api_ai_general():
+    from services import ai_assistant
+    if not ai_assistant.enabled():
+        return jsonify(error='The AI assistant is not available right now.'), 503
+    if (request.content_length or 0) > 128 * 1024:
+        return jsonify(error='This conversation is too long. Start a new one.'), 413
+    data = request.get_json(silent=True)
+    message, error = _ai_message(data)
+    if error:
+        return error
+    history = data.get('history', [])
+    if not isinstance(history, list):
+        return jsonify(error='Invalid AI request'), 400
+    failure = reserve_request_quota('ai_assistant')
+    if failure:
+        return failure
+
+    def finish(text):
+        answer = ai_assistant.plain(text)
+        if not answer:
+            raise ValueError('empty answer')
+        return {'answer': answer}
+
+    return _ai_stream(ai_assistant.general_stream(history, message), finish, 'general chat')
 
 
 @app.route('/api/url-analysis/<int:scan_id>')

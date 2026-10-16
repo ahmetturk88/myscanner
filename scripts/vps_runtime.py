@@ -126,7 +126,7 @@ def run(command):
         if not replies:raise RuntimeError('Worker unavailable.')
     else:
         commands={
-          'web':['gunicorn','app:app','--bind','0.0.0.0:8000','--workers','2','--threads','2','--no-control-socket','--timeout','120','--worker-tmp-dir','/tmp','--access-logfile','-'],
+          'web':['gunicorn','app:app','--bind','0.0.0.0:8000','--workers','2','--threads','8','--no-control-socket','--timeout','120','--worker-tmp-dir','/tmp','--access-logfile','-'],
           'worker':['celery','-A','celery_worker:celery','worker','--loglevel=info','--pool=prefork','--concurrency=1','-Q','scans,celery','--hostname','vps-worker@%h'],
           'tip-worker':['celery','-A','celery_worker:celery','worker','--loglevel=info','--pool=prefork','--concurrency=1','-Q','tip','--hostname','vps-tip-worker@%h'],
           'bulk-worker':['celery','-A','celery_worker:celery','worker','--loglevel=info','--pool=prefork','--concurrency=1','-Q','bulk','--hostname','vps-bulk-worker@%h'],

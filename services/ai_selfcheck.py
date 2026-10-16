@@ -7,6 +7,7 @@ whether a tiny explanation request succeeds. Keys are never printed.
 """
 import json
 import sys
+import time
 
 import requests
 
@@ -39,12 +40,14 @@ def main():
             suggestions = [m for m in available if ('flash' in m if name == 'gemini' else 'gpt-oss' in m or 'llama' in m)][:8]
             print(f'  model not listed. Some available models: {", ".join(suggestions)}')
         try:
-            explanation = ai_assistant.parse_explanation(ai_assistant.CALLERS[name](
+            started = time.monotonic()
+            text = ''.join(ai_assistant.STREAMERS[name](
                 key, model, ai_assistant.SYSTEM_PROMPT,
                 [{'role': 'user', 'text': ai_assistant._evidence_turn('ip', json.dumps({'ip': '1.1.1.1', 'verdict': 'not_found'}))
-                  + '\n\nExplain this report. Write every text value in clear English.\n\n' + ai_assistant.EXPLAIN_FORMAT}],
-                True, 2048))
-            print(f'  PASS: sample explanation -> {explanation["headline"][:90]}')
+                  + '\n\nExplain this report. ' + ai_assistant.LANGUAGES['en'] + '\n\n' + ai_assistant.EXPLAIN_FORMAT}],
+                1024))
+            explanation = ai_assistant.parse_explanation(text)
+            print(f'  PASS: streamed explanation in {time.monotonic() - started:.1f}s -> {explanation["headline"][:90]}')
         except Exception as error:  # report every provider, never stop at the first
             ok = False
             print(f'  FAIL: sample explanation ({type(error).__name__}: {str(error)[:120]})')

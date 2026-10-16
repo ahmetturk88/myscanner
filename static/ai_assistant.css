@@ -38,3 +38,37 @@
 @keyframes ai-pulse{50%{transform:scale(.9);box-shadow:0 0 0 8px #38bdf81a}}
 @media(max-width:600px){.ai-panel{padding:18px;border-radius:18px}.ai-head h2{font-size:19px}.ai-explain{flex:1 1 100%}.ai-msg{max-width:94%}}
 @media(prefers-reduced-motion:reduce){.ai-output,.ai-chat,.ai-busy .ai-orb{animation:none}.ai-explain,.ai-send{transition:none}}
+.ai-typing{display:inline-flex;gap:5px;padding:4px 2px}.ai-typing i{width:7px;height:7px;border-radius:50%;background:#7dd3fc;animation:ai-dot 1s ease-in-out infinite}.ai-typing i:nth-child(2){animation-delay:.15s}.ai-typing i:nth-child(3){animation-delay:.3s}
+@keyframes ai-dot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.ai-widget{position:fixed;right:22px;bottom:22px;z-index:1200;display:flex;flex-direction:column;align-items:flex-end;gap:12px;font-family:var(--sans,inherit)}
+.ai-fab{display:flex;align-items:center;gap:10px;border:0;border-radius:999px;padding:10px 18px 10px 10px;cursor:pointer;color:#06121f;font:700 14.5px/1 var(--sans,inherit);background:linear-gradient(135deg,#22d3ee,#818cf8);box-shadow:0 12px 34px #22d3ee40,0 2px 8px #0006;transition:transform .2s,box-shadow .2s}
+.ai-fab:hover{transform:translateY(-2px);box-shadow:0 16px 40px #22d3ee55,0 2px 8px #0006}
+.ai-fab:focus-visible{outline:2px solid #e0f2fe;outline-offset:3px}
+.ai-fab-orb{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#06121f;color:#67e8f9;font-size:15px}
+.ai-fab-open .ai-fab-label{display:none}.ai-fab-open{padding:10px}
+.ai-fab-hint{max-width:270px;padding:13px 16px;border-radius:16px 16px 4px 16px;background:#0f1f33;border:1px solid #2c4a66;color:#dceaf7;font-size:13.5px;line-height:1.55;box-shadow:0 14px 40px #0008;cursor:pointer;opacity:0;transform:translateY(8px);transition:opacity .35s,transform .35s}
+.ai-fab-hint:empty{display:none}.ai-fab-hint strong{display:block;color:#f0f9ff;margin-bottom:3px}
+.ai-fab-hint-in{opacity:1;transform:none}
+.ai-dock{width:min(400px,calc(100vw - 32px));height:min(600px,calc(100dvh - 120px));display:flex;flex-direction:column;border-radius:22px;border:1px solid #2c4a66;background:linear-gradient(180deg,#0f2034,#0a1422);color:#e2eefb;box-shadow:0 30px 80px #000a;overflow:hidden;animation:ai-in .25s ease-out}
+.ai-dock[hidden]{display:none}
+.ai-dock-head{display:flex;align-items:center;gap:12px;padding:14px 14px 14px 16px;border-bottom:1px solid #1f3850;background:#0d1b2c}
+.ai-dock-head>div{flex:1;min-width:0}.ai-dock-head strong{display:block;font-size:15.5px}.ai-dock-head small{color:#8fa9c4;font-size:12.5px}
+.ai-dock-orb{flex:0 0 36px;height:36px;border-radius:12px;font-size:16px}
+.ai-dock-icon{width:34px;height:34px;border-radius:10px;border:1px solid #2c4a66;background:#12263a;color:#cfe6fb;font-size:17px;cursor:pointer}
+.ai-dock-icon:hover:not(:disabled){border-color:#67e8f9}.ai-dock-icon:focus-visible{outline:2px solid #67e8f9;outline-offset:2px}
+.ai-dock-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:14px 16px 12px}
+.ai-dock-log{flex:1;max-height:none;min-height:0}
+.ai-dock-log:empty{display:flex}
+.ai-dock-intro{margin:auto 0 4px}
+.ai-dock-hello{margin:0 0 14px;font-size:15px;line-height:1.6;color:#e6f3ff}
+.ai-chips{display:grid;gap:8px}
+.ai-chip{text-align:start;border:1px solid #2c4a66;background:#10233a;color:#cfe6fb;border-radius:12px;padding:10px 12px;font:13.5px/1.45 var(--sans,inherit);cursor:pointer}
+.ai-chip:hover{border-color:#67e8f9;background:#14304a}.ai-chip:focus-visible{outline:2px solid #67e8f9;outline-offset:2px}
+.ai-dock-auth{display:flex;flex-wrap:wrap;gap:10px}.ai-dock-auth a{text-decoration:none;text-align:center;flex:1 1 140px}
+.ai-dock .ai-status{margin:6px 0 0;min-height:0}
+.ai-dock .ai-form{margin-top:10px}.ai-dock .ai-form textarea{min-height:44px;resize:none}
+.ai-dock .ai-note{margin:8px 0 0;font-size:11.5px}
+.ai-dock .ai-msg{max-width:90%}
+@media(max-width:600px){.ai-widget{right:12px;bottom:12px;left:12px}.ai-dock{width:100%;height:calc(100dvh - 96px);border-radius:18px}.ai-fab-label{display:none}.ai-fab{padding:10px}}
+@media(prefers-reduced-motion:reduce){.ai-typing i,.ai-dock{animation:none}.ai-fab,.ai-fab-hint{transition:none}}
+@media print{.ai-widget{display:none}}

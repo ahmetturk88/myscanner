@@ -4,11 +4,16 @@ import math
 from urllib.parse import urlparse
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v6'
+POLICY_VERSION = 'url-evidence-v7'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 # A browser warns before these pages, so the report never calls them clean (v6).
 TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
+# An unconfirmed community phishing report counts only with one of these (v7):
+# anyone can submit any URL, but a pending report plus a look-alike or
+# impersonation signal is how new phishing pages usually appear.
+CORROBORATING = {'typosquatting','homoglyph','punycode','brand_mismatch','hidden_iframe','ip_url','domain_randomness','domain_history'}
+UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for this URL; reviewers have not confirmed it.'
 
 
 def number(value):
@@ -41,7 +46,7 @@ def assess_url(local, deep):
     deep=deep if isinstance(deep,dict) else {}
     upgraded=upgraded_to_https(mapping(deep.get('behavior')))
     components={key:{'weight':weight,'status':'unavailable','deduction':0,'reasons':[]} for key,weight in WEIGHTS.items()}
-    reasons={}; missing=[]; confirmed=False; review=False; provider_verdicts=[]
+    reasons={}; missing=[]; confirmed=False; review=False; reported=False; provider_verdicts=[]
     def assessed(key):components[key]['status']='assessed'
     def signal(key,code,points,message):
         assessed(key)
@@ -119,6 +124,8 @@ def assess_url(local, deep):
             if evidence=='verified':
                 confirmed=True;signal('reputation','verified_phishing',20,'The provider reports a verified, valid phishing match.')
             elif evidence in ('not_found','not_phishing'):assessed('reputation')
+            elif evidence=='unverified':
+                assessed('reputation');reported=True;signal('reputation','unverified_report',0,UNVERIFIED_REPORT)
             else:
                 review=True;missing.append('Phishing database evidence is unverified or unavailable')
         sources.append(label)
@@ -169,6 +176,7 @@ def assess_url(local, deep):
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
     if verdict in ('harmless','unknown') and TRANSPORT_WARNINGS & set(reasons):verdict='suspicious'
+    if reported and verdict in ('harmless','unknown') and CORROBORATING & set(reasons):verdict='suspicious'
     # Coverage deductions are separate from threat evidence. Missing categories
     # use their full weight; missing checks within an assessed category cost 5
     # each, deduplicated across quick/deep sources and capped by that category.

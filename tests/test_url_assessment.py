@@ -62,9 +62,17 @@ class AssessmentTests(unittest.TestCase):
         local,deep=reports();deep['urlvet']['phishing']={'in_database':True,'verified':True,'valid':True}
         r=assess_url(local,deep);self.assertEqual(r['verdict'],'malicious');self.assertLessEqual(r['score'],10)
         self.assertTrue(r['threat_override'])
-    def test_unverified_is_not_confirmation(self):
+    def test_unverified_report_alone_is_noted_but_not_a_threat(self):
         local,deep=reports();deep['urlvet']['phishing']={'in_database':True,'verified':False,'valid':False}
-        r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['coverage'],'partial');self.assertLess(r['score'],100)
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'harmless');self.assertEqual(r['coverage'],'completed')
+        self.assertIn('unverified_report',[x['code'] for x in r['reasons']]);self.assertFalse(r['threat_override'])
+    def test_unverified_report_with_a_look_alike_signal_needs_review(self):
+        local,deep=reports();deep['urlvet']['phishing']={'in_database':True,'verified':False,'valid':False}
+        deep['urlvet']['typosquatting']={'is_suspicious':True}
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'suspicious');self.assertFalse(r['threat_override'])
+    def test_look_alike_signal_without_a_report_is_unchanged(self):
+        local,deep=reports();deep['urlvet']['typosquatting']={'is_suspicious':True}
+        self.assertEqual(assess_url(local,deep)['verdict'],'harmless')
     def test_missing_or_failed_content_cannot_confirm_safety(self):
         for content in ({},{'content_risk_score':0},{'title':'','content_risk_score':0,'error':'timeout'}):
             local,deep=reports();deep['page_content']=content;r=assess_url(local,deep)
@@ -90,7 +98,7 @@ class AssessmentTests(unittest.TestCase):
         stored={'policy_version':'url-evidence-v4','verdict':'malicious','score':10,'coverage':'completed'}
         r=saved_assessment({'aggregate_assessment':stored},local,deep)
         self.assertEqual((r['verdict'],r['score'],r['policy_version']),('malicious',10,'url-evidence-v4'))
-        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v6')
+        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v7')
         self.assertEqual(r['current_policy']['verdict'],assess_url(local,deep)['verdict'])
         current=saved_assessment({'aggregate_assessment':assess_url(local,deep)},local,deep)
         self.assertNotIn('current_policy',current)
@@ -99,7 +107,7 @@ class AssessmentTests(unittest.TestCase):
     def test_plain_http_is_a_finding_not_a_threat(self):
         local,deep=reports();local.update(verdict='malicious',structure={'is_https':False,'contains_ip':False},ssl={'valid':False,'error':'Not using HTTPS'})
         r=assess_url(local,deep)
-        self.assertEqual(r['policy_version'],'url-evidence-v6');self.assertNotIn(r['verdict'],('malicious','high_risk'))
+        self.assertEqual(r['policy_version'],'url-evidence-v7');self.assertNotIn(r['verdict'],('malicious','high_risk'))
         self.assertIn('no_https',[x['code'] for x in r['reasons']])
     def test_unconfirmed_provider_threat_requests_review(self):
         local,deep=reports();deep['urlvet']['verdict']='malicious'

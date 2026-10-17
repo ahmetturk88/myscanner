@@ -42,11 +42,15 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://myscanners.com"
+      "apiBaseUrl": "https://myscanners.com",
+      "eas": {
+        "projectId": "14439a4f-137c-4f3f-ac7a-181bd4ef1db6"
+      }
     },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "owner": "ahmedsayrafi"
   }
 }

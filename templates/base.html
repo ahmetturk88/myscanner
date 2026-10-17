@@ -6,6 +6,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>MyScanner — {% block title %}{% endblock %}</title>
+    <meta name="description" content="{% block description %}Check links, files, emails and domains, and see exactly what was found and what is still unknown.{% endblock %}">
+    {% set site_root = site_url | default('https://myscanners.com') %}
+    {% set page_url = site_root ~ (request.path if request is defined else '/') %}
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:site_name" content="MyScanner">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="MyScanner — {{ self.title() }}">
+    <meta property="og:description" content="{{ self.description() }}">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:image" content="{{ site_root }}{{ url_for('static', filename='brand/myscanner-share.png') }}">
+    <meta name="twitter:card" content="summary_large_image">
+    {% if request is defined and request.endpoint == 'landing' %}
+    <script type="application/ld+json">{{ {'@context': 'https://schema.org', '@graph': [
+      {'@type': 'Organization', 'name': 'MyScanner', 'url': site_url + '/', 'logo': site_url + url_for('static', filename='brand/myscanner-mark.png'), 'email': 'info@myscanners.com'},
+      {'@type': 'WebSite', 'name': 'MyScanner', 'url': site_url + '/'}]} | tojson }}</script>
+    {% endif %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">

@@ -481,6 +481,29 @@ def login():
 
     return render_template('login.html')
 
+SITE_URL = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/')
+PUBLIC_PAGES = ('landing', 'about', 'contact', 'privacy', 'terms', 'register', 'login')
+
+
+@app.context_processor
+def inject_site_url():
+    return {'site_url': SITE_URL}
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    body = '\n'.join(['User-agent: *', 'Disallow: /admin', 'Disallow: /api/', 'Disallow: /result/', '',
+                      f'Sitemap: {SITE_URL}/sitemap.xml', ''])
+    return Response(body, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    urls = ''.join(f'<url><loc>{SITE_URL}{url_for(name)}</loc></url>' for name in PUBLIC_PAGES)
+    body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    return Response(body, mimetype='application/xml')
+
+
 @app.context_processor
 def inject_oauth_providers():
     if request.endpoint in ('login', 'register'):

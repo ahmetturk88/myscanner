@@ -493,7 +493,7 @@ class URLDeepAnalyzer:
             if w.name and 'Private' in str(w.name):
                 result["red_flags"].append("Private registration - may hide identity")
         except Exception as e:
-            logger.error(f"WHOIS error: {str(e)}")
+            logger.error('WHOIS error: %s', (str(e).strip().splitlines() or [type(e).__name__])[0][:200])
             result["error"] = str(e)
 
         return result

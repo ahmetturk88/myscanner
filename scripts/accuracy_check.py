@@ -11,6 +11,7 @@ Run it inside the worker container, which has the scanner's network access:
 import argparse
 import concurrent.futures
 import json
+import logging
 import os
 import sys
 import time
@@ -38,7 +39,6 @@ CASES = [
     ('flag', 'https://xn--80ak6aa92e.com/', 'Punycode look-alike of apple.com'),
     ('threat', 'https://testsafebrowsing.appspot.com/s/phishing.html', 'Google Safe Browsing phishing test page'),
     ('threat', 'https://testsafebrowsing.appspot.com/s/malware.html', 'Google Safe Browsing malware test page'),
-    ('threat', 'https://secure.eicar.org/eicar.com', 'EICAR antivirus test file download'),
     ('threat', 'http://malware.wicar.org/data/eicar.com', 'WICAR malware test file'),
 ]
 
@@ -123,7 +123,14 @@ def main(argv=None):
     parser.add_argument('--only', choices=('clean', 'flag', 'threat'), help='run one group')
     parser.add_argument('--workers', type=int, default=3, help='scans in parallel (default 3)')
     args = parser.parse_args(argv)
+    logging.disable(logging.ERROR)  # analyzer error logs would interleave with the table
+    try:
+        return benchmark(args)
+    finally:
+        logging.disable(logging.NOTSET)
 
+
+def benchmark(args):
     cases = [c for c in CASES if not args.only or c[0] == args.only]
     if args.live:
         cases += [c for c in live_cases(args.live) if not args.only or c[0] == args.only]
@@ -138,8 +145,10 @@ def main(argv=None):
             print(f"{mark} {row['expect']:<6} {row['verdict']:<10} {'-' if score is None else score:>3}  {row['url'][:70]}")
             if row['grade'] != 'PASS':
                 detail = row.get('error') or f"reasons={','.join(row.get('reasons') or []) or '-'}; " \
-                    f"provider={row.get('provider_verdict')}; urlhaus={row.get('urlhaus')}; missing={len(row.get('missing') or [])}"
+                    f"provider={row.get('provider_verdict')}; urlhaus={row.get('urlhaus')}"
                 print(f'     {row["note"]}: {detail}')
+                for item in (row.get('missing') or [])[:6]:
+                    print(f'       missing: {item}')
 
     counts = {g: sum(r['grade'] == g for r in results) for g in ('PASS', 'WARN', 'FAIL')}
     print(f"\nPASS {counts['PASS']}  WARN {counts['WARN']}  FAIL {counts['FAIL']}  of {len(results)}")

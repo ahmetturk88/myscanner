@@ -1,11 +1,14 @@
 """Versioned, deterministic evidence index. It is not an estimated probability."""
 import copy
 import math
+from urllib.parse import urlparse
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v5'
+POLICY_VERSION = 'url-evidence-v6'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
+# A browser warns before these pages, so the report never calls them clean (v6).
+TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
 
 
 def number(value):
@@ -21,9 +24,22 @@ def usable(value):
     return isinstance(value,dict) and bool(value) and not value.get('error')
 
 
+def host(url):
+    name=(urlparse(url).hostname or '').lower() if isinstance(url,str) else ''
+    return name[4:] if name.startswith('www.') else name
+
+
+def upgraded_to_https(behavior):
+    """True when an http:// address redirected to HTTPS on the same site (v6)."""
+    final=behavior.get('final_url')
+    return (behavior.get('error') is None and isinstance(final,str) and final.lower().startswith('https://')
+            and bool(host(final)) and host(final)==host(behavior.get('original_url')))
+
+
 def assess_url(local, deep):
     local=local if isinstance(local,dict) else {}
     deep=deep if isinstance(deep,dict) else {}
+    upgraded=upgraded_to_https(mapping(deep.get('behavior')))
     components={key:{'weight':weight,'status':'unavailable','deduction':0,'reasons':[]} for key,weight in WEIGHTS.items()}
     reasons={}; missing=[]; confirmed=False; review=False; provider_verdicts=[]
     def assessed(key):components[key]['status']='assessed'
@@ -40,7 +56,7 @@ def assess_url(local, deep):
         structure=mapping(data.get('structure'))
         if usable(structure) and type(structure.get('is_https')) is bool:
             assessed('transport');assessed('identity')
-            if structure['is_https'] is False:signal('transport','no_https',20,'The URL does not use HTTPS.')
+            if structure['is_https'] is False and not upgraded:signal('transport','no_https',20,'The URL does not use HTTPS.')
             if structure.get('contains_ip') is True:signal('identity','ip_url',8,'The URL uses an IP address instead of a domain.')
         ssl=mapping(data.get('ssl'))
         if usable(ssl) and type(ssl.get('valid')) is bool:
@@ -152,6 +168,7 @@ def assess_url(local, deep):
     elif provider_flag:verdict='suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
+    if verdict in ('harmless','unknown') and TRANSPORT_WARNINGS & set(reasons):verdict='suspicious'
     # Coverage deductions are separate from threat evidence. Missing categories
     # use their full weight; missing checks within an assessed category cost 5
     # each, deduplicated across quick/deep sources and capped by that category.

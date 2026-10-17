@@ -29,6 +29,24 @@ class AssessmentTests(unittest.TestCase):
         deep['urlvet']['ssl_info']={'chain_valid':False}
         r=assess_url(local,deep);self.assertEqual(r['score'],80)
         self.assertEqual([x['code'] for x in r['reasons']],['tls_invalid'])
+    def test_invalid_certificate_is_never_clean(self):
+        local,deep=reports();local['ssl']={'valid':False,'verification_error':'certificate has expired'}
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'suspicious')
+        self.assertIn('tls_invalid',[x['code'] for x in r['reasons']])
+    def test_plain_http_destination_is_never_clean(self):
+        local,deep=reports()
+        for data in (local,deep):data['structure']['is_https']=False;data.pop('ssl')
+        deep['behavior'].update(original_url='http://example.org/',final_url='http://example.org/',error=None)
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'suspicious')
+        self.assertIn('no_https',[x['code'] for x in r['reasons']])
+    def test_http_that_upgrades_to_https_on_the_same_site_is_not_penalized(self):
+        local,deep=reports()
+        for data in (local,deep):data['structure']['is_https']=False;data.pop('ssl')
+        deep['behavior'].update(original_url='http://github.com/',final_url='https://github.com/',error=None)
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'harmless')
+        self.assertNotIn('no_https',[x['code'] for x in r['reasons']])
+        deep['behavior'].update(final_url='https://evil.example/')
+        self.assertIn('no_https',[x['code'] for x in assess_url(local,deep)['reasons']])
     def test_shortener_is_removed_from_behavior_subtotal(self):
         local,deep=reports();local['is_shortened']=True;deep['behavior'].update(is_shortened=True,behavior_risk_score=15)
         self.assertEqual(assess_url(local,deep)['score'],95)
@@ -72,7 +90,7 @@ class AssessmentTests(unittest.TestCase):
         stored={'policy_version':'url-evidence-v4','verdict':'malicious','score':10,'coverage':'completed'}
         r=saved_assessment({'aggregate_assessment':stored},local,deep)
         self.assertEqual((r['verdict'],r['score'],r['policy_version']),('malicious',10,'url-evidence-v4'))
-        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v5')
+        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v6')
         self.assertEqual(r['current_policy']['verdict'],assess_url(local,deep)['verdict'])
         current=saved_assessment({'aggregate_assessment':assess_url(local,deep)},local,deep)
         self.assertNotIn('current_policy',current)
@@ -81,7 +99,7 @@ class AssessmentTests(unittest.TestCase):
     def test_plain_http_is_a_finding_not_a_threat(self):
         local,deep=reports();local.update(verdict='malicious',structure={'is_https':False,'contains_ip':False},ssl={'valid':False,'error':'Not using HTTPS'})
         r=assess_url(local,deep)
-        self.assertEqual(r['policy_version'],'url-evidence-v5');self.assertNotIn(r['verdict'],('malicious','high_risk'))
+        self.assertEqual(r['policy_version'],'url-evidence-v6');self.assertNotIn(r['verdict'],('malicious','high_risk'))
         self.assertIn('no_https',[x['code'] for x in r['reasons']])
     def test_unconfirmed_provider_threat_requests_review(self):
         local,deep=reports();deep['urlvet']['verdict']='malicious'

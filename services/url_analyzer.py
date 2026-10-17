@@ -332,6 +332,10 @@ class URLDeepAnalyzer:
             }
         except UnsafeTargetError:
             raise
+        except ssl.SSLCertVerificationError as e:
+            # A certificate that fails verification is evidence, not a failed check.
+            logger.info('Certificate verification failed for %s', domain)
+            return {"valid": False, "verification_error": (e.verify_message or 'verification failed')[:200]}
         except Exception as e:
             logger.error(f"SSL check error: {str(e)}")
             return {"valid": False, "error": str(e)}
@@ -518,7 +522,7 @@ class URLDeepAnalyzer:
             if w.name and 'Private' in str(w.name):
                 result["red_flags"].append("Private registration - may hide identity")
         except Exception as e:
-            logger.error(f"WHOIS error: {str(e)}")
+            logger.error('WHOIS error: %s', (str(e).strip().splitlines() or [type(e).__name__])[0][:200])
             result["error"] = str(e)
 
         return result

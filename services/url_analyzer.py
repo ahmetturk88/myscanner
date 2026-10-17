@@ -577,7 +577,7 @@ class URLDeepAnalyzer:
                     result["first_seen"] = data.get('firstseen')
                     result["last_seen"] = data.get('lastseen')
                     result["threat"] = data.get('threat')
-                    result["tags"] = data.get('tags', [])
+                    result["tags"] = data.get('tags') if isinstance(data.get('tags'), list) else []  # the API sends null
                     result["reporter"] = data.get('reporter')
                     result["details"] = f"Malicious URL detected - Type: {result['threat']}"
 
@@ -625,7 +625,7 @@ class URLDeepAnalyzer:
             result["urlhaus_details"] = {
                 "id": urlhaus_result.get("urlhaus_id"),
                 "threat": urlhaus_result.get("threat"),
-                "tags": urlhaus_result.get("tags", [])[:3],
+                "tags": (urlhaus_result.get("tags") or [])[:3],
                 "first_seen": urlhaus_result.get("first_seen")
             }
             result["osint_risk_score"] += 60

@@ -126,7 +126,7 @@ def run_case(case):
         result = scan(url)
     except Exception as error:
         name = type(error).__name__
-        reason = 'blocked: the scanner only visits public ports 80/443' if name == 'UnsafeTargetError' else name
+        reason = 'blocked: the scanner only visits public ports 80/443' if name == 'UnsafeTargetError' else f'{name}: {str(error)[:120]}'
         return {'expect': expect, 'url': url, 'note': note, 'verdict': 'error', 'grade': 'FAIL', 'error': reason}
     return {'expect': expect, 'url': url, 'note': note, 'verdict': result['verdict'], 'score': result['score'],
             'grade': grade(expect, result['verdict']), 'seconds': result['seconds'],

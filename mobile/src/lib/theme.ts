@@ -48,8 +48,13 @@ export const space = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 };
 
 export type Tone = 'risk' | 'review' | 'safe' | 'working' | 'unknown';
 
+// Filled from EXACT below; checked before the word matching in tone().
+const EXACT_TONE: Record<string, Tone> = {};
+
 export function tone(verdict?: string | null): Tone {
   const v = (verdict || '').toLowerCase();
+  const exact = EXACT_TONE[v];
+  if (exact) return exact;
   if (['malicious', 'phishing', 'dangerous', 'exposed', 'high', 'weak', 'critical'].some((w) => v.includes(w))) return 'risk';
   if (['suspicious', 'review', 'warning', 'medium', 'caution', 'fair', 'partial'].some((w) => v.includes(w))) return 'review';
   if (['harmless', 'clean', 'safe', 'low', 'not_found', 'strong', 'valid', 'completed', 'ok'].some((w) => v.includes(w))) return 'safe';
@@ -65,8 +70,25 @@ export const toneStyle: Record<Tone, { color: string; label: string }> = {
   unknown: { color: colors.muted, label: 'Unknown' },
 };
 
+/** Tool verdicts whose words the generic matching below would get wrong. */
+const EXACT: Record<string, [Tone, string]> = {
+  no_indicators: ['safe', 'No indicators found'],
+  verified_connection: ['safe', 'Valid certificate'],
+  verification_failed: ['risk', 'Certificate problem'],
+  no_domain: ['risk', 'Domain does not exist'],
+  not_found: ['safe', 'No threat found'],
+  clean: ['safe', 'No threat found'],
+  ip_high: ['risk', 'Reported for abuse'],
+  ip_review: ['review', 'Some abuse reports'],
+  ip_low: ['safe', 'No significant reports'],
+};
+
+for (const [key, [t]] of Object.entries(EXACT)) EXACT_TONE[key] = t;
+
 /** Colour and label for a verdict string from the API. */
 export function verdictStyle(verdict?: string | null) {
+  const exact = verdict ? EXACT[verdict.trim().toLowerCase()] : undefined;
+  if (exact) return { color: toneStyle[exact[0]].color, label: exact[1] };
   const t = tone(verdict);
   // Strength ratings read better as themselves ("Weak", "Strong") than as a risk level.
   if (verdict && /^(very )?(weak|fair|moderate|good|strong)$/i.test(verdict.trim())) {

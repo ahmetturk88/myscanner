@@ -13,6 +13,11 @@ export function headline(result: any): { verdict?: string; score?: number } {
     const exposed = result.verdict === 'exposed';
     return { verdict: exposed ? 'exposed' : result.local_strength.strength, score: result.local_strength.score };
   }
+  if (typeof result?.abuse_score === 'number' && result?.reputation_status) {
+    // IP lookups: AbuseIPDB confidence decides; "reported" alone includes discounted reports on public DNS.
+    const s = result.abuse_score;
+    return { verdict: s >= 50 ? 'ip_high' : s >= 25 ? 'ip_review' : 'ip_low' };
+  }
   const verdict = result?.verdict ?? result?.risk_level ?? result?.assessment?.verdict
     ?? result?.overall_assessment?.verdict ?? result?.summary?.verdict;
   const score = [result?.score, result?.risk_score, result?.final?.score, result?.assessment?.score, result?.security_score]

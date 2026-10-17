@@ -5,6 +5,7 @@ Run it inside the worker container, which has the scanners' network access:
     dc exec worker python scripts/tools_check.py
     dc exec worker python scripts/tools_check.py --only ssl,email
     dc exec worker python scripts/tools_check.py --live    # also IPs attacking servers right now
+    dc exec web python scripts/tools_check.py --only ip --live   # IP checks: the AbuseIPDB key lives in web
 """
 import argparse
 import concurrent.futures
@@ -96,17 +97,20 @@ def password_strong(result):
         f"verdict={result.get('verdict')} strength={local.get('strength')} breach={breach}"
 
 
+KEY_HINT = ' (the AbuseIPDB key is only in the web container: dc exec web python scripts/tools_check.py --only ip --live)'
+
+
 def ip_clean(result):
     score, status = result.get('abuse_score'), result.get('reputation_status')
     if status in ('not_configured', 'unavailable'):
-        return 'WARN', f'reputation={status}'
+        return 'WARN', f'reputation={status}' + (KEY_HINT if status == 'not_configured' else '')
     return ('PASS' if isinstance(score, (int, float)) and score < 25 else 'FAIL'), f'abuse_score={score} verdict={result.get("verdict")}'
 
 
 def ip_attacker(result):
     score, status = result.get('abuse_score'), result.get('reputation_status')
     if status in ('not_configured', 'unavailable'):
-        return 'WARN', f'reputation={status}'
+        return 'WARN', f'reputation={status}' + (KEY_HINT if status == 'not_configured' else '')
     return ('PASS' if result.get('verdict') == 'reported' and (score or 0) >= 25 else 'WARN' if result.get('verdict') == 'reported'
             else 'FAIL'), f'abuse_score={score} verdict={result.get("verdict")}'
 

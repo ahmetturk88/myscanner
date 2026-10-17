@@ -32,9 +32,13 @@ class GradeTests(unittest.TestCase):
     def test_script_is_shipped_in_the_worker_image(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with open(os.path.join(root, '.dockerignore'), encoding='utf-8') as ignore:
-            self.assertIn('!scripts/accuracy_check.py', ignore.read().splitlines())
+            lines = ignore.read().splitlines()
+        self.assertIn('!scripts/accuracy_check.py', lines)
+        self.assertIn('!scripts/tools_check.py', lines)
         with open(os.path.join(root, 'Dockerfile.vps'), encoding='utf-8') as dockerfile:
-            self.assertIn('scripts/accuracy_check.py', dockerfile.read())
+            source = dockerfile.read()
+        for script in ('accuracy_check.py', 'tools_check.py'):
+            self.assertIn('scripts/' + script, source)
 
     def test_standard_port_detection(self):
         self.assertTrue(accuracy_check.standard_port('http://a.example/x'))

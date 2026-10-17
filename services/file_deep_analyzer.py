@@ -57,6 +57,27 @@ except ImportError:
     RARFILE_AVAILABLE = False
 
 
+# The EICAR antivirus test string, assembled so this file is not itself flagged.
+EICAR_SIGNATURE = b''.join([b'X5O!P%@AP[4\\PZX54(P^)7CC)7}$', b'EICAR-STANDARD-ANTIVIRUS', b'-TEST-FILE!$H+H*'])
+EXECUTABLE_EXTENSIONS = {'exe', 'scr', 'com', 'pif', 'bat', 'cmd', 'js', 'jse', 'vbs', 'vbe', 'wsf', 'ps1', 'msi', 'jar', 'lnk', 'hta', 'cpl'}
+DOCUMENT_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'jpg', 'jpeg', 'png', 'gif', 'mp3', 'mp4', 'zip', 'rar', 'csv'}
+
+
+def is_eicar(content):
+    """The industry test file: the signature, optionally followed by whitespace, within 128 bytes."""
+    return len(content) <= 128 and content.rstrip(b' \t\r\n\x1a') == EICAR_SIGNATURE
+
+
+def disguised_filename(filename):
+    """A program dressed up as a document (invoice.pdf.exe) or a right-to-left override in the name."""
+    if '\u202e' in filename:
+        return 'The filename contains a hidden right-to-left character that reverses how its extension is displayed.'
+    parts = filename.lower().rsplit('.', 2)
+    if len(parts) == 3 and parts[2] in EXECUTABLE_EXTENSIONS and parts[1] in DOCUMENT_EXTENSIONS:
+        return f'The filename ends in .{parts[2]} but is dressed up as a .{parts[1]} file, a common trick in malicious attachments.'
+    return None
+
+
 class FileDeepAnalyzer:
     """التحليل العميق الشامل للملفات - نسخة كاملة بجميع الميزات"""
     
@@ -1026,9 +1047,11 @@ class FileDeepAnalyzer:
         if metadata.get("has_macros") and not is_benign:
             security_score -= 35
         
-        # تأثير JavaScript (فقط إذا كان تنفيذياً)
-        if metadata.get("has_javascript") and b'app.launchURL' in file_content:
+        # Script inside a document is a review indicator on its own (file-evidence-v4).
+        if metadata.get("has_javascript"):
             security_score -= 25
+            if b'app.launchURL' in file_content:
+                security_score -= 10
         
         # تأثير المرفقات
         if metadata.get("has_attachments") and not is_benign:
@@ -1055,6 +1078,11 @@ class FileDeepAnalyzer:
             security_score = min(85, security_score + 25)
         
         security_score = max(0, min(100, security_score))
+        disguise = disguised_filename(original_filename)
+        if disguise:
+            warnings.append(disguise)
+            security_score = min(security_score, 55)  # never reported as clean (file-evidence-v4)
+        eicar = is_eicar(file_content)
         
         # 9. الحكم النهائي
         if security_score >= 80:
@@ -1099,8 +1127,10 @@ class FileDeepAnalyzer:
         if metadata.get("has_macros") and not is_benign:
             recommendations.append("📌 File contains macros - DISABLE macros before opening")
         
-        if metadata.get("has_javascript") and b'app.launchURL' in file_content:
-            recommendations.append("📌 PDF contains JavaScript that can launch external URLs")
+        if metadata.get("has_javascript"):
+            recommendations.append("📌 This PDF contains JavaScript. Some forms use it legitimately, but malicious PDFs use it to run code; open it only if you trust the sender.")
+            if b'app.launchURL' in file_content:
+                recommendations.append("📌 The PDF JavaScript can launch external URLs")
         
         if yara_result.get("matched_rules") and not is_benign:
             recommendations.append(f"📋 Local byte patterns reported ({len(yara_result['matched_rules'])}): {', '.join(yara_result['matched_rules'][:4])}")
@@ -1110,6 +1140,8 @@ class FileDeepAnalyzer:
         
         if file_type.get("is_spoofed"):
             recommendations.append(f"🎭 Extension spoofing detected! Real type: {file_type.get('actual_type')}")
+        if disguise:
+            recommendations.append('🎭 ' + disguise + ' Do not open it.')
         
         if not recommendations:
             recommendations.append("No indicators detected by the available local checks; this does not establish safety.")
@@ -1122,6 +1154,10 @@ class FileDeepAnalyzer:
         # Byte-pattern heuristics are not a signature engine or a sandbox.
         if hash_reputation.get('is_malicious') is True:
             verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
+        if eicar:
+            # Harmless by design; every security tool reports it as malware so people can test them.
+            verdict='malicious';verdict_icon='💀';severity='critical';security_score=0
+            recommendations.insert(0,'This is the EICAR antivirus test file. It is harmless by design and is reported as malware on purpose, so you can confirm that security tools work.')
         if verdict=='safe':
             verdict='unknown' if missing_checks else 'not_found'
             verdict_icon='⚠️' if missing_checks else 'ℹ️'

@@ -28,6 +28,7 @@
 !scripts/
 !scripts/local_runtime.py
 !scripts/accuracy_check.py
+!scripts/tools_check.py
 # Override directory allowances for generated or sensitive files.
 **/__pycache__/**
 **/*.pyc

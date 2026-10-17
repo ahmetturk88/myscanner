@@ -1,4 +1,7 @@
 import { Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+
+import { enter } from '@/components/motion';
 
 import { colors, fonts } from '@/lib/theme';
 
@@ -36,11 +39,11 @@ export function Details({ data, limit = 12 }: { data: Record<string, unknown>; l
   visit(data);
   return (
     <View style={{ gap: 10 }}>
-      {rows.map(([k, v]) => (
-        <View key={k} style={{ flexDirection: 'row', gap: 12 }}>
+      {rows.map(([k, v], i) => (
+        <Animated.View key={k} entering={enter(i + 2)} style={{ flexDirection: 'row', gap: 12 }}>
           <Text style={{ width: '42%', color: colors.faint, fontSize: 13, textTransform: 'capitalize', fontFamily: fonts.regular }}>{k}</Text>
           <Text selectable style={{ flex: 1, color: colors.text, fontSize: 14.5, fontFamily: fonts.medium }}>{v}</Text>
-        </View>
+        </Animated.View>
       ))}
       {advice.length ? (
         <View style={{ gap: 6, marginTop: 4 }}>

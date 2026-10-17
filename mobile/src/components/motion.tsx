@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient as ExpoGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
-  Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
+  Easing, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, RadialGradient, Stop } from 'react-native-svg';
 
 import { BrandMark } from '@/components/brand';
 import { colors } from '@/lib/theme';
@@ -99,15 +101,126 @@ export function Beam({ height }: { height: number }) {
   );
 }
 
-/** Fades and lifts its children in once, optionally after a delay. */
-export function Appear({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const v = useSharedValue(0);
-  useEffect(() => { v.value = withDelay(delay, withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) })); }, [v, delay]);
-  const style = useAnimatedStyle(() => ({ opacity: v.value, transform: [{ translateY: (1 - v.value) * 14 }] }));
-  return <Animated.View style={style}>{children}</Animated.View>;
-}
-
 const styles = StyleSheet.create({
   ring: { position: 'absolute', borderWidth: 1, borderColor: 'rgba(34,211,238,.45)' },
   orb: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#0b2238', borderWidth: 1, borderColor: 'rgba(34,211,238,.4)' },
 });
+
+/** Scales down slightly while pressed, with a light haptic tick. */
+export function PressableScale({ children, onPress, style, disabled, scale = 0.97, haptic = true, accessibilityLabel, accessibilityRole = 'button' }: {
+  children: React.ReactNode; onPress?: () => void; style?: any; disabled?: boolean; scale?: number; haptic?: boolean;
+  accessibilityLabel?: string; accessibilityRole?: 'button' | 'link' | 'tab';
+}) {
+  const pressed = useSharedValue(0);
+  const animated = useAnimatedStyle(() => ({ transform: [{ scale: 1 - (1 - scale) * pressed.value }] }));
+  return (
+    <AnimatedPressable accessibilityRole={accessibilityRole} accessibilityLabel={accessibilityLabel} disabled={disabled}
+      onPressIn={() => { pressed.value = withSpring(1, SPRING); }} onPressOut={() => { pressed.value = withSpring(0, SPRING); }}
+      onPress={onPress ? () => { if (haptic) Haptics.selectionAsync().catch(() => {}); onPress(); } : undefined}
+      style={[style, animated]}>
+      {children}
+    </AnimatedPressable>
+  );
+}
+
+const SPRING = { damping: 18, stiffness: 320, mass: 0.6 };
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Two soft colour glows that drift slowly behind a screen. */
+export function Ambient() {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [t]);
+  const a = useAnimatedStyle(() => ({ transform: [{ translateX: -40 + 80 * t.value }, { translateY: 30 * t.value }, { scale: 1 + 0.15 * t.value }] }));
+  const b = useAnimatedStyle(() => ({ transform: [{ translateX: 50 - 90 * t.value }, { translateY: -40 * t.value }] }));
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Animated.View style={[{ position: 'absolute', top: -140, left: -60 }, a]}><Glow size={420} color="#1f7fb3" opacity={0.32} /></Animated.View>
+      <Animated.View style={[{ position: 'absolute', top: 260, right: -180 }, b]}><Glow size={420} color="#5b3fb0" opacity={0.22} /></Animated.View>
+    </View>
+  );
+}
+
+/** A round radial glow. */
+export function Glow({ size, color, opacity = 0.4 }: { size: number; color: string; opacity?: number }) {
+  const id = `glow${color.replace(/[^a-z0-9]/gi, '')}`;
+  return (
+    <Svg width={size} height={size}>
+      <Defs>
+        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
+          <Stop offset="0" stopColor={color} stopOpacity={opacity} />
+          <Stop offset="1" stopColor={color} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${id})`} />
+    </Svg>
+  );
+}
+
+/** Rings that ripple out from behind their children, for live or featured icons. */
+export function Pulse({ children, size, color = colors.cyan, active = true }: { children: React.ReactNode; size: number; color?: string; active?: boolean }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    if (active) p.value = withRepeat(withTiming(1, { duration: 2000, easing: Easing.out(Easing.quad) }), -1);
+    else p.value = 0;
+  }, [active, p]);
+  const ring = (offset: number) => {
+    'worklet';
+    const v = (p.value + offset) % 1;
+    return { opacity: active ? 0.6 * (1 - v) : 0, transform: [{ scale: 1 + 0.7 * v }] };
+  };
+  const a = useAnimatedStyle(() => ring(0));
+  const b = useAnimatedStyle(() => ring(0.5));
+  const base = { position: 'absolute' as const, width: size, height: size, borderRadius: size / 2.6, borderWidth: 1.5, borderColor: color };
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[base, a]} />
+      <Animated.View style={[base, b]} />
+      {children}
+    </View>
+  );
+}
+
+/** Slowly turns its children, e.g. a gradient ring. */
+export function Spin({ children, duration = 6000 }: { children: React.ReactNode; duration?: number }) {
+  const r = useSharedValue(0);
+  useEffect(() => { r.value = withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1); }, [r, duration]);
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${r.value * 360}deg` }] }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
+/** Counts up to a number when it first appears or changes. */
+export function useCountUp(target: number | null | undefined, duration = 900) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (typeof target !== 'number') return;
+    let frame = 0;
+    const start = Date.now();
+    const tick = () => {
+      const k = Math.min(1, (Date.now() - start) / duration);
+      setValue(Math.round(target * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+  return typeof target === 'number' ? value : null;
+}
+
+/** A bar that grows to its value. */
+export function Bar({ percent, colors: tint, delay = 0 }: { percent: number; colors: readonly [string, string, ...string[]]; delay?: number }) {
+  const w = useSharedValue(0);
+  useEffect(() => { w.value = withDelay(delay, withTiming(Math.max(3, Math.min(100, percent)), { duration: 900, easing: Easing.out(Easing.cubic) })); }, [percent, delay, w]);
+  const style = useAnimatedStyle(() => ({ width: `${w.value}%` }));
+  return (
+    <View style={{ height: 6, borderRadius: 6, backgroundColor: '#152338', overflow: 'hidden' }}>
+      <Animated.View style={[{ height: '100%', borderRadius: 6, overflow: 'hidden' }, style]}>
+        <ExpoGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+    </View>
+  );
+}
+
+/** Entrance used for lists and sections: fade and rise, staggered by index. */
+export const enter = (i = 0) => FadeInDown.delay(Math.min(i, 8) * 70).duration(480).easing(Easing.out(Easing.cubic));

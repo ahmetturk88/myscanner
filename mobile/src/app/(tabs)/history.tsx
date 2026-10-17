@@ -1,67 +1,74 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
-import { Page } from '@/components/site';
-import { Button, ErrorText, Eyebrow, Hero, Lead, Skeleton, styles as ui, VerdictBadge } from '@/components/ui';
+import { Empty, ReportRow, type Report } from '@/components/blocks';
+import { Icon } from '@/components/icon';
+import { Screen } from '@/components/screen';
+import { ErrorText, Skeleton, styles as ui } from '@/components/ui';
 import { api } from '@/lib/api';
-import { ago, colors, fonts, tone, type Tone } from '@/lib/theme';
+import { colors, fonts, tone, type Tone } from '@/lib/theme';
 
-type Row = { id: number; url: string; verdict: string; date: string };
 const FILTERS: { key: 'all' | Tone; label: string }[] = [
-  { key: 'all', label: 'All' }, { key: 'risk', label: 'Threats' }, { key: 'review', label: 'Needs review' }, { key: 'safe', label: 'No indicators' },
+  { key: 'all', label: 'All' }, { key: 'risk', label: 'Threats' }, { key: 'review', label: 'Review' }, { key: 'safe', label: 'Clean' },
 ];
 
+/** Segmented control whose highlight slides to the chosen option. */
+function Segments({ value, onChange }: { value: string; onChange: (key: 'all' | Tone) => void }) {
+  const [width, setWidth] = useState(0);
+  const x = useSharedValue(0);
+  const index = FILTERS.findIndex((f) => f.key === value);
+  useEffect(() => { x.value = withSpring(index * (width / FILTERS.length), { damping: 18, stiffness: 220 }); }, [index, width, x]);
+  const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  return (
+    <View style={s.segments} onLayout={(e) => setWidth(e.nativeEvent.layout.width - 8)}>
+      {width ? <Animated.View style={[s.segPill, { width: width / FILTERS.length }, pill]} /> : null}
+      {FILTERS.map((f) => (
+        <Pressable key={f.key} accessibilityRole="tab" accessibilityState={{ selected: f.key === value }} onPress={() => onChange(f.key)} style={s.seg}>
+          <Text style={{ color: f.key === value ? colors.text : colors.muted, fontSize: 13.5, fontFamily: fonts.semibold }}>{f.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 export default function History() {
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [rows, setRows] = useState<Report[] | null>(null);
   const [filter, setFilter] = useState<'all' | Tone>('all');
+  const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
-      const data = await api.recent();
-      setRows(data.scans); setError(null);
-    } catch (e: any) { setError(e.message); }
+    try { const data = await api.recent(); setRows(data.scans); setError(null); } catch (e: any) { setError(e.message); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  const shown = (rows ?? []).filter((r) => filter === 'all' || tone(r.verdict) === filter);
+  const q = query.trim().toLowerCase();
+  const shown = (rows ?? []).filter((r) => (filter === 'all' || tone(r.verdict) === filter) && (!q || r.url.toLowerCase().includes(q)));
 
   return (
-    <Page>
-      <View style={{ gap: 14 }}>
-        <Eyebrow>Return to the evidence</Eyebrow>
-        <Hero title="Recent reports." size={34} />
-        <Lead>Your latest saved URL scans. Open a report for its findings and coverage.</Lead>
-        <Button kind="secondary" label="Refresh ↻" onPress={load} />
+    <Screen tabs eyebrow="Your evidence" title="History" subtitle="Every link you scanned, newest first." onRefresh={load} gap={14}>
+      <View style={ui.inputWrap}>
+        <Icon name="search" size={17} color={colors.faint} />
+        <TextInput value={query} onChangeText={setQuery} placeholder="Search your reports" placeholderTextColor="#5f7590" style={ui.input}
+          autoCapitalize="none" autoCorrect={false} />
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {FILTERS.map((f) => {
-          const on = filter === f.key;
-          return (
-            <Pressable key={f.key} onPress={() => setFilter(f.key)} accessibilityState={{ selected: on }}
-              style={{ paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1,
-                borderColor: on ? '#2b7289' : colors.line, backgroundColor: on ? '#123a52' : 'rgba(13,24,40,.7)' }}>
-              <Text style={{ color: on ? '#e6f7ff' : '#a9bbd2', fontSize: 13, fontFamily: fonts.medium }}>{f.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Segments value={filter} onChange={setFilter} />
       <ErrorText>{error}</ErrorText>
-      {!rows && !error ? <View style={{ gap: 10 }}><Skeleton /><Skeleton /><Skeleton /></View> : null}
+      {!rows && !error ? <View style={{ gap: 10 }}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} height={70} />)}</View> : null}
       <View style={{ gap: 10 }}>
-        {shown.map((r) => (
-          <Pressable key={r.id} onPress={() => router.push({ pathname: '/scan/[id]', params: { id: String(r.id) } })}
-            style={({ pressed }) => ({ gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.line,
-              backgroundColor: pressed ? '#142b40' : '#0f1a29' })}>
-            <Text numberOfLines={2} style={{ color: colors.text, fontSize: 14.5, fontFamily: fonts.medium }}>{r.url}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <VerdictBadge verdict={r.verdict} />
-              <Text style={{ marginLeft: 'auto', color: colors.faint, fontSize: 12, fontFamily: fonts.mono }}>{ago(r.date)}</Text>
-            </View>
-          </Pressable>
-        ))}
-        {rows && !shown.length ? <Text style={ui.muted}>{filter === 'all' ? 'No saved reports yet.' : 'Nothing here.'}</Text> : null}
+        {shown.map((r, i) => <ReportRow key={`${filter}-${r.id}`} report={r} index={i} />)}
       </View>
-    </Page>
+      {rows && !shown.length ? (
+        <Empty icon={q ? 'search' : 'clock'} title={rows.length ? 'Nothing matches' : 'No reports yet'}
+          text={rows.length ? 'Try another filter or search.' : 'Scan a link from Home and its report will appear here.'} />
+      ) : null}
+    </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  segments: { flexDirection: 'row', padding: 4, borderRadius: 14, backgroundColor: '#0c1522', borderWidth: 1, borderColor: colors.line },
+  segPill: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: 10, backgroundColor: '#17324a', borderWidth: 1, borderColor: 'rgba(119,220,255,.3)' },
+  seg: { flex: 1, alignItems: 'center', paddingVertical: 9 },
+});

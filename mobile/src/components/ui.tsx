@@ -1,76 +1,11 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { Icon, type IconName } from '@/components/icon';
 import { colors, fonts, gradients, radius, verdictStyle } from '@/lib/theme';
-
-/** Dark page background with the website's soft top glow. */
-export function Backdrop({ children }: { children: ReactNode }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <LinearGradient colors={gradients.screen} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
-      {children}
-    </View>
-  );
-}
-
-/** Small back link used on screens opened from another screen. */
-export function Header({ title, right }: { title: string; back?: boolean; right?: ReactNode }) {
-  return (
-    <View style={styles.header}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Back" hitSlop={12} onPress={() => router.back()} style={styles.iconButton}>
-        <Icon name="back" size={20} color={colors.text} />
-      </Pressable>
-      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-      <View style={{ marginLeft: 'auto' }}>{right}</View>
-    </View>
-  );
-}
-
-/** Uppercase monospace label, the website's "eyebrow". */
-export function Eyebrow({ children, color = colors.cyan, center }: { children: string; color?: string; center?: boolean }) {
-  return <Text style={[styles.eyebrow, { color }, center && { textAlign: 'center' }]}>{children.toUpperCase()}</Text>;
-}
-
-/** Page heading; the accent part is drawn in the brand cyan, as on the website. */
-export function Hero({ title, accent, size = 34 }: { title: string; accent?: string; size?: number }) {
-  const cut = accent ? title.lastIndexOf(accent) : -1;
-  return (
-    <Text style={[styles.hero, { fontSize: size, lineHeight: size * 1.08 }]}>
-      {cut >= 0 ? <>{title.slice(0, cut)}<Text style={{ color: colors.cyan }}>{accent}</Text>{title.slice(cut + accent!.length)}</> : title}
-    </Text>
-  );
-}
-
-export function Title({ kicker, children, sub }: { kicker?: string; children: string; sub?: string }) {
-  return (
-    <View style={{ gap: 10 }}>
-      {kicker ? <Eyebrow>{kicker}</Eyebrow> : null}
-      <Hero title={children} size={30} />
-      {sub ? <Text style={styles.lead}>{sub}</Text> : null}
-    </View>
-  );
-}
-
-export function Lead({ children }: { children: ReactNode }) {
-  return <Text style={styles.lead}>{children}</Text>;
-}
-
-export function Section({ children, right, kicker }: { children: string; right?: ReactNode; kicker?: string }) {
-  return (
-    <View style={{ gap: 8, marginTop: 8 }}>
-      {kicker ? <Eyebrow>{kicker}</Eyebrow> : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={styles.section}>{children}</Text>
-        <View style={{ marginLeft: 'auto' }}>{right}</View>
-      </View>
-    </View>
-  );
-}
 
 export function Chips({ items }: { items: string[] }) {
   return (
@@ -179,15 +114,7 @@ export function Skeleton({ height = 64, style }: { height?: number; style?: View
 }
 
 export const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40 },
-  headerTitle: { color: colors.text, fontSize: 18, fontFamily: fonts.bold, flexShrink: 1 },
-  iconButton: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#112338', borderWidth: 1, borderColor: '#324d69' },
-  eyebrow: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 2, lineHeight: 20 },
   kicker: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 2, color: colors.cyan },
-  hero: { color: colors.text, fontFamily: fonts.bold, letterSpacing: -1.2 },
-  title: { color: colors.text, fontSize: 30, fontFamily: fonts.bold, letterSpacing: -1 },
-  lead: { color: colors.soft, fontSize: 15.5, lineHeight: 26, fontFamily: fonts.regular },
-  section: { color: colors.text, fontSize: 24, fontFamily: fonts.bold, letterSpacing: -0.8 },
   muted: { color: colors.muted, fontSize: 14, lineHeight: 22, fontFamily: fonts.regular },
   body: { color: colors.text, fontSize: 15, lineHeight: 24, fontFamily: fonts.regular },
   label: { color: colors.text, fontSize: 14.5, fontFamily: fonts.semibold },

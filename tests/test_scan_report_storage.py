@@ -59,6 +59,12 @@ class SiteStorageTests(unittest.TestCase):
         for state in ['partial','unavailable']:
             row=self.row();row.status='running';db.session.commit();saved=save_site_scan(self.sid,self.uid,'example.invalid',dict(REPORT,status=state))
             self.assertEqual(saved['status'],state);self.assertEqual(saved['verdict'],'unknown');self.assertEqual(self.row().status,state)
+    def test_clean_verdict_is_kept_with_full_coverage_only(self):
+        self.claim();saved=save_site_scan(self.sid,self.uid,'example.invalid',dict(REPORT,status='completed',verdict='clean'))
+        self.assertEqual(saved['verdict'],'clean')
+        row=self.row();row.status='running';db.session.commit()
+        saved=save_site_scan(self.sid,self.uid,'example.invalid',dict(REPORT,status='partial',verdict='clean'))
+        self.assertEqual(saved['verdict'],'unknown')
     def test_partial_retains_detected_threat(self):
         self.claim();saved=save_site_scan(self.sid,self.uid,'example.invalid',dict(REPORT,status='partial',verdict='malicious'));self.assertEqual(saved['verdict'],'malicious')
     def test_invalid_report_never_completes(self):

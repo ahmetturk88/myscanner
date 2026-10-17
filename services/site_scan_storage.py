@@ -7,7 +7,7 @@ from extensions import db
 from models import Scan
 
 ACTIVE_STATES = ('pending', 'queued', 'running')
-VERDICTS = {'safe', 'suspicious', 'malicious', 'dangerous', 'unknown'}
+VERDICTS = {'safe', 'clean', 'suspicious', 'malicious', 'dangerous', 'unknown'}  # 'clean' is WebAssessment's no-threat verdict
 
 
 def claim_site_scan(scan_id, user_id, domain):
@@ -29,7 +29,7 @@ def save_site_scan(scan_id, user_id, domain, result):
     status = status if status in {'partial', 'unavailable'} else 'completed'
     verdict = result.get('verdict')
     verdict = verdict if isinstance(verdict, str) and verdict in VERDICTS else 'unknown'
-    if status in {'partial', 'unavailable'} and verdict == 'safe':
+    if status in {'partial', 'unavailable'} and verdict in ('safe', 'clean'):
         verdict = 'unknown'
     score = result.get('security_score')
     score = score if isinstance(score, (int, float)) and not isinstance(score, bool) and math.isfinite(score) and 0 <= score <= 100 else None

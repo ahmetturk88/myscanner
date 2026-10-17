@@ -1554,7 +1554,7 @@ def search():
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_file(os.path.join(app.static_folder, 'brand', 'myscanner-favicon.png'), mimetype='image/png', max_age=86400)
+    return send_file(os.path.join(app.static_folder, 'brand', 'myscanner-favicon.ico'), mimetype='image/x-icon', max_age=86400)
 
 @app.route('/products')
 def products():

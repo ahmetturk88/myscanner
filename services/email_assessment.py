@@ -11,7 +11,7 @@ def assess_email(report):
     if dns.get('domain_status')=='not_found':
         # A domain absent from DNS cannot receive mail; partial-coverage scoring would understate that.
         weights=(('routing','Mail routing',20),('authentication','Sender authentication',25),('reputation','Domain reputation',25),('mailbox','Mailbox acceptance',15),('identity','Domain history',15))
-        return {'policy_version':'email-evidence-v2','score':0,'evidence_score':0,'risk_deduction':100,'coverage_penalty':0,'verdict':'no_domain','coverage':'completed',
+        return {'policy_version':'email-evidence-v3','score':0,'evidence_score':0,'risk_deduction':100,'coverage_penalty':0,'verdict':'no_domain','coverage':'completed',
                 'categories':[{'key':k,'label':l,'weight':w,'risk_deduction':w,'coverage_deduction':0,'status':'assessed'} for k,l,w in weights],
                 'findings':[{'category':'routing','deduction':100,'message':'The domain does not exist in DNS (NXDOMAIN), so this address cannot receive email.'}],
                 'missing_checks':[],'not_checked':['Blocklist, registration and mailbox checks were skipped because there is no domain to check.'],
@@ -45,9 +45,11 @@ def assess_email(report):
         if isinstance(audit,dict) and audit.get('status')=='partial':
             gaps.append(name.upper()+' dependency audit limited')
     dmarc=dns.get('dmarc',{})
-    if isinstance(dmarc,dict) and dmarc.get('status')=='found' and dmarc.get('policy')=='none' and dmarc.get('audit',{}).get('configuration_valid') is not False:auth.append((5,'DMARC uses a monitoring policy (p=none), not enforcement.'))
+    # A monitoring or test-mode DMARC policy describes the domain owner's anti-spoofing
+    # setup, not a risk of this address; gmail.com itself uses p=none (email-evidence-v3).
+    if isinstance(dmarc,dict) and dmarc.get('status')=='found' and dmarc.get('policy')=='none' and dmarc.get('audit',{}).get('configuration_valid') is not False:auth.append((0,'DMARC uses a monitoring policy (p=none), not enforcement.'))
     if isinstance(dmarc,dict) and dmarc.get('audit',{}).get('test_mode') is True and dmarc.get('policy') != 'none':
-        auth.append((5,'DMARC test mode requests a less strict effective policy.'))
+        auth.append((0,'DMARC test mode requests a less strict effective policy.'))
     category('authentication','Sender authentication',25,gaps,auth)
     rep=[]
     if reputation.get('is_blacklisted') is True:rep.append((20,'A DNS blocklist reports a sampled mail-infrastructure IP; this does not prove that the mailbox is malicious.'))
@@ -61,4 +63,4 @@ def assess_email(report):
     risk=sum(c['risk_deduction'] for c in categories);coverage=sum(c['coverage_deduction'] for c in categories)
     score=max(0,100-risk-coverage)
     verdict='review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':'email-evidence-v2','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.'],'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}
+    return {'policy_version':'email-evidence-v3','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.'],'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

@@ -25,7 +25,10 @@ def pdf_with_javascript():
     from pypdf import PdfWriter
     writer = PdfWriter()
     writer.add_blank_page(200, 200)
-    writer.add_js("app.alert('MyScanner test');")
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        writer.add_js("app.alert('MyScanner test');")
     out = io.BytesIO()
     writer.write(out)
     return out.getvalue()
@@ -179,13 +182,25 @@ def live_cases(count=3):
     return [('ip', 'Reported SSH attacker (blocklist.de)', ip, ip_attacker) for ip in lines[:count]]
 
 
+def explain(result):
+    """Findings and missing checks, so every WARN or FAIL says why."""
+    assessment = result.get('assessment') if isinstance(result.get('assessment'), dict) else {}
+    findings = [f.get('message') for f in assessment.get('findings') or [] if isinstance(f, dict) and f.get('message')]
+    missing = result.get('missing_checks') or assessment.get('missing_checks') or []
+    lines = [f'\n       finding: {f}' for f in findings[:4]] + [f'\n       missing: {m}' for m in missing[:4] if isinstance(m, str)]
+    return ''.join(lines)
+
+
 def run_case(case):
     tool, label, value, check = case
     shown = value[0] if isinstance(value, tuple) else ('(random)' if label.startswith('Fresh') else value)
     started = time.monotonic()
     try:
         result = run(tool, value)
-        grade, detail = check(result if isinstance(result, dict) else {})
+        result = result if isinstance(result, dict) else {}
+        grade, detail = check(result)
+        if grade != 'PASS':
+            detail += explain(result)
     except Exception as error:
         grade, detail = 'FAIL', f'{type(error).__name__}: {str(error)[:120]}'
     return {'tool': tool, 'label': label, 'input': shown, 'grade': grade, 'detail': detail,

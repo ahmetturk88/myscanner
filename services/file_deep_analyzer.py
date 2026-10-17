@@ -991,6 +991,9 @@ class FileDeepAnalyzer:
             metadata.update(self.extract_metadata_script(file_content, filename))
         elif file_type.get("is_image"):
             metadata.update(self.extract_metadata_image(file_content))
+        elif file_type.get('actual_type') == 'txt':
+            # Plain text has no internal structure to parse; its bytes are covered by the pattern and IoC checks.
+            metadata['parser'] = 'plain text (no structure to parse)'
         else:
             metadata['error'] = 'No structural parser selected for the observed format'
 

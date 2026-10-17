@@ -42,7 +42,9 @@ class SignalTests(unittest.TestCase):
         self.assertTrue(any('JavaScript' in r for r in result['recommendations']))
 
     def test_plain_text_stays_clean(self):
-        self.assertIn(analyze(b'Meeting notes.\n', 'notes.txt')['verdict'], ('unknown', 'not_found'))
+        result = analyze(b'Meeting notes.\n', 'notes.txt')
+        self.assertIn(result['verdict'], ('unknown', 'not_found'))
+        self.assertNotIn('File metadata parser unavailable or failed', result['missing_checks'])
 
 
 if __name__ == '__main__':

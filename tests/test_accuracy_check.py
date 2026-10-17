@@ -33,6 +33,8 @@ class GradeTests(unittest.TestCase):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with open(os.path.join(root, '.dockerignore'), encoding='utf-8') as ignore:
             self.assertIn('!scripts/accuracy_check.py', ignore.read().splitlines())
+        with open(os.path.join(root, 'Dockerfile.vps'), encoding='utf-8') as dockerfile:
+            self.assertIn('scripts/accuracy_check.py', dockerfile.read())
 
     def test_every_case_has_a_known_group_and_a_web_url(self):
         for expect, url, note in accuracy_check.CASES:

@@ -54,13 +54,20 @@ def assess_email(report):
     rep=[]
     if reputation.get('is_blacklisted') is True:rep.append((20,'A DNS blocklist reports a sampled mail-infrastructure IP; this does not prove that the mailbox is malicious.'))
     if report.get('is_disposable') is True:rep.append((10,'The domain appears in the local disposable-domain dataset.'))
-    category('reputation','Domain reputation',25,[None if reputation.get('coverage_status')=='completed' else 'DNS blocklist coverage incomplete'],rep)
+    # One blocklist that answered covers reputation; ones that refused are listed, not counted as a gap (v3).
+    answered=reputation.get('coverage_status')=='completed' or bool(reputation.get('clean_on')) or reputation.get('is_blacklisted') is True
+    category('reputation','Domain reputation',25,[None if answered else 'DNS blocklist coverage incomplete'],rep)
+    unanswered=[s for s in reputation.get('unavailable_on') or [] if isinstance(s,str)] if answered else []
     mailbox=[]
     if smtp.get('coverage_status')=='checked' and smtp.get('valid') is False:mailbox.append((15,'The SMTP server rejected this recipient probe.'))
-    category('mailbox','Mailbox acceptance',15,[None if smtp.get('coverage_status')=='checked' else 'SMTP acceptance not verified'],mailbox)
+    # A probe that was not requested (or is disabled) is out of scope, not a coverage gap (v3).
+    probed=smtp.get('coverage_status') in ('checked','skipped','not_applicable')
+    category('mailbox','Mailbox acceptance',15,[None if probed else 'SMTP acceptance not verified'],mailbox)
     age=domain.get('age_days');known=isinstance(age,(int,float)) and not isinstance(age,bool) and math.isfinite(age) and age>=0 and not domain.get('error')
     category('identity','Domain history',15,[None if known else 'Registration age unavailable'],[(5,'The domain was registered less than 30 days ago.')] if known and age<30 else [])
     risk=sum(c['risk_deduction'] for c in categories);coverage=sum(c['coverage_deduction'] for c in categories)
     score=max(0,100-risk-coverage)
     verdict='review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':'email-evidence-v3','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.'],'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}
+    return {'policy_version':'email-evidence-v3','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
+                   +(['Mailbox acceptance (SMTP) was not probed.'] if smtp.get('coverage_status')=='skipped' else [])
+                   +(['Blocklists that did not answer: '+', '.join(unanswered)+'.'] if unanswered else []),'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

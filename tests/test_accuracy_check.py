@@ -36,6 +36,11 @@ class GradeTests(unittest.TestCase):
         with open(os.path.join(root, 'Dockerfile.vps'), encoding='utf-8') as dockerfile:
             self.assertIn('scripts/accuracy_check.py', dockerfile.read())
 
+    def test_standard_port_detection(self):
+        self.assertTrue(accuracy_check.standard_port('http://a.example/x'))
+        self.assertTrue(accuracy_check.standard_port('https://a.example:443/'))
+        self.assertFalse(accuracy_check.standard_port('http://1.2.3.4:38141/bin.sh'))
+
     def test_every_case_has_a_known_group_and_a_web_url(self):
         for expect, url, note in accuracy_check.CASES:
             self.assertIn(expect, ('clean', 'flag', 'threat'))

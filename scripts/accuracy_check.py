@@ -16,6 +16,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -77,6 +78,13 @@ def scan(url):
             pass
 
 
+def standard_port(url):
+    try:
+        return urlsplit(url).port in (None, 80, 443)
+    except ValueError:
+        return False
+
+
 def live_cases(count):
     """Current entries from URLhaus (malware) and OpenPhish (phishing)."""
     from services.url_analyzer import URLDeepAnalyzer
@@ -93,7 +101,13 @@ def live_cases(count):
         response = session.get(f'https://urlhaus-api.abuse.ch/v1/urls/recent/limit/{count * 4}/',
                                headers={'Auth-Key': key}, timeout=20)
         online = [u['url'] for u in response.json().get('urls', []) if u.get('url_status') == 'online']
-        cases += [('threat', url, 'URLhaus: listed now') for url in online[:count]]
+        # The scanner only visits ports 80/443; most URLhaus links use other ports.
+        testable = [url for url in online if standard_port(url)]
+        print(f'URLhaus: {len(online)} online, {len(testable)} on ports 80/443')
+        cases += [('threat', url, 'URLhaus: listed now') for url in testable[:count]]
+        if len(testable) < count:
+            cases += [('threat', url, 'URLhaus: listed now, non-standard port') for url in
+                      [u for u in online if not standard_port(u)][:count - len(testable)]]
     except Exception as error:
         print(f'! URLhaus list unavailable: {type(error).__name__}')
     try:
@@ -109,8 +123,9 @@ def run_case(case):
     try:
         result = scan(url)
     except Exception as error:
-        return {'expect': expect, 'url': url, 'note': note, 'verdict': 'error', 'grade': 'FAIL',
-                'error': type(error).__name__}
+        name = type(error).__name__
+        reason = 'blocked: the scanner only visits public ports 80/443' if name == 'UnsafeTargetError' else name
+        return {'expect': expect, 'url': url, 'note': note, 'verdict': 'error', 'grade': 'FAIL', 'error': reason}
     return {'expect': expect, 'url': url, 'note': note, 'verdict': result['verdict'], 'score': result['score'],
             'grade': grade(expect, result['verdict']), 'seconds': result['seconds'],
             'reasons': [r['code'] for r in result['reasons']], 'missing': result['missing_checks'],

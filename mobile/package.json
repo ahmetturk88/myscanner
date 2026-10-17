@@ -1,8 +1,10 @@
 {
   "name": "myscanner-mobile",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.4.2",
+    "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/ui": "~57.0.25",
     "expo": "~57.0.30",
     "expo-camera": "~57.0.6",

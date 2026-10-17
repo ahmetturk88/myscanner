@@ -7,9 +7,14 @@ import { AIPanel } from '@/components/ai';
 import { Icon } from '@/components/icon';
 import { Appear, ScanOrb } from '@/components/motion';
 import { ResultCard } from '@/components/result';
-import { Button, Card, ErrorText, Header, Muted, Screen } from '@/components/ui';
+import { Page, Steps, ToolRail } from '@/components/site';
+import { ToolHero } from '@/components/tool-hero';
+import { Button, Card, ErrorText } from '@/components/ui';
 import { upload, waitForTask } from '@/lib/api';
-import { colors, radius } from '@/lib/theme';
+import { colors, fonts, radius } from '@/lib/theme';
+import { toolByName } from '@/lib/tools';
+
+const TOOL = toolByName('file')!;
 
 const TYPES = 'PDF, Word, Excel, ZIP, RAR, 7z, EXE, DLL, MSI and scripts, up to 10 MB';
 
@@ -45,25 +50,25 @@ export default function FileScanner() {
   }
 
   return (
-    <Screen>
-      <Header title="File Scanner" />
-      <Muted>Check a file before you open it. It is inspected without being run, and its fingerprint is compared with threat databases.</Muted>
+    <Page>
+      <ToolRail active="file" />
+      <ToolHero tool={TOOL} />
       <Pressable accessibilityRole="button" onPress={pick} disabled={busy}
         style={({ pressed }) => ({ borderRadius: radius.xl, borderWidth: 1.5, borderStyle: 'dashed', borderColor: pressed ? colors.cyan : colors.line2,
-          backgroundColor: colors.surface, padding: 26, alignItems: 'center', gap: 10 })}>
+          backgroundColor: '#0e1726', padding: 26, alignItems: 'center', gap: 10 })}>
         <View style={{ width: 60, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fb923c22', borderWidth: 1, borderColor: '#fb923c59' }}>
           <Icon name="file" size={28} color="#fb923c" />
         </View>
-        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800', textAlign: 'center' }}>{file ? file.name : 'Choose a file'}</Text>
-        <Text style={{ color: colors.faint, fontSize: 13, textAlign: 'center' }}>{file?.size ? `${(file.size / 1024).toFixed(0)} KB · tap to change` : TYPES}</Text>
+        <Text style={{ color: colors.text, fontSize: 16, fontFamily: fonts.bold, textAlign: 'center' }}>{file ? file.name : 'Choose a file'}</Text>
+        <Text style={{ color: colors.faint, fontSize: 13, textAlign: 'center', fontFamily: fonts.regular }}>{file?.size ? `${(file.size / 1024).toFixed(0)} KB · tap to change` : TYPES}</Text>
       </Pressable>
       {busy ? (
         <Card style={{ alignItems: 'center' }}>
           <ScanOrb size={120} />
-          <Text style={{ color: colors.soft, fontSize: 15 }}>{progress}</Text>
+          <Text style={{ color: colors.soft, fontSize: 15, fontFamily: fonts.regular }}>{progress}</Text>
         </Card>
       ) : (
-        <Button label="Scan file" icon="shield" onPress={scan} disabled={!file} />
+        <Button label="Analyze file" arrow="→" onPress={scan} disabled={!file} />
       )}
       <ErrorText>{error}</ErrorText>
       {result ? (
@@ -72,6 +77,7 @@ export default function FileScanner() {
           <Appear delay={120}><AIPanel tool="file" evidence={result} /></Appear>
         </>
       ) : null}
-    </Screen>
+      <Steps steps={TOOL.steps} />
+    </Page>
   );
 }

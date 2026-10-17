@@ -1,7 +1,7 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Details } from '@/components/details';
-import { Card, VerdictBadge } from '@/components/ui';
+import { Card, Eyebrow, VerdictBadge } from '@/components/ui';
 import { colors } from '@/lib/theme';
 
 /** Pick a verdict-like value and score from any tool's result. */
@@ -22,7 +22,7 @@ export function ResultCard({ result, title }: { result: any; title: string }) {
   const top = headline(result);
   return (
     <Card>
-      <Text style={{ color: colors.faint, fontSize: 12, fontWeight: '800', letterSpacing: 1.5 }}>{title.toUpperCase()}</Text>
+      <Eyebrow>{title}</Eyebrow>
       {top.verdict ? <VerdictBadge verdict={top.verdict} score={top.score} big /> : null}
       <View style={{ height: 1, backgroundColor: colors.line }} />
       <Details data={result} />

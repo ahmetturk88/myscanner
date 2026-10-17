@@ -1,33 +1,46 @@
 /** MyScanner brand colours, matching the website. */
 export const colors = {
-  bg: '#04070f',
-  bg2: '#07101d',
-  glow: '#123156',
-  surface: '#0c1626',
-  surface2: '#0f1f33',
-  input: '#050c18',
-  line: '#1f3650',
-  line2: '#2e4f70',
-  text: '#e6f1fd',
-  soft: '#c4d6ea',
+  bg: '#070b14',
+  bg2: '#0a111d',
+  glow: '#12304a',
+  surface: '#101b2b',
+  surface2: '#13243a',
+  input: '#091320',
+  line: 'rgba(145,188,220,.18)',
+  line2: '#314b63',
+  text: '#edf5ff',
+  soft: '#a5b6cd',
   muted: '#93a7bf',
-  faint: '#6b819b',
-  cyan: '#22d3ee',
-  cyanSoft: '#67e8f9',
+  faint: '#7f93ad',
+  cyan: '#77dcff',
+  cyanSoft: '#77dcff',
+  teal: '#5eead4',
   violet: '#818cf8',
   purple: '#a78bfa',
   green: '#4ade80',
   amber: '#fbbf24',
   red: '#fb7185',
-  onAccent: '#04121f',
+  onAccent: '#062031',
+};
+
+/** The website's fonts: DM Sans for text, Space Mono for labels. */
+export const fonts = {
+  regular: 'DMSans_400Regular',
+  medium: 'DMSans_500Medium',
+  semibold: 'DMSans_600SemiBold',
+  bold: 'DMSans_700Bold',
+  extrabold: 'DMSans_800ExtraBold',
+  mono: 'SpaceMono_400Regular',
+  monoBold: 'SpaceMono_700Bold',
 };
 
 export const gradients = {
-  accent: ['#22d3ee', '#818cf8'] as const,
+  accent: ['#7fe1ff', '#5eead4'] as const,
   user: ['#2563eb', '#7c3aed'] as const,
-  screen: ['#0f2a4a', '#07101d', '#04070f'] as const,
-  card: ['#0f2440', '#0a1424'] as const,
-  ai: ['#22d3ee', '#a78bfa'] as const,
+  screen: ['#0d1f35', '#080d17', '#070b14'] as const,
+  card: ['#121e2d', '#0e1623'] as const,
+  ai: ['#38bdf8', '#a78bfa'] as const,
+  band: ['#0f2034', '#0a1424', '#150f2c'] as const,
 };
 
 export const radius = { sm: 10, md: 15, lg: 20, xl: 26 };

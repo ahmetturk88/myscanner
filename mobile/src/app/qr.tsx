@@ -7,9 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
 import { Appear, Beam } from '@/components/motion';
-import { Button, Card, ErrorText, Header, Muted, Screen } from '@/components/ui';
+import { Page, Steps, ToolRail } from '@/components/site';
+import { ToolHero } from '@/components/tool-hero';
+import { Button, Card, ErrorText, Muted } from '@/components/ui';
 import { startUrlScan } from '@/lib/scan';
-import { colors } from '@/lib/theme';
+import { colors, fonts } from '@/lib/theme';
+import { toolByName } from '@/lib/tools';
+
+const TOOL = toolByName('qr')!;
 
 const FRAME = 250;
 
@@ -36,15 +41,17 @@ export default function QrScanner() {
   if (!permission) return null;
   if (!permission.granted) {
     return (
-      <Screen>
-        <Header title="QR Scanner" />
+      <Page>
+        <ToolRail active="qr" />
+        <ToolHero tool={TOOL} />
         <Card>
-          <Icon name="qr" size={34} color={colors.violet} />
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>Allow the camera</Text>
+          <Icon name="qr" size={30} color={colors.cyan} />
+          <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold }}>Allow the camera</Text>
           <Muted>MyScanner uses the camera only to read QR codes. Nothing is recorded; only the text inside the code is used.</Muted>
-          <Button label="Allow camera" onPress={requestPermission} />
+          <Button label="Allow camera" arrow="→" onPress={requestPermission} />
         </Card>
-      </Screen>
+        <Steps steps={TOOL.steps} />
+      </Page>
     );
   }
 
@@ -57,24 +64,25 @@ export default function QrScanner() {
 
   if (code) {
     return (
-      <Screen>
-        <Header title="QR code found" />
+      <Page>
+        <ToolRail active="qr" />
         <Appear>
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Icon name={isLink ? 'alert' : 'qr'} size={22} color={isLink ? colors.amber : colors.violet} />
-              <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>{isLink ? "Don't open it yet" : 'This code contains text'}</Text>
+              <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold }}>{isLink ? "Don't open it yet" : 'This code contains text'}</Text>
             </View>
             <View style={{ padding: 12, borderRadius: 12, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.line }}>
-              <Text selectable style={{ color: colors.soft, fontSize: 15, lineHeight: 22 }}>{code}</Text>
+              <Text selectable style={{ color: colors.soft, fontSize: 15, lineHeight: 22, fontFamily: fonts.regular }}>{code}</Text>
             </View>
             <Muted>{isLink ? 'QR codes are a common way to hide phishing links. Check where it really leads first.' : 'It is not a web link, so there is nothing to scan online.'}</Muted>
             <ErrorText>{error}</ErrorText>
-            {isLink ? <Button label="Check this link" icon="shield" onPress={scanLink} busy={busy} /> : null}
+            {isLink ? <Button label="Inspect this URL" arrow="→" onPress={scanLink} busy={busy} /> : null}
             <Button label="Scan another code" icon="qr" kind="secondary" onPress={() => { locked.current = false; setCode(null); setError(null); }} />
           </Card>
         </Appear>
-      </Screen>
+        <Steps steps={TOOL.steps} />
+      </Page>
     );
   }
 
@@ -95,7 +103,7 @@ export default function QrScanner() {
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={torch ? 'Turn the light off' : 'Turn the light on'} onPress={() => setTorch(!torch)}
             style={[styles.round, torch && { backgroundColor: colors.cyan }]}>
-            <Icon name="spark" color={torch ? colors.onAccent : '#fff'} />
+            <Icon name="bolt" color={torch ? colors.onAccent : '#fff'} />
           </Pressable>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 26 }}>
@@ -103,8 +111,8 @@ export default function QrScanner() {
             <Corners />
             <Beam height={FRAME} />
           </View>
-          <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>Point the camera at a QR code</Text>
-          <Text style={{ color: '#cbd5e1', fontSize: 14, textAlign: 'center', paddingHorizontal: 40 }}>We read it without opening it, so you can check it first.</Text>
+          <Text style={{ color: '#fff', fontSize: 17, fontFamily: fonts.bold }}>Point the camera at a QR code</Text>
+          <Text style={{ color: '#cbd5e1', fontSize: 14, textAlign: 'center', paddingHorizontal: 40, fontFamily: fonts.regular }}>We read it without opening it, so you can check it first.</Text>
         </View>
       </SafeAreaView>
     </View>

@@ -1,16 +1,17 @@
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, Text, View } from 'react-native';
+import { Share, Text, View } from 'react-native';
 
 import { AIPanel } from '@/components/ai';
 import { Icon } from '@/components/icon';
 import { Appear, Gauge, ScanOrb } from '@/components/motion';
-import { Button, Card, Chip, ErrorText, Header, Muted, Screen, Section } from '@/components/ui';
+import { Page } from '@/components/site';
+import { Button, Card, Chip, ErrorText, Eyebrow, Hero, Lead, Muted } from '@/components/ui';
 import { api, SITE } from '@/lib/api';
 import { startUrlScan } from '@/lib/scan';
-import { ago, colors, tone, toneStyle } from '@/lib/theme';
+import { ago, colors, fonts, tone, toneStyle } from '@/lib/theme';
 
 const WORKING = ['pending', 'queued', 'running', 'processing', 'started'];
 const STEPS = ['Resolving the address', 'Checking the certificate', 'Following redirects', 'Reading the page content',
@@ -22,26 +23,25 @@ function severity(points: number) {
   return { label: 'Low', color: colors.cyanSoft };
 }
 
-function Scanning({ url, step }: { url?: string; step: number }) {
+const STAGES: [string, string][] = [['01 / Queue', 'Waiting for a worker'], ['02 / Analysis', 'Collecting available evidence'], ['03 / Report', 'Saving and displaying results']];
+
+function Scanning({ step }: { step: number }) {
+  const stage = step < 1 ? 0 : step < STEPS.length - 1 ? 1 : 2;
   return (
-    <View style={{ gap: 14 }}>
-      <View style={{ alignItems: 'center', marginTop: -10 }}><ScanOrb /></View>
-      {url ? <Text selectable style={{ color: colors.text, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{url}</Text> : null}
-      <Muted center>Usually under a minute. You can leave this screen; the report is saved in History.</Muted>
+    <View style={{ gap: 16 }}>
+      <View style={{ alignItems: 'center', marginVertical: -20 }}><ScanOrb size={140} /></View>
+      <Text style={{ color: colors.faint, textAlign: 'center', letterSpacing: 2, fontSize: 12, fontFamily: fonts.mono }}>LINK / EVIDENCE / CONTEXT</Text>
       <Card>
-        {STEPS.map((label, i) => {
-          const state = i < step ? 'seen' : i === step ? 'now' : 'next';
-          return (
-            <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
-              <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2,
-                borderColor: state === 'next' ? colors.line2 : colors.cyan, backgroundColor: state === 'seen' ? colors.cyan + '33' : 'transparent' }}>
-                {state === 'now' ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.cyan }} /> : null}
-              </View>
-              <Text style={{ color: state === 'next' ? '#5b6f88' : state === 'now' ? colors.text : colors.soft, fontSize: 15,
-                fontWeight: state === 'now' ? '800' : '500' }}>{label}</Text>
-            </View>
-          );
-        })}
+        <Eyebrow>Evidence in progress</Eyebrow>
+        <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.5 }}>{STEPS[step]}…</Text>
+        {STAGES.map(([label, text], i) => (
+          <View key={label} style={{ padding: 13, borderRadius: 12, borderWidth: 1, gap: 4,
+            borderColor: i === stage ? 'rgba(119,220,255,.6)' : 'rgba(145,188,220,.18)', backgroundColor: i === stage ? 'rgba(119,220,255,.08)' : 'transparent' }}>
+            <Text style={{ color: i <= stage ? colors.cyan : colors.faint, fontSize: 12, letterSpacing: 1.5, fontFamily: fonts.mono }}>{label.toUpperCase()}</Text>
+            <Text style={{ color: i <= stage ? colors.text : colors.faint, fontSize: 14.5, fontFamily: fonts.medium }}>{text}</Text>
+          </View>
+        ))}
+        <Muted>Usually under a minute. You can leave this screen; the report is saved in your history.</Muted>
       </Card>
     </View>
   );
@@ -105,10 +105,21 @@ export default function ScanReport() {
   }
 
   return (
-    <Screen>
-      <Header title={report ? 'Report' : 'Scanning'} right={report ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Share" onPress={share} hitSlop={10}><Icon name="share" color={colors.muted} /></Pressable>
-      ) : null} />
+    <Page>
+      <View style={{ gap: 14 }}>
+        <Eyebrow>{`URL intelligence / report #${scanId}`}</Eyebrow>
+        <Hero title="See beyond the link." size={34} />
+        <Lead>One report connects URL identity, transport, redirects, page content and threat intelligence. Explore the evidence and see what could not be verified.</Lead>
+        {report ? (
+          <View style={{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#314b63', backgroundColor: '#081321' }}>
+            <Text selectable style={{ color: colors.text, fontSize: 14.5, fontFamily: fonts.regular }}>{report.url}</Text>
+          </View>
+        ) : null}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button kind="secondary" label="← New scan" onPress={() => router.navigate('/')} />
+          {report ? <Button kind="secondary" icon="share" label="Share" onPress={share} /> : null}
+        </View>
+      </View>
       <ErrorText>{error}</ErrorText>
       {!report && !error ? <Scanning step={step} /> : null}
       {report ? (
@@ -118,16 +129,15 @@ export default function ScanReport() {
               <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                 <Gauge score={typeof assessment?.score === 'number' ? assessment.score : null} color={look.color} />
                 <View style={{ position: 'absolute', alignItems: 'center' }}>
-                  <Text style={{ color: look.color, fontSize: 46, fontWeight: '800', lineHeight: 50 }}>{typeof assessment?.score === 'number' ? assessment.score : '—'}</Text>
-                  <Text style={{ color: colors.faint }}>/100</Text>
+                  <Text style={{ color: look.color, fontSize: 46, fontFamily: fonts.bold, lineHeight: 52 }}>{typeof assessment?.score === 'number' ? assessment.score : '—'}</Text>
+                  <Text style={{ color: colors.faint, fontFamily: fonts.mono }}>/100</Text>
                 </View>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
                 backgroundColor: look.color + '18', borderWidth: 1, borderColor: look.color + '66' }}>
                 <Icon name={tone(verdict) === 'safe' ? 'check' : 'alert'} size={18} color={look.color} />
-                <Text style={{ color: look.color, fontSize: 16, fontWeight: '800' }}>{look.label}</Text>
+                <Text style={{ color: look.color, fontSize: 16, fontFamily: fonts.bold }}>{look.label}</Text>
               </View>
-              <Text selectable style={{ color: colors.text, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{report.url}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
                 {assessment?.total_categories ? <Chip>{`${assessment.assessed_categories} of ${assessment.total_categories} checks`}</Chip> : null}
                 {assessment?.sources?.length ? <Chip>{`${assessment.sources.length} sources`}</Chip> : null}
@@ -140,15 +150,16 @@ export default function ScanReport() {
           {reasons.length ? (
             <Appear delay={200}>
               <View style={{ gap: 10 }}>
-                <Section>What we found</Section>
+                <Eyebrow>Findings</Eyebrow>
+                <Text style={{ color: colors.text, fontSize: 24, fontFamily: fonts.bold, letterSpacing: -0.8 }}>What we found.</Text>
                 <Card style={{ gap: 0, paddingVertical: 6 }}>
                   {reasons.slice(0, 10).map((r, i) => {
                     const s = severity(r.deduction ?? 0);
                     return (
                       <View key={r.code ?? i} style={{ flexDirection: 'row', gap: 10, paddingVertical: 11, borderTopWidth: i ? 1 : 0, borderTopColor: colors.line }}>
-                        <Text style={{ color: s.color, backgroundColor: s.color + '22', fontSize: 11, fontWeight: '800', paddingVertical: 3,
+                        <Text style={{ color: s.color, backgroundColor: s.color + '22', fontSize: 11, fontFamily: fonts.bold, paddingVertical: 3,
                           paddingHorizontal: 8, borderRadius: 7, overflow: 'hidden', alignSelf: 'flex-start' }}>{s.label}</Text>
-                        <Text style={{ flex: 1, color: colors.text, fontSize: 14.5, lineHeight: 21 }}>{r.message}</Text>
+                        <Text style={{ flex: 1, color: colors.text, fontSize: 14.5, lineHeight: 22, fontFamily: fonts.regular }}>{r.message}</Text>
                       </View>
                     );
                   })}
@@ -159,7 +170,7 @@ export default function ScanReport() {
           {assessment?.missing_checks?.length ? (
             <Muted>{`Not checked: ${assessment.missing_checks.join(', ').replace(/_/g, ' ')}`}</Muted>
           ) : null}
-          {assessment?.warning ? <Text style={{ color: colors.faint, fontSize: 12 }}>{assessment.warning}</Text> : null}
+          {assessment?.warning ? <Text style={{ color: colors.faint, fontSize: 12, fontFamily: fonts.regular }}>{assessment.warning}</Text> : null}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button label="Rescan" icon="refresh" kind="secondary" onPress={rescan} busy={rescanning} flex={1} />
             <Button label={tone(verdict) === 'safe' ? 'Share' : 'Share warning'} icon="share" onPress={share} flex={1.3} />
@@ -168,6 +179,6 @@ export default function ScanReport() {
             onPress={() => WebBrowser.openBrowserAsync(`${SITE}/result/${scanId}`)} />
         </>
       ) : null}
-    </Screen>
+    </Page>
   );
 }

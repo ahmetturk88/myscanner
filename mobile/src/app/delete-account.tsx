@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { Body, Button, Card, ErrorText, Field, Header, Muted, Screen } from '@/components/ui';
+import { Page } from '@/components/site';
+import { Body, Button, Card, ErrorText, Eyebrow, Field, Hero, Muted } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
@@ -22,8 +23,9 @@ export default function DeleteAccount() {
   }
 
   return (
-    <Screen>
-      <Header title="Delete account" />
+    <Page footer={false} fab={false}>
+      <Eyebrow>Account</Eyebrow>
+      <Hero title="Delete your account" size={30} />
       <Card>
         <Body>This permanently deletes your MyScanner account and everything stored with it: your reports, scan history, AI conversations and sign-ins on every device. It cannot be undone.</Body>
         <Muted>Backups roll over on their own, so copies of deleted data disappear from them within 30 days.</Muted>
@@ -33,6 +35,6 @@ export default function DeleteAccount() {
       <ErrorText>{error}</ErrorText>
       <Button label="Delete my account permanently" icon="trash" kind="danger" onPress={remove} busy={busy}
         disabled={typed.trim().toLowerCase() !== (user?.email ?? '').toLowerCase()} />
-    </Screen>
+    </Page>
   );
 }

@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 
-import { colors } from '@/lib/theme';
+import { colors, fonts } from '@/lib/theme';
 
 // Internal or technical fields that only add noise to a quick read; the AI explanation covers them.
 const SKIP = /html|screenshot|image|base64|raw|privacy|polic|schema|token|estimator|deduction|guesses|scope|weight|version|^final$|coverage|status_url|task|^id$/i;
@@ -38,14 +38,14 @@ export function Details({ data, limit = 12 }: { data: Record<string, unknown>; l
     <View style={{ gap: 10 }}>
       {rows.map(([k, v]) => (
         <View key={k} style={{ flexDirection: 'row', gap: 12 }}>
-          <Text style={{ width: '42%', color: colors.faint, fontSize: 13, textTransform: 'capitalize' }}>{k}</Text>
-          <Text selectable style={{ flex: 1, color: colors.text, fontSize: 14.5 }}>{v}</Text>
+          <Text style={{ width: '42%', color: colors.faint, fontSize: 13, textTransform: 'capitalize', fontFamily: fonts.regular }}>{k}</Text>
+          <Text selectable style={{ flex: 1, color: colors.text, fontSize: 14.5, fontFamily: fonts.medium }}>{v}</Text>
         </View>
       ))}
       {advice.length ? (
         <View style={{ gap: 6, marginTop: 4 }}>
-          <Text style={{ color: colors.green, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>WHAT TO DO</Text>
-          {advice.map((a) => <Text key={a} style={{ color: colors.soft, fontSize: 14.5, lineHeight: 21 }}>{'•  '}{a}</Text>)}
+          <Text style={{ color: colors.teal, fontSize: 12, letterSpacing: 2, fontFamily: fonts.mono }}>WHAT TO DO</Text>
+          {advice.map((a) => <Text key={a} style={{ color: colors.soft, fontSize: 14.5, lineHeight: 22, fontFamily: fonts.regular }}>{'•  '}{a}</Text>)}
         </View>
       ) : null}
     </View>

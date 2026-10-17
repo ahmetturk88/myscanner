@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { AIPanel } from '@/components/ai';
-import { Icon } from '@/components/icon';
 import { Appear } from '@/components/motion';
 import { ResultCard } from '@/components/result';
-import { Button, Card, ErrorText, Field, Header, Muted, Screen } from '@/components/ui';
+import { Page, Steps, ToolRail } from '@/components/site';
+import { ToolHero } from '@/components/tool-hero';
+import { Button, Card, ErrorText, Field, Muted } from '@/components/ui';
 import { api, waitForTask } from '@/lib/api';
-import { colors } from '@/lib/theme';
+import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
 export default function ToolScreen() {
@@ -23,7 +24,7 @@ export default function ToolScreen() {
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
-  if (!tool || !tool.field || !tool.body) return <Screen><Header title="Tool" /><ErrorText>Unknown tool.</ErrorText></Screen>;
+  if (!tool || !tool.field || !tool.body) return <Page><ErrorText>Unknown tool.</ErrorText></Page>;
   const { field, body } = tool;
 
   async function run() {
@@ -40,34 +41,31 @@ export default function ToolScreen() {
   }
 
   return (
-    <Screen>
-      <Header title={tool.title} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
-          backgroundColor: tool.color + '22', borderWidth: 1, borderColor: tool.color + '59' }}>
-          <Icon name={tool.icon} size={26} color={tool.color} />
-        </View>
-        <Text style={{ flex: 1, color: colors.muted, fontSize: 15, lineHeight: 21 }}>{tool.hint}</Text>
-      </View>
+    <Page>
+      <ToolRail active={tool.name} />
+      <ToolHero tool={tool} />
       <Card>
-        <Field label={field.label} value={value} onChangeText={setValue} placeholder={field.placeholder} icon={tool.icon}
+        <Field label={field.label} value={value} onChangeText={setValue} placeholder={field.placeholder}
           secureTextEntry={field.secure} autoCapitalize="none" autoCorrect={false} keyboardType={field.keyboard ?? 'default'}
           onSubmitEditing={run} returnKeyType="go" />
+        <Button label={tool.action ?? 'Analyze'} arrow="→" onPress={run} busy={busy} disabled={!value.trim()} />
         {field.secure ? <Muted>Sent over HTTPS for analysis and never stored. Only a short hash prefix is used for the breach check.</Muted> : null}
-        <Button label="Check" icon="shield" onPress={run} busy={busy} disabled={!value.trim()} />
         {busy && progress ? (
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <ActivityIndicator color={colors.cyan} /><Text style={{ color: colors.soft }}>{progress}</Text>
+            <ActivityIndicator color={colors.cyan} />
+            <Text style={{ color: colors.soft, fontFamily: fonts.regular }}>{progress}</Text>
           </View>
         ) : null}
         <ErrorText>{error}</ErrorText>
+        <Muted>The result describes evidence and coverage, not a probability of safety.</Muted>
       </Card>
       {result ? (
         <>
-          <Appear><ResultCard result={result} title="Result" /></Appear>
+          <Appear><ResultCard result={result} title="Assessment" /></Appear>
           <Appear delay={120}><AIPanel tool={tool.aiTool} evidence={result} /></Appear>
         </>
       ) : null}
-    </Screen>
+      <Steps steps={tool.steps} />
+    </Page>
   );
 }

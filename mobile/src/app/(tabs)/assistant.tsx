@@ -1,17 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Bubble } from '@/components/ai';
-import { TAB_BAR_SPACE } from '@/components/app-tabs';
 import { Icon } from '@/components/icon';
 import { Appear } from '@/components/motion';
-import { Backdrop, ErrorText, styles as ui } from '@/components/ui';
+import { Page } from '@/components/site';
+import { ErrorText, Eyebrow, styles as ui } from '@/components/ui';
 import { plain, stream } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { startUrlScan } from '@/lib/scan';
-import { colors, gradients } from '@/lib/theme';
+import { colors, fonts, gradients } from '@/lib/theme';
 import { findLink } from '@/lib/tools';
 
 type Message = { role: 'user' | 'assistant'; text: string; link?: string | null };
@@ -55,14 +54,16 @@ export default function Assistant() {
   }
 
   return (
-    <Backdrop>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+    <Page scroll={false} fab={false} footer={false}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 }}>
-            <Text style={{ color: colors.text, fontSize: 21, fontWeight: '800' }}>✦ Assistant</Text>
+            <View style={{ gap: 2 }}>
+              <Eyebrow>✦ AI assistant</Eyebrow>
+              <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold }}>MyScanner AI</Text>
+            </View>
             {ai ? (
               <View style={{ marginLeft: 'auto', borderWidth: 1, borderColor: colors.line2, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 11 }}>
-                <Text style={{ color: colors.cyanSoft, fontSize: 12, fontWeight: '700' }}>{ai.limit === null ? 'Unlimited' : `${ai.remaining} left today`}</Text>
+                <Text style={{ color: colors.cyan, fontSize: 12, fontFamily: fonts.monoBold }}>{ai.limit === null ? 'Unlimited' : `${ai.remaining} left today`}</Text>
               </View>
             ) : null}
             {messages.length ? (
@@ -77,12 +78,12 @@ export default function Assistant() {
             {!messages.length ? (
               <Appear>
                 <View style={{ gap: 10 }}>
-                  <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 }}>How can I help you stay safe?</Text>
+                  <Text style={{ color: colors.text, fontSize: 28, fontFamily: fonts.bold, letterSpacing: -0.8 }}>How can I help you stay <Text style={{ color: colors.cyan }}>safe?</Text></Text>
                   <Text style={ui.muted}>Ask about links, messages, scams and account security, in any language. Paste a link and I can scan it for you.</Text>
                   {SUGGESTIONS.map((s) => (
                     <Pressable key={s} accessibilityRole="button" onPress={() => send(s)}
-                      style={({ pressed }) => ({ borderWidth: 1, borderColor: colors.line, backgroundColor: pressed ? colors.surface2 : colors.surface, borderRadius: 16, padding: 14 })}>
-                      <Text style={{ color: colors.soft, fontSize: 14.5, lineHeight: 21, writingDirection: 'auto' }}>{s}</Text>
+                      style={({ pressed }) => ({ borderWidth: 1, borderColor: '#2c4a66', backgroundColor: pressed ? '#14304a' : '#10233a', borderRadius: 12, padding: 12 })}>
+                      <Text style={{ color: colors.soft, fontSize: 14.5, lineHeight: 21, writingDirection: 'auto', fontFamily: fonts.regular }}>{s}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -96,14 +97,14 @@ export default function Assistant() {
                     style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 12,
                       borderRadius: 14, backgroundColor: '#0b2232', borderWidth: 1, borderColor: colors.cyan + '55' }}>
                     <Icon name="shield" size={16} color={colors.cyanSoft} />
-                    <Text style={{ color: '#a5f3fc', fontWeight: '700', fontSize: 13.5 }}>Scan this link</Text>
+                    <Text style={{ color: '#a5f3fc', fontFamily: fonts.bold, fontSize: 13.5 }}>Scan this link</Text>
                   </Pressable>
                 ) : null}
               </View>
             ))}
             <ErrorText>{error}</ErrorText>
           </ScrollView>
-          <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: TAB_BAR_SPACE - 6 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
             <View style={[ui.inputWrap, { paddingRight: 6, alignItems: 'flex-end', paddingVertical: 6 }]}>
               <TextInput value={input} onChangeText={setInput} placeholder="Ask anything…" placeholderTextColor={colors.faint}
                 multiline maxLength={1000} style={[ui.input, { maxHeight: 120 }]} />
@@ -116,7 +117,6 @@ export default function Assistant() {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Backdrop>
+    </Page>
   );
 }

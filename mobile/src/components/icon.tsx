@@ -14,6 +14,7 @@ const PATHS: Record<string, React.ReactNode> = {
   lock: <><Rect x="5" y="11" width="14" height="10" rx="2" /><Path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
   home: <Path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" />,
   clock: <><Circle cx="12" cy="12" r="9" /><Path d="M12 7v5l3 2" /></>,
+  bolt: <Path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
   spark: <Path d="M12 3l2 5.5L19.5 10 14 12l-2 5.5L10 12 4.5 10 10 8.5z" />,
   user: <><Circle cx="12" cy="8" r="4" /><Path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>,
   paste: <><Rect x="8" y="3" width="8" height="4" rx="1" /><Path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /></>,

@@ -7,7 +7,7 @@ import { Icon } from '@/components/icon';
 import { TypingDots } from '@/components/motion';
 import { Button, Card, ErrorText, Muted, styles as ui } from '@/components/ui';
 import { api, plain, stream } from '@/lib/api';
-import { colors, gradients } from '@/lib/theme';
+import { colors, fonts, gradients } from '@/lib/theme';
 
 type Explanation = {
   headline: string; summary: string;
@@ -54,14 +54,14 @@ function parse(text: string): Explanation {
 function ExplanationView({ data }: { data: Explanation }) {
   return (
     <View style={{ gap: 12 }}>
-      {data.headline ? <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', lineHeight: 26 }}>{data.headline}</Text> : null}
+      {data.headline ? <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, lineHeight: 26 }}>{data.headline}</Text> : null}
       {data.summary ? <Text style={ui.body}>{data.summary}</Text> : null}
       {SECTIONS.map(([key, title, tint]) => {
         const items = data[key] as any[];
         if (!items.length) return null;
         return (
           <View key={key} style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
-            <Text style={{ color: tint, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>{title.toUpperCase()}</Text>
+            <Text style={{ color: tint, fontSize: 12, fontFamily: fonts.mono, letterSpacing: 1.5 }}>{title.toUpperCase()}</Text>
             {items.map((item, i) => (
               <Text key={i} style={ui.body}>
                 {'•  '}{typeof item === 'string' ? item : item.point}
@@ -77,7 +77,7 @@ function ExplanationView({ data }: { data: Explanation }) {
 
 export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: string }) {
   const mine = role === 'user';
-  const body = text ? <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 23, writingDirection: 'auto' }}>{text}</Text> : <TypingDots />;
+  const body = text ? <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 24, writingDirection: 'auto', fontFamily: fonts.regular }}>{text}</Text> : <TypingDots />;
   if (mine) {
     return (
       <LinearGradient colors={gradients.user} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -140,10 +140,10 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
 
   return (
     <Card glow>
-      <Text style={ui.kicker}>✦ AI EXPLANATION</Text>
+      <Text style={ui.kicker}>✦ AI ASSISTANT</Text>
       {!explanation && !explaining ? (
         <>
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>Understand this report</Text>
+          <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.4 }}>Understand this report</Text>
           <Muted>A plain-language explanation of the evidence, then ask anything in any language. Uses 1 of your daily AI answers.</Muted>
           <Button label="Explain with AI" icon="spark" onPress={explain} />
         </>
@@ -162,7 +162,7 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
         </View>
       ) : null}
       <ErrorText>{error}</ErrorText>
-      <Text style={{ color: colors.faint, fontSize: 12, lineHeight: 18 }}>{"AI can make mistakes. The verdict comes from MyScanner's checks, not from the AI. Never type passwords or personal data."}</Text>
+      <Text style={{ color: colors.faint, fontSize: 12, lineHeight: 18, fontFamily: fonts.regular }}>{"AI can make mistakes. The verdict comes from MyScanner's checks, not from the AI. Never type passwords or personal data."}</Text>
     </Card>
   );
 }

@@ -29,6 +29,11 @@ class GradeTests(unittest.TestCase):
         for verdict in ('unknown', 'harmless', None):
             self.assertEqual(accuracy_check.grade('threat', verdict), 'FAIL', verdict)
 
+    def test_script_is_shipped_in_the_worker_image(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, '.dockerignore'), encoding='utf-8') as ignore:
+            self.assertIn('!scripts/accuracy_check.py', ignore.read().splitlines())
+
     def test_every_case_has_a_known_group_and_a_web_url(self):
         for expect, url, note in accuracy_check.CASES:
             self.assertIn(expect, ('clean', 'flag', 'threat'))

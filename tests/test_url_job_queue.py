@@ -164,6 +164,19 @@ class URLQueueTests(unittest.TestCase):
             self.assertEqual(tasks.scan_url_task.run('https://example.invalid',self.owner,sid,tid)['status'],'completed')
             self.assertEqual(tasks.scan_url_task.run('https://example.invalid',self.owner,sid,tid)['status'],'failed')
         analyzer.comprehensive_analysis.assert_called_once();analyzer.session.close.assert_called_once()
+    def test_worker_checks_other_ports_by_reputation_without_visiting(self):
+        import tasks
+        url='http://61.53.153.148:38141/bin.sh'
+        task=Mock();sid=enqueue_url_scan(task,url,self.owner);tid=task.apply_async.call_args.kwargs['task_id']
+        note={'reputation_only':True,'not_visited_reason':'non_standard_port'}
+        local={'url':url,'structure':{'is_https':False,'contains_ip':True},'phishing':{'risk_score':0},**note}
+        deep={'url':url,'osint':{'urlhaus':True,'urlhaus_status':'matched'},**note}
+        analyzer=Mock();analyzer.reputation_only_analysis.return_value=(local,deep)
+        with patch.object(self.production,'app',self.app),patch('services.url_analyzer.URLDeepAnalyzer',return_value=analyzer),\
+                patch('services.url_screenshot.capture_screenshot') as screenshot:
+            self.assertEqual(tasks.scan_url_task.run(url,self.owner,sid,tid)['verdict'],'malicious')
+        analyzer.comprehensive_analysis.assert_not_called();analyzer.comprehensive_deep_analysis.assert_not_called()
+        screenshot.assert_not_called();analyzer.session.close.assert_called_once()
     def test_worker_failure_persists_generic_error_and_closes(self):
         import tasks
         sid,tid=self.job();analyzer=Mock();analyzer.comprehensive_analysis.side_effect=RuntimeError('sensitive provider error')

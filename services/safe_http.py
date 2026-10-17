@@ -36,7 +36,7 @@ class PublicTarget:
     addresses: tuple
 
 
-def normalize_url(value):
+def normalize_url(value, any_port=False):
     if not isinstance(value, str) or not value:
         raise UnsafeTargetError('A public HTTP or HTTPS URL is required')
     if any(ord(c) <= 32 or ord(c) == 127 for c in value) or '\\' in value:
@@ -51,7 +51,7 @@ def normalize_url(value):
             raise ValueError()
         host = parts.hostname.encode('idna').decode('ascii').lower()
         port = parts.port if parts.port is not None else (443 if parts.scheme.lower() == 'https' else 80)
-        if port not in (80, 443) or '%' in host:
+        if (not any_port and port not in (80, 443)) or not 0 < port < 65536 or '%' in host:
             raise ValueError()
         try:
             ipaddress.ip_address(host)
@@ -94,6 +94,46 @@ def reject_non_public_literal(value):
     if not _public_address(str(literal)):
         raise UnsafeTargetError('The target must resolve only to public IP addresses')
     return url
+
+
+def needs_reputation_only(url):
+    """True for a public address the scanner never visits (a port other than 80/443)."""
+    try:
+        port = urlsplit(url).port
+    except ValueError:
+        return False
+    return port is not None and port not in (80, 443)
+
+
+def reputation_only_url(value):
+    """Normalize an address on another port for a reputation lookup, or None if it is visitable.
+
+    No connection is ever made to such an address; only reputation sources are asked about it.
+    """
+    try:
+        normalize_url(value)
+        return None
+    except UnsafeTargetError:
+        pass
+    url = normalize_url(value, any_port=True)
+    try:
+        literal = ipaddress.ip_address(urlsplit(url).hostname)
+    except ValueError:
+        return url
+    if not _public_address(str(literal)):
+        raise UnsafeTargetError('The target must resolve only to public IP addresses')
+    return url
+
+
+def accept_scan_url(value):
+    """A URL a user may submit: visitable on ports 80/443, or checked by reputation only."""
+    try:
+        return reject_non_public_literal(value)
+    except UnsafeTargetError:
+        url = reputation_only_url(value)
+        if url is None:
+            raise
+        return url
 
 
 def validate_public_url(value):

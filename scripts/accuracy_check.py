@@ -64,8 +64,12 @@ def scan(url):
     analyzer = URLDeepAnalyzer()
     started = time.monotonic()
     try:
-        local = analyzer.comprehensive_analysis(url)
-        deep = analyzer.comprehensive_deep_analysis(url)
+        from services.safe_http import needs_reputation_only
+        if needs_reputation_only(url):
+            local, deep = analyzer.reputation_only_analysis(url)  # same path as a real scan
+        else:
+            local = analyzer.comprehensive_analysis(url)
+            deep = analyzer.comprehensive_deep_analysis(url)
         result = assess_url(local, deep)
         result['seconds'] = round(time.monotonic() - started)
         result['provider_verdict'] = (local.get('urlvet') or {}).get('verdict')
@@ -101,13 +105,11 @@ def live_cases(count):
         response = session.get(f'https://urlhaus-api.abuse.ch/v1/urls/recent/limit/{count * 4}/',
                                headers={'Auth-Key': key}, timeout=20)
         online = [u['url'] for u in response.json().get('urls', []) if u.get('url_status') == 'online']
-        # The scanner only visits ports 80/443; most URLhaus links use other ports.
-        testable = [url for url in online if standard_port(url)]
-        print(f'URLhaus: {len(online)} online, {len(testable)} on ports 80/443')
-        cases += [('threat', url, 'URLhaus: listed now') for url in testable[:count]]
-        if len(testable) < count:
-            cases += [('threat', url, 'URLhaus: listed now, non-standard port') for url in
-                      [u for u in online if not standard_port(u)][:count - len(testable)]]
+        # Links on ports 80/443 get the full scan; others the reputation-only check. Test both.
+        visited = [url for url in online if standard_port(url)][:(count + 1) // 2]
+        reputation = [url for url in online if not standard_port(url)][:count - len(visited)]
+        cases += [('threat', url, 'URLhaus: listed now') for url in visited]
+        cases += [('threat', url, 'URLhaus: listed now, other port (reputation only)') for url in reputation]
     except Exception as error:
         print(f'! URLhaus list unavailable: {type(error).__name__}')
     try:

@@ -678,11 +678,11 @@ def dashboard():
         if not url:
             return redirect(url_for('dashboard'))
         
-        from services.safe_http import normalize_url
+        from services.safe_http import accept_scan_url
         try:
             if len(url) > 500:
                 raise ValueError('URL too long')
-            normalize_url(url)
+            url = accept_scan_url(url)
         except (ValueError, UnsafeTargetError):
             flash('Please provide a valid HTTP or HTTPS URL.', 'warning')
             return redirect(url_for('dashboard'))

@@ -846,6 +846,19 @@ class URLDeepAnalyzer:
     # 12. التحليل الشامل (سريع)
     # ================================================================
 
+    def reputation_only_analysis(self, url: str):
+        """Evidence for an address the scanner never visits (another port): URL heuristics and URLhaus.
+
+        Returns (local, deep) in the shape of the two full analyses.
+        """
+        self.session.set_deadline(time.monotonic() + QUICK_BUDGET)
+        parsed = urlparse(url)
+        note = {'reputation_only': True, 'not_visited_reason': 'non_standard_port'}
+        local = {'url': url, 'domain': parsed.hostname, 'structure': self.analyze_url_structure(url),
+                 'phishing': self.check_phishing_indicators(url), 'is_shortened': False, **note}
+        deep = {'url': url, 'osint': self.check_osint_sources(url), **note}
+        return local, deep
+
     def comprehensive_analysis(self, url: str) -> Dict[str, Any]:
         """
         التحليل الشامل للرابط (بدون تخزين مؤقت - سريع)

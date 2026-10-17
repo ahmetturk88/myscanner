@@ -227,6 +227,20 @@ class ScannerEndpointTests(test_task_ownership.TaskOwnershipTests):
                 self.assertIn('error', result.json)
                 network.assert_not_called()
 
+    def test_public_address_on_another_port_is_queued_for_reputation_only(self):
+        self.sign_in(self.owner)
+        with patch('celery_app.require_broker'), \
+             patch('services.url_scan_storage.enqueue_url_scan', return_value=8) as enqueue, \
+             patch('services.safe_http.socket.getaddrinfo') as dns, \
+             patch('services.safe_http.socket.socket') as network:
+            result = self.client.post('/api/url-analyze', json={'url':'http://61.53.153.148:38141/bin.sh'})
+            refused = self.client.post('/api/url-analyze', json={'url':'http://127.0.0.1:8080/'})
+        self.assertEqual(result.status_code, 202)
+        self.assertEqual(enqueue.call_args.args[1], 'http://61.53.153.148:38141/bin.sh')
+        self.assertEqual(refused.status_code, 400)
+        dns.assert_not_called()
+        network.assert_not_called()
+
     def test_valid_public_url_is_queued_without_web_network_access(self):
         # Analysis runs in the URL worker; the web request only validates and queues.
         self.sign_in(self.owner)

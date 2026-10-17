@@ -4,7 +4,7 @@ import math
 from urllib.parse import urlparse
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v7'
+POLICY_VERSION = 'url-evidence-v8'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 # A browser warns before these pages, so the report never calls them clean (v6).
@@ -13,6 +13,7 @@ TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
 # anyone can submit any URL, but a pending report plus a look-alike or
 # impersonation signal is how new phishing pages usually appear.
 CORROBORATING = {'typosquatting','homoglyph','punycode','brand_mismatch','hidden_iframe','ip_url','domain_randomness','domain_history'}
+NOT_VISITED = 'The page was not visited because the address uses a port other than 80 or 443; only its reputation was checked.'
 UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for this URL; reviewers have not confirmed it.'
 
 
@@ -193,6 +194,9 @@ def assess_url(local, deep):
         coverage_deductions[key]=min(max(0,component['weight']-component['deduction']),requested)
     coverage_penalty=sum(coverage_deductions.values())
     final_score=max(0,score-coverage_penalty) if score is not None else None
+    if local.get('reputation_only') is True:
+        # One plain reason replaces the page checks that were never meant to run (v8).
+        missing=[NOT_VISITED]+[m for m in missing if m.startswith('URLhaus')]
     return {'policy_version':POLICY_VERSION,'score':final_score,
             'coverage_penalty':coverage_penalty,'coverage_deductions':coverage_deductions,
             'evidence_score':score,'verdict':verdict,

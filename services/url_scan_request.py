@@ -8,7 +8,7 @@ from flask_login import current_user
 
 from extensions import db
 from services.permissions import reserve_request_quota
-from services.safe_http import UnsafeTargetError, reject_non_public_literal
+from services.safe_http import UnsafeTargetError, accept_scan_url
 
 MAX_URL_LENGTH = 500
 
@@ -17,9 +17,9 @@ def queue_url_scan(url):
     if not isinstance(url, str) or not url.strip() or len(url.strip()) > MAX_URL_LENGTH:
         return jsonify(error='Provide an HTTP or HTTPS URL of at most 500 characters'), 400
     try:
-        url = reject_non_public_literal(url.strip())
+        url = accept_scan_url(url.strip())
     except UnsafeTargetError:
-        return jsonify(error='Only public HTTP(S) targets on ports 80 or 443 are allowed'), 400
+        return jsonify(error='Provide a public HTTP or HTTPS address without credentials'), 400
     from celery_app import celery, require_broker
     try:
         require_broker(celery)

@@ -135,6 +135,22 @@ docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlve
 4. Update the OAuth callback URLs at Google and GitHub to
    `https://myscanners.com/auth/<provider>/callback`.
 
+## Start after every reboot
+
+The host provider restarts servers for maintenance. Web, the workers and urlvet
+share the network of their egress containers, and Docker's restart policies do
+not reliably bring such containers back after a host restart. Install the boot
+unit once; at every boot it runs `docker compose up -d` with the production files
+in dependency order:
+
+```
+sudo scripts/vps_autostart.sh install
+sudo scripts/vps_autostart.sh status
+```
+
+After the next reboot, `sudo journalctl -u myscanner.service -b` should end
+with `PASS: stack started`.
+
 ## Daily database backup
 
 `scripts/vps_backup.sh` writes a PostgreSQL custom-format dump and a SHA-256

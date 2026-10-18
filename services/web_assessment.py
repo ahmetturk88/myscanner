@@ -235,7 +235,14 @@ class WebAssessment:
         completed_checks = sum(c['status'] in ('completed', 'invalid') for c in selected_checks)
         complete = bool(selected_checks) and completed_checks == len(selected_checks)
         warnings = [f for f in findings if f['severity'] == 'warning']
-        verdict = 'malicious' if provider.get('verdict') == 'malicious' else 'suspicious' if warnings or provider.get('verdict') == 'suspicious' else 'clean' if complete and provider.get('verdict') == 'harmless' else 'unknown'
+        # An unconfirmed community phishing report alone does not block a clean result (same rule as URL
+        # scans, url-evidence-v7); any warning observed here already makes the verdict suspicious.
+        unconfirmed_only = provider.get('phishing_status') == 'unverified' and provider.get('verdict_reported') == 'harmless'
+        if unconfirmed_only:
+            findings.append({'code':'unverified_phishing_report','severity':'info','title':'Unconfirmed phishing report',
+                             'detail':'A community phishing database has an unconfirmed report for this address; reviewers have not confirmed it.'})
+        provider_clean = provider.get('verdict') == 'harmless' or unconfirmed_only
+        verdict = 'malicious' if provider.get('verdict') == 'malicious' else 'suspicious' if warnings or provider.get('verdict') == 'suspicious' else 'clean' if complete and provider_clean else 'unknown'
         return {'schema_version':2, 'url':url, 'verdict':verdict, 'assessment_status':'completed' if complete else 'partial',
                 'summary': 'Threat indicators reported by the external analyzer.' if verdict == 'malicious' else 'Caution: review the observed indicators before proceeding.' if verdict == 'suspicious' else 'No threat indicators observed in the completed checks. This is not a guarantee of safety.' if verdict == 'clean' else 'The available evidence cannot establish whether this URL is safe.',
                 'analyzed_at':datetime.now(timezone.utc).isoformat(), 'structure':structure, 'dns':dns, 'http':http, 'tls':tls, 'content':content, 'provider':provider,

@@ -31,5 +31,5 @@ class ShellTests(unittest.TestCase):
    self.assertTrue(svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"'));self.assertNotIn('<script',svg)
  def test_favicon_links(self):
   html=self.render()
-  self.assertIn('brand/myscanner-favicon.svg',html);self.assertIn('brand/myscanner-apple-touch.png',html)
+  self.assertIn('brand/myscanner-favicon.svg',html);self.assertIn('brand/myscanner-favicon-48.png',html);self.assertIn('brand/myscanner-apple-touch.png',html)
 if __name__=='__main__':unittest.main()

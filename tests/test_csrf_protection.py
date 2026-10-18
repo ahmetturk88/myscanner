@@ -57,9 +57,11 @@ class CSRFProtectionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return BeautifulSoup(response.data, 'html.parser').find('meta', {'name':'csrf-token'})['content']
 
-    def test_production_has_no_csrf_exemptions(self):
+    def test_only_the_token_only_mobile_api_is_exempt(self):
+        # The mobile API is authorised by bearer tokens alone, never by the
+        # session cookie, so it is the single exemption (see routes/mobile_api.py).
         self.assertFalse(self.production.csrf._exempt_views)
-        self.assertFalse(self.production.csrf._exempt_blueprints)
+        self.assertEqual({bp.name for bp in self.production.csrf._exempt_blueprints}, {'mobile'})
 
     def test_missing_tokens_block_all_state_changing_routes(self):
         # Before login checks, quota updates, database writes, queueing or providers.
@@ -70,8 +72,15 @@ class CSRFProtectionTests(unittest.TestCase):
                 url = re.sub(r'<(?:[^:>]+:)?([^>]+)>', lambda m: '1' if m[1] in ['user_id','scan_id','ioc_id','source_id'] else 'csrf-scan', url)
                 with self.subTest(url=url, method=method):
                     result = self.client.open(url, method=method, json={})
-                    self.assertEqual(result.status_code, 400)
-                    self.assertEqual(result.json['code'], 'csrf_failed')
+                    if url == '/api/mobile/v1/auth/login':
+                        # Public sign-in: no session involved, an empty body is just invalid.
+                        self.assertEqual(result.status_code, 400)
+                    elif url.startswith('/api/mobile/'):
+                        # A signed-in browser session alone can never act on the mobile API.
+                        self.assertEqual(result.status_code, 401)
+                    else:
+                        self.assertEqual(result.status_code, 400)
+                        self.assertEqual(result.json['code'], 'csrf_failed')
 
     def test_invalid_header_token_is_rejected(self):
         self.token()

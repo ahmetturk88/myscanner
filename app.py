@@ -308,6 +308,12 @@ app.register_blueprint(health_bp)
 from routes.file_pdf import file_pdf_bp
 app.register_blueprint(file_pdf_bp)
 
+# Mobile app API: authorised only by app tokens in the Authorization header,
+# never by the session cookie, so the cookie-based CSRF check does not apply.
+from routes.mobile_api import mobile_bp
+csrf.exempt(mobile_bp)
+app.register_blueprint(mobile_bp)
+
 # ================================================================
 # Auth Routes
 # ================================================================
@@ -475,6 +481,29 @@ def login():
 
     return render_template('login.html')
 
+SITE_URL = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/')
+PUBLIC_PAGES = ('landing', 'about', 'contact', 'privacy', 'terms', 'register', 'login')
+
+
+@app.context_processor
+def inject_site_url():
+    return {'site_url': SITE_URL}
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    body = '\n'.join(['User-agent: *', 'Disallow: /admin', 'Disallow: /api/', 'Disallow: /result/', '',
+                      f'Sitemap: {SITE_URL}/sitemap.xml', ''])
+    return Response(body, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    urls = ''.join(f'<url><loc>{SITE_URL}{url_for(name)}</loc></url>' for name in PUBLIC_PAGES)
+    body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    return Response(body, mimetype='application/xml')
+
+
 @app.context_processor
 def inject_oauth_providers():
     if request.endpoint in ('login', 'register'):
@@ -500,10 +529,16 @@ def oauth_start(provider):
 @app.route('/auth/<provider>/callback')
 def oauth_callback(provider):
     from services.oauth_login import OAuthError, finish, unique_username
+    from services.mobile_auth import app_return, oauth_code
     target = session.pop('oauth_next', None) or url_for('dashboard')
+    # Started from the mobile app: hand back a one-time code, not a website session.
+    mobile = session.pop('mobile_oauth', None)
+    mobile = mobile if isinstance(mobile, dict) and mobile.get('provider') == provider else None
     try:
         email, name = finish(provider, request.args, url_for('oauth_callback', provider=provider, _external=True), session)
     except OAuthError as error:
+        if mobile:
+            return redirect(app_return(mobile['redirect'], error=str(error)))
         flash(str(error), 'warning')
         return redirect(url_for('login'))
     user = User.query.filter_by(email=email).first()
@@ -520,6 +555,9 @@ def oauth_callback(provider):
         user.set_password(secrets.token_urlsafe(32))
     user.last_login = datetime.utcnow()
     db.session.commit()
+    if mobile:
+        log_activity(user.username, 'login', f'Signed in to the mobile app with {provider}')
+        return redirect(app_return(mobile['redirect'], code=oauth_code(user.id, mobile['challenge'])))
     login_user(user)
     log_activity(user.username, 'login', f'Signed in with {provider} from {request.remote_addr}')
     flash(f'Welcome, {user.username}!', 'success')
@@ -584,6 +622,8 @@ def reset_password(token):
         # ✅ استخدم bcrypt من extensions
         from extensions import bcrypt
         user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        from services.mobile_auth import revoke_all
+        revoke_all(user.id)  # a reset signs the app out on every device
         db.session.commit()
         send_password_changed_email(user)
         log_activity(user.username, 'password_reset', f'Password reset from {request.remote_addr}')
@@ -592,6 +632,23 @@ def reset_password(token):
         return redirect(url_for('login'))
 
     return render_template('reset_password.html', token=token, account=mask_email(user.email))
+
+
+@app.route('/account/delete', methods=['GET', 'POST'])
+@login_required
+def delete_account():
+    from services.account_deletion import delete_account as remove, matches
+    if request.method == 'POST':
+        if not matches(current_user, request.form.get('confirm_email')):
+            flash('Type your account email address exactly to confirm.', 'danger')
+            return redirect(url_for('delete_account'))
+        user_id = current_user.id
+        logout_user()
+        remove(user_id)
+        log_activity(None, 'account_deleted', f'Account #{user_id} deleted from the website')
+        flash('Your account and its data have been deleted.', 'info')
+        return redirect(url_for('landing'))
+    return render_template('delete_account.html')
 
 
 @app.route('/profile')
@@ -621,11 +678,11 @@ def dashboard():
         if not url:
             return redirect(url_for('dashboard'))
         
-        from services.safe_http import normalize_url
+        from services.safe_http import accept_scan_url
         try:
             if len(url) > 500:
                 raise ValueError('URL too long')
-            normalize_url(url)
+            url = accept_scan_url(url)
         except (ValueError, UnsafeTargetError):
             flash('Please provide a valid HTTP or HTTPS URL.', 'warning')
             return redirect(url_for('dashboard'))
@@ -1520,7 +1577,7 @@ def search():
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_file(os.path.join(app.static_folder, 'brand', 'myscanner-favicon.png'), mimetype='image/png', max_age=86400)
+    return send_file(os.path.join(app.static_folder, 'brand', 'myscanner-favicon.ico'), mimetype='image/x-icon', max_age=86400)
 
 @app.route('/products')
 def products():

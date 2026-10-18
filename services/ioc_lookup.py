@@ -218,7 +218,7 @@ class IoCLookup:
         for r in found_results:
             all_iocs.extend(r.get('iocs', []))
             all_threats.extend(r.get('threat_types', []))
-            all_tags.extend(r.get('tags', []))
+            all_tags.extend(r.get('tags') or [])
             if r.get('tip_score', 0) > max_tip_score:
                 max_tip_score = r['tip_score']
             sev_rank = self.SEVERITY_WEIGHTS.get(r.get('highest_severity', 'clean'), 0)

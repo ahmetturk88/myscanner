@@ -131,16 +131,16 @@ class DomainAnalyzer:
             if data.get('objectClassName') != 'domain' or str(data.get('ldhName', '')).lower().rstrip('.') != domain:
                 raise ValueError()
             dates = {}
-            for event in data.get('events', []):
+            for event in data.get('events') or []:
                 if isinstance(event, dict) and isinstance(event.get('eventDate'), str):
                     dates[event.get('eventAction')] = event['eventDate']
             registrar = None
-            for entity in data.get('entities', []):
-                if isinstance(entity, dict) and 'registrar' in entity.get('roles', []):
-                    vcard = entity.get('vcardArray', [])
+            for entity in data.get('entities') or []:
+                if isinstance(entity, dict) and 'registrar' in (entity.get('roles') or []):
+                    vcard = entity.get('vcardArray') or []
                     if len(vcard) == 2 and isinstance(vcard[1], list):
                         registrar = next((v[3] for v in vcard[1] if isinstance(v, list) and len(v) == 4 and v[0] == 'fn' and isinstance(v[3], str)), None)
-            result = {'_whois_status': 'assessed', 'registration_source': 'RDAP', 'registrar': registrar, 'created': dates.get('registration'), 'expires': dates.get('expiration'), 'whois_updated': dates.get('last changed'), 'nameservers': [n['ldhName'] for n in data.get('nameservers', [])[:20] if isinstance(n, dict) and isinstance(n.get('ldhName'), str)], 'status': [s for s in data.get('status', [])[:20] if isinstance(s, str)]}
+            result = {'_whois_status': 'assessed', 'registration_source': 'RDAP', 'registrar': registrar, 'created': dates.get('registration'), 'expires': dates.get('expiration'), 'whois_updated': dates.get('last changed'), 'nameservers': [n['ldhName'] for n in (data.get('nameservers') or [])[:20] if isinstance(n, dict) and isinstance(n.get('ldhName'), str)], 'status': [s for s in (data.get('status') or [])[:20] if isinstance(s, str)]}
             now = datetime.now(timezone.utc)
             for field, target in (('created', 'age_days'), ('expires', 'days_until_expiry')):
                 try:

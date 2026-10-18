@@ -128,5 +128,11 @@
       {% endfor %}
     </div>
   </section>
+
+  <section class="pg-card pg-reveal" style="margin-top:22px">
+    <div class="pg-card-title"><h3><span class="pg-ic ic-alert"></span>Delete account</h3></div>
+    <p class="pg-note">Permanently delete your account, reports, AI conversations and app sign-ins.</p>
+    <a class="pg-btn danger" href="{{ url_for('delete_account') }}" style="margin-top:12px">Delete my account…</a>
+  </section>
 </div>
 {% endblock %}

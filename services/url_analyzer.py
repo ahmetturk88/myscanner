@@ -332,6 +332,10 @@ class URLDeepAnalyzer:
             }
         except UnsafeTargetError:
             raise
+        except ssl.SSLCertVerificationError as e:
+            # A certificate that fails verification is evidence, not a failed check.
+            logger.info('Certificate verification failed for %s', domain)
+            return {"valid": False, "verification_error": (e.verify_message or 'verification failed')[:200]}
         except Exception as e:
             logger.error(f"SSL check error: {str(e)}")
             return {"valid": False, "error": str(e)}
@@ -518,7 +522,7 @@ class URLDeepAnalyzer:
             if w.name and 'Private' in str(w.name):
                 result["red_flags"].append("Private registration - may hide identity")
         except Exception as e:
-            logger.error(f"WHOIS error: {str(e)}")
+            logger.error('WHOIS error: %s', (str(e).strip().splitlines() or [type(e).__name__])[0][:200])
             result["error"] = str(e)
 
         return result
@@ -573,7 +577,7 @@ class URLDeepAnalyzer:
                     result["first_seen"] = data.get('firstseen')
                     result["last_seen"] = data.get('lastseen')
                     result["threat"] = data.get('threat')
-                    result["tags"] = data.get('tags', [])
+                    result["tags"] = data.get('tags') if isinstance(data.get('tags'), list) else []  # the API sends null
                     result["reporter"] = data.get('reporter')
                     result["details"] = f"Malicious URL detected - Type: {result['threat']}"
 
@@ -621,11 +625,15 @@ class URLDeepAnalyzer:
             result["urlhaus_details"] = {
                 "id": urlhaus_result.get("urlhaus_id"),
                 "threat": urlhaus_result.get("threat"),
-                "tags": urlhaus_result.get("tags", [])[:3],
+                "tags": (urlhaus_result.get("tags") or [])[:3],
                 "first_seen": urlhaus_result.get("first_seen")
             }
             result["osint_risk_score"] += 60
             result["details"].append(f"Found in URLhaus - {urlhaus_result.get('threat', 'Malicious')}")
+
+        # Google Web Risk (optional): sends only the URL string to Google.
+        from services.web_risk import check_web_risk
+        result["web_risk"] = check_web_risk(url, self.session)
 
         # فحص القائمة المحلية
         if domain in self.PHISHING_DOMAINS:
@@ -841,6 +849,19 @@ class URLDeepAnalyzer:
     # ================================================================
     # 12. التحليل الشامل (سريع)
     # ================================================================
+
+    def reputation_only_analysis(self, url: str):
+        """Evidence for an address the scanner never visits (another port): URL heuristics and URLhaus.
+
+        Returns (local, deep) in the shape of the two full analyses.
+        """
+        self.session.set_deadline(time.monotonic() + QUICK_BUDGET)
+        parsed = urlparse(url)
+        note = {'reputation_only': True, 'not_visited_reason': 'non_standard_port'}
+        local = {'url': url, 'domain': parsed.hostname, 'structure': self.analyze_url_structure(url),
+                 'phishing': self.check_phishing_indicators(url), 'is_shortened': False, **note}
+        deep = {'url': url, 'osint': self.check_osint_sources(url), **note}
+        return local, deep
 
     def comprehensive_analysis(self, url: str) -> Dict[str, Any]:
         """

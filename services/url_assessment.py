@@ -1,11 +1,22 @@
 """Versioned, deterministic evidence index. It is not an estimated probability."""
 import copy
 import math
+from urllib.parse import urlparse
+
+from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v5'
+POLICY_VERSION = 'url-evidence-v9'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
+# A browser warns before these pages, so the report never calls them clean (v6).
+TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
+# An unconfirmed community phishing report counts only with one of these (v7):
+# anyone can submit any URL, but a pending report plus a look-alike or
+# impersonation signal is how new phishing pages usually appear.
+CORROBORATING = {'typosquatting','homoglyph','punycode','brand_mismatch','hidden_iframe','ip_url','domain_randomness','domain_history'}
+NOT_VISITED = 'The page was not visited because the address uses a port other than 80 or 443; only its reputation was checked.'
+UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for this URL; reviewers have not confirmed it.'
 
 
 def number(value):
@@ -21,11 +32,24 @@ def usable(value):
     return isinstance(value,dict) and bool(value) and not value.get('error')
 
 
+def host(url):
+    name=(urlparse(url).hostname or '').lower() if isinstance(url,str) else ''
+    return name[4:] if name.startswith('www.') else name
+
+
+def upgraded_to_https(behavior):
+    """True when an http:// address redirected to HTTPS on the same site (v6)."""
+    final=behavior.get('final_url')
+    return (behavior.get('error') is None and isinstance(final,str) and final.lower().startswith('https://')
+            and bool(host(final)) and host(final)==host(behavior.get('original_url')))
+
+
 def assess_url(local, deep):
     local=local if isinstance(local,dict) else {}
     deep=deep if isinstance(deep,dict) else {}
+    upgraded=upgraded_to_https(mapping(deep.get('behavior')))
     components={key:{'weight':weight,'status':'unavailable','deduction':0,'reasons':[]} for key,weight in WEIGHTS.items()}
-    reasons={}; missing=[]; confirmed=False; review=False; provider_verdicts=[]
+    reasons={}; missing=[]; confirmed=False; review=False; reported=False; provider_verdicts=[]
     def assessed(key):components[key]['status']='assessed'
     def signal(key,code,points,message):
         assessed(key)
@@ -40,7 +64,7 @@ def assess_url(local, deep):
         structure=mapping(data.get('structure'))
         if usable(structure) and type(structure.get('is_https')) is bool:
             assessed('transport');assessed('identity')
-            if structure['is_https'] is False:signal('transport','no_https',20,'The URL does not use HTTPS.')
+            if structure['is_https'] is False and not upgraded:signal('transport','no_https',20,'The URL does not use HTTPS.')
             if structure.get('contains_ip') is True:signal('identity','ip_url',8,'The URL uses an IP address instead of a domain.')
         ssl=mapping(data.get('ssl'))
         if usable(ssl) and type(ssl.get('valid')) is bool:
@@ -103,6 +127,8 @@ def assess_url(local, deep):
             if evidence=='verified':
                 confirmed=True;signal('reputation','verified_phishing',20,'The provider reports a verified, valid phishing match.')
             elif evidence in ('not_found','not_phishing'):assessed('reputation')
+            elif evidence=='unverified':
+                assessed('reputation');reported=True;signal('reputation','unverified_report',0,UNVERIFIED_REPORT)
             else:
                 review=True;missing.append('Phishing database evidence is unverified or unavailable')
         sources.append(label)
@@ -132,6 +158,16 @@ def assess_url(local, deep):
         reason={'not_configured':'authentication is not configured','authentication_rejected':'authentication was rejected','rate_limited':'provider rate limit reached','configuration_error':'credential configuration could not be read','connection_or_response_error':'connection or response failed','http_error':'provider returned an HTTP error'}.get(osint.get('urlhaus_reason'),'check unavailable or not recorded')
         missing.append('URLhaus: '+reason)
     elif osint.get('urlhaus_status')=='not_found':assessed('reputation')
+    # v9: a Google Web Risk match confirms a threat. The source is optional, so a missing key
+    # or an unavailable lookup is not a coverage gap; URLhaus and URLVet still cover reputation.
+    web_risk=mapping(osint.get('web_risk'))
+    if web_risk.get('status')=='matched' and isinstance(web_risk.get('threat_types'),list) and web_risk['threat_types']:
+        confirmed=True
+        for kind in web_risk['threat_types']:
+            if kind in WEB_RISK_MESSAGES:signal('reputation','web_risk_'+kind.lower(),20,WEB_RISK_MESSAGES[kind])
+        sources.append('google_web_risk')
+    elif web_risk.get('status')=='not_found':
+        assessed('reputation');sources.append('google_web_risk')
     # v5: analyzer thresholds (local/deep verdicts) are not evidence of a threat.
     # Only a verified phishing entry or a URLhaus match confirms one; any other
     # provider threat verdict asks for review.
@@ -152,6 +188,8 @@ def assess_url(local, deep):
     elif provider_flag:verdict='suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
+    if verdict in ('harmless','unknown') and TRANSPORT_WARNINGS & set(reasons):verdict='suspicious'
+    if reported and verdict in ('harmless','unknown') and CORROBORATING & set(reasons):verdict='suspicious'
     # Coverage deductions are separate from threat evidence. Missing categories
     # use their full weight; missing checks within an assessed category cost 5
     # each, deduplicated across quick/deep sources and capped by that category.
@@ -168,6 +206,9 @@ def assess_url(local, deep):
         coverage_deductions[key]=min(max(0,component['weight']-component['deduction']),requested)
     coverage_penalty=sum(coverage_deductions.values())
     final_score=max(0,score-coverage_penalty) if score is not None else None
+    if local.get('reputation_only') is True:
+        # One plain reason replaces the page checks that were never meant to run (v8).
+        missing=[NOT_VISITED]+[m for m in missing if m.startswith('URLhaus')]
     return {'policy_version':POLICY_VERSION,'score':final_score,
             'coverage_penalty':coverage_penalty,'coverage_deductions':coverage_deductions,
             'evidence_score':score,'verdict':verdict,

@@ -24,14 +24,20 @@ def scan_url_task(self, url, user_id, scan_id, task_id):
         if not claimed:
             return {'status': 'failed', 'error': 'URL scan is not eligible for processing.'}
         from services.url_analyzer import URLDeepAnalyzer
+        from services.safe_http import needs_reputation_only
         analyzer = URLDeepAnalyzer()
-        stage = 'local_analysis'
-        local = analyzer.comprehensive_analysis(url)
-        stage = 'deep_analysis'
-        deep = analyzer.comprehensive_deep_analysis(url)
-        stage = 'screenshot'
-        from services.url_screenshot import capture_screenshot
-        capture_screenshot(url, scan_id)
+        if needs_reputation_only(url):
+            # Never connect to other ports; ask reputation sources only.
+            stage = 'reputation_only'
+            local, deep = analyzer.reputation_only_analysis(url)
+        else:
+            stage = 'local_analysis'
+            local = analyzer.comprehensive_analysis(url)
+            stage = 'deep_analysis'
+            deep = analyzer.comprehensive_deep_analysis(url)
+            stage = 'screenshot'
+            from services.url_screenshot import capture_screenshot
+            capture_screenshot(url, scan_id)
         stage = 'save_report'
         with app.app_context():
             return save_url_scan(scan_id, user_id, url, local, deep)

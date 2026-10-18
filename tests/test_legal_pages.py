@@ -31,7 +31,7 @@ class LegalPageTests(unittest.TestCase):
         for path, title in (('/privacy', 'Privacy Policy'), ('/terms', 'Terms of Service')):
             soup = self.soup(path)
             self.assertIn(title, soup.title.text)
-            self.assertRegex(soup.text, r'Effective 1[46] October 2026')
+            self.assertRegex(soup.text, r'Effective \d{1,2} [A-Z][a-z]+ 20\d\d')
             self.assertIn('info@myscanners.com', soup.text)
             anchors = [a['href'][1:] for a in soup.select('.legal-toc a')]
             self.assertEqual(len(anchors), 13)

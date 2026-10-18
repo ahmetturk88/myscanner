@@ -4,7 +4,7 @@ import math
 PARTIAL_WARNING = 'Scan incomplete: url.vet did not provide a complete assessment. Local checks alone cannot confirm that this URL is safe.'
 
 
-EVIDENCE_WARNING = 'Unverified phishing database submission: a database entry alone does not establish phishing. Overall safety has not been confirmed.'
+EVIDENCE_WARNING = 'Unverified phishing database report: reviewers have not confirmed it, so it is weighed with the other evidence rather than treated as a finding.'
 
 
 def apply_phishing_evidence(provider):

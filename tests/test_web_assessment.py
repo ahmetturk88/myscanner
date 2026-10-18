@@ -49,6 +49,15 @@ class AssessmentTests(unittest.TestCase):
             self.assertEqual(r['verdict'],'malicious'); self.assertEqual(r['provider']['trust_score'],0)
             provider.return_value.session.close.assert_called_once()
 
+    def test_unconfirmed_phishing_report_alone_allows_clean(self):
+        unconfirmed={'in_database':True,'verified':False,'valid':False}
+        with patch('services.urlvet_client.URLVetClient') as provider,patch.dict(os.environ,{'URLVET_URL':'http://configured.invalid'}):
+            provider.return_value.analyze_url.return_value={'verdict':'harmless','trust_score':95,'phishing':unconfirmed}
+            r=WebAssessment().analyze('https://example.com',True)
+        if r['assessment_status']!='completed':self.skipTest('local fixture is not complete')
+        self.assertEqual(r['verdict'],'clean')
+        self.assertIn('unverified_phishing_report',[f['code'] for f in r['findings']])
+
     def test_provider_failure_does_not_erase_local_password_warning(self):
         self.mocks[3].return_value=page(body=b'<form action="http://example.com/submit"><input type="password"></form>')
         with patch('services.urlvet_client.URLVetClient') as provider,patch.dict(os.environ,{'URLVET_URL':'http://configured.invalid'}):

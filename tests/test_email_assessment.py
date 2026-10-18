@@ -13,14 +13,30 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(r,before);self.assertIn('DKIM',str(a['not_checked']))
     def test_missing_checks_reduce_index_without_becoming_risk(self):
         r=self.baseline();r['smtp']={'coverage_status':'skipped','valid':None};r['blacklist']['coverage_status']='partial'
-        a=assess_email(r);self.assertEqual((a['score'],a['risk_deduction'],a['coverage_penalty']),(90,0,10));self.assertEqual(a['verdict'],'unknown')
+        a=assess_email(r);self.assertEqual((a['score'],a['risk_deduction'],a['coverage_penalty']),(95,0,5));self.assertEqual(a['verdict'],'unknown')
+        self.assertIn('SMTP',str(a['not_checked']))
+    def test_disabled_probe_and_one_answering_blocklist_can_be_clean(self):
+        # The live server: SMTP probing off, Spamhaus refuses shared resolvers, SpamCop answers.
+        r=self.baseline();r['smtp']={'coverage_status':'skipped','valid':None}
+        r['blacklist']={'coverage_status':'partial','is_blacklisted':False,'clean_on':['bl.spamcop.net'],'unavailable_on':['zen.spamhaus.org']}
+        a=assess_email(r);self.assertEqual(a['verdict'],'no_indicators');self.assertEqual(a['coverage'],'completed')
+        self.assertIn('zen.spamhaus.org',str(a['not_checked']))
+    def test_requested_probe_that_failed_is_still_a_gap(self):
+        r=self.baseline();r['smtp']={'coverage_status':'unavailable','valid':None}
+        self.assertEqual(assess_email(r)['verdict'],'unknown')
     def test_risk_and_coverage_are_separate_and_category_deductions_capped(self):
         r=self.baseline();r['blacklist']={'is_blacklisted':True};r['is_disposable']=True;r['smtp']['valid']=False
         a=assess_email(r);self.assertEqual(a['score'],60);self.assertEqual(a['risk_deduction'],40);self.assertEqual(a['verdict'],'review')
         for c in a['categories']:self.assertLessEqual(c['risk_deduction']+c['coverage_deduction'],c['weight'])
     def test_null_mx_and_monitoring_policy_have_explanations(self):
         r=self.baseline();r['dns']['mx']['records']=[{'exchange':'.'}];r['dns']['dmarc']['policy']='none'
-        a=assess_email(r);self.assertEqual(a['score'],75);self.assertIn('null MX',str(a['findings']))
+        a=assess_email(r);self.assertEqual(a['score'],80);self.assertIn('null MX',str(a['findings']))
+        self.assertIn('p=none',str(a['findings']))
+    def test_monitoring_dmarc_alone_is_a_note_not_a_risk(self):
+        # gmail.com publishes p=none; its addresses must not need review for that alone.
+        r=self.baseline();r['dns']['dmarc']['policy']='none'
+        a=assess_email(r);self.assertEqual(a['verdict'],'no_indicators');self.assertEqual(a['risk_deduction'],0)
+        self.assertIn('p=none',str(a['findings']))
     def test_malformed_records_and_nonfinite_age_never_confirm_full_coverage(self):
         for records in (None,{},'bad'):
             r=self.baseline();r['dns']['mx']['records']=records;r['domain_info']['age_days']=float('nan')

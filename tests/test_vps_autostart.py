@@ -42,7 +42,7 @@ class VPSAutostartTests(unittest.TestCase):
     def up_calls(self):
         return [line for line in self.docker_log.read_text().splitlines() if ' up -d' in line]
 
-    def test_start_uses_the_production_files_in_order_without_building(self):
+    def test_start_recreates_the_stack_from_the_production_files_without_building(self):
         result = self.run_script('start')
         self.assertEqual(result.returncode, 0, result.stderr)
         call = self.up_calls()[0]
@@ -50,7 +50,7 @@ class VPSAutostartTests(unittest.TestCase):
         self.assertEqual(files, ['compose.vps.yml', 'compose.urlvet.yml', 'compose.egress.yml',
                                  'compose.app-egress.yml', 'compose.launch.yml'])
         self.assertIn('.env.vps.rehearsal', call)
-        self.assertTrue(call.endswith('up -d --no-build'))
+        self.assertTrue(call.endswith('up -d --no-build --force-recreate'))
 
     def test_start_retries_a_slow_first_start(self):
         result = self.run_script('start', FAIL_UPS='2')

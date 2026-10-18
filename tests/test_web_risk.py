@@ -40,6 +40,9 @@ class LookupTests(unittest.TestCase):
         for status, reason in ((403, 'authentication_rejected'), (429, 'quota_exceeded'), (500, 'http_error')):
             session.get.return_value = response(status)
             self.assertEqual(check_web_risk('https://p.example/', session, key='k' * 39)['reason'], reason)
+        denied = response(403, {'error': {'status': 'PERMISSION_DENIED', 'details': [{'reason': 'BILLING_DISABLED'}], 'message': 'free text'}})
+        session.get.return_value = denied
+        self.assertEqual(check_web_risk('https://p.example/', session, key='k' * 39)['google_reason'], 'BILLING_DISABLED')
         session.get.side_effect = OSError('down')
         self.assertEqual(check_web_risk('https://p.example/', session, key='k' * 39)['status'], 'unavailable')
 

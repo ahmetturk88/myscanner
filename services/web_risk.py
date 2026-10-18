@@ -27,6 +27,17 @@ def web_risk_key():
     return key if key and len(key) < 4096 and not any(c.isspace() for c in key) else None
 
 
+def google_reason(response):
+    """Google's machine-readable error code (e.g. BILLING_DISABLED), never free text."""
+    try:
+        error = response.json().get('error') or {}
+        codes = [d.get('reason') for d in error.get('details') or [] if isinstance(d, dict)] + [error.get('status')]
+    except Exception:
+        return None
+    code = next((c for c in codes if isinstance(c, str) and c), None)
+    return code if code and len(code) <= 64 and all(ch.isalnum() or ch == '_' for ch in code) else None
+
+
 def check_web_risk(url, session, key=None):
     """{'status': matched|not_found|not_configured|unavailable, 'threat_types': [...], 'reason': ...}"""
     key = key if key is not None else web_risk_key()
@@ -41,7 +52,7 @@ def check_web_risk(url, session, key=None):
     if response.status_code != 200:
         reason = ('authentication_rejected' if response.status_code in (400, 401, 403)
                   else 'quota_exceeded' if response.status_code == 429 else 'http_error')
-        return {'status': 'unavailable', 'threat_types': [], 'reason': reason}
+        return {'status': 'unavailable', 'threat_types': [], 'reason': reason, 'google_reason': google_reason(response)}
     try:
         data = response.json()
     except ValueError:

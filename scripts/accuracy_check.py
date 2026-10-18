@@ -74,6 +74,8 @@ def scan(url):
         result['seconds'] = round(time.monotonic() - started)
         result['provider_verdict'] = (local.get('urlvet') or {}).get('verdict')
         result['urlhaus'] = (deep.get('osint') or {}).get('urlhaus_status')
+        web_risk = (deep.get('osint') or {}).get('web_risk') or {}
+        result['web_risk'] = web_risk.get('status') if web_risk.get('status') != 'unavailable' else f"unavailable ({web_risk.get('reason')}, {web_risk.get('google_reason')})"
         return result
     finally:
         try:
@@ -131,7 +133,7 @@ def run_case(case):
     return {'expect': expect, 'url': url, 'note': note, 'verdict': result['verdict'], 'score': result['score'],
             'grade': grade(expect, result['verdict']), 'seconds': result['seconds'],
             'reasons': [r['code'] for r in result['reasons']], 'missing': result['missing_checks'],
-            'provider_verdict': result['provider_verdict'], 'urlhaus': result['urlhaus']}
+            'provider_verdict': result['provider_verdict'], 'urlhaus': result['urlhaus'], 'web_risk': result.get('web_risk')}
 
 
 def main(argv=None):
@@ -162,7 +164,7 @@ def benchmark(args):
             print(f"{mark} {row['expect']:<6} {row['verdict']:<10} {'-' if score is None else score:>3}  {row['url'][:70]}")
             if row['grade'] != 'PASS':
                 detail = row.get('error') or f"reasons={','.join(row.get('reasons') or []) or '-'}; " \
-                    f"provider={row.get('provider_verdict')}; urlhaus={row.get('urlhaus')}"
+                    f"provider={row.get('provider_verdict')}; urlhaus={row.get('urlhaus')}; web_risk={row.get('web_risk')}"
                 print(f'     {row["note"]}: {detail}')
                 for item in (row.get('missing') or [])[:6]:
                     print(f'       missing: {item}')

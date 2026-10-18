@@ -329,11 +329,16 @@
   @media(max-width:520px){.result-wrap{padding:28px 14px 60px}.page-head{grid-template-columns:1fr;gap:10px}.url-art{height:120px}.url-art svg{height:105px}.art-caption{bottom:0}.assessment-hero,.loading-area{padding:23px}.hero-copy h2{font-size:28px}.scan-flow{grid-template-columns:1fr}.report-disclosure summary{padding:17px}.evidence-panel{padding:20px}}
 
   /* Plain-language report (top of the page) */
-  .rp-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-  .rp-back,.rp-icon-btn{min-height:44px;display:inline-flex;align-items:center;gap:6px;color:#c9d8ea;text-decoration:none;font-size:14.5px;border-radius:12px}
-  .rp-icon-btn{width:44px;justify-content:center;background:transparent;border:1px solid #2b3f57;cursor:pointer}
-  .rp-back:hover,.rp-icon-btn:hover{color:#fff}.rp-back:focus-visible,.rp-icon-btn:focus-visible,.rp-btn:focus-visible,.rp-tech summary:focus-visible{outline:2px solid #7bd1ff;outline-offset:3px}
+  .rp-top{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:10px;border-radius:18px;background:#0b1422;border:1px solid #1d2e43}
+  .rp-pill{min-height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;background:#101b2b;border:1px solid #2b3f57;color:#dbe8f6;font-family:inherit;font-size:14.5px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+  .rp-pill:hover{background:#15243a;border-color:#3f5a78;color:#fff}
+  .rp-pill:focus-visible,.rp-btn:focus-visible,.rp-tech summary:focus-visible{outline:2px solid #7bd1ff;outline-offset:3px}
+  .rp-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding-left:4px}
   .rp-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:#93a7bf}
+  .rp-top-when{font-size:13px;color:#7f93ad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-tools{display:flex;gap:8px}.rp-tools[hidden]{display:none}
+  @media(min-width:601px){.rp-when{display:none}}
+  @media(max-width:600px){.rp-top{gap:8px;padding:8px}.rp-pill{padding:0 12px}.rp-pill span,.rp-lbl{display:none}.rp-pill{width:44px;padding:0}.rp-top-when{display:none}}
   .rp-target{background:#101d30;border:1px solid #2f4560;border-radius:12px;padding:12px 14px;overflow-wrap:anywhere;font-family:var(--mono);font-size:13.5px;color:#c9ddf2;margin-bottom:18px}
   .rp{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:28px;align-items:start;color:#edf5ff;--rp-a:#a5b6cd;--rp-bg:#111a28;--rp-line:#2b3d55;--rp-ring:#16253a;--rp-label:#c7d3e3;--rp-soft:#b8c4d4;--rp-on:#062031;--rp-btn:#77dcff}
   .rp[hidden]{display:none}
@@ -383,9 +388,12 @@
 {% block content %}
 <div class="result-wrap">
   <nav class="rp-top" aria-label="Report">
-    <a href="/dashboard" class="rp-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>New scan</a>
-    <span class="rp-eyebrow">LINK REPORT #{{ scan.id }}</span>
-    <button type="button" id="rp-share-top" class="rp-icon-btn" aria-label="Share report" hidden onclick="shareReport()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+    <a href="/dashboard" class="rp-pill" aria-label="New scan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>New scan</span></a>
+    <div class="rp-title"><span class="rp-eyebrow">LINK REPORT #{{ scan.id }}</span><span class="rp-top-when" id="rp-top-when"></span></div>
+    <div class="rp-tools" id="rp-tools" hidden>
+      <button type="button" id="rp-share-top" class="rp-pill" aria-label="Share report" onclick="shareReport()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span class="rp-lbl">Share</span></button>
+      <a href="/report/pdf/{{ scan.id }}" class="rp-pill" aria-label="Download PDF report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="rp-lbl">PDF</span></a>
+    </div>
   </nav>
   <div class="rp-target" id="rp-target-loading">{{ scan.url }}</div>
 
@@ -713,7 +721,8 @@ function renderPlain(plain,scanData){
   const img=box.querySelector('.rp-preview img');if(img)img.addEventListener('error',()=>{img.closest('.rp-preview').remove();});
   box.hidden=false;
   document.getElementById('rp-target-loading').hidden=true;
-  document.getElementById('rp-share-top').hidden=false;
+  document.getElementById('rp-tools').hidden=false;
+  if(typeof scanData?.date==='string')document.getElementById('rp-top-when').textContent=`Checked ${scanData.date} UTC`;
   return true;
 }
 function rpToast(text){const f=document.getElementById('report-feedback');if(f){f.textContent=text;setTimeout(()=>{if(f.textContent===text)f.textContent='';},4000);}}

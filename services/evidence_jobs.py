@@ -96,7 +96,9 @@ def run_evidence_job(kind, params, user_id):
     except ValueError as error:
         message = INVALID.get(kind) or _user_message(str(error), UNAVAILABLE[kind])
         return {'status': 'failed', 'user_error': message}
-    except Exception:
+    except Exception as error:
+        from services.error_reporting import report_exception
+        report_exception(error)
         current_app.logger.exception('Evidence job failed: %s', kind)
         return {'status': 'failed', 'user_error': UNAVAILABLE.get(kind, 'Analysis failed. Please retry.')}
     finally:

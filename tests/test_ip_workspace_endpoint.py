@@ -11,8 +11,8 @@ class IPEndpointTests(unittest.TestCase):
         tree=ast.parse((Path(__file__).resolve().parents[1]/'app.py').read_text())
         fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='api_check_ip')
         fn.decorator_list=[]
-        self.app=Flask(__name__);self.analyzer=Mock();self.factory=Mock(return_value=self.analyzer)
-        scope={'app':self.app,'request':request,'jsonify':jsonify,'IPAnalyzer':self.factory,'ABUSEIPDB_API_KEY':'private-key','current_user':SimpleNamespace(username='test'),'log_activity':Mock()}
+        self.app=Flask(__name__);self.analyzer=Mock();self.factory=Mock(return_value=self.analyzer);self.report=Mock()
+        scope={'app':self.app,'request':request,'jsonify':jsonify,'IPAnalyzer':self.factory,'ABUSEIPDB_API_KEY':'private-key','current_user':SimpleNamespace(username='test'),'log_activity':Mock(),'report_exception':self.report}
         exec(compile(ast.Module(body=[fn],type_ignores=[]),'endpoint','exec'),scope)
         self.app.add_url_rule('/api/check-ip',view_func=scope['api_check_ip'],methods=['POST'])
         self.client=self.app.test_client()
@@ -26,4 +26,5 @@ class IPEndpointTests(unittest.TestCase):
     def test_unexpected_failure_is_generic(self):
         self.analyzer.analyze_ip.side_effect=RuntimeError('private-key')
         r=self.client.post('/api/check-ip',json={'ip':'8.8.8.8'});self.assertEqual(r.status_code,503);self.assertNotIn('private-key',r.get_data(as_text=True))
+        self.report.assert_called_once()
 if __name__=='__main__':unittest.main()

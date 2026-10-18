@@ -22,6 +22,23 @@ ENV_FILE="${ENV_FILE:-$ROOT/.env.vps.rehearsal}"
 OFFSITE_REMOTE="${OFFSITE_REMOTE:-}"
 AGE_RECIPIENTS="${AGE_RECIPIENTS:-/etc/myscanner/backup-recipients.txt}"
 OFFSITE_KEEP_DAYS="${OFFSITE_KEEP_DAYS:-30}"
+# Optional heartbeat monitor (for example a healthchecks.io check URL): pinged after
+# every run, with /fail appended on failure, so a failed or missed backup raises an alert.
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
+partial=""
+encrypted=""
+finish() {
+  local status=$?
+  rm -f "$partial" "$encrypted"
+  if [[ -n "$HEALTHCHECK_URL" ]]; then
+    local suffix=""
+    [[ $status -eq 0 ]] || suffix="/fail"
+    curl -fsS -m 10 --retry 3 -o /dev/null "$HEALTHCHECK_URL$suffix" || echo "WARN: backup monitor could not be notified" >&2
+  fi
+  exit "$status"
+}
+trap finish EXIT
+[[ -z "$HEALTHCHECK_URL" || "$HEALTHCHECK_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "HEALTHCHECK_URL must be an https URL" >&2; HEALTHCHECK_URL=""; exit 2; }
 
 [[ "$KEEP_DAYS" =~ ^[1-9][0-9]*$ ]] || { echo "KEEP_DAYS must be a positive integer" >&2; exit 2; }
 if [[ -n "$OFFSITE_REMOTE" ]]; then
@@ -36,7 +53,6 @@ chmod 700 "$BACKUP_DIR"
 name="myscanner-$(date -u +%Y%m%d-%H%M%S).dump"
 partial="$BACKUP_DIR/.$name.partial"
 encrypted="$BACKUP_DIR/.$name.age.partial"
-trap 'rm -f "$partial" "$encrypted"' EXIT
 
 compose exec -T postgres pg_dump -U myscanner_bootstrap -d myscanner_vps -Fc > "$partial"
 [[ -s "$partial" ]] || { echo "FAIL: empty backup" >&2; exit 1; }

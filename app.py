@@ -73,6 +73,8 @@ from services.pdf_report_generator import generate_vulnerability_report
 # Initialization
 # ================================================================
 app = Flask(__name__)
+from services.error_reporting import init_error_reporting, report_exception
+init_error_reporting('web')
 from logging_config import setup_logging
 
 # ================================================================
@@ -1370,7 +1372,8 @@ def api_check_email():
             "format_suggestions": result.get("format_suggestions", [])
         })
 
-    except Exception:
+    except Exception as error:
+        report_exception(error)
         app.logger.error("Email assessment unavailable")
         return jsonify(error="Email assessment temporarily unavailable. Please retry."), 503
 
@@ -1400,7 +1403,8 @@ def api_check_ip():
         response = jsonify(result)
         response.headers['Cache-Control'] = 'no-store'
         return response
-    except Exception:
+    except Exception as error:
+        report_exception(error)
         app.logger.error('IP evidence lookup failed')
         return jsonify({'error': 'IP lookup is temporarily unavailable'}), 503
 
@@ -1508,7 +1512,8 @@ def api_check_password():
         result.pop('password', None)
         log_activity(current_user.username, 'password_check', 'Checked password strength')
         return jsonify(result), 200, {'Cache-Control':'no-store'}
-    except Exception:
+    except Exception as error:
+        report_exception(error, sensitive=True)
         app.logger.error('Password analysis unavailable')
         return jsonify(error='Password analysis is temporarily unavailable. Please retry later.'), 503
     finally:
@@ -1695,7 +1700,8 @@ def api_domain_lookup():
         response = jsonify(result)
         response.headers['Cache-Control'] = 'no-store'
         return response
-    except Exception:
+    except Exception as error:
+        report_exception(error)
         app.logger.error('Domain metadata lookup failed')
         return jsonify({'error': 'Domain lookup is temporarily unavailable'}), 503
 
@@ -1717,7 +1723,8 @@ def api_scan_qr_url():
         return jsonify(error=str(error)), 400
     except UnsafeTargetError:
         raise
-    except Exception:
+    except Exception as error:
+        report_exception(error)
         app.logger.exception('QR URL assessment failed')
         return jsonify(error='QR assessment temporarily unavailable. Please retry.'), 503
 
@@ -1742,7 +1749,8 @@ def api_ssl_checker():
         return jsonify(error='Target could not be assessed under the public-network policy'), 400
     except ValueError:
         return jsonify(error='Provide a valid public domain or website URL'), 400
-    except Exception:
+    except Exception as error:
+        report_exception(error)
         app.logger.error('TLS observation unavailable')
         return jsonify(error='TLS observation is temporarily unavailable'), 503
 

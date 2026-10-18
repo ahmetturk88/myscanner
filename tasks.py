@@ -42,6 +42,8 @@ def scan_url_task(self, url, user_id, scan_id, task_id):
         with app.app_context():
             return save_url_scan(scan_id, user_id, url, local, deep)
     except Exception as error:
+        from services.error_reporting import report_exception
+        report_exception(error)
         from services.url_failure_diagnostic import failure_diagnostic
         diagnostic = failure_diagnostic(error, stage)
         app.logger.error('URL scan failed; scan_id=%s; diagnostic=%s', scan_id, diagnostic)
@@ -93,7 +95,9 @@ def scan_site_task(self, domain, user_id, scan_id):
             stored = save_site_scan(scan_id, user_id, domain, result)
         return {'status': stored['status'], 'result': stored,
                 'message': 'Site analysis report saved'}
-    except Exception:
+    except Exception as error:
+        from services.error_reporting import report_exception
+        report_exception(error)
         app.logger.error('Site scan failed; scan_id=%s', scan_id)
         if claimed:
             try:
@@ -127,6 +131,8 @@ def scan_file_task(self, file_path, filename, user_id):
             'message': 'File scan completed successfully'
         }
     except Exception as e:
+        from services.error_reporting import report_exception
+        report_exception(e)
         return {'status': 'failed', 'error': str(e)}
     finally:
         remove_temporary_upload(file_path)
@@ -225,6 +231,8 @@ def scan_large_file_task(self, file_path, filename, user_id):
             'message': 'Large file scan completed'
         }
     except Exception as e:
+        from services.error_reporting import report_exception
+        report_exception(e)
         return {'status': 'failed', 'error': str(e)}
     finally:
         remove_temporary_upload(file_path)

@@ -18,6 +18,8 @@ x-app: &app
     TRUSTED_PROXY_CIDRS: '172.31.240.2/32'
     TRUSTED_PROXY_HOPS: '1'
     URLVET_URL: ${URLVET_URL:-http://host.docker.internal:8080}
+    # Optional error alerts (Sentry); empty keeps reporting off.
+    SENTRY_DSN: ${SENTRY_DSN:-}
   extra_hosts: [host.docker.internal:host-gateway]
   networks: [data, outbound]
   secrets: [db_app_password, redis_password, session_key]

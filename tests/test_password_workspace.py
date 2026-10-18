@@ -52,7 +52,8 @@ class EndpointTests(unittest.TestCase):
     def setUp(self):
         tree=ast.parse((ROOT/'app.py').read_text());fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='api_check_password');fn.decorator_list=[]
         self.app=Flask(__name__);self.factory=Mock();self.quota=Mock(return_value=None);self.log=Mock()
-        ns={'request':request,'jsonify':jsonify,'PasswordAnalyzer':self.factory,'reserve_request_quota':self.quota,'log_activity':self.log,'current_user':SimpleNamespace(username='tester'),'app':self.app}
+        self.report=Mock()
+        ns={'request':request,'jsonify':jsonify,'PasswordAnalyzer':self.factory,'reserve_request_quota':self.quota,'log_activity':self.log,'report_exception':self.report,'current_user':SimpleNamespace(username='tester'),'app':self.app}
         exec(compile(ast.fix_missing_locations(ast.Module(body=[fn],type_ignores=[])),'endpoint','exec'),ns)
         self.app.add_url_rule('/api/check-password',view_func=ns['api_check_password'],methods=['POST']);self.client=self.app.test_client()
     def test_valid_request_no_store_session_close_and_generic_activity(self):
@@ -68,6 +69,7 @@ class EndpointTests(unittest.TestCase):
         self.factory.return_value.comprehensive_analysis.side_effect=RuntimeError('private!')
         r=self.client.post('/api/check-password',json={'password':'private!'})
         self.assertEqual(r.status_code,503);self.assertNotIn('private!',r.get_data(as_text=True));self.factory.return_value.close.assert_called_once()
+        self.assertTrue(self.report.call_args.kwargs.get('sensitive'))
 
 class TemplateTests(unittest.TestCase):
     def test_private_input_assets_and_opt_in(self):

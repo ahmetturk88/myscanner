@@ -61,6 +61,7 @@ wcwidth==0.7.0
 Werkzeug==3.1.9
 WTForms==3.2.2
 resend==2.0.0
+sentry-sdk==2.19.2
 
 
 zxcvbn==4.5.0

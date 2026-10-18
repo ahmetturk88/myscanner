@@ -30,6 +30,9 @@ case "$1" in
   *) exit 4 ;;
 esac
 '''
+FAKE_CURL = '''#!/usr/bin/env bash
+echo "${@: -1}" >> "$CURL_LOG"
+'''
 
 
 @unittest.skipUnless(shutil.which('bash') and shutil.which('sha256sum'), 'needs bash and coreutils')
@@ -39,12 +42,13 @@ class VPSBackupTests(unittest.TestCase):
         bin_dir = self.tmp/'bin';bin_dir.mkdir()
         (bin_dir/'docker').write_text(FAKE_DOCKER);os.chmod(bin_dir/'docker', 0o755)
         self.backups = self.tmp/'backups'
-        for name, body in (('age', FAKE_AGE), ('rclone', FAKE_RCLONE)):
+        for name, body in (('age', FAKE_AGE), ('rclone', FAKE_RCLONE), ('curl', FAKE_CURL)):
             (bin_dir/name).write_text(body);os.chmod(bin_dir/name, 0o755)
         self.remote, self.log = self.tmp/'remote', self.tmp/'rclone.log'
         self.recipients = self.tmp/'recipients.txt';self.recipients.write_text('age1examplepublickey\n')
         self.env = {**os.environ, 'PATH': f'{bin_dir}:{os.environ["PATH"]}', 'BACKUP_DIR': str(self.backups),
-                    'BACKUP_CONFIG': str(self.tmp/'absent.env'), 'REMOTE_DIR': str(self.remote), 'RCLONE_LOG': str(self.log)}
+                    'BACKUP_CONFIG': str(self.tmp/'absent.env'), 'REMOTE_DIR': str(self.remote), 'RCLONE_LOG': str(self.log),
+                    'CURL_LOG': str(self.tmp/'curl.log')}
         self.offsite = {'OFFSITE_REMOTE': 'remote:bucket', 'AGE_RECIPIENTS': str(self.recipients)}
 
     def run_script(self, **extra):
@@ -113,6 +117,20 @@ class VPSBackupTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(list((self.remote/'bucket').glob('*.age'))), 1)
 
+
+    def test_heartbeat_reports_success_and_failure(self):
+        pings = self.tmp/'curl.log'
+        self.assertEqual(self.run_script(HEALTHCHECK_URL='https://hc.example/abc').returncode, 0)
+        self.assertEqual(pings.read_text().split(), ['https://hc.example/abc'])
+        pings.unlink()
+        self.assertNotEqual(self.run_script(HEALTHCHECK_URL='https://hc.example/abc', FAIL_DUMP='1').returncode, 0)
+        self.assertEqual(pings.read_text().split(), ['https://hc.example/abc/fail'])
+
+    def test_heartbeat_is_optional_and_must_be_https(self):
+        self.assertEqual(self.run_script().returncode, 0)
+        self.assertFalse((self.tmp/'curl.log').exists())
+        self.assertEqual(self.run_script(HEALTHCHECK_URL='http://plain.example/x').returncode, 2)
+        self.assertFalse((self.tmp/'curl.log').exists())
 
 if __name__ == '__main__':
     unittest.main()

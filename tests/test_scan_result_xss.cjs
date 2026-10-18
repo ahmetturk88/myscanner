@@ -18,6 +18,8 @@ function context(filename) {
     vm.createContext(ctx);
     vm.runInContext(fs.readFileSync(path.join(root,'static/scan_ui.js'),'utf8'), ctx);
     ctx.ScanUI = ctx.window.ScanUI;
+    vm.runInContext(fs.readFileSync(path.join(root,'static/plain_report.js'),'utf8'), ctx);
+    ctx.PlainReport = ctx.window.PlainReport;
     const template = fs.readFileSync(path.join(root,'templates',filename),'utf8');
     const scripts = [...template.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')
         .replace(/{{ scan.id \| tojson }}/g,'1').replace(/{{ scan.status \| tojson }}/g,'"pending"')

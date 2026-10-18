@@ -9,6 +9,14 @@ class FileWorkspaceTests(unittest.TestCase):
         self.assertIn('file_workspace.js', html)
         self.assertIn('Inspect this file', html)
         self.assertNotIn('70+', html)
+        # Plain summary first; every earlier evidence block stays inside Full technical evidence.
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+        self.assertTrue(soup.select_one('#file-plain').has_attr('hidden'))
+        tech = soup.select_one('details#file-tech')
+        for selector in ('#verdict-banner', '#stats-grid', '#provider-summary', '#deep-analysis-container', '#evidence-search'):
+            self.assertIsNotNone(tech.select_one(selector), selector)
+        self.assertLess(html.index('plain_report.js'), html.index('file_workspace.js'))
     @unittest.skipUnless(shutil.which('node'), 'Node.js is required for renderer execution tests')
     def test_real_workspace_behavior(self):
         subprocess.run(['node', str(ROOT / 'tests/test_file_workspace.cjs')], cwd=ROOT, check=True, timeout=15)

@@ -258,7 +258,7 @@ class FileThreatIntel:
         # النتيجة النهائية
         # ─────────────────────────────────────────────────────────────
         report = {
-            **{key:local_result[key] for key in ('file_size_mb','file_type','hashes','metadata','exiftool_data','iocs','yara','hash_reputation','warnings','benign_reasons','is_likely_benign') if key in local_result},
+            **{key:local_result[key] for key in ('file_size_mb','file_type','hashes','metadata','exiftool_data','iocs','yara','hash_reputation','warnings','benign_reasons','is_likely_benign','eicar','disguised_name') if key in local_result},
             'malwarebazaar': mb_result,
             # معلومات أساسية
             'filename': filename,
@@ -293,6 +293,8 @@ class FileThreatIntel:
 
         from services.file_assessment import assess_file
         report['assessment'] = assess_file(report)
+        from services.file_report_view import plain_file_report
+        report['plain'] = plain_file_report(report)
         return report
 
     # ================================================================

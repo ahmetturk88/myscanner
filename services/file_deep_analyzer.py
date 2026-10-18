@@ -1187,6 +1187,8 @@ class FileDeepAnalyzer:
             "recommendations": recommendations,
             "is_likely_benign": is_benign,
             "benign_reasons": benign_reasons,
+            "eicar": eicar,
+            "disguised_name": disguise,
             "analyzed_at": datetime.now().isoformat()
         }
 

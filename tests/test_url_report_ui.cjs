@@ -1,9 +1,10 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const elements={};const node=id=>elements[id]||=( {style:{},dataset:{},textContent:'',innerHTML:'',hidden:true,className:'',classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null;}} );
+const elements={};const node=id=>elements[id]||=( {style:{},dataset:{},textContent:'',innerHTML:'',hidden:true,className:'',classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null;},querySelectorAll(){return [];}} );
 const details=[{textContent:'TLS certificate',hidden:false,open:false},{textContent:'Page content',hidden:false,open:false}];
 let copied='';let shared=null;
 const ctx={document:{getElementById:node,querySelectorAll:()=>details},window:{addEventListener(){},location:{search:''}},URL,URLSearchParams,console,setTimeout(){},navigator:{clipboard:{writeText(text){copied=text;return Promise.resolve();}}}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync('static/scan_ui.js','utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
+vm.runInContext(fs.readFileSync('static/plain_report.js','utf8'),ctx);ctx.PlainReport=ctx.window.PlainReport;
 let source=[...fs.readFileSync('templates/result.html','utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n').replace(/{{ scan.id \| tojson }}/g,'1').replace(/{{ scan.status \| tojson }}/g,'"queued"').replace(/if \(initStatus[^\n]*\nelse[^\n]*/g,'');
 vm.runInContext(source,ctx);
 ctx.setLoadingState('queued');assert.equal(elements['phase-queue'].className,'active');assert.equal(elements['phase-analysis'].className,'');
@@ -37,3 +38,11 @@ vm.runInContext('plainReport={share_text:"Warning: hxxp://a[.]b"}',ctx);
 ctx.navigator.share=async data=>{shared=data;};
 ctx.shareReport().then(()=>{assert.equal(shared.text,'Warning: hxxp://a[.]b');
   delete ctx.navigator.share;return ctx.shareReport();}).then(()=>{assert.equal(copied,'Warning: hxxp://a[.]b');});
+
+// Shared renderer: unsafe "again" links fall back, the info state renders, h1 only when asked.
+const sharedBox={dataset:{},hidden:true,innerHTML:'',querySelector(){return null;},querySelectorAll(){return [];}};
+ctx.PlainReport.render(sharedBox,{tone:'safe',checks:[{name:'Links inside',state:'info',result:'3 links'}],actions:[]},{again:{href:'javascript:alert(1)',label:'x'}});
+assert(!sharedBox.innerHTML.includes('javascript:'));assert(sharedBox.innerHTML.includes('href="/dashboard"'));
+assert(sharedBox.innerHTML.includes('rp-cr rp-info'));assert(sharedBox.innerHTML.includes('<h2 class="rp-headline">'));
+ctx.PlainReport.render(sharedBox,{tone:'danger'},{again:{href:'/file-scanner',label:'Check another file'},h1:true});
+assert(sharedBox.innerHTML.includes('href="/file-scanner"'));assert(sharedBox.innerHTML.includes('<h1 class="rp-headline">'));

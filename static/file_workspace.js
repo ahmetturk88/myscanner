@@ -108,9 +108,12 @@
         throw new Error(message);
       }
       if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.verdict !== 'string') throw new Error('The server returned an incomplete report. No safety conclusion is available.');
-      lastResult = data; render(data); if (window.AIAssistant) AIAssistant.attach({tool: 'file', evidence: data, mount: '#result-card'});
+      lastResult = data; const plainShown = render(data);
+      if (window.AIAssistant) AIAssistant.attach({tool: 'file', evidence: data, mount: plainShown ? '#file-plain .rp-ai' : '#result-card'});
       $('result-card').hidden = false;
-      $('report-title').focus({preventScroll: true});
+      const heading = (plainShown && root.querySelector('#file-plain .rp-headline')) || $('report-title');
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({preventScroll: true});
       $('result-card').scrollIntoView({behavior: 'auto', block: 'start'});
     } catch (err) {
       error(err.name === 'AbortError' ? 'The response timed out. The server may still be processing the request; check service status before submitting again.' : err instanceof TypeError ? 'The network request failed. Check your connection and service status.' : err.message);
@@ -130,7 +133,11 @@
     return {available, value:available ? assessment.score : null, incomplete};
   }
   function render(d) {
-    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('file',d,'#result-card');
+    // Plain-language summary first; the full evidence stays below in its own section.
+    const plainShown = !!(window.PlainReport && PlainReport.render($('file-plain'), d.plain, {again: {href: '/file-scanner', label: 'Check another file'}, feedback: $('file-feedback')}));
+    if (!plainShown) $('file-plain').hidden = true;
+    $('file-tech').open = !plainShown;
+    if(typeof ReportSummary!=='undefined')ReportSummary.schedule('file',d,'#file-tech .fw-tech-body');
     $('export-pdf').disabled = typeof d._pdf_receipt !== 'string';
     const score = scorePresentation(d), mb = provider(d), meta = object(d.metadata), ft = object(d.file_type), patterns = object(d.yara), iocs = object(d.iocs);
     const danger = confirmed(d);
@@ -166,6 +173,7 @@
     if(mb.status==='matched' && mb.is_malicious===true) finding(findings,'MalwareBazaar hash match',mb.signature || 'Signature not reported');
     $('detection-list').hidden=!findings.childElementCount;
     renderEvidence(d); $('evidence-search').value=''; filter();
+    return plainShown;
   }
   function source(parent,title,label,tone,description){const box=node('div','fw-source'),body=node('div','');body.append(node('strong','',title),node('p','',description));box.append(state(label,tone),body);parent.append(box);}
   function finding(parent,label,value){const box=node('div','fw-finding');box.append(node('strong','',label),node('p','',value));parent.append(box);}

@@ -2,6 +2,7 @@
 {% block title %}Scan Result #{{ scan.id }}{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261019-1') }}">
 <style>
   .result-wrap { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
@@ -340,46 +341,6 @@
   @media(min-width:601px){.rp-when{display:none}}
   @media(max-width:600px){.rp-top{gap:8px;padding:8px}.rp-pill{padding:0 12px}.rp-pill span,.rp-lbl{display:none}.rp-pill{width:44px;padding:0}.rp-top-when{display:none}}
   .rp-target{background:#101d30;border:1px solid #2f4560;border-radius:12px;padding:12px 14px;overflow-wrap:anywhere;font-family:var(--mono);font-size:13.5px;color:#c9ddf2;margin-bottom:18px}
-  .rp{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:28px;align-items:start;color:#edf5ff;--rp-a:#a5b6cd;--rp-bg:#111a28;--rp-line:#2b3d55;--rp-ring:#16253a;--rp-label:#c7d3e3;--rp-soft:#b8c4d4;--rp-on:#062031;--rp-btn:#77dcff}
-  .rp[hidden]{display:none}
-  .rp[data-tone=danger]{--rp-a:#fb7185;--rp-bg:#1f0d16;--rp-line:#5b2333;--rp-ring:#2d1019;--rp-label:#fda4b4;--rp-soft:#dcc6cd;--rp-on:#2a0710;--rp-btn:#fb7185}
-  .rp[data-tone=caution]{--rp-a:#fbbf24;--rp-bg:#1d1708;--rp-line:#574213;--rp-ring:#2b2108;--rp-label:#fcd679;--rp-soft:#dad1ba;--rp-on:#2a1a00;--rp-btn:#fbbf24}
-  .rp[data-tone=safe]{--rp-a:#4ade80;--rp-bg:#0b1d15;--rp-line:#1d4a32;--rp-ring:#0f2a1c;--rp-label:#86efac;--rp-soft:#c2d8cb}
-  .rp-main,.rp-side{display:flex;flex-direction:column;gap:22px;min-width:0}
-  .rp-hero{display:flex;gap:24px;align-items:flex-start;padding:30px;border-radius:24px;background:var(--rp-bg);border:1px solid var(--rp-line)}
-  .rp-ring{width:88px;height:88px;flex-shrink:0;border-radius:50%;border:2px solid var(--rp-a);background:var(--rp-ring);color:var(--rp-a);display:grid;place-items:center}
-  .rp-hero-copy{display:flex;flex-direction:column;gap:10px;min-width:0;flex:1}
-  .rp-label{font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--rp-label)}
-  .rp-hero h1{margin:0;font-size:clamp(28px,3.6vw,40px);line-height:1.1;font-weight:800;letter-spacing:-.015em;color:#fff}
-  .rp-hero p{margin:0;font-size:17px;line-height:1.55;color:var(--rp-soft)}
-  .rp-url{margin-top:4px;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid var(--rp-line);font-family:var(--mono);font-size:13.5px;line-height:1.5;overflow-wrap:anywhere;color:var(--rp-soft)}
-  .rp-url b{color:#fff}.rp-when{font-size:13px;color:var(--rp-soft)}
-  .rp h2{margin:0 0 14px;font-size:19px;font-weight:700;color:#edf5ff}
-  .rp-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:start}
-  .rp-why ul,.rp-do ol,.rp-checks ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
-  .rp-why li{display:flex;gap:12px;align-items:flex-start}.rp-why li div{display:flex;flex-direction:column;gap:3px}
-  .rp-why strong{font-size:16px;line-height:1.35}.rp-why span{font-size:14.5px;line-height:1.5;color:#a9bbd2}
-  .rp-i{flex-shrink:0;margin-top:1px}.rp-i.rp-bad,.rp-cr.rp-bad{color:#fb7185}.rp-i.rp-warn,.rp-cr.rp-warn{color:#fbbf24}.rp-i.rp-ok,.rp-cr.rp-ok{color:#4ade80}.rp-i.rp-na,.rp-cr.rp-na{color:#8ea2bc}.rp-i.rp-info{color:#77dcff}
-  .rp-card{padding:22px;border-radius:20px;background:#101b2b;border:1px solid #22344b}
-  .rp-do li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;line-height:1.5}
-  .rp-n{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:var(--rp-ring);color:var(--rp-label);font-family:var(--mono);font-size:13px;font-weight:700;display:grid;place-items:center}
-  .rp-buttons{display:flex;flex-wrap:wrap;gap:10px}
-  .rp-btn{min-height:52px;padding:0 22px;border-radius:16px;font-family:inherit;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;text-decoration:none;flex:1 1 220px}
-  .rp-primary{border:0;background:var(--rp-btn);color:var(--rp-on)}.rp-primary:hover{filter:brightness(1.08)}
-  .rp-ghost{background:transparent;border:1px solid #314b63;color:#edf5ff}.rp-ghost:hover{border-color:#4f6e8e}
-  .rp-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}.rp-head h2{margin:0}.rp-head span{font-size:13px;color:#93a7bf}
-  .rp-checks ul{gap:0}.rp-checks li{display:flex;align-items:center;gap:12px;min-height:52px;border-top:1px solid #1a2a3d}
-  .rp-cn{flex:1;font-size:15px}.rp-cr{font-size:14px;font-weight:600;text-align:right}
-  .rp-preview img{display:block;width:100%;border-radius:12px;border:1px solid #22344b}.rp-preview p,.rp-note{margin:10px 0 0;font-size:13px;line-height:1.55;color:#8ea2bc}.rp-note{margin:0}
-  .rp-tech{margin-top:30px;border-radius:18px;background:#0b1422;border:1px solid #1d2e43}
-  .rp-tech>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;min-height:56px}
-  .rp-tech>summary::-webkit-details-marker{display:none}
-  .rp-tech>summary strong{display:block;font-size:17px;color:#edf5ff}.rp-tech>summary small{display:block;margin-top:4px;font-size:13.5px;color:#93a7bf}
-  .rp-tech>summary svg{flex-shrink:0;color:#93a7bf;transition:transform .2s}.rp-tech[open]>summary svg{transform:rotate(180deg)}
-  .rp-tech>.status-card,.rp-tech>#deep-analysis-section{margin:0 20px 20px}
-  @media(max-width:900px){.rp{grid-template-columns:1fr}.rp-pair{grid-template-columns:1fr}}
-  @media(max-width:600px){.rp-hero{flex-direction:column;align-items:center;text-align:center;padding:26px 18px 22px}.rp-url{text-align:left}.rp-btn{flex-basis:100%}.rp-tech>.status-card,.rp-tech>#deep-analysis-section{margin:0 12px 12px}}
-  @media(prefers-reduced-motion:reduce){.rp-tech>summary svg{transition:none}}
   @media(prefers-reduced-motion:reduce){.loading-track:before,.scan-orbit:before,.spinner,.urlvet-title:before{animation:none!important}.btn{transition:none}}
 
 </style>
@@ -436,6 +397,7 @@
 {% endblock %}
 
 {% block body_extra %}
+<script src="{{ url_for('static', filename='plain_report.js', v='20261019-1') }}"></script>
 <script>
 // ✅ دالة الحماية من XSS
 function esc(value) { return ScanUI.escape(value); }
@@ -684,60 +646,25 @@ function renderAggregate(assessment) {
 // ================================================================
 // Plain-language summary (built on the server from the saved assessment)
 // ================================================================
-const RP_ICON={bad:'<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',warn:'<path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4M12 17h.01"/>',ok:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',na:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'};
-const RP_HERO={danger:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>',caution:RP_ICON.warn,unknown:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17h.01"/>',safe:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'};
-const RP_SHARE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
-const RP_SEARCH='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
 let plainReport=null;
-function rpIcon(kind,size){const k=Object.prototype.hasOwnProperty.call(RP_ICON,kind)?kind:'na';return `<svg class="rp-i rp-${k}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${RP_ICON[k]}</svg>`;}
 function renderPlain(plain,scanData){
-  const box=document.getElementById('plain-report');
-  if(!box||!plain||typeof plain!=='object'||Array.isArray(plain))return false;
-  plainReport=plain;
-  const list=v=>Array.isArray(v)?v.filter(x=>x&&typeof x==='object'):[];
-  const tone=['danger','caution','unknown','safe'].includes(plain.tone)?plain.tone:'unknown';
-  const u=reportObject(plain.url);
-  const reasons=list(plain.reasons).map(r=>`<li>${rpIcon(r.tone,22)}<div><strong>${esc(r.title)}</strong><span>${esc(r.detail)}</span></div></li>`).join('');
-  const actions=(Array.isArray(plain.actions)?plain.actions:[]).filter(a=>typeof a==='string').map((a,i)=>`<li><span class="rp-n">${i+1}</span><span>${esc(a)}</span></li>`).join('');
-  const checks=list(plain.checks).map(c=>{const st=['bad','warn','ok','na'].includes(c.state)?c.state:'na';return `<li>${rpIcon(st,20)}<span class="rp-cn">${esc(c.name)}</span><span class="rp-cr rp-${st}">${esc(c.result)}</span></li>`;}).join('');
-  const share=`<button type="button" class="rp-btn %CLS%" onclick="shareReport()">${RP_SHARE}%LABEL%</button>`;
-  const another=`<a class="rp-btn %CLS%" href="/dashboard">${RP_SEARCH}Check another link</a>`;
-  const buttons=tone==='danger'||tone==='caution'
-    ? share.replace('%CLS%','rp-primary').replace('%LABEL%',tone==='danger'?'Warn whoever sent it':'Share this warning')+another.replace('%CLS%','rp-ghost')
-    : another.replace('%CLS%','rp-primary')+share.replace('%CLS%','rp-ghost').replace('%LABEL%','Share report');
   const shot=/^\/api\/scan_screenshot\/\d+$/.test(scanData?.screenshot_url||'')?scanData.screenshot_url:'';
-  const preview=shot?`<section class="rp-card rp-preview"><h2>Page preview</h2><img src="${esc(shot)}" alt="Screenshot of the scanned page" loading="lazy"><p>Taken in an isolated browser on our server. Your device never opened the page. A normal-looking page is not proof of safety.</p></section>`:'';
-  const when=typeof scanData?.date==='string'?`Checked ${esc(scanData.date)} UTC`:'';
-  box.dataset.tone=tone;
-  box.innerHTML=`<div class="rp-main">
-    <section class="rp-hero"><div class="rp-ring">${`<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${RP_HERO[tone]}</svg>`}</div>
-      <div class="rp-hero-copy"><span class="rp-label">${esc(plain.label)}</span><h1>${esc(plain.headline)}</h1><p>${esc(plain.summary)}</p>
-      <div class="rp-url">${esc(u.prefix)}<b>${esc(u.host)}</b>${esc(u.rest)}</div><span class="rp-when">${when}</span></div></section>
-    <div class="rp-pair">${reasons?`<section class="rp-why"><h2>Why we think so</h2><ul>${reasons}</ul></section>`:''}
-    <section class="rp-card rp-do"><h2>${tone==='safe'?'Good to know':'What to do'}</h2><ol>${actions}</ol></section></div>
-    <div class="rp-buttons">${buttons}</div><div id="rp-ai"></div></div>
-  <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}
-    <p class="rp-note">A scan checks known warning signs at one moment in time. It can’t guarantee a link is safe.</p></aside>`;
-  const img=box.querySelector('.rp-preview img');if(img)img.addEventListener('error',()=>{img.closest('.rp-preview').remove();});
-  box.hidden=false;
+  if(typeof PlainReport==='undefined')return false;
+  const shown=PlainReport.render(document.getElementById('plain-report'),plain,{again:{href:'/dashboard',label:'Check another link'},screenshot:shot,h1:true,feedback:document.getElementById('report-feedback'),checked:typeof scanData?.date==='string'?`Checked ${scanData.date} UTC`:''});
+  if(!shown)return false;
+  plainReport=plain;
   document.getElementById('rp-target-loading').hidden=true;
   document.getElementById('rp-tools').hidden=false;
   if(typeof scanData?.date==='string')document.getElementById('rp-top-when').textContent=`Checked ${scanData.date} UTC`;
   return true;
 }
-function rpToast(text){const f=document.getElementById('report-feedback');if(f){f.textContent=text;setTimeout(()=>{if(f.textContent===text)f.textContent='';},4000);}}
-async function shareReport(){
-  const text=plainReport&&typeof plainReport.share_text==='string'?plainReport.share_text:'';
-  if(!text)return;
-  if(navigator.share){try{await navigator.share({text});return;}catch(error){if(error&&error.name==='AbortError')return;}}
-  try{await navigator.clipboard.writeText(text);rpToast('Warning copied. Paste it into your chat.');}catch(error){rpToast('Could not copy. Select the address and share it yourself.');}
-}
+function shareReport(){return PlainReport.share(plainReport&&plainReport.share_text,document.getElementById('report-feedback'));}
 
 function renderResult(scanData, analysisData) {
   const plainShown=renderPlain(analysisData?.plain,scanData);
   document.getElementById('tech-evidence').hidden=false;
     if(typeof ReportSummary!=='undefined')ReportSummary.schedule('url',{scan:scanData,analysis:analysisData},'#verdict-area');
-    if(window.AIAssistant)AIAssistant.attach(plainShown?{tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#rp-ai'}:{tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#deep-analysis-section',after:true});
+    if(window.AIAssistant)AIAssistant.attach(plainShown?{tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#plain-report .rp-ai'}:{tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#deep-analysis-section',after:true});
   if(!plainShown)document.getElementById('tech-evidence').open=true;
   document.getElementById('loading-area').style.display = 'none';
   const verdictArea = document.getElementById('verdict-area');

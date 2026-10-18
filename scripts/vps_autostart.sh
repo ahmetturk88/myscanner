@@ -5,9 +5,11 @@
 # all at once and ignores depends_on, and web, the workers and urlvet live in the
 # network of their egress containers (network_mode: service:...). One container
 # that stays down leaves the others restarting forever, as on 18 Oct 2026 when the
-# urlvet egress containers had no restart policy. "docker compose up -d" starts
-# services in dependency order and recreates any whose network provider changed,
-# so this unit is the safety net after every boot.
+# urlvet egress containers had no restart policy. And when an egress container
+# restarts on its own, the containers already joined to its old network keep
+# running without a working one. So at boot this unit recreates the whole stack
+# with "docker compose up -d --force-recreate": dependency order, fresh networks.
+# Data lives in volumes and survives.
 #
 #   sudo scripts/vps_autostart.sh install   # once: adds and enables myscanner.service
 #   sudo scripts/vps_autostart.sh start     # what the service runs at boot
@@ -31,7 +33,7 @@ start() {
   # A slow first start (database recovery after a hard stop) can fail a health
   # dependency once; try a few times before giving up and letting monitoring alert.
   for attempt in 1 2 3; do
-    if compose up -d --no-build; then
+    if compose up -d --no-build --force-recreate; then
       echo "PASS: stack started (attempt $attempt)"
       return 0
     fi

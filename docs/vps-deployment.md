@@ -140,7 +140,8 @@ docker compose --env-file .env.vps.rehearsal -f compose.vps.yml -f compose.urlve
 The host provider restarts servers for maintenance. Web, the workers and urlvet
 share the network of their egress containers, and Docker's restart policies do
 not reliably bring such containers back after a host restart. Install the boot
-unit once; at every boot it runs `docker compose up -d` with the production files
+unit once; at every boot it recreates the stack with `docker compose up -d
+--force-recreate` and the production files
 in dependency order:
 
 ```

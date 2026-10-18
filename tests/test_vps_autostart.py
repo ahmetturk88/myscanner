@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT/'scripts'/'vps_autostart.sh'
 FAKE_DOCKER = '''#!/usr/bin/env bash
@@ -79,6 +81,27 @@ class VPSAutostartTests(unittest.TestCase):
 
     def test_unknown_command_is_rejected(self):
         self.assertEqual(self.run_script('restart-everything').returncode, 2)
+
+
+class RestartPolicyTests(unittest.TestCase):
+    ONE_SHOT = {'bootstrap-roles', 'migrate', 'seed'}
+
+    def test_every_long_running_production_service_restarts_itself(self):
+        # A container without a restart policy stays down after a host reboot, and
+        # every service sharing or resolving its network fails with it.
+        loader = type('Loader', (yaml.SafeLoader,), {})
+        loader.add_constructor('!reset', lambda loader, node: None)
+        policies = {}
+        files = ('compose.vps.yml', 'compose.urlvet.yml', 'compose.egress.yml', 'compose.app-egress.yml', 'compose.launch.yml')
+        for name in files:
+            services = yaml.load((ROOT/name).read_text(encoding='utf-8'), Loader=loader).get('services') or {}
+            for service, config in services.items():
+                policies.setdefault(service, None)
+                if (config or {}).get('restart'):
+                    policies[service] = config['restart']
+        missing = sorted(s for s, policy in policies.items() if s not in self.ONE_SHOT and policy != 'unless-stopped')
+        self.assertEqual(missing, [])
+        self.assertIn('urlvet-egress', policies)
 
 
 if __name__ == '__main__':

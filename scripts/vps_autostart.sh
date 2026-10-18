@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Bring the whole VPS stack back after every reboot. Run as root (sudo).
 #
-# Docker's own restart policies are not enough here: web, the workers and urlvet
-# share the network of their egress containers (network_mode: service:...), and
-# after a host restart Docker does not reliably restart containers joined to
-# another container's network. "docker compose up -d" does: it starts services in
-# dependency order and recreates any whose network provider changed.
+# Every long-running service has restart: unless-stopped, but Docker restarts them
+# all at once and ignores depends_on, and web, the workers and urlvet live in the
+# network of their egress containers (network_mode: service:...). One container
+# that stays down leaves the others restarting forever, as on 18 Oct 2026 when the
+# urlvet egress containers had no restart policy. "docker compose up -d" starts
+# services in dependency order and recreates any whose network provider changed,
+# so this unit is the safety net after every boot.
 #
 #   sudo scripts/vps_autostart.sh install   # once: adds and enables myscanner.service
 #   sudo scripts/vps_autostart.sh start     # what the service runs at boot

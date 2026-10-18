@@ -29,7 +29,7 @@ assert.equal(ctx.renderPlain({tone:'danger',label:evil,headline:evil,summary:evi
 const plainHTML=elements['plain-report'].innerHTML;
 assert(!plainHTML.includes('<img src=x'));assert(plainHTML.includes('&lt;img'));assert(!plainHTML.includes('onload="x'));
 assert(!plainHTML.includes('evil.example'));assert(plainHTML.includes('Warn whoever sent it'));assert.equal(elements['plain-report'].dataset.tone,'danger');
-assert.equal(elements['plain-report'].hidden,false);assert.equal(elements['rp-share-top'].hidden,false);
+assert.equal(elements['plain-report'].hidden,false);assert.equal(elements['rp-tools'].hidden,false);assert(elements['rp-top-when'].textContent.includes('2026-10-18'));
 ctx.renderPlain({tone:'nonsense',actions:[],reasons:[],checks:[]},{screenshot_url:'/api/scan_screenshot/7'});
 assert.equal(elements['plain-report'].dataset.tone,'unknown');assert(elements['plain-report'].innerHTML.includes('src="/api/scan_screenshot/7"'));
 assert(elements['plain-report'].innerHTML.includes('Check another link'));

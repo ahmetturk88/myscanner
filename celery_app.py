@@ -112,6 +112,9 @@ class MyScannerCelery(Celery):
 celery = MyScannerCelery('myscanner')
 celery.conf.update(celery_settings())
 
+from services.error_reporting import init_error_reporting  # noqa: E402
+init_error_reporting('worker')
+
 
 def make_celery(app):
     """Compatibility binding; never create another application or task registry."""

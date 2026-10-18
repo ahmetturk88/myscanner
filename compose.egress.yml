@@ -3,6 +3,7 @@ services:
   urlvet-egress:
     image: myscanner-egress:rehearsal
     build: {context: ./deploy, dockerfile: egress.Dockerfile}
+    restart: unless-stopped
     cap_drop: [ALL]
     cap_add: [NET_ADMIN]
     read_only: true
@@ -25,6 +26,7 @@ services:
   urlvet-browser-egress:
     image: myscanner-egress:rehearsal
     build: {context: ./deploy, dockerfile: egress.Dockerfile}
+    restart: unless-stopped
     cap_drop: [ALL]
     cap_add: [NET_ADMIN]
     read_only: true

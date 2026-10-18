@@ -120,6 +120,10 @@ class URLQueueTests(unittest.TestCase):
             aggregate=response.json['aggregate_assessment']
             self.assertEqual(aggregate,saved['aggregate_assessment'])
             self.assertEqual(aggregate['score'],80)
+            # The plain summary follows the saved verdict; it never re-scores.
+            plain=response.json['plain']
+            self.assertEqual(plain['tone'],{'malicious':'danger','high_risk':'danger','suspicious':'caution','unknown':'unknown','harmless':'safe'}[aggregate['verdict']])
+            self.assertEqual(plain['url']['host'],'example.invalid')
             self.assertEqual(self.client.get(f'/report/pdf/{sid}').status_code,200)
             self.assertEqual(pdf.call_args.args[1]['aggregate_assessment'],aggregate)
             analyzer.assert_not_called()

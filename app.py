@@ -2018,6 +2018,7 @@ def api_url_analysis(scan_id):
     local_analysis = apply_url_coverage(saved['local_analysis'])
     deep_analysis = apply_url_coverage(saved['deep_analysis'])
     from services.url_assessment import saved_assessment
+    from services.url_report_view import plain_report
     aggregate = saved_assessment(saved, local_analysis, deep_analysis)
     app.logger.info(f'[SUCCESS] Saved URL analysis loaded for scan #{scan_id}')
     log_activity(current_user.username, 'url_analysis', f'Read saved URL report #{scan_id}')
@@ -2040,6 +2041,7 @@ def api_url_analysis(scan_id):
         "is_shortened": local_analysis.get("is_shortened", False),
         "security_score": local_analysis.get("security_score", 0),
         "aggregate_assessment": aggregate,
+        "plain": plain_report(aggregate, local_analysis, deep_analysis, url),
         "assessment_status": aggregate["coverage"],
         "assessment_warning": "; ".join(aggregate["missing_checks"]),
         "verdict": aggregate["verdict"],

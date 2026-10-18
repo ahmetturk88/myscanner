@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const elements={};const node=id=>elements[id]||=( {style:{},textContent:'',className:'',classList:{add(){},remove(){}},addEventListener(){}} );
+const elements={};const node=id=>elements[id]||=( {style:{},dataset:{},textContent:'',innerHTML:'',hidden:true,className:'',classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null;}} );
 const details=[{textContent:'TLS certificate',hidden:false,open:false},{textContent:'Page content',hidden:false,open:false}];
-let copied='';
+let copied='';let shared=null;
 const ctx={document:{getElementById:node,querySelectorAll:()=>details},window:{addEventListener(){},location:{search:''}},URL,URLSearchParams,console,setTimeout(){},navigator:{clipboard:{writeText(text){copied=text;return Promise.resolve();}}}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync('static/scan_ui.js','utf8'),ctx);ctx.ScanUI=ctx.window.ScanUI;
 let source=[...fs.readFileSync('templates/result.html','utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n').replace(/{{ scan.id \| tojson }}/g,'1').replace(/{{ scan.status \| tojson }}/g,'"queued"').replace(/if \(initStatus[^\n]*\nelse[^\n]*/g,'');
@@ -19,3 +19,21 @@ ctx.copyURLReport().then(()=>{assert(copied.includes('95/100'));assert(copied.in
 
 const journey=ctx.renderJourney({url:'https://example.org/<img onerror=x>'},{deep_analysis:{behavior:{redirect_chain:[{url:'https://next.example/<script>x</script>',status_code:302}],final_url:'https://final.example/'}}});
 assert(journey.includes('&lt;img'));assert(journey.includes('&lt;script'));assert(!journey.includes('<img'));assert(!journey.includes('href='));assert(journey.includes('302'));assert(journey.includes('https://final.example/'));
+
+// Plain-language summary: every server value is escaped, unknown tones and states fall back safely.
+const evil='<img src=x onerror=alert(1)>';
+assert.equal(ctx.renderPlain(null,{}),false);
+assert.equal(ctx.renderPlain({tone:'danger',label:evil,headline:evil,summary:evil,url:{prefix:'http://',host:evil,rest:evil},
+  reasons:[{tone:'evil" onload="x',title:evil,detail:evil}],actions:[evil,7],checks:[{name:evil,state:'x',result:evil}],tally:evil,share_text:'Warning: hxxp://a[.]b'},
+  {screenshot_url:'https://evil.example/x.png',date:'2026-10-18 19:40:00'}),true);
+const plainHTML=elements['plain-report'].innerHTML;
+assert(!plainHTML.includes('<img src=x'));assert(plainHTML.includes('&lt;img'));assert(!plainHTML.includes('onload="x'));
+assert(!plainHTML.includes('evil.example'));assert(plainHTML.includes('Warn whoever sent it'));assert.equal(elements['plain-report'].dataset.tone,'danger');
+assert.equal(elements['plain-report'].hidden,false);assert.equal(elements['rp-share-top'].hidden,false);
+ctx.renderPlain({tone:'nonsense',actions:[],reasons:[],checks:[]},{screenshot_url:'/api/scan_screenshot/7'});
+assert.equal(elements['plain-report'].dataset.tone,'unknown');assert(elements['plain-report'].innerHTML.includes('src="/api/scan_screenshot/7"'));
+assert(elements['plain-report'].innerHTML.includes('Check another link'));
+vm.runInContext('plainReport={share_text:"Warning: hxxp://a[.]b"}',ctx);
+ctx.navigator.share=async data=>{shared=data;};
+ctx.shareReport().then(()=>{assert.equal(shared.text,'Warning: hxxp://a[.]b');
+  delete ctx.navigator.share;return ctx.shareReport();}).then(()=>{assert.equal(copied,'Warning: hxxp://a[.]b');});

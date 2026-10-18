@@ -15,8 +15,14 @@ class ReportLayoutTests(unittest.TestCase):
         self.assertEqual(soup.select_one('#loading-area')['aria-live'],'polite')
         self.assertEqual(len(soup.select('.scan-flow li')),3)
         self.assertEqual(soup.select_one('#evidence-search')['type'],'search')
-        self.assertTrue(soup.select_one('.url-art')['aria-hidden']=='true')
-        self.assertIsNotNone(soup.select_one('.url-art svg'))
+        self.assertEqual(soup.select_one('#rp-share-top')['aria-label'],'Share report')
+        self.assertTrue(soup.select_one('#plain-report').has_attr('hidden'))
+        # The expert evidence stays on the page, inside its own disclosure.
+        tech=soup.select_one('details#tech-evidence')
+        self.assertIsNotNone(tech.select_one('#verdict-area'))
+        self.assertIsNotNone(tech.select_one('#export-buttons'))
+        self.assertIsNotNone(tech.select_one('#deep-analysis-section'))
+        self.assertIsNone(soup.select_one('#tech-evidence #loading-area'))
         self.assertIn('prefers-reduced-motion',html)
 
 @unittest.skipUnless(shutil.which('node'),'Node.js is required for report interaction checks')

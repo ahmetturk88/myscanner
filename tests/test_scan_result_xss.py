@@ -61,7 +61,7 @@ class JavaScriptRenderingTests(unittest.TestCase):
                             self.assertEqual(attr, 'onclick')
                             self.assertIn(tag[attr], ['exportJSON()','copyReport()','exportCSV()','copyURLReport()'])
                         if attr.lower() in ['href','src']:
-                            self.assertTrue(tag[attr].startswith(('http://','https://')) or re.fullmatch(r'/api/scan_screenshot/\d+', tag[attr]))
+                            self.assertTrue(tag[attr].startswith(('http://','https://')) or re.fullmatch(r'/api/scan_screenshot/\d+|/report/pdf/\d+', tag[attr]))
 
     def test_screenshot_url_is_valid_and_has_no_inline_event_handler(self):
         section = next(s for s in self.sections if s['name']=='URL screenshot')

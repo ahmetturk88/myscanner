@@ -1,6 +1,7 @@
 """Password recovery pages, emails and contact replies."""
 from pathlib import Path
 from unittest.mock import patch
+import time
 import unittest
 
 from bs4 import BeautifulSoup
@@ -9,6 +10,7 @@ from extensions import db
 from models import User
 from services.email_templates import action_email
 import test_task_ownership
+from services.contact_guard import form_token
 
 
 class EmailTemplateTests(unittest.TestCase):
@@ -73,11 +75,11 @@ class RecoveryTests(unittest.TestCase):
         self.assertIn('/forgot-password', self.client.get(path).headers['Location'])
 
     def test_contact_reply_goes_to_the_visitor(self):
-        self.client.post('/contact', data={'csrf_token': self.token, 'name': 'Visitor', 'email': 'visitor@example.com',
+        self.client.post('/contact', data={'csrf_token': self.token, 'form_token': form_token(self.app.config['SECRET_KEY'], time.time() - 10), 'name': 'Visitor', 'email': 'visitor@example.com',
                                            'subject': 'Feedback', 'message': 'Hi'}, headers={'X-Requested-With': 'XMLHttpRequest'})
         self.assertEqual(self.sent[-1][1]['reply_to'], 'visitor@example.com')
         self.assertEqual(self.sent[-1][1]['to_email'], 'info@myscanners.com')
-        self.client.post('/contact', data={'csrf_token': self.token, 'name': 'X', 'email': 'a@b.c, evil@example.com',
+        self.client.post('/contact', data={'csrf_token': self.token, 'form_token': form_token(self.app.config['SECRET_KEY'], time.time() - 10), 'name': 'X', 'email': 'a@b.c, evil@example.com',
                                            'subject': 'Feedback', 'message': 'Hi'}, headers={'X-Requested-With': 'XMLHttpRequest'})
         self.assertIsNone(self.sent[-1][1]['reply_to'])
 

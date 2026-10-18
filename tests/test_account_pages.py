@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 import re
+import time
 import unittest
 
 from bs4 import BeautifulSoup
@@ -11,6 +12,7 @@ from bs4 import BeautifulSoup
 from extensions import db
 from models import Scan, User
 import test_task_ownership
+from services.contact_guard import form_token
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 10, 13, 12, 0, tzinfo=timezone.utc)
@@ -107,7 +109,7 @@ class PageTests(unittest.TestCase):
 
     def contact(self, sent):
         with patch.object(self.production, 'send_email', return_value=sent) as mail:
-            response = self.client.post('/contact', data={'csrf_token': self.token, 'name': 'A', 'email': 'a@example.com',
+            response = self.client.post('/contact', data={'csrf_token': self.token, 'form_token': form_token(self.production.app.config['SECRET_KEY'], time.time() - 10), 'name': 'A', 'email': 'a@example.com',
                                         'subject': 'Bug Report', 'message': 'Hi'}, headers={'X-Requested-With': 'XMLHttpRequest'})
         return response, mail
 

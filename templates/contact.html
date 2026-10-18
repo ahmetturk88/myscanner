@@ -68,6 +68,8 @@
           <div class="pg-card-title"><h3><span class="pg-ic ic-send"></span>Send a message</h3><span class="pg-pill info">≈ 2 min</span></div>
           <form method="POST" action="{{ url_for('contact') }}" id="contactForm" class="pg-form" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="form_token" value="{{ form_token }}">
+            <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden"><label for="website">Leave this field empty</label><input type="text" name="website" id="website" tabindex="-1" autocomplete="off"></div>
             <fieldset class="pg-field" style="border:0;padding:0;margin:0">
               <legend class="pg-legend" style="margin-bottom:10px">What is it about? <span class="pg-req">*</span></legend>
               <div class="pg-topics">

@@ -179,7 +179,20 @@ upload problem makes the run fail, so the cron log shows it.
 
 ### Restore rehearsal
 
-Download one `.dump.age` and its `.sha256`, then on a machine that has the key:
+On the server, prove the newest local dump restores and holds the same tables
+as the live database:
+
+```
+sudo scripts/vps_restore_check.sh
+```
+
+It verifies the checksum, restores into a throwaway PostgreSQL container that
+has no network and keeps its data in memory, prints every table's row count next
+to the live one, and removes the container. The live database is only read. It
+ends with `PASS: restore rehearsal …`; a missing table, a restore error or an
+empty restore fails it. Repeat it monthly and after schema migrations.
+
+To also prove the off-site copy and the age key, download one `.dump.age` and its `.sha256`, then on a machine that has the key:
 
 ```
 age -d -i myscanner-backup-key.txt -o myscanner-YYYYMMDD-HHMMSS.dump myscanner-YYYYMMDD-HHMMSS.dump.age

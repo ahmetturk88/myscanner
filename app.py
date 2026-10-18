@@ -320,7 +320,7 @@ app.register_blueprint(mobile_bp)
 # Auth Routes
 # ================================================================
 
-from services.auth_rate_limit import AuthRateLimited, check_auth_request, check_verification_send
+from services.auth_rate_limit import AuthRateLimited, check_auth_request, check_verification_send, consume_limit
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -1608,21 +1608,50 @@ def terms():
 # Contact Form Handler - Professional Version
 # ================================================================
 
+from services.contact_guard import check_submission, form_token, one_line
+
+
+def contact_reply(ok, message, status=200):
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({"success": True, "message": message} if ok else {"success": False, "error": message}), status
+    flash(message, 'success' if ok else 'danger')
+    return redirect(url_for('contact'))
+
+
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
     if request.method == 'POST':
+        sent = 'Your message has been sent successfully! We will respond within 3 business days.'
+        verdict = check_submission(request.form, app.config['SECRET_KEY'])
+        if verdict == 'bot':
+            # Looks sent to the bot, so it has nothing to adapt to; nothing is emailed.
+            app.logger.info('[CONTACT] Dropped an automated submission')
+            return contact_reply(True, sent)
+        if verdict == 'expired':
+            return contact_reply(False, 'This page was open for a long time. Please reload it and send again.', 400)
+        if verdict == 'invalid':
+            return contact_reply(False, 'Please choose a topic and keep each field within its length limit.', 400)
+        try:
+            consume_limit('contact-ip', request.remote_addr or 'unknown', 5, 3600)
+            consume_limit('contact-email', request.form.get('email', '').strip().lower(), 3, 3600)
+        except AuthRateLimited as error:
+            minutes = max(1, error.retry_after // 60)
+            return contact_reply(False, f'Too many messages. Please try again in about {minutes} minutes.', 429)
+        except SQLAlchemyError:
+            app.logger.error('Contact rate-limit storage unavailable')
+            return contact_reply(False, 'Failed to send message. Please try again later.', 503)
+
         # جلب البيانات من النموذج
-        name = request.form.get('name', '').strip()
+        name = one_line(request.form.get('name', ''), 120)
         email = request.form.get('email', '').strip()
-        company = request.form.get('company', '').strip()
-        phone = request.form.get('phone', '').strip()
+        company = one_line(request.form.get('company', ''), 120)
+        phone = one_line(request.form.get('phone', ''), 40)
         subject = request.form.get('subject', '').strip()
         message = request.form.get('message', '').strip()
-        
+
         # التحقق من الحقول الإلزامية
         if not name or not email or not message or not subject:
-            flash('Please fill in all required fields.', 'danger')
-            return redirect(url_for('contact'))
+            return contact_reply(False, 'Please fill in all required fields.', 400)
         
         # بناء محتوى البريد الإلكتروني
         email_body = f"""
@@ -1661,23 +1690,13 @@ def contact():
                 reply_to=email if re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+', email) and len(email) <= 254 else None
             ):
                 raise RuntimeError('Contact email was not accepted by the mail provider.')
-            # نعود برد JSON للنموذج (AJAX) بدلاً من إعادة التوجيه
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({"success": True, "message": "Message sent successfully!"}), 200
-            else:
-                flash('Your message has been sent successfully! We will respond within 3 business days.', 'success')
-                return redirect(url_for('contact'))
-                
+            return contact_reply(True, sent)
         except Exception as e:
             app.logger.error(f"Failed to send contact email: {e}")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({"success": False, "error": "Failed to send message. Please try again later."}), 500
-            else:
-                flash('Failed to send message. Please try again later.', 'danger')
-                return redirect(url_for('contact'))
+            return contact_reply(False, 'Failed to send message. Please try again later.', 500)
     
     # عرض صفحة الاتصال (GET request)
-    return render_template('contact.html')
+    return render_template('contact.html', form_token=form_token(app.config['SECRET_KEY']))
 
 @app.route('/domain-lookup')
 @login_required

@@ -29,7 +29,7 @@ class SecretTests(unittest.TestCase):
     def test_compose_mounts_provider_key_only_in_application_services(self):
         source=(ROOT/'compose.urlvet.yml').read_text()
         self.assertEqual(source.count('URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key'),2)
-        self.assertEqual(source.count('secrets: [urlhaus_auth_key]'),2)
+        self.assertEqual(source.count('secrets: [urlhaus_auth_key'),2)
         self.assertIn('/.deploy/',(ROOT/'.gitignore').read_text())
         self.assertNotIn('example-private-key',source)
 if __name__=='__main__':unittest.main()

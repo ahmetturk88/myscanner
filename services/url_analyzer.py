@@ -631,6 +631,10 @@ class URLDeepAnalyzer:
             result["osint_risk_score"] += 60
             result["details"].append(f"Found in URLhaus - {urlhaus_result.get('threat', 'Malicious')}")
 
+        # Google Web Risk (optional): sends only the URL string to Google.
+        from services.web_risk import check_web_risk
+        result["web_risk"] = check_web_risk(url, self.session)
+
         # فحص القائمة المحلية
         if domain in self.PHISHING_DOMAINS:
             result["osint_risk_score"] += 30

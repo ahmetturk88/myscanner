@@ -2,9 +2,11 @@
 import copy
 import math
 from urllib.parse import urlparse
+
+from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v8'
+POLICY_VERSION = 'url-evidence-v9'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 # A browser warns before these pages, so the report never calls them clean (v6).
@@ -156,6 +158,16 @@ def assess_url(local, deep):
         reason={'not_configured':'authentication is not configured','authentication_rejected':'authentication was rejected','rate_limited':'provider rate limit reached','configuration_error':'credential configuration could not be read','connection_or_response_error':'connection or response failed','http_error':'provider returned an HTTP error'}.get(osint.get('urlhaus_reason'),'check unavailable or not recorded')
         missing.append('URLhaus: '+reason)
     elif osint.get('urlhaus_status')=='not_found':assessed('reputation')
+    # v9: a Google Web Risk match confirms a threat. The source is optional, so a missing key
+    # or an unavailable lookup is not a coverage gap; URLhaus and URLVet still cover reputation.
+    web_risk=mapping(osint.get('web_risk'))
+    if web_risk.get('status')=='matched' and isinstance(web_risk.get('threat_types'),list) and web_risk['threat_types']:
+        confirmed=True
+        for kind in web_risk['threat_types']:
+            if kind in WEB_RISK_MESSAGES:signal('reputation','web_risk_'+kind.lower(),20,WEB_RISK_MESSAGES[kind])
+        sources.append('google_web_risk')
+    elif web_risk.get('status')=='not_found':
+        assessed('reputation');sources.append('google_web_risk')
     # v5: analyzer thresholds (local/deep verdicts) are not evidence of a threat.
     # Only a verified phishing entry or a URLhaus match confirms one; any other
     # provider threat verdict asks for review.

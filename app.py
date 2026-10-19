@@ -1309,6 +1309,7 @@ def api_check_email():
     try:
         checker = AdvancedEmailChecker(redis_client)
         result = checker.check_all(email, verify_smtp=data.get("verify_smtp", False) and SMTP_PROBE_ENABLED)
+        from services.email_report_view import plain_email_report
 
         if not result.get("valid"):
             app.logger.warning(f'[WARNING] Invalid email format: {email}')
@@ -1356,6 +1357,7 @@ def api_check_email():
             "blacklist_results": result["blacklist"].get("blacklisted_on", []),
             "smtp_details": result["smtp"],
             "assessment": result.get("assessment"),
+            "plain": plain_email_report(result),
             "dns_evidence": result["dns"],
             "reputation_evidence": result["blacklist"],
             "domain_evidence": result["domain_info"],

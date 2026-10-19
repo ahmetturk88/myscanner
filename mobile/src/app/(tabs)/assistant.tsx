@@ -21,7 +21,7 @@ const SUGGESTIONS: [string, string][] = [
   ['alert', 'I got a message asking me to verify my bank account. Is it a scam?'],
   ['lock', 'How do I secure my email account?'],
   ['link', 'I clicked a suspicious link. What should I do now?'],
-  ['mail', 'وصلتني رسالة فيها رابط غريب، شو لازم أعمل؟'],
+  ['qr', 'Is it safe to scan a QR code on a parking meter?'],
 ];
 
 /** The assistant's animated mark: the brand inside a turning gradient ring. */
@@ -82,7 +82,7 @@ export default function Assistant() {
           <Orb size={40} />
           <View style={{ gap: 1 }}>
             <Text style={{ color: colors.text, fontSize: 17, fontFamily: fonts.bold }}>MyScanner AI</Text>
-            <Text style={{ color: busy ? colors.cyan : colors.green, fontSize: 12, fontFamily: fonts.medium }}>{busy ? 'Thinking…' : 'Online · any language'}</Text>
+            <Text style={{ color: busy ? colors.cyan : colors.green, fontSize: 12, fontFamily: fonts.medium }}>{busy ? 'Thinking…' : 'Online'}</Text>
           </View>
           <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {ai ? <View style={s.quota}><Text style={{ color: colors.cyan, fontSize: 11.5, fontFamily: fonts.monoBold }}>{ai.limit === null ? '∞' : `${ai.remaining} left`}</Text></View> : null}
@@ -102,7 +102,7 @@ export default function Assistant() {
                 <Text style={{ color: colors.text, fontSize: 26, fontFamily: fonts.bold, letterSpacing: -0.8, textAlign: 'center' }}>
                   How can I help you{'\n'}stay <Text style={{ color: colors.cyan }}>safe?</Text>
                 </Text>
-                <Text style={[ui.muted, { textAlign: 'center' }]}>Ask about links, messages and scams in any language. Paste a link and I can scan it.</Text>
+                <Text style={[ui.muted, { textAlign: 'center' }]}>Ask about links, messages and scams. Paste a link and I can scan it.</Text>
               </Animated.View>
               {SUGGESTIONS.map(([icon, text], i) => (
                 <Animated.View key={text} entering={enter(i + 1)}>

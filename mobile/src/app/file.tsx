@@ -5,9 +5,11 @@ import { Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { AIPanel } from '@/components/ai';
+import { Evidence } from '@/components/evidence';
 import { HowItWorks } from '@/components/how';
 import { Icon } from '@/components/icon';
 import { enter, PressableScale } from '@/components/motion';
+import { hasPlain, PlainReport, withoutPlain } from '@/components/report';
 import { ResultCard } from '@/components/result';
 import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
@@ -54,7 +56,7 @@ export default function FileScanner() {
       const queued: any = await upload('/tools/file', { uri: file.uri, name: file.name, mimeType: file.mimeType });
       const data = await waitForTask(queued.task_id, setProgress, () => alive.current);
       setResult(data);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (!hasPlain(data?.plain)) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
       setError(e.message);
     } finally { setBusy(false); setProgress(null); }
@@ -81,10 +83,16 @@ export default function FileScanner() {
       {!busy ? <Button label="Analyze file" arrow="→" onPress={scan} disabled={!file} /> : null}
       <ErrorText>{error}</ErrorText>
       {busy ? <Working steps={STEPS} status={progress} every={3500} /> : null}
-      {result ? (
+      {result && hasPlain(result.plain) ? (
+        <PlainReport plain={result.plain} haptic again={{ label: 'Check another file', icon: 'file', onPress: () => { setResult(null); setFile(null); pick(); } }}>
+          <Animated.View entering={enter(6)}><AIPanel tool="file" evidence={result} /></Animated.View>
+          <Evidence data={withoutPlain(result)} start={7} />
+        </PlainReport>
+      ) : result ? (
         <>
           <ResultCard result={result} title="File report" />
           <Animated.View entering={enter(2)}><AIPanel tool="file" evidence={result} /></Animated.View>
+          <Evidence data={result} start={3} />
         </>
       ) : null}
       {!busy && !result ? <HowItWorks steps={TOOL.steps} /> : null}

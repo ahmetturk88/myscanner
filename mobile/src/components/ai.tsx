@@ -144,7 +144,7 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
       {!explanation && !explaining ? (
         <>
           <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.4 }}>Understand this report</Text>
-          <Muted>A plain-language explanation of the evidence, then ask anything in any language. Uses 1 of your daily AI answers.</Muted>
+          <Muted>A plain-language explanation of the evidence, then ask follow-up questions. Uses 1 of your daily AI answers.</Muted>
           <Button label="Explain with AI" icon="spark" onPress={explain} />
         </>
       ) : explanation ? <ExplanationView data={explanation} /> : <TypingDots />}

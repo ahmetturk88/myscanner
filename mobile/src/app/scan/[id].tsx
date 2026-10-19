@@ -1,18 +1,19 @@
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { AIPanel } from '@/components/ai';
+import { Evidence } from '@/components/evidence';
 import { Icon } from '@/components/icon';
 import { enter, PressableScale } from '@/components/motion';
+import { hasPlain, PlainReport, withoutPlain } from '@/components/report';
 import { ScoreRing, VerdictPill } from '@/components/result';
 import { Screen } from '@/components/screen';
 import { Button, Chip, ErrorText, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
-import { api, SITE } from '@/lib/api';
+import { api, signedImage, SITE } from '@/lib/api';
 import { startUrlScan } from '@/lib/scan';
 import { ago, colors, fonts, tone, toneStyle } from '@/lib/theme';
 
@@ -30,6 +31,8 @@ export default function ScanReport() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const scanId = Number(id);
   const [report, setReport] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [fresh, setFresh] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [rescanning, setRescanning] = useState(false);
@@ -47,11 +50,14 @@ export default function ScanReport() {
           timer = setTimeout(() => poll(tries + 1), 2500);
           return;
         }
-        const full = await api.scan(scanId);
+        // The plain-language report and its evidence; scans saved before it existed fall back to the score view.
+        const [full, detail] = await Promise.all([api.scan(scanId), api.scanAnalysis(scanId).catch(() => null)]);
         if (!alive) return;
+        setAnalysis(detail);
         setReport(full);
+        setFresh(tries > 0);
         const t = tone(full.raw_report?.aggregate_assessment?.verdict ?? full.verdict);
-        if (tries > 0) {
+        if (tries > 0 && !hasPlain(detail?.plain)) {
           Haptics.notificationAsync(t === 'risk' ? Haptics.NotificationFeedbackType.Error
             : t === 'review' ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success).catch(() => {});
         }
@@ -71,7 +77,10 @@ export default function ScanReport() {
     ? { url: report.url, verdict: report.verdict, assessment }
     : { url: report.url, verdict: report.verdict, ...(report.raw_report ?? {}) } : null;
 
+  const plain = hasPlain(analysis?.plain) ? analysis.plain : null;
+
   async function share() {
+    if (plain?.share_text) { Share.share({ message: plain.share_text }).catch(() => {}); return; }
     const text = tone(verdict) === 'safe'
       ? `MyScanner found no threat on ${report.url} (${typeof assessment?.score === 'number' ? `score ${assessment.score}/100` : 'checked'}). Stay careful with links you were not expecting.`
       : `⚠️ Careful: MyScanner rated ${report.url} as "${look.label}". Do not open it or enter any details.`;
@@ -85,14 +94,19 @@ export default function ScanReport() {
 
   let host = report?.url ?? '';
   try { host = new URL(host).host || host; } catch {}
-  const shareButton = report ? (
-    <PressableScale accessibilityLabel="Share" onPress={share} style={st.round}><Icon name="share" size={18} color={colors.text} /></PressableScale>
+  const headerButtons = report ? (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      <PressableScale accessibilityLabel="Scan this link again" onPress={rescan} disabled={rescanning} style={[st.round, rescanning && { opacity: 0.5 }]}>
+        <Icon name="refresh" size={17} color={colors.text} />
+      </PressableScale>
+      <PressableScale accessibilityLabel="Share" onPress={share} style={st.round}><Icon name="share" size={18} color={colors.text} /></PressableScale>
+    </View>
   ) : null;
 
   return (
-    <Screen back title={`Report #${scanId}`} eyebrow={`URL intelligence · report #${scanId}`} right={shareButton}
+    <Screen back title={`Report #${scanId}`} eyebrow={`URL intelligence · report #${scanId}`} right={headerButtons}
       largeTitle={report ? host : 'Scanning the link'} subtitle={report ? undefined : 'Usually under a minute. You can leave; the report is saved in History.'}>
-      {report ? (
+      {report && !plain ? (
         <Animated.View entering={enter(0)} style={st.url}>
           <Icon name="link" size={15} color={colors.faint} />
           <Text selectable numberOfLines={2} style={{ flex: 1, color: colors.soft, fontSize: 13.5, fontFamily: fonts.regular }}>{report.url}</Text>
@@ -100,7 +114,14 @@ export default function ScanReport() {
       ) : null}
       <ErrorText>{error}</ErrorText>
       {!report && !error ? <Working steps={STEPS} step={step} /> : null}
-      {report ? (
+      {report && plain ? (
+        <PlainReport plain={plain} haptic={fresh} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
+          again={{ label: 'Check another link', icon: 'link', onPress: () => router.navigate('/') }}>
+          {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" evidence={evidence} /></Animated.View> : null}
+          <Evidence data={withoutPlain(analysis)} start={8} />
+          {rescanning ? <Muted center>Starting a fresh scan…</Muted> : null}
+        </PlainReport>
+      ) : report ? (
         <>
           <Animated.View entering={enter(1)} style={[st.card, { alignItems: 'center', gap: 14, borderColor: look.color + '44' }]}>
             <ScoreRing score={typeof assessment?.score === 'number' ? assessment.score : null} color={look.color} size={170} />
@@ -135,8 +156,7 @@ export default function ScanReport() {
             <Muted>{`Not checked: ${assessment.missing_checks.join(', ').replace(/_/g, ' ')}`}</Muted>
           ) : null}
           {assessment?.warning ? <Text style={{ color: colors.faint, fontSize: 12, fontFamily: fonts.regular }}>{assessment.warning}</Text> : null}
-          <Button label="Full report on the website" icon="external" kind="secondary"
-            onPress={() => WebBrowser.openBrowserAsync(`${SITE}/result/${scanId}`)} />
+          <Evidence data={report.raw_report} start={4} />
         </>
       ) : null}
     </Screen>

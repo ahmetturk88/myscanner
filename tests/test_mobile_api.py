@@ -118,9 +118,26 @@ class MobileApiTests(unittest.TestCase):
             db.session.add(scan);db.session.commit()
             scan_id = scan.id
         token = self.token()
-        self.assertEqual(self.client.get(f'/api/mobile/v1/scans/{scan_id}', headers=self.auth(token)).status_code, 404)
+        for path in ('', '/analysis', '/screenshot'):
+            self.assertEqual(self.client.get(f'/api/mobile/v1/scans/{scan_id}{path}', headers=self.auth(token)).status_code, 404, path)
         recent = self.client.get('/api/mobile/v1/scans/recent', headers=self.auth(token))
         self.assertEqual(recent.status_code, 200);self.assertNotIn('example.org', recent.get_data(as_text=True))
+
+    def test_the_owner_gets_the_page_screenshot_with_the_app_token(self):
+        from services.url_screenshot import screenshot_path
+        with self.app.app_context():
+            scan = Scan(url='https://example.org', user_id=self.owner, status='completed', result='{}')
+            db.session.add(scan);db.session.commit()
+            scan_id = scan.id
+            path = screenshot_path(scan_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'\xff\xd8\xff\xe0jpeg')
+        self.addCleanup(path.unlink, missing_ok=True)
+        url = f'/api/mobile/v1/scans/{scan_id}/screenshot'
+        self.assertEqual(self.client.get(url).status_code, 401)
+        response = self.client.get(url, headers=self.auth(self.token()))
+        self.assertEqual((response.status_code, response.mimetype), (200, 'image/jpeg'))
+        self.assertEqual(response.headers['Cache-Control'], 'private, no-store')
 
     def test_ai_assistant_streams_through_the_app_api(self):
         token = self.token()

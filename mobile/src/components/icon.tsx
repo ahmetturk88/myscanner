@@ -30,6 +30,17 @@ const PATHS: Record<string, React.ReactNode> = {
   shield: <Path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z" />,
   doc: <><Path d="M7 3h7l5 5v13H7z" /><Path d="M10 13h6M10 17h6" /></>,
   close: <Path d="M6 6l12 12M18 6 6 18" />,
+  shieldX: <><Path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><Path d="M9.5 9.5l5 5M14.5 9.5l-5 5" /></>,
+  shieldCheck: <><Path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><Path d="M8.5 12l2.5 2.5 4.5-5" /></>,
+  question: <><Circle cx="12" cy="12" r="9" /><Path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17h.01" /></>,
+  target: <><Circle cx="12" cy="12" r="9" /><Circle cx="12" cy="12" r="4" /><Path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></>,
+  xCircle: <><Circle cx="12" cy="12" r="9" /><Path d="M9 9l6 6M15 9l-6 6" /></>,
+  checkCircle: <><Circle cx="12" cy="12" r="9" /><Path d="M8 12l3 3 5-6" /></>,
+  minusCircle: <><Circle cx="12" cy="12" r="9" /><Path d="M8 12h8" /></>,
+  info: <><Circle cx="12" cy="12" r="9" /><Path d="M12 11v5M12 8h.01" /></>,
+  code: <Path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />,
+  copy: <><Rect x="8" y="8" width="12" height="12" rx="2" /><Path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></>,
+  image: <><Rect x="3" y="4" width="18" height="16" rx="2" /><Circle cx="9" cy="10" r="2" /><Path d="m21 16-5-5-9 9" /></>,
   external: <><Path d="M14 4h6v6M20 4l-9 9" /><Path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>,
 };
 

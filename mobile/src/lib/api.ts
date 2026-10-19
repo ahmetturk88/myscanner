@@ -124,6 +124,11 @@ export async function stream(path: string, body: unknown, onText: (text: string)
   return final;
 }
 
+/** An image the app downloads with the sign-in token (the page screenshot of a URL report). */
+export function signedImage(path: string) {
+  return { uri: BASE + path, headers: headers(false) };
+}
+
 /** Same clean-up the website applies to AI text: no tags, no Markdown emphasis or headings. */
 export function plain(text: string) {
   return String(text)
@@ -176,5 +181,6 @@ export const api = {
   recent: () => request<{ scans: { id: number; url: string; verdict: string; summary: string; date: string }[] }>('/scans/recent'),
   scanStatus: (id: number) => request<{ id: number; status: string; verdict: string | null }>(`/scans/${id}/status`),
   scan: (id: number) => request(`/scans/${id}`),
+  scanAnalysis: (id: number) => request(`/scans/${id}/analysis`),
   createContext: (tool: string, evidence: unknown) => request<{ id: string }>('/ai/contexts', { body: { tool, evidence } }),
 };

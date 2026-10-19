@@ -165,6 +165,11 @@ def scan_analysis(scan_id):
     return _call('api_url_analysis', scan_id=scan_id)
 
 
+@mobile_bp.route('/scans/<int:scan_id>/screenshot')
+def scan_screenshot(scan_id):
+    return _call('api_scan_screenshot', scan_id=scan_id)
+
+
 @mobile_bp.route('/tasks/<task_id>')
 def task(task_id):
     return _call('task_status', task_id=task_id)

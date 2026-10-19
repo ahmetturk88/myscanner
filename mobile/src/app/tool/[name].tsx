@@ -5,8 +5,10 @@ import { Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { AIPanel } from '@/components/ai';
+import { Evidence } from '@/components/evidence';
 import { HowItWorks } from '@/components/how';
 import { enter } from '@/components/motion';
+import { hasPlain, PlainReport, withoutPlain } from '@/components/report';
 import { ResultCard } from '@/components/result';
 import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
@@ -40,7 +42,8 @@ export default function ToolScreen() {
       if (data?.task_id) data = await waitForTask(data.task_id, setProgress, () => alive.current);
       if (field.secure) setValue('');
       setResult(data);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // A summary buzzes by its verdict; older servers without one get the plain success buzz.
+      if (!hasPlain(data?.plain)) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
       setError(e.message);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
@@ -60,10 +63,17 @@ export default function ToolScreen() {
         <ErrorText>{error}</ErrorText>
       </Animated.View>
       {busy ? <Working steps={STEPS} status={progress} every={3500} /> : null}
-      {result ? (
+      {result && hasPlain(result.plain) ? (
+        <PlainReport plain={result.plain} haptic plainShare={tool.name !== 'email'}
+          again={{ label: 'Check another', onPress: () => { setResult(null); setValue(''); } }}>
+          <Animated.View entering={enter(6)}><AIPanel tool={tool.aiTool} evidence={result} /></Animated.View>
+          <Evidence data={withoutPlain(result)} start={7} />
+        </PlainReport>
+      ) : result ? (
         <>
           <ResultCard result={result} title="Assessment" />
           <Animated.View entering={enter(2)}><AIPanel tool={tool.aiTool} evidence={result} /></Animated.View>
+          <Evidence data={result} start={3} />
           <Text style={{ color: colors.faint, fontSize: 12.5, lineHeight: 19, fontFamily: fonts.regular, textAlign: 'center' }}>
             The result describes evidence and coverage, not a guarantee of safety.
           </Text>

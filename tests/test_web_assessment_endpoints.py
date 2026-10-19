@@ -43,7 +43,9 @@ class WebEndpointTests(unittest.TestCase):
         kind,params=queued.call_args.args
         with patch('services.subdomain_finder.SubdomainFinder') as finder:
             finder.return_value.find_subdomains.return_value={'schema_version':2,'results':[]}
-            self.assertEqual(run_evidence_job(kind,params,self.owner)['result'],{'schema_version':2,'results':[]})
+            result=run_evidence_job(kind,params,self.owner)['result']
+            self.assertEqual(result.pop('plain')['tone'],'info')
+            self.assertEqual(result,{'schema_version':2,'results':[]})
             finder.return_value.find_subdomains.assert_called_once_with('example.com',include_ct=False)
 
     def test_qr_opt_in_is_explicit_and_response_not_cached(self):

@@ -136,3 +136,34 @@ class PageTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SiteAndSubdomainTests(unittest.TestCase):
+    def test_site_wording(self):
+        from services.simple_report_view import plain_web_report
+        plain = plain_web_report({'url': 'https://shop.example/', 'verdict': 'suspicious', 'findings': [{'code': 'external_password_form'}]}, source='site')
+        self.assertEqual(plain['headline'], 'Be careful with this website')
+        self.assertEqual(plain['reasons'][0]['title'], 'It sends your password to another site')
+
+    def test_discovery_is_information_not_a_verdict(self):
+        from services.simple_report_view import plain_subdomain_report
+        result = {'domain': 'example.com', 'assessment_status': 'partial', 'total_found': 7, 'active_count': 4, 'redirect_count': 2,
+                  'total_checked': 60, 'dns_error_count': 1, 'wildcard': {'detected': False},
+                  'subdomains': {'dns_only': [{}], 'http_error': [{}, {}]},
+                  'sources': [{'name': 'Certificate Transparency (crt.sh)', 'status': 'completed'}]}
+        plain = plain_subdomain_report(result)
+        self.assertEqual((plain['tone'], plain['label'], plain['headline']), ('info', 'DISCOVERY', '7 subdomains found'))
+        self.assertEqual(plain['share_text'], '')
+        self.assertEqual(plain['reasons'][0]['title'], 'This is a sample')
+        self.assertIn('2 show an error page', [r['title'] for r in plain['reasons']])
+        self.assertEqual(plain['why_title'], 'What we found')
+        self.assertEqual(checks(plain)['Certificate history'], ('ok', 'Used'))
+        self.assertEqual(plain['tally'], '60 names checked')
+
+    def test_wildcard_domain(self):
+        from services.simple_report_view import plain_subdomain_report
+        plain = plain_subdomain_report({'domain': 'example.com', 'assessment_status': 'completed', 'total_found': 1, 'wildcard': {'detected': True}})
+        self.assertEqual(plain['headline'], '1 subdomain found')
+        self.assertEqual(checks(plain)['Wildcard'], ('warn', 'Yes'))
+        self.assertTrue(plain['actions'][0].startswith('Treat the list with care'))
+        self.assertEqual(plain_subdomain_report(None)['headline'], '0 subdomains found')

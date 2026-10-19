@@ -14,6 +14,7 @@
     caution: ICON.warn,
     unknown: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17h.01"/>',
     safe: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    info: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
   };
   const SVG = (paths, size, width) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   const SHARE = SVG('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', 18, 2.2);
@@ -33,10 +34,11 @@
   // options: again {href, label}, screenshot (a same-origin path or ''), checked (text),
   // feedback (element for share messages), h1 (the headline is the page's main heading),
   // plainShare (say "Share this warning" even when dangerous: nothing was "sent" to the user).
+  // buttons: false hides the button row (inside a dialog).
   function render(box, plain, options) {
     if (!box || !plain || typeof plain !== 'object' || Array.isArray(plain)) return false;
     const opts = options || {};
-    const tone = ['danger', 'caution', 'unknown', 'safe'].includes(plain.tone) ? plain.tone : 'unknown';
+    const tone = ['danger', 'caution', 'unknown', 'safe', 'info'].includes(plain.tone) ? plain.tone : 'unknown';
     const target = plain.url && typeof plain.url === 'object' ? plain.url : {};
     const reasons = objects(plain.reasons).map(r => `<li>${icon(r.tone, 22)}<div><strong>${esc(r.title)}</strong><span>${esc(r.detail)}</span></div></li>`).join('');
     const actions = (Array.isArray(plain.actions) ? plain.actions : []).filter(a => typeof a === 'string').map((a, i) => `<li><span class="rp-n">${i + 1}</span><span>${esc(a)}</span></li>`).join('');
@@ -60,9 +62,9 @@
       <section class="rp-hero"><div class="rp-ring">${SVG(HERO[tone], 42, 1.8)}</div>
         <div class="rp-hero-copy"><span class="rp-label">${esc(plain.label)}</span><${opts.h1 ? 'h1' : 'h2'} class="rp-headline">${esc(plain.headline)}</${opts.h1 ? 'h1' : 'h2'}><p>${esc(plain.summary)}</p>
         <div class="rp-url">${esc(target.prefix)}<b>${esc(target.host)}</b>${esc(target.rest)}</div><span class="rp-when">${esc(checked)}</span></div></section>
-      <div class="rp-pair">${reasons ? `<section class="rp-why"><h2>Why we think so</h2><ul>${reasons}</ul></section>` : ''}
+      <div class="rp-pair">${reasons ? `<section class="rp-why"><h2>${esc(typeof plain.why_title === 'string' ? plain.why_title : 'Why we think so')}</h2><ul>${reasons}</ul></section>` : ''}
       <section class="rp-card rp-do"><h2>${tone === 'safe' ? 'Good to know' : 'What to do'}</h2><ol>${actions}</ol></section></div>
-      <div class="rp-buttons">${buttons}</div><div class="rp-ai"></div></div>
+      ${opts.buttons === false ? '' : `<div class="rp-buttons">${buttons}</div>`}<div class="rp-ai"></div></div>
     <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}
       <p class="rp-note">A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.</p></aside>`;
     const img = box.querySelector('.rp-preview img');

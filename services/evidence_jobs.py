@@ -38,19 +38,27 @@ def _site(params, user_id):
                                                    include_discovery=params['include_discovery'])
     if result.get('error'):
         raise ValueError(result['error'])
+    from services.simple_report_view import plain_web_report
+    result['plain'] = plain_web_report(result, source='site')
     return result
 
 
 def _subdomain_discovery(params, user_id):
     from services.subdomain_finder import SubdomainFinder
-    return SubdomainFinder().find_subdomains(params['domain'], include_ct=params['include_ct'])
+    from services.simple_report_view import plain_subdomain_report
+    result = SubdomainFinder().find_subdomains(params['domain'], include_ct=params['include_ct'])
+    result['plain'] = plain_subdomain_report(result)
+    return result
 
 
 def _subdomain_inspection(params, user_id):
     from services.subdomain_finder import normalize_domain
     from services.web_assessment import WebAssessment
     domain = normalize_domain(params['domain'])
-    return WebAssessment().analyze('https://' + domain + '/', include_provider=params['include_provider'])
+    from services.simple_report_view import plain_web_report
+    result = WebAssessment().analyze('https://' + domain + '/', include_provider=params['include_provider'])
+    result['plain'] = plain_web_report(result)
+    return result
 
 
 def _read_upload(params):

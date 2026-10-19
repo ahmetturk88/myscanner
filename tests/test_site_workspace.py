@@ -109,7 +109,9 @@ class EndpointTests(unittest.TestCase):
         self.factory.assert_not_called()
         with self.app.app_context(),patch('services.site_analyzer.SiteAnalyzer') as analyzer:
             analyzer.return_value.comprehensive_analysis.return_value={'verdict':'unknown'}
-            self.assertEqual(run_evidence_job(kind,params,1),{'status':'completed','result':{'verdict':'unknown'}})
+            job=run_evidence_job(kind,params,1);plain=job['result'].pop('plain')
+            self.assertEqual(job,{'status':'completed','result':{'verdict':'unknown'}})
+            self.assertEqual(plain['tone'],'unknown')  # the plain summary is added in the worker
             analyzer.return_value.comprehensive_analysis.assert_called_once_with('example.com',include_provider=False,include_discovery=True)
     def test_dns_policy_and_internal_failures_are_distinct(self):
         from services.evidence_jobs import run_evidence_job,DNS_UNAVAILABLE,POLICY_BLOCKED,UNAVAILABLE

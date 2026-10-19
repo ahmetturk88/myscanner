@@ -1514,6 +1514,8 @@ def api_check_password():
         if "error" in result:
             return jsonify({"error": result["error"]}), 400
         result.pop('password', None)
+        from services.simple_report_view import plain_password_report
+        result['plain'] = plain_password_report(result)
         log_activity(current_user.username, 'password_check', 'Checked password strength')
         return jsonify(result), 200, {'Cache-Control':'no-store'}
     except Exception as error:
@@ -1742,6 +1744,8 @@ def api_scan_qr_url():
     data = request.get_json(silent=True)
     try:
         result = QRAnalyzer().scan_url(data['url'], include_provider=data.get('include_provider', False))
+        from services.simple_report_view import plain_web_report
+        result['plain'] = plain_web_report(result, source='qr')
         log_activity(current_user.username, 'qr_scan', 'Completed read-only QR URL assessment')
         return jsonify(result), 200, {'Cache-Control':'no-store'}
     except ValueError as error:
@@ -1768,6 +1772,8 @@ def api_ssl_checker():
         return jsonify(error='Provide a domain or HTTPS URL of at most 2048 characters'), 400
     try:
         result = SSLAnalyzer().analyze_certificate(data['domain'])
+        from services.simple_report_view import plain_ssl_report
+        result['plain'] = plain_ssl_report(result)
         log_activity(current_user.username, 'ssl_check', 'Completed TLS observation')
         return jsonify(result), 200, {'Cache-Control':'no-store'}
     except UnsafeTargetError:

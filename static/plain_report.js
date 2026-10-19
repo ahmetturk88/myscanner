@@ -47,7 +47,9 @@
     const again = opts.again && /^\/[A-Za-z0-9/_-]*$/.test(opts.again.href || '') ? opts.again : {href: '/dashboard', label: 'Start a new scan'};
     const share = (cls, label) => `<button type="button" class="rp-btn ${cls}" data-rp-share>${SHARE}${esc(label)}</button>`;
     const another = cls => `<a class="rp-btn ${cls}" href="${esc(again.href)}">${SEARCH}${esc(again.label)}</a>`;
-    const buttons = tone === 'danger' || tone === 'caution'
+    // A summary without share text (a password check) never offers sharing.
+    const buttons = typeof plain.share_text !== 'string' || !plain.share_text ? another('rp-primary')
+      : tone === 'danger' || tone === 'caution'
       ? share('rp-primary', tone === 'danger' && !opts.plainShare ? 'Warn whoever sent it' : 'Share this warning') + another('rp-ghost')
       : another('rp-primary') + share('rp-ghost', 'Share report');
     const shot = /^\/api\/scan_screenshot\/\d+$/.test(opts.screenshot || '') ? opts.screenshot : '';
@@ -85,5 +87,18 @@
     catch (error) { say(feedback, 'Could not copy. Share the report yourself.'); }
   }
 
-  root.PlainReport = {render, share: shareText, escape: esc};
+  // Pages that keep their evidence in #<key>-tech: show the summary in #<key>-plain,
+  // reveal the evidence section and open it when there is no summary.
+  function mount(key, plain, options) {
+    const doc = root.document, tech = doc.getElementById(key + '-tech'), box = doc.getElementById(key + '-plain');
+    const shown = render(box, plain, Object.assign({feedback: doc.getElementById(key + '-feedback')}, options));
+    if (!shown && box) box.hidden = true;
+    if (tech) { tech.hidden = false; tech.open = !shown; }
+    return shown;
+  }
+  function unmount(key) {
+    for (const suffix of ['-plain', '-tech']) { const node = root.document.getElementById(key + suffix); if (node) node.hidden = true; }
+  }
+
+  root.PlainReport = {render, mount, unmount, share: shareText, escape: esc};
 })(typeof window !== 'undefined' ? window : globalThis);

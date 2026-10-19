@@ -46,3 +46,4 @@ assert(!sharedBox.innerHTML.includes('javascript:'));assert(sharedBox.innerHTML.
 assert(sharedBox.innerHTML.includes('rp-cr rp-info'));assert(sharedBox.innerHTML.includes('<h2 class="rp-headline">'));
 ctx.PlainReport.render(sharedBox,{tone:'danger'},{again:{href:'/file-scanner',label:'Check another file'},h1:true});
 assert(sharedBox.innerHTML.includes('href="/file-scanner"'));assert(sharedBox.innerHTML.includes('<h1 class="rp-headline">'));
+ctx.PlainReport.render(sharedBox,{tone:'danger'},{plainShare:true});assert(sharedBox.innerHTML.includes('Share this warning'));assert(!sharedBox.innerHTML.includes('Warn whoever'));

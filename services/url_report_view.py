@@ -58,6 +58,15 @@ def age_text(days):
     return f'{days // 365} years'
 
 
+def tally(checks):
+    """'2 bad · 1 warning · 3 fine': the count line above the checks list."""
+    counts = {state: sum(c['state'] == state for c in checks) for state in ('bad', 'warn', 'ok', 'na')}
+    return ' · '.join(text for text in (f"{counts['bad']} bad" if counts['bad'] else '',
+                                        f"{counts['warn']} warning" + ('s' if counts['warn'] != 1 else '') if counts['warn'] else '',
+                                        f"{counts['ok']} fine" if counts['ok'] else '',
+                                        f"{counts['na']} not checked" if counts['na'] else '') if text)
+
+
 def url_parts(url):
     """The address split so the host can be shown in bold."""
     try:
@@ -186,17 +195,12 @@ def plain_report(assessment, local, deep, url):
         check('Redirects', 'warn', 'Several') if 'redirect_behavior' in codes else
         check('Redirects', 'ok', 'Normal') if assessed('behavior') else check('Redirects', 'na', not_opened),
     ]
-    counts = {state: sum(c['state'] == state for c in checks) for state in ('bad', 'warn', 'ok', 'na')}
-    tally = ' · '.join(text for text in (f"{counts['bad']} bad" if counts['bad'] else '',
-                                         f"{counts['warn']} warning" + ('s' if counts['warn'] != 1 else '') if counts['warn'] else '',
-                                         f"{counts['ok']} fine" if counts['ok'] else '',
-                                         f"{counts['na']} not checked" if counts['na'] else '') if text)
 
     share = (f'MyScanner checked this link and found no warning signs: {defang(url)}' if tone == 'safe'
              else f'Warning: MyScanner rates this link as {label.lower()}: {defang(url)}. Don’t open it.' if tone == 'danger'
              else f'Careful: MyScanner found warning signs on this link: {defang(url)}' if tone == 'caution'
              else f'MyScanner couldn’t fully check this link: {defang(url)}')
     return {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,
-            'url': url_parts(url), 'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally,
+            'url': url_parts(url), 'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally(checks),
             'reputation_only': reputation_only, 'not_visited': NOT_VISITED if reputation_only else None,
             'share_text': share.rstrip('.') + '. Check links free at https://myscanners.com'}

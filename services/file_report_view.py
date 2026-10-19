@@ -7,6 +7,7 @@ analyzers recorded, and the verdict itself is never changed. Files have no
 from datetime import datetime
 
 from services.url_assessment import mapping
+from services.url_report_view import tally
 
 VERDICTS = {
     'malicious': ('danger', 'DANGEROUS', 'Don’t open this file'),
@@ -160,11 +161,6 @@ def plain_file_report(report):
                       else check('Archive contents', 'na', 'Not inspected'))
     checks.append(check('Links inside', 'warn', 'Dark-web / crypto') if darkweb else
                   check('Links inside', 'info', f'{links} link' + ('s' if links != 1 else '')) if links else check('Links inside', 'ok', 'None'))
-    counts = {state: sum(c['state'] == state for c in checks) for state in ('bad', 'warn', 'ok', 'na')}
-    tally = ' · '.join(text for text in (f"{counts['bad']} bad" if counts['bad'] else '',
-                                         f"{counts['warn']} warning" + ('s' if counts['warn'] != 1 else '') if counts['warn'] else '',
-                                         f"{counts['ok']} fine" if counts['ok'] else '',
-                                         f"{counts['na']} not checked" if counts['na'] else '') if text)
     shown = name or 'this file'
     share = (f'Warning: MyScanner rates the file “{shown}” as dangerous. Don’t open it.' if tone == 'danger'
              else f'MyScanner says “{shown}” is the EICAR antivirus test file. It is harmless.' if eicar
@@ -175,6 +171,6 @@ def plain_file_report(report):
     when = checked_at(report.get('scanned_at') or report.get('analyzed_at'))
     return {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,
             'url': {'prefix': '', 'host': name or 'Unnamed file', 'rest': f' · {size}' if size else ''},
-            'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally,
+            'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally(checks),
             'checked': f'Checked {when} UTC' if when else '',
             'share_text': share + ' Check files free at https://myscanners.com'}

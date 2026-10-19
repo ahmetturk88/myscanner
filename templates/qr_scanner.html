@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% block title %}QR Code Scanner · MyScanner{% endblock %}
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261019-3') }}">
+<script src="{{ url_for('static', filename='plain_report.js', v='20261019-3') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='web_assessment.css',v='20261013-1') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='qr_workspace.css') }}?v=20261013-1">
 <script src="{{ url_for('static', filename='web_assessment_ui.js') }}"></script>
 <script src="{{ url_for('static', filename='qr_payload.js') }}?v=20261013-1"></script>
-<script src="{{ url_for('static', filename='qr_workspace.js') }}?v=20261015-ai"></script>
+<script src="{{ url_for('static', filename='qr_workspace.js') }}?v=20261019-3"></script>
 {% endblock %}
 {% block content %}
 <main class="qr-workspace" id="qr-workspace" aria-busy="false">
@@ -20,7 +22,7 @@
 <div id="error-div" class="qr-error" role="alert" hidden><strong>We could not complete this step.</strong><span id="error-msg"></span></div>
 <section id="loading-div" class="qr-loading qr-panel" role="status" hidden><span class="qr-spinner" aria-hidden="true"></span><div><span class="qr-eyebrow">WORKING ON YOUR REQUEST</span><h2 id="loading-text"></h2><p id="qr-elapsed">0 seconds</p><small>Actual elapsed time · completion depends on the image and requested checks</small></div></section>
 <div class="qr-steps"><div><span>01</span><h3>Reveal</h3><p>Decode the first readable QR payload without opening it.</p></div><div><span>02</span><h3>Understand</h3><p>Review the payload type, destination and sensitive content.</p></div><div><span>03</span><h3>Inspect</h3><p>Request web evidence, review coverage and export your findings.</p></div></div>
-<section id="result-card" class="qr-results" aria-labelledby="qr-result-title" hidden><header class="qr-result-head qr-panel"><div><span class="qr-eyebrow">02 / DECODED INTELLIGENCE</span><span id="content-type-badge" class="qr-pill"></span><h2 id="qr-result-title"></h2><p id="qr-result-sub"></p></div><div id="qr-coverage" class="qr-ring" role="img" hidden><strong id="qr-percent"></strong><span>CHECK COVERAGE</span></div></header>
+<section id="result-card" class="qr-results" aria-labelledby="qr-result-title" hidden><header class="qr-result-head qr-panel"><div><span class="qr-eyebrow">02 / DECODED INTELLIGENCE</span><span id="content-type-badge" class="qr-pill"></span><h2 id="qr-result-title"></h2><p id="qr-result-sub"></p></div><div id="qr-coverage" class="qr-ring" role="img" hidden><strong id="qr-percent"></strong><span>CHECK COVERAGE</span></div></header><div id="qr-plain" class="rp qr-plain" hidden></div><div id="qr-feedback" class="rp-feedback" role="status"></div>
 <div class="qr-result-grid"><section class="qr-panel"><h3>Decoded content</h3><pre id="decoded-content" tabindex="0"></pre><div id="qr-payload-details"></div></section><section class="qr-panel qr-brief"><span class="qr-eyebrow">REPORT BRIEF</span><h3>What this QR tells you</h3><div id="qr-brief"></div></section></div><div id="qr-warnings"></div><div id="assessment-details" aria-live="polite"></div><div id="action-buttons" class="qr-actions"></div></section>
 <p id="qr-notice" class="qr-notice" role="status" aria-live="polite"></p><p class="qr-scope">One payload per decode. No application action, Wi-Fi connection or contact import is performed. URL inspection uses read-only checks; missing evidence is not an assurance of safety.</p></main>
 <script src="{{ url_for('static', filename='vendor/jsQR-1.4.0.js') }}"></script>

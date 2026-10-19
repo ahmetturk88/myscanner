@@ -31,7 +31,8 @@
   function objects(value) { return Array.isArray(value) ? value.filter(x => x && typeof x === 'object') : []; }
 
   // options: again {href, label}, screenshot (a same-origin path or ''), checked (text),
-  // feedback (element for share messages), h1 (the headline is the page's main heading).
+  // feedback (element for share messages), h1 (the headline is the page's main heading),
+  // plainShare (say "Share this warning" even when dangerous: nothing was "sent" to the user).
   function render(box, plain, options) {
     if (!box || !plain || typeof plain !== 'object' || Array.isArray(plain)) return false;
     const opts = options || {};
@@ -47,7 +48,7 @@
     const share = (cls, label) => `<button type="button" class="rp-btn ${cls}" data-rp-share>${SHARE}${esc(label)}</button>`;
     const another = cls => `<a class="rp-btn ${cls}" href="${esc(again.href)}">${SEARCH}${esc(again.label)}</a>`;
     const buttons = tone === 'danger' || tone === 'caution'
-      ? share('rp-primary', tone === 'danger' ? 'Warn whoever sent it' : 'Share this warning') + another('rp-ghost')
+      ? share('rp-primary', tone === 'danger' && !opts.plainShare ? 'Warn whoever sent it' : 'Share this warning') + another('rp-ghost')
       : another('rp-primary') + share('rp-ghost', 'Share report');
     const shot = /^\/api\/scan_screenshot\/\d+$/.test(opts.screenshot || '') ? opts.screenshot : '';
     const preview = shot ? `<section class="rp-card rp-preview"><h2>Page preview</h2><img src="${esc(shot)}" alt="Screenshot of the scanned page" loading="lazy"><p>Taken in an isolated browser on our server. Your device never opened the page. A normal-looking page is not proof of safety.</p></section>` : '';

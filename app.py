@@ -1402,6 +1402,8 @@ def api_check_ip():
         if result.get('error'):
             return jsonify({'error': result['error']}), 400
         log_activity(current_user.username, 'ip_check', 'IP evidence lookup completed')
+        from services.ip_report_view import plain_ip_report
+        result['plain'] = plain_ip_report(result)
         response = jsonify(result)
         response.headers['Cache-Control'] = 'no-store'
         return response
@@ -1717,6 +1719,8 @@ def api_domain_lookup():
         result = DomainAnalyzer().analyze_domain(data['domain'])
         if result.get('error'):
             return jsonify({'error': result['error']}), 400
+        from services.domain_report_view import plain_domain_report
+        result['plain'] = plain_domain_report(result)
         log_activity(current_user.username, 'domain_lookup', 'Domain metadata lookup completed')
         response = jsonify(result)
         response.headers['Cache-Control'] = 'no-store'

@@ -5,7 +5,7 @@ blocklist, registration or probe result, and the verdict itself is never
 changed. A well-configured domain says nothing about who is behind an address.
 """
 from services.url_assessment import mapping
-from services.url_report_view import age_text, whole
+from services.url_report_view import age_text, tally, whole
 
 VERDICTS = {
     'no_domain': ('danger', 'NOT A REAL ADDRESS', 'This address can’t receive email'),
@@ -121,11 +121,6 @@ def plain_email_report(report):
         ]
         if rejected or accepted:
             checks.append(check('Mailbox', 'warn', 'Rejected') if rejected else check('Mailbox', 'ok', 'Accepts mail'))
-    counts = {state: sum(c['state'] == state for c in checks) for state in ('bad', 'warn', 'ok', 'na')}
-    tally = ' · '.join(text for text in (f"{counts['bad']} bad" if counts['bad'] else '',
-                                         f"{counts['warn']} warning" + ('s' if counts['warn'] != 1 else '') if counts['warn'] else '',
-                                         f"{counts['ok']} fine" if counts['ok'] else '',
-                                         f"{counts['na']} not checked" if counts['na'] else '') if text)
     local, _, host = email.partition('@')
     share = (f'MyScanner says the email address {email} can’t receive mail: its domain doesn’t exist.' if no_domain
              else f'Careful: MyScanner found warning signs for the email address {email}.' if tone == 'caution'
@@ -133,5 +128,5 @@ def plain_email_report(report):
              else f'MyScanner couldn’t fully check the email address {email}.')
     return {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,
             'url': {'prefix': local + '@' if host else '', 'host': host or email, 'rest': ''},
-            'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally,
+            'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally(checks),
             'share_text': share + ' Check addresses free at https://myscanners.com'}

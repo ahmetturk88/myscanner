@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Site Scanner · MyScanner{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='site_workspace.css',v='20261013-1') }}">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261019-4') }}"><link rel="stylesheet" href="{{ url_for('static', filename='site_workspace.css',v='20261013-1') }}">{% endblock %}
 {% block content %}
 <main class="site-workspace">
  <header class="site-hero"><div><span class="site-eyebrow">WEBSITE INTELLIGENCE / READ-ONLY</span><h1>See beyond<br><em>the homepage.</em></h1><p>Follow the destination. Inspect its connection. Understand the evidence behind the page.</p><div class="site-tags"><span>HTTP & redirects</span><span>TLS identity</span><span>Static page evidence</span></div></div>
@@ -8,9 +8,10 @@
  <form id="site-form" class="site-card site-input"><label for="site-target">Domain or public website URL</label><div class="site-entry"><input id="site-target" name="target" placeholder="example.com or https://example.com/page" required maxlength="2048" autocomplete="off"><button id="site-submit" type="submit">Inspect website <span aria-hidden="true">↗</span></button></div><div class="site-options"><label><input id="site-provider" type="checkbox"> Include url.vet observations</label><label><input id="site-discovery" type="checkbox"> Inspect robots.txt & sitemap.xml</label></div><p class="site-note">Inspect only websites you are authorized to assess. No scripts, forms or exploit probes are executed. Optional source analysis sends the URL to the configured url.vet service.</p></form>
  <div id="site-loading" class="site-card site-loading" hidden role="status"><div class="site-orbit"></div><h2>Gathering website evidence</h2><p>Resolving the target, following permitted redirects and inspecting the response.</p><span id="site-elapsed">0 seconds elapsed</span><p class="site-note">This is elapsed time, not a simulated completion percentage.</p></div>
  <p id="site-error" class="site-error" hidden role="alert"></p>
- <section id="site-results" hidden aria-label="Website inspection report"></section>
+ <div id="site-plain" class="rp" hidden></div><details class="rp-tech" id="site-tech" hidden><summary><span><strong>Full technical evidence</strong><small>Redirects, certificate, headers, page forms, DNS and every check, for experts.</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><section id="site-results" aria-label="Website inspection report"></section></details>
  <div class="site-bottom"><article><b>01 / Connection</b><p>Public DNS, redirect chain and certificate observations.</p></article><article><b>02 / Page</b><p>Headers, static HTML and form destinations without submission.</p></article><article><b>03 / Context</b><p>Source evidence, missing checks and portable exports.</p></article></div>
  <p id="site-feedback" role="status"></p>
 </main>
-<script src="{{ url_for('static', filename='site_workspace.js', v='20261015-ai') }}" defer></script>
+<script src="{{ url_for('static', filename='plain_report.js', v='20261019-4') }}" defer></script>
+<script src="{{ url_for('static', filename='site_workspace.js', v='20261019-4') }}" defer></script>
 {% endblock %}

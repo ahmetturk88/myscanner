@@ -200,7 +200,7 @@ def plain_web_report(result, source='link'):
     if verdict == 'unknown' and result.get('assessment_status') != 'completed':
         reasons.insert(0, reason('na', 'Some checks couldn’t run', 'Not every check finished, so we can’t call it safe.'))
 
-    opening = 'this QR code’s link' if source == 'qr' else 'this link'
+    opening = 'this QR code’s link' if source == 'qr' else 'this website' if source == 'site' else 'this link'
     if verdict == 'malicious':
         tone, label, headline = 'danger', 'DANGEROUS', 'Don’t open this link'
         summary = 'A threat source reports it as malicious.'
@@ -242,3 +242,53 @@ def plain_web_report(result, source='link'):
             'url': url_parts(url) if url else {'prefix': '', 'host': host, 'rest': ''},
             'reasons': ordered(reasons), 'actions': actions, 'checks': checks, 'tally': tally(checks),
             'share_text': share + ' Check links free at https://myscanners.com'}
+
+
+def plain_subdomain_report(result):
+    """Discovery lists hostnames; it is not a safety verdict, so the tone is informational."""
+    result = mapping(result)
+    domain = result.get('domain') if isinstance(result.get('domain'), str) else ''
+    count = lambda key: result.get(key) if isinstance(result.get(key), int) and not isinstance(result.get(key), bool) else 0
+    found, active, redirects = count('total_found'), count('active_count'), count('redirect_count')
+    errors, checked = count('dns_error_count'), count('total_checked')
+    groups = mapping(result.get('subdomains'))
+    dns_only = len(groups.get('dns_only') or []) if isinstance(groups.get('dns_only'), list) else 0
+    http_errors = len(groups.get('http_error') or []) if isinstance(groups.get('http_error'), list) else 0
+    wildcard = mapping(result.get('wildcard')).get('detected') is True
+    sources = [s for s in result.get('sources') or [] if isinstance(s, dict)]
+    ct = next((s for s in sources if 'Certificate' in str(s.get('name'))), {})
+    partial = result.get('assessment_status') != 'completed'
+
+    reasons = []
+    if found:
+        reasons.append(reason('info', f'{found} subdomain' + ('' if found == 1 else 's') + ' found',
+                              f'{active} answer as websites' + (f', {redirects} redirect elsewhere' if redirects else '') + '.'))
+    else:
+        reasons.append(reason('info', 'No subdomains found', f'None of the {checked} names we tried exist.'))
+    if wildcard:
+        reasons.append(reason('warn', 'Every name seems to exist', 'The domain answers for any made-up name (a wildcard), so some results may not be real separate sites.'))
+    if http_errors:
+        reasons.append(reason('info', f'{http_errors} show' + ('s' if http_errors == 1 else '') + ' an error page', 'Error pages can mean forgotten or broken services.'))
+    if partial:
+        reasons.insert(0, reason('na', 'This is a sample', 'We check a limited set of likely names, so there may be more subdomains.'))
+
+    actions = ['Check any subdomain you don’t recognise with the “Inspect URL” button.',
+               'If this is your domain, remove subdomains you no longer use: forgotten ones are a common way in for attackers.']
+    if wildcard:
+        actions.insert(0, 'Treat the list with care: the wildcard makes made-up names look real.')
+    checks = [check('Subdomains found', 'info', str(found)), check('Answer as websites', 'info', str(active))]
+    if redirects:
+        checks.append(check('Redirect elsewhere', 'info', str(redirects)))
+    if dns_only:
+        checks.append(check('Name only, no website', 'info', str(dns_only)))
+    checks.append(check('Wildcard', 'warn', 'Yes') if wildcard else check('Wildcard', 'ok', 'No'))
+    checks.append(check('Certificate history', 'ok', 'Used') if ct.get('status') == 'completed'
+                  else check('Certificate history', 'na', 'Not requested' if ct.get('status') == 'not_requested' else 'Not available'))
+    if errors:
+        checks.append(check('Lookups that failed', 'na', str(errors)))
+    return {'tone': 'info', 'label': 'DISCOVERY', 'headline': f'{found} subdomain' + ('' if found == 1 else 's') + ' found',
+            'summary': 'This lists names under the domain. It is not a safety check of each one; inspect the ones you don’t recognise.',
+            'url': {'prefix': '', 'host': domain, 'rest': ''},
+            'why_title': 'What we found',
+            'reasons': ordered(reasons), 'actions': actions, 'checks': checks, 'tally': f'{checked} names checked' if checked else '',
+            'share_text': ''}

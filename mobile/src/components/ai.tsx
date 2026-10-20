@@ -7,6 +7,8 @@ import { Icon } from '@/components/icon';
 import { TypingDots } from '@/components/motion';
 import { Button, Card, ErrorText, Muted, styles as ui } from '@/components/ui';
 import { api, plain, stream } from '@/lib/api';
+import { t, upper } from '@/lib/i18n';
+import { getSettings } from '@/lib/settings';
 import { colors, fonts, gradients } from '@/lib/theme';
 
 type Explanation = {
@@ -18,9 +20,9 @@ type Explanation = {
 const LABELS: Record<string, keyof Explanation> = {
   'WHY THIS RESULT': 'reasons', 'WHAT TO DO NOW': 'next_steps', 'NOT CONFIRMED': 'not_checked', 'TECHNICAL NOTES': 'technical_notes',
 };
-const SECTIONS: [keyof Explanation, string, string][] = [
-  ['reasons', 'Why this result', colors.cyan], ['next_steps', 'What to do now', colors.green],
-  ['not_checked', 'What was not confirmed', colors.amber], ['technical_notes', 'Technical notes', colors.muted],
+const sections = (): [keyof Explanation, string, string][] => [
+  ['reasons', t('Why this result'), colors.cyan], ['next_steps', t('What to do now'), colors.green],
+  ['not_checked', t('What was not confirmed'), colors.amber], ['technical_notes', t('Technical notes'), colors.muted],
 ];
 
 /** Read the labelled explanation as it streams in (mirrors the server's parser). */
@@ -56,12 +58,12 @@ function ExplanationView({ data }: { data: Explanation }) {
     <View style={{ gap: 12 }}>
       {data.headline ? <DirectedText text={data.headline} style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, lineHeight: 26 }} /> : null}
       {data.summary ? <DirectedText text={data.summary} style={ui.body} /> : null}
-      {SECTIONS.map(([key, title, tint]) => {
+      {sections().map(([key, title, tint]) => {
         const items = data[key] as any[];
         if (!items.length) return null;
         return (
           <View key={key} style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
-            <Text style={{ color: tint, fontSize: 12, fontFamily: fonts.mono, letterSpacing: 1.5 }}>{title.toUpperCase()}</Text>
+            <Text style={{ color: tint, fontSize: 12, fontFamily: fonts.mono, letterSpacing: 1.5 }}>{upper(title)}</Text>
             {items.map((item, i) => {
               const point = typeof item === 'string' ? item : item.point;
               const rtl = isRtl(point);
@@ -144,7 +146,7 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
     setBusy(true); setExplaining(true); setError(null);
     try {
       const id = await ensureContext();
-      const final = await stream(`/ai/contexts/${id}/explain`, { language: 'en' }, (text) => setExplanation(parse(text)));
+      const final = await stream(`/ai/contexts/${id}/explain`, { language: getSettings().language }, (text) => setExplanation(parse(text)));
       setExplanation(final.explanation);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
@@ -171,20 +173,20 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
 
   return (
     <Card glow>
-      <Text style={ui.kicker}>✦ AI ASSISTANT</Text>
+      <Text style={ui.kicker}>{t('✦ AI ASSISTANT')}</Text>
       {!explanation && !explaining ? (
         <>
-          <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.4 }}>Understand this report</Text>
-          <Muted>A plain-language explanation of the evidence, then ask follow-up questions. Uses 1 of your daily AI answers.</Muted>
-          <Button label="Explain with AI" icon="spark" onPress={explain} />
+          <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.4 }}>{t('Understand this report')}</Text>
+          <Muted>{t('A plain-language explanation of the evidence, then ask follow-up questions. Uses 1 of your daily AI answers.')}</Muted>
+          <Button label={t('Explain with AI')} icon="spark" onPress={explain} />
         </>
       ) : explanation ? <ExplanationView data={explanation} /> : <TypingDots />}
       {chat.map((m, i) => <Bubble key={i} role={m.role} text={m.text} />)}
       {explanation && !explaining ? (
         <View style={[ui.inputWrap, { paddingRight: 6 }]}>
-          <TextInput value={question} onChangeText={setQuestion} placeholder="Ask about this report…" placeholderTextColor={colors.faint}
+          <TextInput value={question} onChangeText={setQuestion} placeholder={t('Ask about this report…')} placeholderTextColor={colors.faint}
             style={ui.input} multiline maxLength={1000} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Ask" onPress={ask} disabled={!question.trim() || busy}
+          <Pressable accessibilityRole="button" accessibilityLabel={t('Ask')} onPress={ask} disabled={!question.trim() || busy}
             style={{ opacity: !question.trim() || busy ? 0.5 : 1 }}>
             <LinearGradient colors={gradients.accent} style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="send" size={18} color={colors.onAccent} />
@@ -193,7 +195,7 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
         </View>
       ) : null}
       <ErrorText>{error}</ErrorText>
-      <Text style={{ color: colors.faint, fontSize: 12, lineHeight: 18, fontFamily: fonts.regular }}>{"AI can make mistakes. The verdict comes from MyScanner's checks, not from the AI. Never type passwords or personal data."}</Text>
+      <Text style={{ color: colors.faint, fontSize: 12, lineHeight: 18, fontFamily: fonts.regular }}>{t("AI can make mistakes. The verdict comes from MyScanner's checks, not from the AI. Never type passwords or personal data.")}</Text>
     </Card>
   );
 }

@@ -11,6 +11,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Icon, type IconName } from '@/components/icon';
 import { enter, PressableScale } from '@/components/motion';
 import { Button } from '@/components/ui';
+import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 
 /** The plain-language summary every tool returns as `plain` (built on the server). */
@@ -143,7 +144,7 @@ function Reasons({ plain, start }: { plain: Plain; start: number }) {
   if (!reasons.length) return null;
   return (
     <View style={{ gap: 10 }}>
-      <Animated.View entering={enter(start)}><SectionTitle>{str(plain.why_title) || 'Why we think so'}</SectionTitle></Animated.View>
+      <Animated.View entering={enter(start)}><SectionTitle>{str(plain.why_title) || t('Why we think so')}</SectionTitle></Animated.View>
       {reasons.map((r, i) => {
         const look = STATE[state(r.tone)];
         return (
@@ -168,7 +169,7 @@ function Actions({ plain, tone, start }: { plain: Plain; tone: HeroTone; start: 
   const { color } = HERO[tone];
   return (
     <Animated.View entering={enter(start)} style={s.card}>
-      <SectionTitle>{tone === 'safe' ? 'Good to know' : 'What to do'}</SectionTitle>
+      <SectionTitle>{tone === 'safe' ? t('Good to know') : t('What to do')}</SectionTitle>
       {actions.map((a, i) => (
         <View key={`${i}-${a}`} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
           <View style={[s.number, { backgroundColor: color + '1f', borderColor: color + '55' }]}>
@@ -196,7 +197,7 @@ function Checks({ plain, start }: { plain: Plain; start: number }) {
   const counts = ORDER.filter((k) => k !== 'info').map((k) => [k, checks.filter((c) => state(c.state) === k).length] as const).filter(([, n]) => n > 0);
   return (
     <Animated.View entering={enter(start)} style={s.card}>
-      <SectionTitle right={str(plain.tally)}>What we checked</SectionTitle>
+      <SectionTitle right={str(plain.tally)}>{t('What we checked')}</SectionTitle>
       <View style={{ flexDirection: 'row', gap: 4 }}>
         {counts.map(([k, n], i) => <Segment key={k} share={n} color={STATE[k].color} delay={300 + i * 120} />)}
       </View>
@@ -224,14 +225,14 @@ function Preview({ source, start }: { source: { uri: string; headers?: Record<st
   if (failed) return null;
   return (
     <Animated.View entering={enter(start)} style={s.card}>
-      <SectionTitle>Page preview</SectionTitle>
+      <SectionTitle>{t('Page preview')}</SectionTitle>
       <View style={{ borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.input }}>
         <Image source={source} style={{ width: '100%', aspectRatio: ratio }} contentFit="cover" contentPosition="top" transition={350}
-          cachePolicy="none" accessibilityLabel="Screenshot of the scanned page"
+          cachePolicy="none" accessibilityLabel={t('Screenshot of the scanned page')}
           onLoad={(e) => { const { width, height } = e.source; if (width && height) setRatio(Math.max(width / height, 0.75)); }}
           onError={() => setFailed(true)} />
       </View>
-      <Text style={s.small}>Taken in an isolated browser on our server. Your phone never opened the page. A normal-looking page is not proof of safety.</Text>
+      <Text style={s.small}>{t('Taken in an isolated browser on our server. Your phone never opened the page. A normal-looking page is not proof of safety.')}</Text>
     </Animated.View>
   );
 }
@@ -263,7 +264,7 @@ export function PlainReport({ plain, again, plainShare, screenshot, haptic, chec
   const text = str(plain.share_text);
   const share = () => { Share.share({ message: text }).catch(() => {}); };
   const warn = tone === 'danger' || tone === 'caution';
-  const shareLabel = !warn ? 'Share report' : tone === 'danger' && !plainShare ? 'Warn whoever sent it' : 'Share this warning';
+  const shareLabel = !warn ? t('Share report') : tone === 'danger' && !plainShare ? t('Warn whoever sent it') : t('Share this warning');
   const reasonCount = objects(plain.reasons).length;
   const after = 2 + reasonCount;
 
@@ -291,7 +292,7 @@ export function PlainReport({ plain, again, plainShare, screenshot, haptic, chec
       <Checks plain={plain} start={after + 2} />
       {screenshot ? <Preview source={screenshot} start={after + 3} /> : null}
       {children}
-      <Text style={[s.small, { textAlign: 'center' }]}>A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.</Text>
+      <Text style={[s.small, { textAlign: 'center' }]}>{t('A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.')}</Text>
     </View>
   );
 }

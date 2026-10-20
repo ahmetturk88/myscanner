@@ -7,6 +7,9 @@ import { fetch as streamingFetch } from 'expo/fetch';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+import { t } from '@/lib/i18n';
+import { getSettings } from '@/lib/settings';
+
 const TOKEN_KEY = 'myscanner.token';
 export const SITE = String(Constants.expoConfig?.extra?.apiBaseUrl || 'https://myscanners.com').replace(/\/$/, '');
 const BASE = `${SITE}/api/mobile/v1`;
@@ -50,7 +53,8 @@ export function setSignedOutHandler(handler: () => void) {
 }
 
 function headers(json = true): Record<string, string> {
-  const h: Record<string, string> = { Accept: 'application/json' };
+  // The server writes report summaries in this language.
+  const h: Record<string, string> = { Accept: 'application/json', 'Accept-Language': getSettings().language };
   if (json) h['Content-Type'] = 'application/json';
   if (token) h.Authorization = `Bearer ${token}`;
   return h;
@@ -62,9 +66,9 @@ async function failure(response: { status: number; json(): Promise<any> }) {
     await saveToken(null);
     onSignedOut?.();
   }
-  const fallback = response.status === 429 ? "Today's allowance is used up. It resets at 00:00 UTC."
-    : response.status >= 500 ? 'MyScanner is unavailable right now. Please try again in a minute.'
-    : 'Something went wrong. Please try again.';
+  const fallback = response.status === 429 ? t("Today's allowance is used up. It resets at 00:00 UTC.")
+    : response.status >= 500 ? t('MyScanner is unavailable right now. Please try again in a minute.')
+    : t('Something went wrong. Please try again.');
   return new ApiError(typeof data.error === 'string' ? data.error : fallback, response.status);
 }
 
@@ -77,7 +81,7 @@ export async function request<T = any>(path: string, options: { method?: string;
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
-    throw new ApiError('No connection. Check your internet and try again.', 0);
+    throw new ApiError(t('No connection. Check your internet and try again.'), 0);
   }
   if (!response.ok) throw await failure(response);
   return response.json();
@@ -92,7 +96,7 @@ export async function stream(path: string, body: unknown, onText: (text: string)
   try {
     response = await streamingFetch(BASE + path, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
   } catch {
-    throw new ApiError('No connection. Check your internet and try again.', 0);
+    throw new ApiError(t('No connection. Check your internet and try again.'), 0);
   }
   if (!response.ok) throw await failure(response);
   const type = response.headers.get('Content-Type') || '';
@@ -120,7 +124,7 @@ export async function stream(path: string, body: unknown, onText: (text: string)
     }
     if (done) break;
   }
-  if (!final) throw new ApiError('The answer was interrupted. Please try again.', 0);
+  if (!final) throw new ApiError(t('The answer was interrupted. Please try again.'), 0);
   return final;
 }
 
@@ -147,7 +151,7 @@ export async function upload<T = any>(path: string, file: { uri: string; name: s
   try {
     response = await fetch(BASE + path, { method: 'POST', headers: headers(false), body: form });
   } catch {
-    throw new ApiError('No connection. Check your internet and try again.', 0);
+    throw new ApiError(t('No connection. Check your internet and try again.'), 0);
   }
   if (!response.ok) throw await failure(response);
   return response.json();
@@ -158,11 +162,11 @@ export async function waitForTask(taskId: string, onStatus: (status: string) => 
   for (let i = 0; i < 150 && isAlive(); i++) {
     const task: any = await request(`/tasks/${encodeURIComponent(taskId)}`);
     if (task.state === 'SUCCESS') return task.result;
-    if (task.state === 'FAILURE') throw new ApiError(task.error || 'Analysis failed. Please retry.', 0);
-    onStatus(task.status || 'Working…');
+    if (task.state === 'FAILURE') throw new ApiError(task.error || t('Analysis failed. Please retry.'), 0);
+    onStatus(task.status || t('Working…'));
     await new Promise((r) => setTimeout(r, 2500));
   }
-  throw new ApiError('This is taking longer than usual. Please try again later.', 0);
+  throw new ApiError(t('This is taking longer than usual. Please try again later.'), 0);
 }
 
 export type Allowance = { service: string; label: string; remaining: number | null; limit: number | null; percent: number }[];

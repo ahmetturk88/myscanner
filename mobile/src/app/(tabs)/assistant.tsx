@@ -9,19 +9,21 @@ import { BrandMark } from '@/components/brand';
 import { Icon } from '@/components/icon';
 import { Ambient, enter, PressableScale, Pulse, Spin } from '@/components/motion';
 import { TAB_SPACE, useKeyboardVisible } from '@/components/screen';
+import { Accent } from '@/components/tool-hero';
 import { ErrorText, styles as ui } from '@/components/ui';
 import { plain, stream } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { t } from '@/lib/i18n';
 import { startUrlScan } from '@/lib/scan';
 import { colors, fonts, gradients } from '@/lib/theme';
 import { findLink } from '@/lib/tools';
 
 type Message = { role: 'user' | 'assistant'; text: string; link?: string | null };
-const SUGGESTIONS: [string, string][] = [
-  ['alert', 'I got a message asking me to verify my bank account. Is it a scam?'],
-  ['lock', 'How do I secure my email account?'],
-  ['link', 'I clicked a suspicious link. What should I do now?'],
-  ['qr', 'Is it safe to scan a QR code on a parking meter?'],
+const suggestions = (): [string, string][] => [
+  ['alert', t('I got a message asking me to verify my bank account. Is it a scam?')],
+  ['lock', t('How do I secure my email account?')],
+  ['link', t('I clicked a suspicious link. What should I do now?')],
+  ['qr', t('Is it safe to scan a QR code on a parking meter?')],
 ];
 
 /** The assistant's animated mark: the brand inside a turning gradient ring. */
@@ -82,12 +84,12 @@ export default function Assistant() {
           <Orb size={40} />
           <View style={{ gap: 1 }}>
             <Text style={{ color: colors.text, fontSize: 17, fontFamily: fonts.bold }}>MyScanner AI</Text>
-            <Text style={{ color: busy ? colors.cyan : colors.green, fontSize: 12, fontFamily: fonts.medium }}>{busy ? 'Thinking…' : 'Online'}</Text>
+            <Text style={{ color: busy ? colors.cyan : colors.green, fontSize: 12, fontFamily: fonts.medium }}>{busy ? t('Thinking…') : t('Online')}</Text>
           </View>
           <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {ai ? <View style={s.quota}><Text style={{ color: colors.cyan, fontSize: 11.5, fontFamily: fonts.monoBold }}>{ai.limit === null ? '∞' : `${ai.remaining} left`}</Text></View> : null}
+            {ai ? <View style={s.quota}><Text style={{ color: colors.cyan, fontSize: 11.5, fontFamily: fonts.monoBold }}>{ai.limit === null ? '∞' : t('{n} left', { n: ai.remaining ?? 0 })}</Text></View> : null}
             {messages.length ? (
-              <PressableScale accessibilityLabel="New conversation" disabled={busy} onPress={() => { setMessages([]); setError(null); }} style={s.round}>
+              <PressableScale accessibilityLabel={t('New conversation')} disabled={busy} onPress={() => { setMessages([]); setError(null); }} style={s.round}>
                 <Icon name="refresh" size={17} color={colors.soft} />
               </PressableScale>
             ) : null}
@@ -100,11 +102,11 @@ export default function Assistant() {
               <Animated.View entering={enter(0)} style={{ alignItems: 'center', gap: 16, marginBottom: 10 }}>
                 <Orb size={86} />
                 <Text style={{ color: colors.text, fontSize: 26, fontFamily: fonts.bold, letterSpacing: -0.8, textAlign: 'center' }}>
-                  How can I help you{'\n'}stay <Text style={{ color: colors.cyan }}>safe?</Text>
+                  <Accent text={t('How can I help you\nstay safe?')} accent={t('safe?')} />
                 </Text>
-                <Text style={[ui.muted, { textAlign: 'center' }]}>Ask about links, messages and scams. Paste a link and I can scan it.</Text>
+                <Text style={[ui.muted, { textAlign: 'center' }]}>{t('Ask about links, messages and scams. Paste a link and I can scan it.')}</Text>
               </Animated.View>
-              {SUGGESTIONS.map(([icon, text], i) => (
+              {suggestions().map(([icon, text], i) => (
                 <Animated.View key={text} entering={enter(i + 1)}>
                   <PressableScale scale={0.98} onPress={() => send(text)} style={s.suggestion}>
                     <Icon name={icon as any} size={17} color={colors.cyan} />
@@ -120,7 +122,7 @@ export default function Assistant() {
               {m.link ? (
                 <PressableScale onPress={() => scanLink(m.link!)} style={s.scanLink}>
                   <Icon name="shield" size={16} color={colors.cyan} />
-                  <Text style={{ color: '#a5f3fc', fontFamily: fonts.bold, fontSize: 13.5 }}>Scan this link</Text>
+                  <Text style={{ color: '#a5f3fc', fontFamily: fonts.bold, fontSize: 13.5 }}>{t('Scan this link')}</Text>
                 </PressableScale>
               ) : null}
             </Animated.View>
@@ -129,9 +131,9 @@ export default function Assistant() {
         </ScrollView>
         <View style={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: keyboard ? 10 : TAB_SPACE + insets.bottom - 8 }}>
           <View style={[ui.inputWrap, s.composer]}>
-            <TextInput value={input} onChangeText={setInput} placeholder="Ask anything…" placeholderTextColor={colors.faint}
+            <TextInput value={input} onChangeText={setInput} placeholder={t('Ask anything…')} placeholderTextColor={colors.faint}
               multiline maxLength={1000} style={[ui.input, { maxHeight: 120 }]} />
-            <PressableScale accessibilityLabel="Send" scale={0.9} onPress={() => send()} disabled={!input.trim() || busy}
+            <PressableScale accessibilityLabel={t('Send')} scale={0.9} onPress={() => send()} disabled={!input.trim() || busy}
               style={{ opacity: !input.trim() || busy ? 0.45 : 1 }}>
               <LinearGradient colors={gradients.accent} style={s.send}><Icon name="send" size={18} color={colors.onAccent} /></LinearGradient>
             </PressableScale>

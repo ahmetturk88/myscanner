@@ -4,6 +4,7 @@ import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
 import { enter, ScanOrb } from '@/components/motion';
+import { upper } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 
 /** Live progress: the radar, the current step, and a checklist that ticks off as time passes. */
@@ -20,7 +21,7 @@ export function Working({ steps, status, every = 5000, step: forced }: { steps: 
       <Animated.Text key={step} entering={FadeIn.duration(400)} style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, textAlign: 'center' }}>
         {steps[step]}…
       </Animated.Text>
-      {status ? <Text style={{ color: colors.faint, fontSize: 12.5, fontFamily: fonts.mono }}>{status.toUpperCase()}</Text> : null}
+      {status ? <Text style={{ color: colors.faint, fontSize: 12.5, fontFamily: fonts.mono }}>{upper(status)}</Text> : null}
       <View style={{ alignSelf: 'stretch', gap: 2, padding: 14, borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: 'rgba(14,24,37,.85)' }}>
         {steps.map((label, i) => {
           const done = i < step;

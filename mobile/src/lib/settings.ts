@@ -12,13 +12,15 @@ export type Settings = {
   haptics: boolean;
   /** Open "Full technical evidence" by default (for technical users). */
   evidenceOpen: boolean;
-  /** Only English ships today; the others are listed as coming soon. */
+  /** English and Turkish ship today; Arabic is listed as coming soon. */
   language: Language;
 };
 
 const KEY = 'myscanner.settings';
 const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en' };
 let current: Settings = DEFAULTS;
+/** False until the saved settings have been read (the first screen waits for it). */
+let ready = false;
 const listeners = new Set<() => void>();
 
 const store = Platform.OS === 'web'
@@ -31,11 +33,12 @@ export async function loadSettings() {
     current = {
       haptics: typeof saved.haptics === 'boolean' ? saved.haptics : DEFAULTS.haptics,
       evidenceOpen: typeof saved.evidenceOpen === 'boolean' ? saved.evidenceOpen : DEFAULTS.evidenceOpen,
-      language: 'en',
+      language: saved.language === 'tr' ? 'tr' : 'en',
     };
   } catch {
     current = DEFAULTS;
   }
+  ready = true;
   listeners.forEach((l) => l());
 }
 
@@ -53,4 +56,11 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
 
 export function useSettings() {
   return useSyncExternalStore(subscribe, getSettings, getSettings);
+}
+
+const isReady = () => ready;
+
+/** True once loadSettings() has finished. */
+export function useSettingsReady() {
+  return useSyncExternalStore(subscribe, isReady, isReady);
 }

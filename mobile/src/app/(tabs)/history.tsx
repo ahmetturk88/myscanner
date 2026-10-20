@@ -8,18 +8,20 @@ import { Icon } from '@/components/icon';
 import { Screen } from '@/components/screen';
 import { ErrorText, Skeleton, styles as ui } from '@/components/ui';
 import { api } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { colors, fonts, tone, type Tone } from '@/lib/theme';
 
-const FILTERS: { key: 'all' | Tone; label: string }[] = [
-  { key: 'all', label: 'All' }, { key: 'risk', label: 'Threats' }, { key: 'review', label: 'Review' }, { key: 'safe', label: 'Clean' },
+const filters = (): { key: 'all' | Tone; label: string }[] => [
+  { key: 'all', label: t('All') }, { key: 'risk', label: t('Threats') }, { key: 'review', label: t('Review') }, { key: 'safe', label: t('Clean') },
 ];
 
 /** Segmented control whose highlight slides to the chosen option. */
 function Segments({ value, onChange }: { value: string; onChange: (key: 'all' | Tone) => void }) {
   const [width, setWidth] = useState(0);
+  const [FILTERS] = useState(filters);
   const x = useSharedValue(0);
   const index = FILTERS.findIndex((f) => f.key === value);
-  useEffect(() => { x.value = withSpring(index * (width / FILTERS.length), { damping: 18, stiffness: 220 }); }, [index, width, x]);
+  useEffect(() => { x.value = withSpring(index * (width / FILTERS.length), { damping: 18, stiffness: 220 }); }, [index, width, x, FILTERS.length]);
   const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View style={s.segments} onLayout={(e) => setWidth(e.nativeEvent.layout.width - 8)}>
@@ -47,10 +49,10 @@ export default function History() {
   const shown = (rows ?? []).filter((r) => (filter === 'all' || tone(r.verdict) === filter) && (!q || r.url.toLowerCase().includes(q)));
 
   return (
-    <Screen tabs eyebrow="Your evidence" title="History" subtitle="Every link you scanned, newest first." onRefresh={load} gap={14}>
+    <Screen tabs eyebrow={t('Your evidence')} title={t('History')} subtitle={t('Every link you scanned, newest first.')} onRefresh={load} gap={14}>
       <View style={ui.inputWrap}>
         <Icon name="search" size={17} color={colors.faint} />
-        <TextInput value={query} onChangeText={setQuery} placeholder="Search your reports" placeholderTextColor="#5f7590" style={ui.input}
+        <TextInput value={query} onChangeText={setQuery} placeholder={t('Search your reports')} placeholderTextColor="#5f7590" style={ui.input}
           autoCapitalize="none" autoCorrect={false} />
       </View>
       <Segments value={filter} onChange={setFilter} />
@@ -60,8 +62,8 @@ export default function History() {
         {shown.map((r, i) => <ReportRow key={`${filter}-${r.id}`} report={r} index={i} />)}
       </View>
       {rows && !shown.length ? (
-        <Empty icon={q ? 'search' : 'clock'} title={rows.length ? 'Nothing matches' : 'No reports yet'}
-          text={rows.length ? 'Try another filter or search.' : 'Scan a link from Home and its report will appear here.'} />
+        <Empty icon={q ? 'search' : 'clock'} title={rows.length ? t('Nothing matches') : t('No reports yet')}
+          text={rows.length ? t('Try another filter or search.') : t('Scan a link from Home and its report will appear here.')} />
       ) : null}
     </Screen>
   );

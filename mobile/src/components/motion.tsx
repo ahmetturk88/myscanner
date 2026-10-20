@@ -8,6 +8,7 @@ import Animated, {
 import Svg, { Circle, Defs, LinearGradient, RadialGradient, Stop } from 'react-native-svg';
 
 import { BrandMark } from '@/components/brand';
+import { t } from '@/lib/i18n';
 import { colors } from '@/lib/theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -70,18 +71,18 @@ export function Gauge({ score, color, size = 170 }: { score: number | null; colo
 
 /** Three dots that bounce while an answer is being written. */
 export function TypingDots() {
-  const t = useSharedValue(0);
-  useEffect(() => { t.value = withRepeat(withTiming(1, { duration: 900 }), -1); }, [t]);
+  const phase = useSharedValue(0);
+  useEffect(() => { phase.value = withRepeat(withTiming(1, { duration: 900 }), -1); }, [phase]);
   const dot = (offset: number) => {
     'worklet';
-    return { opacity: 0.35 + 0.65 * Math.max(0, Math.sin(Math.PI * ((t.value + offset) % 1))),
-    transform: [{ translateY: -3 * Math.max(0, Math.sin(Math.PI * ((t.value + offset) % 1))) }] };
+    return { opacity: 0.35 + 0.65 * Math.max(0, Math.sin(Math.PI * ((phase.value + offset) % 1))),
+    transform: [{ translateY: -3 * Math.max(0, Math.sin(Math.PI * ((phase.value + offset) % 1))) }] };
   };
   const a = useAnimatedStyle(() => dot(0));
   const b = useAnimatedStyle(() => dot(0.66));
   const c = useAnimatedStyle(() => dot(0.33));
   return (
-    <View accessibilityLabel="Writing" style={{ flexDirection: 'row', gap: 6, paddingVertical: 6 }}>
+    <View accessibilityLabel={t('Writing')} style={{ flexDirection: 'row', gap: 6, paddingVertical: 6 }}>
       {[a, b, c].map((s, i) => <Animated.View key={i} style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.cyanSoft }, s]} />)}
     </View>
   );

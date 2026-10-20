@@ -9,15 +9,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/icon';
 import { PressableScale, Pulse } from '@/components/motion';
 import { useKeyboardVisible } from '@/components/screen';
+import { t } from '@/lib/i18n';
 import { colors, fonts, gradients } from '@/lib/theme';
 
 type BarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-const META: Record<string, { icon: IconName; label: string }> = {
-  index: { icon: 'home', label: 'Home' },
-  history: { icon: 'clock', label: 'History' },
-  assistant: { icon: 'spark', label: 'Assistant' },
-  account: { icon: 'user', label: 'Account' },
+const META: Record<string, { icon: IconName; label: () => string }> = {
+  index: { icon: 'home', label: () => t('Home') },
+  history: { icon: 'clock', label: () => t('History') },
+  assistant: { icon: 'spark', label: () => t('Assistant') },
+  account: { icon: 'user', label: () => t('Account') },
 };
 // Five slots: two tabs, the scanner button, two tabs.
 const SLOT = [0, 1, 3, 4];
@@ -30,7 +31,7 @@ function TabButton({ icon, label, focused, onPress }: { icon: IconName; label: s
   return (
     <Pressable accessibilityRole="tab" accessibilityState={{ selected: focused }} accessibilityLabel={label} onPress={onPress} style={s.tab}>
       <Animated.View style={iconStyle}><Icon name={icon} size={22} color={focused ? colors.cyan : colors.faint} /></Animated.View>
-      <Text style={[s.label, focused && { color: colors.cyan }]}>{label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[s.label, focused && { color: colors.cyan }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -53,7 +54,7 @@ export function TabBar({ state, navigation }: BarProps) {
     if (!meta) return null;
     const focused = state.index === index;
     return (
-      <TabButton key={route.key} icon={meta.icon} label={meta.label} focused={focused} onPress={() => {
+      <TabButton key={route.key} icon={meta.icon} label={meta.label()} focused={focused} onPress={() => {
         const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
         if (!focused && !event.defaultPrevented) {
           Haptics.selectionAsync().catch(() => {});
@@ -73,7 +74,7 @@ export function TabBar({ state, navigation }: BarProps) {
         ) : null}
         {tabs.slice(0, 2)}
         <View style={s.tab}>
-          <PressableScale accessibilityLabel="Scan a QR code" scale={0.9} style={s.fabWrap}
+          <PressableScale accessibilityLabel={t('Scan a QR code')} scale={0.9} style={s.fabWrap}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); router.push('/qr'); }}>
             <Pulse size={58} color="rgba(119,220,255,.7)">
               <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.fab}>

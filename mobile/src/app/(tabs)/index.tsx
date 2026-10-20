@@ -9,18 +9,20 @@ import { Empty, ReportRow, SectionHead, ToolTile, type Report } from '@/componen
 import { Icon, type IconName } from '@/components/icon';
 import { Beam, enter, PressableScale, useCountUp } from '@/components/motion';
 import { Screen } from '@/components/screen';
+import { Accent } from '@/components/tool-hero';
 import { Button, ErrorText, Skeleton, styles as ui } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { t } from '@/lib/i18n';
 import { startUrlScan } from '@/lib/scan';
 import { colors, fonts, gradients, tone } from '@/lib/theme';
-import { findLink, TOOLS, toolByName } from '@/lib/tools';
+import { findLink, toolByName, tools } from '@/lib/tools';
 
-const QUICK: [string, IconName, string][] = [['qr', 'qr', 'QR code'], ['file', 'file', 'File'], ['email', 'mail', 'Email'], ['password', 'key', 'Password']];
+const quick = (): [string, IconName, string][] => [['qr', 'qr', t('QR code')], ['file', 'file', t('File')], ['email', 'mail', t('Email')], ['password', 'key', t('Password')]];
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return h < 5 ? t('Good night') : h < 12 ? t('Good morning') : h < 18 ? t('Good afternoon') : t('Good evening');
 }
 
 function Stat({ label, value, color }: { label: string; value?: number; color: string }) {
@@ -54,11 +56,11 @@ export default function Home() {
   async function paste() {
     const text = await Clipboard.getStringAsync().catch(() => '');
     const link = findLink(text) ?? text.trim();
-    if (link) { setUrl(link); setError(null); } else setError('Your clipboard has no link to paste.');
+    if (link) { setUrl(link); setError(null); } else setError(t('Your clipboard has no link to paste.'));
   }
 
   const avatar = (
-    <PressableScale accessibilityLabel="Account" onPress={() => router.navigate('/account')}>
+    <PressableScale accessibilityLabel={t('Account')} onPress={() => router.navigate('/account')}>
       <LinearGradient colors={gradients.ai} style={s.avatarRing}>
         <View style={s.avatar}><Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 15 }}>{(user?.username || '?')[0].toUpperCase()}</Text></View>
       </LinearGradient>
@@ -66,36 +68,36 @@ export default function Home() {
   );
 
   return (
-    <Screen tabs eyebrow={greeting()} title={`Hi, ${user?.username ?? ''}`} right={avatar} onRefresh={load}
-      subtitle="What would you like to check today?">
+    <Screen tabs eyebrow={greeting()} title={t('Hi, {name}', { name: user?.username ?? '' })} right={avatar} onRefresh={load}
+      subtitle={t('What would you like to check today?')}>
       <Animated.View entering={enter(1)}>
         <LinearGradient colors={['#123049', '#0d1a2b', '#140f2c']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={s.hero} onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
           {cardHeight ? <Beam height={cardHeight} /> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Icon name="link" size={15} color={colors.cyan} />
-            <Text style={s.kicker}>URL SCANNER</Text>
+            <Text style={s.kicker}>{t('URL SCANNER')}</Text>
           </View>
-          <Text style={s.heroTitle}>{"What's behind "}<Text style={{ color: colors.cyan }}>this link?</Text></Text>
+          <Text style={s.heroTitle}><Accent text={t("What's behind this link?")} accent={t('this link?')} /></Text>
           <View style={ui.inputWrap}>
             <Icon name="link" size={17} color={colors.faint} />
-            <TextInput ref={input} value={url} onChangeText={setUrl} placeholder="Paste or type a link" placeholderTextColor="#5f7590"
+            <TextInput ref={input} value={url} onChangeText={setUrl} placeholder={t('Paste or type a link')} placeholderTextColor="#5f7590"
               style={ui.input} autoCapitalize="none" autoCorrect={false} keyboardType="url" returnKeyType="go" onSubmitEditing={scan} />
-            <PressableScale accessibilityLabel="Paste from clipboard" onPress={paste} style={s.paste}>
+            <PressableScale accessibilityLabel={t('Paste from clipboard')} onPress={paste} style={s.paste}>
               <Icon name="paste" size={17} color={colors.cyan} />
             </PressableScale>
           </View>
-          <Button label="Scan link" arrow="→" onPress={scan} busy={busy} />
+          <Button label={t('Scan link')} arrow="→" onPress={scan} busy={busy} />
           <ErrorText>{error}</ErrorText>
         </LinearGradient>
       </Animated.View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        {QUICK.map(([name, icon, label], i) => (
+        {quick().map(([name, icon, label], i) => (
           <Animated.View key={name} entering={enter(i + 2)} style={{ flex: 1 }}>
             <PressableScale accessibilityLabel={label} onPress={() => {
-              const t = toolByName(name)!;
-              if (t.route && t.route !== 'url') router.push(t.route); else router.push({ pathname: '/tool/[name]', params: { name } });
+              const tool = toolByName(name)!;
+              if (tool.route && tool.route !== 'url') router.push(tool.route); else router.push({ pathname: '/tool/[name]', params: { name } });
             }} style={s.quick}>
               <View style={s.quickIcon}><Icon name={icon} size={21} color={colors.cyan} /></View>
               <Text style={{ color: colors.soft, fontSize: 12.5, fontFamily: fonts.semibold }}>{label}</Text>
@@ -104,23 +106,23 @@ export default function Home() {
         ))}
       </View>
 
-      <SectionHead title="Recent reports" action={recent?.length ? 'See all' : undefined} onAction={() => router.navigate('/history')} />
+      <SectionHead title={t('Recent reports')} action={recent?.length ? t('See all') : undefined} onAction={() => router.navigate('/history')} />
       {recent?.length ? (
         <Animated.View entering={enter(3)} style={{ flexDirection: 'row', gap: 10 }}>
-          <Stat label="Reports" value={recent.length} color={colors.cyan} />
-          <Stat label="Threats" value={recent.filter((r) => tone(r.verdict) === 'risk').length} color={colors.red} />
-          <Stat label="To review" value={recent.filter((r) => tone(r.verdict) === 'review').length} color={colors.amber} />
+          <Stat label={t('Reports')} value={recent.length} color={colors.cyan} />
+          <Stat label={t('Threats')} value={recent.filter((r) => tone(r.verdict) === 'risk').length} color={colors.red} />
+          <Stat label={t('To review')} value={recent.filter((r) => tone(r.verdict) === 'review').length} color={colors.amber} />
         </Animated.View>
       ) : null}
       {!recent ? <View style={{ gap: 10 }}><Skeleton height={70} /><Skeleton height={70} /></View> : null}
-      {recent && !recent.length ? <Empty icon="link" title="No reports yet" text="Scan your first link above. Every report is saved here." /> : null}
+      {recent && !recent.length ? <Empty icon="link" title={t('No reports yet')} text={t('Scan your first link above. Every report is saved here.')} /> : null}
       <View style={{ gap: 10 }}>
         {(recent ?? []).slice(0, 4).map((r, i) => <ReportRow key={r.id} report={r} index={i} />)}
       </View>
 
-      <SectionHead title="All tools" />
+      <SectionHead title={t('All tools')} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        {TOOLS.filter((t) => t.route !== 'url').map((t, i) => <ToolTile key={t.name} tool={t} index={i} />)}
+        {tools().filter((tool) => tool.route !== 'url').map((tool, i) => <ToolTile key={tool.name} tool={tool} index={i} />)}
       </View>
     </Screen>
   );

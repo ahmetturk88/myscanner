@@ -11,6 +11,7 @@ import { Bar, enter, PressableScale, Spin, useCountUp } from '@/components/motio
 import { Screen } from '@/components/screen';
 import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { t, upper } from '@/lib/i18n';
 import { colors, fonts, gradients, tone } from '@/lib/theme';
 
 function Stat({ label, value, color, icon, index }: { label: string; value?: number; color: string; icon: IconName; index: number }) {
@@ -46,10 +47,10 @@ export default function Account() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   if (!user) return null;
   const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}`);
-  const count = (t: string) => scans?.filter((x) => tone(x.verdict) === t).length;
+  const count = (level: string) => scans?.filter((x) => tone(x.verdict) === level).length;
 
   return (
-    <Screen tabs title="Account" onRefresh={load}>
+    <Screen tabs title={t('Account')} onRefresh={load}>
       <Animated.View entering={enter(0)} style={s.profile}>
         <View style={{ width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
           <View style={StyleSheet.absoluteFill}>
@@ -61,25 +62,25 @@ export default function Account() {
         <Text style={{ color: colors.soft, fontSize: 14, fontFamily: fonts.regular }}>{user.email}</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
           <View style={[s.tag, { borderColor: 'rgba(74,222,128,.4)', backgroundColor: 'rgba(74,222,128,.07)' }]}>
-            <Text style={{ color: '#86efac', fontSize: 10.5, letterSpacing: 1, fontFamily: fonts.monoBold }}>✓ VERIFIED</Text>
+            <Text style={{ color: '#86efac', fontSize: 10.5, letterSpacing: 1, fontFamily: fonts.monoBold }}>{t('✓ VERIFIED')}</Text>
           </View>
           <View style={s.tag}>
-            <Text style={{ color: colors.soft, fontSize: 10.5, letterSpacing: 1, fontFamily: fonts.monoBold }}>{user.role === 'user' ? 'FREE PLAN' : user.role.toUpperCase()}</Text>
+            <Text style={{ color: colors.soft, fontSize: 10.5, letterSpacing: 1, fontFamily: fonts.monoBold }}>{user.role === 'user' ? t('FREE PLAN') : upper(user.role)}</Text>
           </View>
         </View>
       </Animated.View>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <Stat index={1} label="Reports" value={scans?.length} color={colors.cyan} icon="clock" />
-        <Stat index={2} label="Threats" value={count('risk')} color={colors.red} icon="alert" />
-        <Stat index={3} label="To review" value={count('review')} color={colors.amber} icon="search" />
-        <Stat index={4} label="Clean" value={count('safe')} color={colors.green} icon="check" />
+        <Stat index={1} label={t('Reports')} value={scans?.length} color={colors.cyan} icon="clock" />
+        <Stat index={2} label={t('Threats')} value={count('risk')} color={colors.red} icon="alert" />
+        <Stat index={3} label={t('To review')} value={count('review')} color={colors.amber} icon="search" />
+        <Stat index={4} label={t('Clean')} value={count('safe')} color={colors.green} icon="check" />
       </View>
 
       <Animated.View entering={enter(5)} style={s.card}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={s.cardTitle}>Daily allowance</Text>
-          <Text style={{ marginLeft: 'auto', color: colors.faint, fontSize: 12, fontFamily: fonts.regular }}>Resets 00:00 UTC</Text>
+          <Text style={s.cardTitle}>{t('Daily allowance')}</Text>
+          <Text style={{ marginLeft: 'auto', color: colors.faint, fontSize: 12, fontFamily: fonts.regular }}>{t('Resets 00:00 UTC')}</Text>
         </View>
         {user.allowance.map((row, i) => {
           const low = row.limit !== null && (row.remaining ?? 0) === 0;
@@ -88,7 +89,7 @@ export default function Account() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text style={{ color: colors.soft, fontSize: 14, fontFamily: fonts.regular }}>{row.label}</Text>
                 <Text style={{ color: low ? colors.amber : colors.cyan, fontSize: 13, fontFamily: fonts.monoBold }}>
-                  {row.limit === null ? 'Unlimited' : `${row.remaining} / ${row.limit}`}
+                  {row.limit === null ? t('Unlimited') : `${row.remaining} / ${row.limit}`}
                 </Text>
               </View>
               <Bar percent={row.limit === null ? 100 : row.percent} colors={low ? [colors.amber, colors.amber] : gradients.accent} delay={300 + i * 90} />
@@ -98,12 +99,12 @@ export default function Account() {
       </Animated.View>
 
       <Animated.View entering={enter(6)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>
-        <Row icon="settings" label="Settings" onPress={() => router.push('/settings')} />
-        <Row icon="mail" label="Contact and feedback" onPress={() => open('/contact')} last />
+        <Row icon="settings" label={t('Settings')} onPress={() => router.push('/settings')} />
+        <Row icon="mail" label={t('Contact and feedback')} onPress={() => open('/contact')} last />
       </Animated.View>
       <Animated.View entering={enter(7)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>
-        <Row icon="logout" label="Sign out" onPress={signOut} />
-        <Row icon="trash" label="Delete account" onPress={() => router.push('/delete-account')} danger last />
+        <Row icon="logout" label={t('Sign out')} onPress={signOut} />
+        <Row icon="trash" label={t('Delete account')} onPress={() => router.push('/delete-account')} danger last />
       </Animated.View>
       <Text style={{ color: colors.faint, fontSize: 12, textAlign: 'center', fontFamily: fonts.mono }}>
         MyScanner {Constants.expoConfig?.version ?? ''}

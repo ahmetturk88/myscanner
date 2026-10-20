@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -8,19 +9,26 @@ import { enter, PressableScale } from '@/components/motion';
 import { Screen } from '@/components/screen';
 import { SITE } from '@/lib/api';
 import * as Haptics from '@/lib/haptics';
+import { t, upper } from '@/lib/i18n';
 import { type Language, updateSettings, useSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
 
-const LANGUAGES: { code: Language; name: string; native: string; ready: boolean }[] = [
-  { code: 'en', name: 'English', native: 'English', ready: true },
-  { code: 'tr', name: 'Turkish', native: 'Türkçe', ready: false },
-  { code: 'ar', name: 'Arabic', native: 'العربية', ready: false },
+const languages = (): { code: Language; name: string; native: string; ready: boolean }[] => [
+  { code: 'en', name: t('English'), native: 'English', ready: true },
+  { code: 'tr', name: t('Turkish'), native: 'Türkçe', ready: true },
+  { code: 'ar', name: t('Arabic'), native: 'العربية', ready: false },
 ];
+
+/** Switch the language. The app redraws from its first screen, so come back here. */
+function choose(code: Language) {
+  updateSettings({ language: code });
+  setTimeout(() => router.navigate('/settings'), 0);
+}
 
 function Section({ title, index, children }: { title: string; index: number; children: React.ReactNode }) {
   return (
     <Animated.View entering={enter(index)} style={{ gap: 8 }}>
-      <Text style={s.section}>{title.toUpperCase()}</Text>
+      <Text style={s.section}>{upper(title)}</Text>
       <View style={s.card}>{children}</View>
     </Animated.View>
   );
@@ -52,43 +60,44 @@ function Link({ icon, label, path, last }: { icon: IconName; label: string; path
 
 export default function SettingsScreen() {
   const settings = useSettings();
+  const LANGUAGES = languages();
   return (
-    <Screen back title="Settings" eyebrow="Preferences" largeTitle="Settings" subtitle="Saved on this phone only.">
-      <Section title="Language" index={1}>
+    <Screen back title={t('Settings')} eyebrow={t('Preferences')} largeTitle={t('Settings')} subtitle={t('Saved on this phone only.')}>
+      <Section title={t('Language')} index={1}>
         {LANGUAGES.map((lang, i) => {
           const selected = settings.language === lang.code;
           return (
             <PressableScale key={lang.code} scale={0.98} disabled={!lang.ready} accessibilityLabel={lang.name}
-              onPress={() => updateSettings({ language: lang.code })} style={[s.row, i < LANGUAGES.length - 1 && s.line, !lang.ready && { opacity: 0.55 }]}>
+              onPress={() => { if (!selected) choose(lang.code); }} style={[s.row, i < LANGUAGES.length - 1 && s.line, !lang.ready && { opacity: 0.55 }]}>
               <View style={[s.radio, selected && { borderColor: colors.teal }]}>{selected ? <View style={s.radioDot} /> : null}</View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={[s.label, { textAlign: 'left', writingDirection: 'ltr' }]}>{lang.native}</Text>
                 {lang.native !== lang.name ? <Text style={s.hint}>{lang.name}</Text> : null}
               </View>
-              {!lang.ready ? <View style={s.soon}><Text style={s.soonText}>COMING SOON</Text></View> : null}
+              {!lang.ready ? <View style={s.soon}><Text style={s.soonText}>{t('COMING SOON')}</Text></View> : null}
             </PressableScale>
           );
         })}
       </Section>
       <Text style={[s.hint, { marginTop: -6, paddingHorizontal: 4 }]}>
-        Turkish and Arabic will switch the whole app, reports included. The AI assistant already answers in the language you write in.
+        {t('Your choice switches the whole app, reports included. Arabic is coming soon. The AI assistant already answers in the language you write in.')}
       </Text>
 
-      <Section title="Experience" index={2}>
-        <Toggle icon="vibrate" label="Vibration" hint="A short buzz when a result arrives and on taps."
+      <Section title={t('Experience')} index={2}>
+        <Toggle icon="vibrate" label={t('Vibration')} hint={t('A short buzz when a result arrives and on taps.')}
           value={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} />
-        <Toggle icon="code" label="Show technical evidence" hint="Open the full evidence under every report by default."
+        <Toggle icon="code" label={t('Show technical evidence')} hint={t('Open the full evidence under every report by default.')}
           value={settings.evidenceOpen} onChange={(v) => updateSettings({ evidenceOpen: v })} last />
       </Section>
 
-      <Section title="About" index={3}>
-        <Link icon="shield" label="Privacy policy" path="/privacy" />
-        <Link icon="doc" label="Terms of service" path="/terms" />
-        <Link icon="mail" label="Contact and feedback" path="/contact" last />
+      <Section title={t('About')} index={3}>
+        <Link icon="shield" label={t('Privacy policy')} path="/privacy" />
+        <Link icon="doc" label={t('Terms of service')} path="/terms" />
+        <Link icon="mail" label={t('Contact and feedback')} path="/contact" last />
       </Section>
       <Animated.View entering={enter(4)} style={{ alignItems: 'center', gap: 4, marginTop: 4 }}>
         <Text style={{ color: colors.soft, fontSize: 13, fontFamily: fonts.semibold }}>MyScanner {Constants.expoConfig?.version ?? ''}</Text>
-        <Text style={s.hint}>Made to check before you click.</Text>
+        <Text style={s.hint}>{t('Made to check before you click.')}</Text>
       </Animated.View>
     </Screen>
   );

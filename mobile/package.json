@@ -48,7 +48,8 @@
     "android": "expo start --android",
     "web": "expo start --web",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "i18n:check": "node scripts/i18n-check.js"
   },
   "private": true
 }

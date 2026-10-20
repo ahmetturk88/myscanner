@@ -15,10 +15,11 @@ import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
 import { Button, ErrorText, Field, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
 import { api, waitForTask } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
-const STEPS = ['Sending the request securely', 'Collecting the evidence', 'Checking available sources', 'Building your report'];
+const steps = () => [t('Sending the request securely'), t('Collecting the evidence'), t('Checking available sources'), t('Building your report')];
 
 export default function ToolScreen() {
   const { name } = useLocalSearchParams<{ name: string }>();
@@ -31,7 +32,7 @@ export default function ToolScreen() {
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
-  if (!tool || !tool.field || !tool.body) return <Screen back title="Tool"><ErrorText>Unknown tool.</ErrorText></Screen>;
+  if (!tool || !tool.field || !tool.body) return <Screen back title={t('Tool')}><ErrorText>{t('Unknown tool.')}</ErrorText></Screen>;
   const { field, body } = tool;
 
   async function run() {
@@ -59,24 +60,24 @@ export default function ToolScreen() {
         <Field label={field.label} value={value} onChangeText={setValue} placeholder={field.placeholder}
           secureTextEntry={field.secure} autoCapitalize="none" autoCorrect={false} keyboardType={field.keyboard ?? 'default'}
           onSubmitEditing={run} returnKeyType="go" editable={!busy} />
-        <Button label={tool.action ?? 'Analyze'} arrow="→" onPress={run} busy={busy} disabled={!value.trim()} />
-        {field.secure ? <Muted>Sent over HTTPS and never stored. Only a short hash prefix is used for the breach check.</Muted> : null}
+        <Button label={tool.action ?? t('Analyze')} arrow="→" onPress={run} busy={busy} disabled={!value.trim()} />
+        {field.secure ? <Muted>{t('Sent over HTTPS and never stored. Only a short hash prefix is used for the breach check.')}</Muted> : null}
         <ErrorText>{error}</ErrorText>
       </Animated.View>
-      {busy ? <Working steps={STEPS} status={progress} every={3500} /> : null}
+      {busy ? <Working steps={steps()} status={progress} every={3500} /> : null}
       {result && hasPlain(result.plain) ? (
         <PlainReport plain={result.plain} haptic plainShare={tool.name !== 'email'}
-          again={{ label: 'Check another', onPress: () => { setResult(null); setValue(''); } }}>
+          again={{ label: t('Check another'), onPress: () => { setResult(null); setValue(''); } }}>
           <Animated.View entering={enter(6)}><AIPanel tool={tool.aiTool} evidence={result} /></Animated.View>
           <Evidence data={withoutPlain(result)} start={7} />
         </PlainReport>
       ) : result ? (
         <>
-          <ResultCard result={result} title="Assessment" />
+          <ResultCard result={result} title={t('Assessment')} />
           <Animated.View entering={enter(2)}><AIPanel tool={tool.aiTool} evidence={result} /></Animated.View>
           <Evidence data={result} start={3} />
           <Text style={{ color: colors.faint, fontSize: 12.5, lineHeight: 19, fontFamily: fonts.regular, textAlign: 'center' }}>
-            The result describes evidence and coverage, not a guarantee of safety.
+            {t('The result describes evidence and coverage, not a guarantee of safety.')}
           </Text>
         </>
       ) : null}

@@ -4,6 +4,7 @@ import Animated, { ZoomIn } from 'react-native-reanimated';
 import { Details } from '@/components/details';
 import { Icon } from '@/components/icon';
 import { enter, Gauge, useCountUp } from '@/components/motion';
+import { upper } from '@/lib/i18n';
 import { colors, fonts, tone, verdictStyle } from '@/lib/theme';
 
 /** Pick a verdict-like value and score from any tool's result. */
@@ -42,11 +43,11 @@ export function ScoreRing({ score, color, size = 150 }: { score: number | null; 
 /** The verdict as a pill that pops in. */
 export function VerdictPill({ verdict }: { verdict?: string | null }) {
   const look = verdictStyle(verdict);
-  const t = tone(verdict);
+  const level = tone(verdict);
   return (
     <Animated.View entering={ZoomIn.delay(250).springify()} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 15,
       borderRadius: 999, backgroundColor: look.color + '18', borderWidth: 1, borderColor: look.color + '66' }}>
-      <Icon name={t === 'safe' ? 'check' : t === 'unknown' ? 'shield' : 'alert'} size={17} color={look.color} />
+      <Icon name={level === 'safe' ? 'check' : level === 'unknown' ? 'shield' : 'alert'} size={17} color={look.color} />
       <Text style={{ color: look.color, fontSize: 16, fontFamily: fonts.bold }}>{look.label}</Text>
     </Animated.View>
   );
@@ -57,7 +58,7 @@ export function ResultCard({ result, title }: { result: any; title: string }) {
   const look = verdictStyle(top.verdict);
   return (
     <Animated.View entering={enter(0)} style={{ gap: 16, padding: 20, borderRadius: 24, borderWidth: 1, borderColor: look.color + '44', backgroundColor: 'rgba(14,24,37,.92)' }}>
-      <Text style={{ color: colors.cyan, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 2 }}>{title.toUpperCase()}</Text>
+      <Text style={{ color: colors.cyan, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 2 }}>{upper(title)}</Text>
       {top.verdict || typeof top.score === 'number' ? (
         <View style={{ alignItems: 'center', gap: 12 }}>
           {typeof top.score === 'number' ? <ScoreRing score={top.score} color={look.color} size={130} /> : null}

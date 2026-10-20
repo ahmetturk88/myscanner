@@ -16,12 +16,11 @@ import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
 import { Button, ErrorText } from '@/components/ui';
 import { Working } from '@/components/working';
 import { upload, waitForTask } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
-const TOOL = toolByName('file')!;
-const TYPES = 'PDF, Office, archives, apps and scripts · up to 10 MB';
-const STEPS = ['Uploading the file securely', 'Fingerprinting the file', 'Inspecting its structure', 'Checking hash reputation'];
+const steps = () => [t('Uploading the file securely'), t('Fingerprinting the file'), t('Inspecting its structure'), t('Checking hash reputation')];
 
 /** The drop zone's icon bobs gently until a file is chosen. */
 function Floating({ children, active }: { children: React.ReactNode; active: boolean }) {
@@ -32,6 +31,7 @@ function Floating({ children, active }: { children: React.ReactNode; active: boo
 }
 
 export default function FileScanner() {
+  const TOOL = toolByName('file')!;
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -45,13 +45,13 @@ export default function FileScanner() {
     const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
     if (picked.canceled || !picked.assets?.length) return;
     const asset = picked.assets[0];
-    if (asset.size && asset.size > 10 * 1024 * 1024) { setError('This file is larger than 10 MB.'); return; }
+    if (asset.size && asset.size > 10 * 1024 * 1024) { setError(t('This file is larger than 10 MB.')); return; }
     setFile(asset); setResult(null);
   }
 
   async function scan() {
     if (!file) return;
-    setBusy(true); setError(null); setResult(null); setProgress('Uploading');
+    setBusy(true); setError(null); setResult(null); setProgress(t('Uploading'));
     try {
       const queued: any = await upload('/tools/file', { uri: file.uri, name: file.name, mimeType: file.mimeType });
       let data = await waitForTask(queued.task_id, setProgress, () => alive.current);
@@ -77,21 +77,21 @@ export default function FileScanner() {
               <Icon name={file ? 'check' : 'file'} size={28} color={file ? colors.teal : colors.cyan} />
             </View>
           </Floating>
-          <Text style={{ color: colors.text, fontSize: 16, fontFamily: fonts.bold, textAlign: 'center' }} numberOfLines={2}>{file ? file.name : 'Choose a file'}</Text>
-          <Text style={{ color: colors.faint, fontSize: 13, textAlign: 'center', fontFamily: fonts.regular }}>{file?.size ? `${(file.size / 1024).toFixed(0)} KB · tap to change` : TYPES}</Text>
+          <Text style={{ color: colors.text, fontSize: 16, fontFamily: fonts.bold, textAlign: 'center' }} numberOfLines={2}>{file ? file.name : t('Choose a file')}</Text>
+          <Text style={{ color: colors.faint, fontSize: 13, textAlign: 'center', fontFamily: fonts.regular }}>{file?.size ? t('{size} KB · tap to change', { size: (file.size / 1024).toFixed(0) }) : t('PDF, Office, archives, apps and scripts · up to 10 MB')}</Text>
         </PressableScale>
       </Animated.View>
-      {!busy ? <Button label="Analyze file" arrow="→" onPress={scan} disabled={!file} /> : null}
+      {!busy ? <Button label={t('Analyze file')} arrow="→" onPress={scan} disabled={!file} /> : null}
       <ErrorText>{error}</ErrorText>
-      {busy ? <Working steps={STEPS} status={progress} every={3500} /> : null}
+      {busy ? <Working steps={steps()} status={progress} every={3500} /> : null}
       {result && hasPlain(result.plain) ? (
-        <PlainReport plain={result.plain} haptic again={{ label: 'Check another file', icon: 'file', onPress: () => { setResult(null); setFile(null); pick(); } }}>
+        <PlainReport plain={result.plain} haptic again={{ label: t('Check another file'), icon: 'file', onPress: () => { setResult(null); setFile(null); pick(); } }}>
           <Animated.View entering={enter(6)}><AIPanel tool="file" evidence={result} /></Animated.View>
           <Evidence data={withoutPlain(result)} start={7} />
         </PlainReport>
       ) : result ? (
         <>
-          <ResultCard result={result} title="File report" />
+          <ResultCard result={result} title={t('File report')} />
           <Animated.View entering={enter(2)}><AIPanel tool="file" evidence={result} /></Animated.View>
           <Evidence data={result} start={3} />
         </>

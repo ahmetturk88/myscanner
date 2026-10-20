@@ -79,7 +79,9 @@ export function Screen({ title, eyebrow, subtitle, back, right, children, tabs =
         <Animated.View style={[{ gap: 6, transformOrigin: 'left' }, big]} entering={FadeIn.duration(400)}>
           {badge}
           {eyebrow ? <Text style={s.eyebrow}>{eyebrow.toUpperCase()}</Text> : null}
-          <Text style={s.title}>{largeTitle ?? title}</Text>
+          {/* A long single word (a hostname) shrinks to one line instead of breaking mid-word. */}
+          <Text style={s.title} {...(typeof (largeTitle ?? title) === 'string' && !/\s/.test(String(largeTitle ?? title))
+            ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.55 } : {})}>{largeTitle ?? title}</Text>
           {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
         </Animated.View>
         {hero}
@@ -97,7 +99,7 @@ export function Screen({ title, eyebrow, subtitle, back, right, children, tabs =
 
 const s = StyleSheet.create({
   header: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 },
-  headerBg: { backgroundColor: 'rgba(7,11,20,.94)', borderBottomWidth: 1, borderBottomColor: 'rgba(145,188,220,.14)' },
+  headerBg: { backgroundColor: 'rgba(7,11,20,.99)', borderBottomWidth: 1, borderBottomColor: 'rgba(145,188,220,.14)' },
   compact: { color: colors.text, fontSize: 17, fontFamily: fonts.bold, flexShrink: 1 },
   round: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(17,35,56,.85)', borderWidth: 1, borderColor: '#2b4560' },
   eyebrow: { color: colors.cyan, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 2 },

@@ -63,6 +63,10 @@ CHAT_RULES = f"""You are now answering follow-up questions about the report belo
 
 GENERAL_RULES = f"""You are now the general assistant on MyScanner's website. The user has no report open. Help with online safety: suspicious links, messages and emails, scams, account security, passwords, privacy, devices and Wi-Fi, and how to use MyScanner. You cannot open links or scan anything yourself, so never claim you checked something. When a check would help, name the MyScanner tool to use: URL Scanner (links), Site Scanner (websites), QR Scanner, Email Checker, Password Security, File Scanner, IP Lookup, Domain Lookup, Subdomain Finder, SSL Checker. Politely decline requests unrelated to online safety or MyScanner, and never help attack, break into or harm systems or people. Keep each answer under 220 words. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
 
+# The user sees the report's "plain" summary drawn with these colours and icons. Without
+# this the assistant answered "there are no exclamation marks" about the info icon.
+REPORT_LEGEND = """How the report looks on the user's screen: the "plain" object is the summary they see. Its tone sets the colour of the verdict: danger is red, caution yellow, unknown grey, safe green, info blue. Each reason and check has a state shown as an icon: bad is a red cross, warn a yellow triangle, ok a green tick, info a blue circled "i" that marks a neutral fact (not a warning), na a grey dash for something not checked. Use this when the user asks about colours, icons or symbols."""
+
 SECTIONS = {'WHY THIS RESULT': 'reasons', 'WHAT TO DO NOW': 'next_steps',
             'NOT CONFIRMED': 'not_checked', 'TECHNICAL NOTES': 'technical_notes'}
 LIMITS = {'reasons': (6, 300), 'next_steps': (5, 300), 'not_checked': (4, 250), 'technical_notes': (5, 300)}
@@ -270,14 +274,14 @@ def _history(history):
 
 def explain_stream(tool, evidence_json, language):
     text = f'{_evidence_turn(tool, evidence_json)}\n\nExplain this report. {LANGUAGES[language]}\n\n{EXPLAIN_FORMAT}'
-    return stream(SYSTEM_PROMPT, [{'role': 'user', 'text': text}], 2048)
+    return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}', [{'role': 'user', 'text': text}], 2048)
 
 
 def chat_stream(tool, evidence_json, history, message):
     turns = [{'role': 'user', 'text': _evidence_turn(tool, evidence_json)},
              {'role': 'assistant', 'text': 'I have read the report evidence. What would you like to know?'}]
     turns += _history(history) + [{'role': 'user', 'text': message}]
-    return stream(f'{SYSTEM_PROMPT}\n\n{CHAT_RULES}', turns, 1500)
+    return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}\n\n{CHAT_RULES}', turns, 1500)
 
 
 def general_stream(history, message):

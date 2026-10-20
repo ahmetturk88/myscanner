@@ -6,8 +6,14 @@ from urllib.parse import urlparse
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v9'
+POLICY_VERSION = 'url-evidence-v10'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
+# v10: url.vet's own overall verdict is a threshold over signals we already read
+# one by one (and includes a traffic-rank heuristic that flags small, honest
+# sites). Without one of these visible signals it is recorded, not scored.
+PROVIDER_NOTE = 'url.vet rated it a risk without a signal we could confirm; it does not change the verdict.'
+# Short links whose destination we never reached cannot be called safe (v10).
+SHORT_UNRESOLVED = 'Redirect destination of the short link could not be reached'
 WEIGHTS = {'transport':20, 'identity':20, 'content':25, 'behavior':15, 'reputation':20}
 # A browser warns before these pages, so the report never calls them clean (v6).
 TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
@@ -136,7 +142,15 @@ def assess_url(local, deep):
     risk=number(content.get('content_risk_score')) if usable(content) else None
     if risk is not None and 'title' in content and mapping(deep.get('behavior')).get('error') is None:
         assessed('content')
-        if risk>0:signal('content','content_indicators',round(risk*.25,1),'Page content contains risk heuristics; forms or keywords alone do not prove a threat.')
+        if type(content.get('has_password_field')) is bool:
+            # v10: the analyzer's subtotal counts security vocabulary and outbound
+            # links, which every security or news site has. Only a form that asks
+            # for credentials counts; scam wording adds weight to such a form.
+            password=content['has_password_field'];login=content.get('has_login_form') is True
+            words=bool(content.get('suspicious_keywords_found'))
+            points=(10 if password else 3 if login else 0)+(5 if (password or login) and words else 0)
+            if points:signal('content','content_indicators',points,'The page asks for a password or login; forms alone do not prove a threat.')
+        elif risk>0:signal('content','content_indicators',round(risk*.25,1),'Page content contains risk heuristics; forms or keywords alone do not prove a threat.')
     else:missing.append('Deep page content was not assessed')
     behavior=mapping(deep.get('behavior'))
     risk=number(behavior.get('behavior_risk_score')) if usable(behavior) else None
@@ -149,6 +163,11 @@ def assess_url(local, deep):
     else:missing.append('Redirect behavior was not assessed')
     if local.get('is_shortened') is True or behavior.get('is_shortened') is True:
         signal('identity','shortener',5,'A URL shortener hides the destination in the original URL.')
+        # Some shorteners answer automated visits with their own preview page, so
+        # the scan stays on the shortener and never sees the real destination.
+        ends=[host(behavior.get(k)) for k in ('original_url','final_url')]
+        if risk is not None and all(ends) and ends[0]==ends[1]:
+            missing.append(SHORT_UNRESOLVED)
     osint=mapping(deep.get('osint'))
     if usable(osint) and osint.get('urlhaus') is True:
         confirmed=True;signal('reputation','urlhaus_match',20,'URLhaus reports a malware URL match.')
@@ -177,7 +196,7 @@ def assess_url(local, deep):
         component['deduction']=min(component['weight'],round(sum(v['deduction'] for v in reasons.values() if v['category']==key),1))
         if component['status']=='unavailable':missing.append(key+' evidence unavailable')
     count=sum(c['status']=='assessed' for c in components.values())
-    if provider_flag and not confirmed:missing.append(PROVIDER_REVIEW)
+    provider_note=provider_flag and not confirmed and not CORROBORATING&set(reasons)
     missing=list(dict.fromkeys(missing))
     score=round(100-sum(c['deduction'] for c in components.values())) if count else None
     deducted=sum(c['deduction'] for c in components.values())>0
@@ -185,7 +204,7 @@ def assess_url(local, deep):
         score=min(score if score is not None else 100,10);verdict='malicious'
     elif score is not None and deducted and score<75:
         verdict='high_risk' if score<40 else 'suspicious'
-    elif provider_flag:verdict='suspicious'
+    elif provider_flag and not provider_note:verdict='suspicious'
     elif missing or review:verdict='unknown'
     else:verdict='harmless'
     if verdict in ('harmless','unknown') and TRANSPORT_WARNINGS & set(reasons):verdict='suspicious'
@@ -217,6 +236,7 @@ def assess_url(local, deep):
             'components':components,'reasons':list(reasons.values()),'missing_checks':missing,
             'sources':list(dict.fromkeys(sources)),
             'threat_override':bool(confirmed),
+            'provider_note':PROVIDER_NOTE if provider_note else None,
             'warning':'Heuristic evidence index, not a probability or a guarantee of safety.'}
 
 

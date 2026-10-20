@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -8,7 +8,7 @@ import { AIPanel } from '@/components/ai';
 import { Evidence } from '@/components/evidence';
 import { HowItWorks } from '@/components/how';
 import { enter } from '@/components/motion';
-import { hasPlain, PlainReport, withoutPlain } from '@/components/report';
+import { hasPlain, PlainReport, reportOf, withoutPlain } from '@/components/report';
 import { ResultCard } from '@/components/result';
 import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
@@ -41,6 +41,7 @@ export default function ToolScreen() {
       let data: any = await api.tool(tool!.name, body(value.trim()));
       if (data?.task_id) data = await waitForTask(data.task_id, setProgress, () => alive.current);
       if (field.secure) setValue('');
+      data = reportOf(data);
       setResult(data);
       // A summary buzzes by its verdict; older servers without one get the plain success buzz.
       if (!hasPlain(data?.plain)) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

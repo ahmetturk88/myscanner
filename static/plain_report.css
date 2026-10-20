@@ -19,7 +19,7 @@
 .rp .rp-why ul,.rp .rp-do ol,.rp .rp-checks ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
 .rp .rp-why li{display:flex;gap:12px;align-items:flex-start}.rp .rp-why li div{display:flex;flex-direction:column;gap:3px}
 .rp .rp-why strong{font-size:16px;line-height:1.35}.rp .rp-why span{font-size:14.5px;line-height:1.5;color:#a9bbd2}
-.rp .rp-i{flex-shrink:0;margin-top:1px}.rp .rp-i.rp-bad,.rp .rp-cr.rp-bad{color:#fb7185}.rp .rp-i.rp-warn,.rp .rp-cr.rp-warn{color:#fbbf24}.rp .rp-i.rp-ok,.rp .rp-cr.rp-ok{color:#4ade80}.rp .rp-i.rp-na,.rp .rp-cr.rp-na{color:#8ea2bc}.rp .rp-i.rp-info,.rp .rp-cr.rp-info{color:#77dcff}
+.rp .rp-i{flex-shrink:0;margin-top:1px}.rp .rp-i.rp-bad,.rp .rp-cr.rp-bad{color:#fb7185}.rp .rp-i.rp-warn,.rp .rp-cr.rp-warn{color:#fbbf24}.rp .rp-i.rp-ok,.rp .rp-cr.rp-ok{color:#4ade80}.rp .rp-i.rp-na,.rp .rp-cr.rp-na{color:#8ea2bc}.rp .rp-i.rp-info{color:#94a3b8}.rp .rp-cr.rp-info{color:#dbe7f5}
 .rp .rp-card{padding:22px;border-radius:20px;background:#101b2b;border:1px solid #22344b}
 .rp .rp-do li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;line-height:1.5}
 .rp .rp-n{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:var(--rp-ring);color:var(--rp-label);font-family:var(--mono);font-size:13px;font-weight:700;display:grid;place-items:center}

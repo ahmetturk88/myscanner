@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
@@ -115,9 +115,9 @@ export default function ScanReport() {
       <ErrorText>{error}</ErrorText>
       {!report && !error ? <Working steps={STEPS} step={step} /> : null}
       {report && plain ? (
-        <PlainReport plain={plain} haptic={fresh} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
+        <PlainReport plain={plain} haptic={fresh} checked={report.date ? `Checked ${ago(report.date)}` : undefined} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
           again={{ label: 'Check another link', icon: 'link', onPress: () => router.navigate('/') }}>
-          {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" evidence={evidence} /></Animated.View> : null}
+          {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" evidence={{ plain, ...evidence }} /></Animated.View> : null}
           <Evidence data={withoutPlain(analysis)} start={8} />
           {rescanning ? <Muted center>Starting a fresh scan…</Muted> : null}
         </PlainReport>

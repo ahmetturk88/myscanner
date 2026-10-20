@@ -2,7 +2,7 @@
 {% block title %}Scan Result #{{ scan.id }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261019-4') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261020-1') }}">
 <style>
   .result-wrap { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
@@ -397,7 +397,7 @@
 {% endblock %}
 
 {% block body_extra %}
-<script src="{{ url_for('static', filename='plain_report.js', v='20261019-4') }}"></script>
+<script src="{{ url_for('static', filename='plain_report.js', v='20261020-1') }}"></script>
 <script>
 // ✅ دالة الحماية من XSS
 function esc(value) { return ScanUI.escape(value); }

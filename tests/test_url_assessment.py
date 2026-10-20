@@ -98,7 +98,7 @@ class AssessmentTests(unittest.TestCase):
         stored={'policy_version':'url-evidence-v4','verdict':'malicious','score':10,'coverage':'completed'}
         r=saved_assessment({'aggregate_assessment':stored},local,deep)
         self.assertEqual((r['verdict'],r['score'],r['policy_version']),('malicious',10,'url-evidence-v4'))
-        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v9')
+        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v10')
         self.assertEqual(r['current_policy']['verdict'],assess_url(local,deep)['verdict'])
         current=saved_assessment({'aggregate_assessment':assess_url(local,deep)},local,deep)
         self.assertNotIn('current_policy',current)
@@ -107,12 +107,36 @@ class AssessmentTests(unittest.TestCase):
     def test_plain_http_is_a_finding_not_a_threat(self):
         local,deep=reports();local.update(verdict='malicious',structure={'is_https':False,'contains_ip':False},ssl={'valid':False,'error':'Not using HTTPS'})
         r=assess_url(local,deep)
-        self.assertEqual(r['policy_version'],'url-evidence-v9');self.assertNotIn(r['verdict'],('malicious','high_risk'))
+        self.assertEqual(r['policy_version'],'url-evidence-v10');self.assertNotIn(r['verdict'],('malicious','high_risk'))
         self.assertIn('no_https',[x['code'] for x in r['reasons']])
-    def test_unconfirmed_provider_threat_requests_review(self):
-        local,deep=reports();deep['urlvet']['verdict']='malicious'
-        r=assess_url(local,deep);self.assertEqual(r['verdict'],'suspicious');self.assertFalse(r['threat_override'])
-        self.assertIn('A provider reports a threat; confirmation details require review',r['missing_checks'])
+    def test_provider_verdict_without_a_visible_signal_is_only_noted(self):
+        # v10: an honest small site (an elevator-inspection firm, our own site) was
+        # rated "Be careful" with every check fine, only because url.vet said so.
+        local,deep=reports();deep['urlvet']['verdict']='suspicious'
+        r=assess_url(local,deep)
+        self.assertEqual((r['verdict'],r['coverage']),('harmless','completed'));self.assertFalse(r['threat_override'])
+        self.assertTrue(r['provider_note']);self.assertNotIn('A provider reports a threat; confirmation details require review',r['missing_checks'])
+    def test_provider_verdict_with_a_look_alike_signal_needs_review(self):
+        local,deep=reports();deep['urlvet'].update(verdict='malicious',typosquatting={'is_suspicious':True})
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'suspicious');self.assertIsNone(r['provider_note'])
+    def test_security_vocabulary_alone_is_not_a_warning(self):
+        local,deep=reports()
+        deep['page_content'].update(content_risk_score=40,has_password_field=False,has_login_form=False,
+                                    suspicious_keywords_found=['phishing','password','verify'])
+        r=assess_url(local,deep);self.assertEqual((r['verdict'],r['score']),('harmless',100))
+    def test_password_form_counts_and_scam_wording_adds_weight(self):
+        local,deep=reports()
+        deep['page_content'].update(content_risk_score=75,has_password_field=True,has_login_form=True,suspicious_keywords_found=[])
+        self.assertEqual(assess_url(local,deep)['score'],90)
+        deep['page_content']['suspicious_keywords_found']=['verify your account']
+        self.assertEqual(assess_url(local,deep)['score'],85)
+    def test_short_link_that_never_left_the_shortener_is_not_safe(self):
+        local,deep=reports();local['is_shortened']=True
+        deep['behavior'].update(is_shortened=True,behavior_risk_score=15,original_url='https://bit.ly/3xyz',final_url='https://bit.ly/3xyz')
+        r=assess_url(local,deep);self.assertEqual(r['verdict'],'unknown')
+        self.assertIn('Redirect destination of the short link could not be reached',r['missing_checks'])
+        deep['behavior']['final_url']='https://example.org/landing'
+        self.assertEqual(assess_url(local,deep)['verdict'],'harmless')
     def test_missing_content_loses_its_category_weight(self):
         local,deep=reports();deep['page_content']={}
         r=assess_url(local,deep);self.assertEqual(r['score'],75);self.assertEqual(r['coverage_deductions']['content'],25)

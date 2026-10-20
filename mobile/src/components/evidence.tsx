@@ -1,15 +1,16 @@
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
 import { enter, PressableScale } from '@/components/motion';
+import { getSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
 
 // Page markup, images and internal bookkeeping: noise in a phone report, and sometimes megabytes.
-const HIDDEN = /(^|_)(html|base64|screenshot|image|status_url|task_id|csrf)($|_)|^plain$|^result_html$/i;
+const HIDDEN = /(^|_)(html|base64|screenshot|image|status_url|task_id|csrf)($|_)|^plain$|^result_html$|^schema_version$/i;
 const PAGE = 20;
 const LONG = 280;
 
@@ -45,15 +46,48 @@ function count(value: Node) {
   return '';
 }
 
-function Value({ value }: { value: Node }) {
-  const [all, setAll] = useState(false);
-  if (typeof value === 'boolean') {
-    return <Text style={[st.value, { color: value ? colors.green : colors.soft }]}>{value ? 'Yes' : 'No'}</Text>;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Emoji and symbols some analyzers put in front of their notes (🛡️, 🚩, ✅).
+const EMOJI = /^(?:[\u2190-\u21FF\u2300-\u27BF\u2B00-\u2BFF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF]|\uFE0F|\u200D|\s)+/;
+
+function span(days: number) {
+  return days < 60 ? `${days} day${days === 1 ? '' : 's'}` : days < 730 ? `${Math.floor(days / 30)} months` : `${Math.floor(days / 365)} years`;
+}
+
+/** A value as a person would write it: dates, day counts and status words made readable. */
+export function readable(value: Node, key = ''): string {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') {
+    if (/(^|_)days?($|_)|^domain_age$/i.test(key) && Number.isInteger(value)) {
+      return value < 0 ? (/until|remaining|left/i.test(key) ? `Passed ${span(-value)} ago` : `${span(-value)} ago`) : value >= 60 ? `${value.toLocaleString('en-US')} days (${span(value)})` : span(value);
+    }
+    return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
   }
+  let text = String(value).replace(EMOJI, '');
+  const date = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})[^Z+-]*(Z|[+-]\d{2}:?\d{2})?)?$/);
+  if (date) {
+    const [, y, m, d, hh, mm] = date;
+    return `${Number(d)} ${MONTHS[Number(m) - 1] ?? m} ${y}` + (hh ? `, ${hh}:${mm} UTC` : '');
+  }
+  if (/^[A-Z0-9-]+(\.[A-Z0-9-]+)+\.?$/.test(text) && /[A-Z]/.test(text)) return text.toLowerCase();  // HOST.NAME.COM
+  if (/^[a-z]+(_[a-z]+)+$/.test(text) || /^[a-z]{3,20}$/.test(text) || /^[A-Z]{6,}(_[A-Z]+)*$/.test(text)) {
+    text = text.replace(/_/g, ' ').toLowerCase();  // status words: high_risk, partial, UNKNOWN
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+  return text;
+}
+
+function Value({ value, field = '' }: { value: Node; field?: string }) {
+  const [all, setAll] = useState(false);
   if (value === null || value === undefined) return <Text style={[st.value, { color: colors.faint }]}>—</Text>;
-  const text = String(value);
+  if (Array.isArray(value)) {
+    // A short list reads best one item per line, not joined with commas.
+    return <View style={{ gap: 4 }}>{value.map((v, i) => <Value key={i} value={v} field={field} />)}</View>;
+  }
+  // Yes/No stays neutral: whether "Yes" is good depends on the question.
+  const text = readable(value, field);
   // Long unbroken strings (keys, hashes, encoded data) read better in the mono font.
-  const mono = /^[A-Za-z0-9+/=:._-]{24,}$/.test(text);
+  const mono = /^[A-Za-z0-9+/=_-]{24,}$/.test(text);
   const long = text.length > LONG;
   return (
     <Text selectable style={[st.value, mono && { fontFamily: fonts.mono, fontSize: 12.5 }]}>
@@ -90,11 +124,19 @@ function Paged<T>({ items, render }: { items: T[]; render: (item: T, index: numb
       {items.slice(0, shown).map(render)}
       {items.length > shown ? (
         <Pressable onPress={() => setShown(shown + PAGE * 2)} style={st.more}>
-          <Text style={{ color: colors.cyan, fontSize: 13.5, fontFamily: fonts.semibold }}>{`Show ${Math.min(items.length - shown, PAGE * 2)} more of ${items.length - shown}`}</Text>
+          <Text style={{ color: colors.cyan, fontSize: 13.5, fontFamily: fonts.semibold }}>{`Show ${Math.min(items.length - shown, PAGE * 2)} more`}</Text>
         </Pressable>
       ) : null}
     </>
   );
+}
+
+/** Objects and long lists open as groups; short lists of plain values stay inline. */
+const nested = (v: Node) => isObject(v) || (Array.isArray(v) && !(v.every((x) => !isObject(x) && !Array.isArray(x)) && v.length <= 4));
+
+/** Plain values first, then the groups, so a value never looks like part of the group above it. */
+function ordered(items: [string, unknown][]) {
+  return [...items.filter(([, v]) => !nested(v)), ...items.filter(([, v]) => nested(v))];
 }
 
 function Tree({ value, depth }: { value: Node; depth: number }) {
@@ -103,7 +145,7 @@ function Tree({ value, depth }: { value: Node; depth: number }) {
     if (items.every((v) => !isObject(v) && !Array.isArray(v))) {
       return (
         <View style={st.chips}>
-          <Paged items={items} render={(v, i) => <View key={i} style={st.chip}><Text selectable style={st.chipText}>{typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)}</Text></View>} />
+          <Paged items={items} render={(v, i) => <View key={i} style={st.chip}><Text selectable style={st.chipText}>{readable(v)}</Text></View>} />
         </View>
       );
     }
@@ -115,28 +157,28 @@ function Tree({ value, depth }: { value: Node; depth: number }) {
   }
   if (isObject(value)) {
     return (
-      <Paged items={entries(value)} render={([key, v]) => (isObject(v) || Array.isArray(v)) && !(Array.isArray(v) && v.every((x) => !isObject(x) && !Array.isArray(x)) && v.length <= 4)
+      <Paged items={ordered(entries(value))} render={([key, v]) => nested(v)
         ? <Group key={key} title={humanize(key)} meta={count(v)} depth={depth + 1}>{() => <Tree value={v} depth={depth + 1} />}</Group>
-        : <Row key={key} name={humanize(key)} value={Array.isArray(v) ? v.map(String).join(', ') : v} />} />
+        : <Row key={key} name={humanize(key)} field={key} value={v} />} />
     );
   }
   return <Value value={value} />;
 }
 
-function Row({ name, value }: { name: string; value: Node }) {
+function Row({ name, value, field }: { name: string; value: Node; field?: string }) {
   return (
     <View style={st.row}>
       <Text style={st.key}>{name}</Text>
-      <View style={{ flex: 1 }}><Value value={value} /></View>
+      <View style={{ flex: 1 }}><Value value={value} field={field} /></View>
     </View>
   );
 }
 
 /** Everything the check collected, browsable in the app. Closed until asked for. */
 export function Evidence({ data, start = 0, title = 'Full technical evidence' }: { data: Record<string, unknown> | null | undefined; start?: number; title?: string }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => getSettings().evidenceOpen);
   const [copied, setCopied] = useState(false);
-  const turn = useSharedValue(0);
+  const turn = useSharedValue(open ? 1 : 0);
   useEffect(() => { turn.value = withTiming(open ? 1 : 0, { duration: 260 }); }, [open, turn]);
   const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${90 + turn.value * 180}deg` }] }));
   if (!isObject(data)) return null;
@@ -157,7 +199,7 @@ export function Evidence({ data, start = 0, title = 'Full technical evidence' }:
         <View style={st.badge}><Icon name="code" size={19} color={colors.cyan} /></View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: colors.text, fontSize: 17, fontFamily: fonts.bold }}>{title}</Text>
-          <Text style={{ color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular }}>{`${sections.length} sections · every raw finding behind this report`}</Text>
+          <Text style={{ color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular }}>{`${sections.length} sections · raw findings`}</Text>
         </View>
         <Animated.View style={chevron}><Icon name="chevron" size={18} color={colors.soft} stroke={2.4} /></Animated.View>
       </PressableScale>

@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
@@ -38,7 +38,8 @@ const STATE: Record<State, { color: string; icon: IconName }> = {
   warn: { color: colors.amber, icon: 'alert' },
   ok: { color: colors.green, icon: 'checkCircle' },
   na: { color: colors.faint, icon: 'minusCircle' },
-  info: { color: colors.cyan, icon: 'info' },
+  // A neutral fact, not a finding: grey, so it never reads as a warning.
+  info: { color: colors.muted, icon: 'info' },
 };
 const ORDER: State[] = ['bad', 'warn', 'ok', 'info', 'na'];
 
@@ -50,6 +51,14 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '');
 /** True when a tool result carries a summary this screen can draw. */
 export function hasPlain(value: any): value is Plain {
   return !!value && typeof value === 'object' && !Array.isArray(value) && typeof value.headline === 'string';
+}
+
+/**
+ * Background jobs (site, subdomains) answer {message, status, result: {…, plain}}: the report
+ * is one level down. Returns the object that carries the summary, or the input unchanged.
+ */
+export function reportOf(data: any) {
+  return data && !hasPlain(data.plain) && data.result && typeof data.result === 'object' && hasPlain(data.result.plain) ? data.result : data;
 }
 
 /** The evidence below the summary: everything except the summary itself. */
@@ -94,7 +103,7 @@ function Seal({ tone }: { tone: HeroTone }) {
   );
 }
 
-function Hero({ plain, tone }: { plain: Plain; tone: HeroTone }) {
+function Hero({ plain, tone, checked }: { plain: Plain; tone: HeroTone; checked?: string }) {
   const { color } = HERO[tone];
   const target = plain.url && typeof plain.url === 'object' ? plain.url : {};
   const host = str(target.host);
@@ -115,7 +124,7 @@ function Hero({ plain, tone }: { plain: Plain; tone: HeroTone }) {
           </Text>
         </View>
       ) : null}
-      {plain.checked ? <Text style={{ color: colors.faint, fontSize: 12, fontFamily: fonts.mono }}>{plain.checked}</Text> : null}
+      {checked || plain.checked ? <Text style={{ color: colors.faint, fontSize: 12, fontFamily: fonts.mono }}>{checked || plain.checked}</Text> : null}
     </Animated.View>
   );
 }
@@ -183,7 +192,8 @@ function Segment({ share, color, delay }: { share: number; color: string; delay:
 function Checks({ plain, start }: { plain: Plain; start: number }) {
   const checks = objects<NonNullable<Plain['checks']>[number]>(plain.checks);
   if (!checks.length) return null;
-  const counts = ORDER.map((k) => [k, checks.filter((c) => state(c.state) === k).length] as const).filter(([, n]) => n > 0);
+  // Neutral facts (info) stay out of the bar: it only shows how the checks came out.
+  const counts = ORDER.filter((k) => k !== 'info').map((k) => [k, checks.filter((c) => state(c.state) === k).length] as const).filter(([, n]) => n > 0);
   return (
     <Animated.View entering={enter(start)} style={s.card}>
       <SectionTitle right={str(plain.tally)}>What we checked</SectionTitle>
@@ -192,12 +202,13 @@ function Checks({ plain, start }: { plain: Plain; start: number }) {
       </View>
       <View>
         {checks.map((c, i) => {
-          const look = STATE[state(c.state)];
+          const kind = state(c.state);
+          const look = STATE[kind];
           return (
             <View key={`${c.name}-${i}`} style={[s.check, i === checks.length - 1 && { borderBottomWidth: 0 }]}>
-              <Icon name={look.icon} size={18} color={look.color} />
+              <Icon name={kind === 'info' ? 'dot' : look.icon} size={18} color={look.color} />
               <Text style={{ flex: 1, color: colors.soft, fontSize: 14.5, fontFamily: fonts.regular }}>{str(c.name)}</Text>
-              <Text selectable style={{ maxWidth: '48%', color: look.color, fontSize: 14, fontFamily: fonts.semibold, textAlign: 'right' }}>{str(c.result)}</Text>
+              <Text selectable style={{ maxWidth: '48%', color: kind === 'info' ? colors.text : look.color, fontSize: 14, fontFamily: fonts.semibold, textAlign: 'right' }}>{str(c.result)}</Text>
             </View>
           );
         })}
@@ -233,12 +244,14 @@ export type ReportProps = {
   screenshot?: { uri: string; headers?: Record<string, string> } | null;
   /** Buzz once when a fresh result arrives (not when an old report is reopened). */
   haptic?: boolean;
+  /** "Checked 2 min ago" under the address, when the screen knows the scan time. */
+  checked?: string;
   /** Shown between the summary and the evidence (the AI panel). */
   children?: React.ReactNode;
 };
 
 /** The full report, drawn natively: verdict, why, what to do, what we checked. */
-export function PlainReport({ plain, again, plainShare, screenshot, haptic, children }: ReportProps) {
+export function PlainReport({ plain, again, plainShare, screenshot, haptic, checked, children }: ReportProps) {
   const tone = heroTone(plain.tone);
   useEffect(() => {
     if (!haptic) return;
@@ -256,7 +269,7 @@ export function PlainReport({ plain, again, plainShare, screenshot, haptic, chil
 
   return (
     <View style={{ gap: 16 }}>
-      <Hero plain={plain} tone={tone} />
+      <Hero plain={plain} tone={tone} checked={checked} />
       <Reasons plain={plain} start={1} />
       <Actions plain={plain} tone={tone} start={after} />
       {text && warn ? (

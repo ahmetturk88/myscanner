@@ -6,6 +6,7 @@ import Animated, { FadeIn, LinearTransition, useAnimatedStyle, useSharedValue, w
 
 import { Icon } from '@/components/icon';
 import { enter, PressableScale } from '@/components/motion';
+import { locale, t } from '@/lib/i18n';
 import { getSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
 
@@ -37,37 +38,39 @@ function itemTitle(item: Node, index: number) {
       if (typeof v === 'string' && v.trim()) return v.length > 60 ? `${v.slice(0, 60)}…` : v;
     }
   }
-  return `Item ${index + 1}`;
+  return t('Item {n}', { n: index + 1 });
 }
 
 function count(value: Node) {
-  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? '' : 's'}`;
-  if (isObject(value)) { const n = entries(value).length; return `${n} field${n === 1 ? '' : 's'}`; }
+  if (Array.isArray(value)) return value.length === 1 ? t('{n} item', { n: 1 }) : t('{n} items', { n: value.length });
+  if (isObject(value)) { const n = entries(value).length; return n === 1 ? t('{n} field', { n }) : t('{n} fields', { n }); }
   return '';
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const months = () => [t('Jan'), t('Feb'), t('Mar'), t('Apr'), t('May'), t('Jun'), t('Jul'), t('Aug'), t('Sep'), t('Oct'), t('Nov'), t('Dec')];
 // Emoji and symbols some analyzers put in front of their notes (🛡️, 🚩, ✅).
 const EMOJI = /^(?:[\u2190-\u21FF\u2300-\u27BF\u2B00-\u2BFF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF]|\uFE0F|\u200D|\s)+/;
 
 function span(days: number) {
-  return days < 60 ? `${days} day${days === 1 ? '' : 's'}` : days < 730 ? `${Math.floor(days / 30)} months` : `${Math.floor(days / 365)} years`;
+  if (days < 60) return days === 1 ? t('{n} day', { n: days }) : t('{n} days', { n: days });
+  return days < 730 ? t('{n} months', { n: Math.floor(days / 30) }) : t('{n} years', { n: Math.floor(days / 365) });
 }
 
 /** A value as a person would write it: dates, day counts and status words made readable. */
 export function readable(value: Node, key = ''): string {
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'boolean') return value ? t('Yes') : t('No');
   if (typeof value === 'number') {
     if (/(^|_)days?($|_)|^domain_age$/i.test(key) && Number.isInteger(value)) {
-      return value < 0 ? (/until|remaining|left/i.test(key) ? `Passed ${span(-value)} ago` : `${span(-value)} ago`) : value >= 60 ? `${value.toLocaleString('en-US')} days (${span(value)})` : span(value);
+      if (value < 0) return /until|remaining|left/i.test(key) ? t('Passed {span} ago', { span: span(-value) }) : t('{span} ago', { span: span(-value) });
+      return value >= 60 ? t('{n} days ({span})', { n: value.toLocaleString(locale()), span: span(value) }) : span(value);
     }
-    return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    return value.toLocaleString(locale(), { maximumFractionDigits: 2 });
   }
   let text = String(value).replace(EMOJI, '');
   const date = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})[^Z+-]*(Z|[+-]\d{2}:?\d{2})?)?$/);
   if (date) {
     const [, y, m, d, hh, mm] = date;
-    return `${Number(d)} ${MONTHS[Number(m) - 1] ?? m} ${y}` + (hh ? `, ${hh}:${mm} UTC` : '');
+    return `${Number(d)} ${months()[Number(m) - 1] ?? m} ${y}` + (hh ? `, ${hh}:${mm} UTC` : '');
   }
   if (/^[A-Z0-9-]+(\.[A-Z0-9-]+)+\.?$/.test(text) && /[A-Z]/.test(text)) return text.toLowerCase();  // HOST.NAME.COM
   if (/^[a-z]+(_[a-z]+)+$/.test(text) || /^[a-z]{3,20}$/.test(text) || /^[A-Z]{6,}(_[A-Z]+)*$/.test(text)) {
@@ -92,7 +95,7 @@ function Value({ value, field = '' }: { value: Node; field?: string }) {
   return (
     <Text selectable style={[st.value, mono && { fontFamily: fonts.mono, fontSize: 12.5 }]}>
       {long && !all ? `${text.slice(0, LONG)}… ` : text}
-      {long ? <Text onPress={() => setAll(!all)} style={{ color: colors.cyan, fontFamily: fonts.semibold }}>{all ? '  Show less' : 'Show all'}</Text> : null}
+      {long ? <Text onPress={() => setAll(!all)} style={{ color: colors.cyan, fontFamily: fonts.semibold }}>{all ? `  ${t('Show less')}` : t('Show all')}</Text> : null}
     </Text>
   );
 }
@@ -124,7 +127,7 @@ function Paged<T>({ items, render }: { items: T[]; render: (item: T, index: numb
       {items.slice(0, shown).map(render)}
       {items.length > shown ? (
         <Pressable onPress={() => setShown(shown + PAGE * 2)} style={st.more}>
-          <Text style={{ color: colors.cyan, fontSize: 13.5, fontFamily: fonts.semibold }}>{`Show ${Math.min(items.length - shown, PAGE * 2)} more`}</Text>
+          <Text style={{ color: colors.cyan, fontSize: 13.5, fontFamily: fonts.semibold }}>{t('Show {n} more', { n: Math.min(items.length - shown, PAGE * 2) })}</Text>
         </Pressable>
       ) : null}
     </>
@@ -152,7 +155,7 @@ function Tree({ value, depth }: { value: Node; depth: number }) {
     return (
       <Paged items={items} render={(item, i) => (isObject(item) || Array.isArray(item)
         ? <Group key={i} title={itemTitle(item, i)} meta={count(item)} depth={depth + 1}>{() => <Tree value={item} depth={depth + 1} />}</Group>
-        : <Row key={i} name={`Item ${i + 1}`} value={item} />)} />
+        : <Row key={i} name={t('Item {n}', { n: i + 1 })} value={item} />)} />
     );
   }
   if (isObject(value)) {
@@ -175,7 +178,7 @@ function Row({ name, value, field }: { name: string; value: Node; field?: string
 }
 
 /** Everything the check collected, browsable in the app. Closed until asked for. */
-export function Evidence({ data, start = 0, title = 'Full technical evidence' }: { data: Record<string, unknown> | null | undefined; start?: number; title?: string }) {
+export function Evidence({ data, start = 0, title = t('Full technical evidence') }: { data: Record<string, unknown> | null | undefined; start?: number; title?: string }) {
   const [open, setOpen] = useState(() => getSettings().evidenceOpen);
   const [copied, setCopied] = useState(false);
   const turn = useSharedValue(open ? 1 : 0);
@@ -195,11 +198,11 @@ export function Evidence({ data, start = 0, title = 'Full technical evidence' }:
 
   return (
     <Animated.View entering={enter(start)} layout={LinearTransition.duration(260)} style={st.card}>
-      <PressableScale scale={0.99} accessibilityLabel={open ? 'Hide the technical evidence' : 'Show the technical evidence'} onPress={() => setOpen(!open)} style={st.head}>
+      <PressableScale scale={0.99} accessibilityLabel={open ? t('Hide the technical evidence') : t('Show the technical evidence')} onPress={() => setOpen(!open)} style={st.head}>
         <View style={st.badge}><Icon name="code" size={19} color={colors.cyan} /></View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: colors.text, fontSize: 17, fontFamily: fonts.bold }}>{title}</Text>
-          <Text style={{ color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular }}>{`${sections.length} sections · raw findings`}</Text>
+          <Text style={{ color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular }}>{t('{n} sections · raw findings', { n: sections.length })}</Text>
         </View>
         <Animated.View style={chevron}><Icon name="chevron" size={18} color={colors.soft} stroke={2.4} /></Animated.View>
       </PressableScale>
@@ -207,7 +210,7 @@ export function Evidence({ data, start = 0, title = 'Full technical evidence' }:
         <Animated.View entering={FadeIn.duration(300)} style={{ gap: 4 }}>
           <Pressable onPress={copy} style={({ pressed }) => [st.copy, pressed && { opacity: 0.7 }]}>
             <Icon name={copied ? 'check' : 'copy'} size={15} color={copied ? colors.green : colors.cyan} />
-            <Text style={{ color: copied ? colors.green : colors.cyan, fontSize: 13, fontFamily: fonts.semibold }}>{copied ? 'Copied as JSON' : 'Copy all as JSON'}</Text>
+            <Text style={{ color: copied ? colors.green : colors.cyan, fontSize: 13, fontFamily: fonts.semibold }}>{copied ? t('Copied as JSON') : t('Copy all as JSON')}</Text>
           </Pressable>
           <Tree value={data} depth={-1} />
         </Animated.View>

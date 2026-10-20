@@ -14,17 +14,18 @@ import { Screen } from '@/components/screen';
 import { Button, Chip, ErrorText, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
 import { api, signedImage, SITE } from '@/lib/api';
+import { t, upper } from '@/lib/i18n';
 import { startUrlScan } from '@/lib/scan';
 import { ago, colors, fonts, tone, toneStyle } from '@/lib/theme';
 
 const WORKING = ['pending', 'queued', 'running', 'processing', 'started'];
-const STEPS = ['Resolving the address', 'Checking the certificate', 'Following redirects', 'Reading the page content',
-  'Asking threat intelligence sources', 'Taking a safe screenshot'];
+const steps = () => [t('Resolving the address'), t('Checking the certificate'), t('Following redirects'), t('Reading the page content'),
+  t('Asking threat intelligence sources'), t('Taking a safe screenshot')];
 
 function severity(points: number) {
-  if (points >= 20) return { label: 'High', color: colors.red };
-  if (points >= 10) return { label: 'Medium', color: colors.amber };
-  return { label: 'Low', color: colors.cyanSoft };
+  if (points >= 20) return { label: t('High'), color: colors.red };
+  if (points >= 10) return { label: t('Medium'), color: colors.amber };
+  return { label: t('Low'), color: colors.cyanSoft };
 }
 
 export default function ScanReport() {
@@ -36,6 +37,7 @@ export default function ScanReport() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [rescanning, setRescanning] = useState(false);
+  const [STEPS] = useState(steps);
 
   useEffect(() => {
     let alive = true;
@@ -56,10 +58,10 @@ export default function ScanReport() {
         setAnalysis(detail);
         setReport(full);
         setFresh(tries > 0);
-        const t = tone(full.raw_report?.aggregate_assessment?.verdict ?? full.verdict);
+        const level = tone(full.raw_report?.aggregate_assessment?.verdict ?? full.verdict);
         if (tries > 0 && !hasPlain(detail?.plain)) {
-          Haptics.notificationAsync(t === 'risk' ? Haptics.NotificationFeedbackType.Error
-            : t === 'review' ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success).catch(() => {});
+          Haptics.notificationAsync(level === 'risk' ? Haptics.NotificationFeedbackType.Error
+            : level === 'review' ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success).catch(() => {});
         }
       } catch (e: any) {
         if (alive) setError(e.message);
@@ -67,7 +69,7 @@ export default function ScanReport() {
     };
     poll(0);
     return () => { alive = false; clearTimeout(timer); };
-  }, [scanId]);
+  }, [scanId, STEPS.length]);
 
   const assessment = report?.raw_report?.aggregate_assessment;
   const verdict = assessment?.verdict ?? report?.verdict;
@@ -82,9 +84,11 @@ export default function ScanReport() {
   async function share() {
     if (plain?.share_text) { Share.share({ message: plain.share_text }).catch(() => {}); return; }
     const text = tone(verdict) === 'safe'
-      ? `MyScanner found no threat on ${report.url} (${typeof assessment?.score === 'number' ? `score ${assessment.score}/100` : 'checked'}). Stay careful with links you were not expecting.`
-      : `⚠️ Careful: MyScanner rated ${report.url} as "${look.label}". Do not open it or enter any details.`;
-    Share.share({ message: `${text}\n\nChecked with MyScanner: ${SITE}` }).catch(() => {});
+      ? t('MyScanner found no threat on {url} ({result}). Stay careful with links you were not expecting.', {
+        url: report.url, result: typeof assessment?.score === 'number' ? t('score {score}/100', { score: assessment.score }) : t('checked'),
+      })
+      : t('⚠️ Careful: MyScanner rated {url} as "{label}". Do not open it or enter any details.', { url: report.url, label: look.label });
+    Share.share({ message: `${text}\n\n${t('Checked with MyScanner: {site}', { site: SITE })}` }).catch(() => {});
   }
 
   async function rescan() {
@@ -96,16 +100,16 @@ export default function ScanReport() {
   try { host = new URL(host).host || host; } catch {}
   const headerButtons = report ? (
     <View style={{ flexDirection: 'row', gap: 8 }}>
-      <PressableScale accessibilityLabel="Scan this link again" onPress={rescan} disabled={rescanning} style={[st.round, rescanning && { opacity: 0.5 }]}>
+      <PressableScale accessibilityLabel={t('Scan this link again')} onPress={rescan} disabled={rescanning} style={[st.round, rescanning && { opacity: 0.5 }]}>
         <Icon name="refresh" size={17} color={colors.text} />
       </PressableScale>
-      <PressableScale accessibilityLabel="Share" onPress={share} style={st.round}><Icon name="share" size={18} color={colors.text} /></PressableScale>
+      <PressableScale accessibilityLabel={t('Share')} onPress={share} style={st.round}><Icon name="share" size={18} color={colors.text} /></PressableScale>
     </View>
   ) : null;
 
   return (
-    <Screen back title={`Report #${scanId}`} eyebrow={`URL intelligence · report #${scanId}`} right={headerButtons}
-      largeTitle={report ? host : 'Scanning the link'} subtitle={report ? undefined : 'Usually under a minute. You can leave; the report is saved in History.'}>
+    <Screen back title={t('Report #{id}', { id: scanId })} eyebrow={t('URL intelligence · report #{id}', { id: scanId })} right={headerButtons}
+      largeTitle={report ? host : t('Scanning the link')} subtitle={report ? undefined : t('Usually under a minute. You can leave; the report is saved in History.')}>
       {report && !plain ? (
         <Animated.View entering={enter(0)} style={st.url}>
           <Icon name="link" size={15} color={colors.faint} />
@@ -115,11 +119,11 @@ export default function ScanReport() {
       <ErrorText>{error}</ErrorText>
       {!report && !error ? <Working steps={STEPS} step={step} /> : null}
       {report && plain ? (
-        <PlainReport plain={plain} haptic={fresh} checked={report.date ? `Checked ${ago(report.date)}` : undefined} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
-          again={{ label: 'Check another link', icon: 'link', onPress: () => router.navigate('/') }}>
+        <PlainReport plain={plain} haptic={fresh} checked={report.date ? t('Checked {time}', { time: ago(report.date) }) : undefined} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
+          again={{ label: t('Check another link'), icon: 'link', onPress: () => router.navigate('/') }}>
           {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" evidence={{ plain, ...evidence }} /></Animated.View> : null}
           <Evidence data={withoutPlain(analysis)} start={8} />
-          {rescanning ? <Muted center>Starting a fresh scan…</Muted> : null}
+          {rescanning ? <Muted center>{t('Starting a fresh scan…')}</Muted> : null}
         </PlainReport>
       ) : report ? (
         <>
@@ -127,25 +131,25 @@ export default function ScanReport() {
             <ScoreRing score={typeof assessment?.score === 'number' ? assessment.score : null} color={look.color} size={170} />
             <VerdictPill verdict={verdict} />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-              {assessment?.total_categories ? <Chip>{`${assessment.assessed_categories} of ${assessment.total_categories} checks`}</Chip> : null}
-              {assessment?.sources?.length ? <Chip>{`${assessment.sources.length} sources`}</Chip> : null}
+              {assessment?.total_categories ? <Chip>{t('{done} of {total} checks', { done: assessment.assessed_categories, total: assessment.total_categories })}</Chip> : null}
+              {assessment?.sources?.length ? <Chip>{t('{n} sources', { n: assessment.sources.length })}</Chip> : null}
               {report.date ? <Chip>{ago(report.date)}</Chip> : null}
             </View>
-            {assessment?.provisional ? <Muted center>Some checks were unavailable, so this result is provisional.</Muted> : null}
+            {assessment?.provisional ? <Muted center>{t('Some checks were unavailable, so this result is provisional.')}</Muted> : null}
           </Animated.View>
           <Animated.View entering={enter(2)} style={{ flexDirection: 'row', gap: 10 }}>
-            <Button label={tone(verdict) === 'safe' ? 'Share' : 'Warn others'} icon="share" onPress={share} flex={1.3} />
-            <Button label="Rescan" icon="refresh" kind="secondary" onPress={rescan} busy={rescanning} flex={1} />
+            <Button label={tone(verdict) === 'safe' ? t('Share') : t('Warn others')} icon="share" onPress={share} flex={1.3} />
+            <Button label={t('Rescan')} icon="refresh" kind="secondary" onPress={rescan} busy={rescanning} flex={1} />
           </Animated.View>
           {evidence ? <Animated.View entering={enter(3)}><AIPanel tool="url" evidence={evidence} /></Animated.View> : null}
           {reasons.length ? (
             <View style={{ gap: 10 }}>
-              <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.5, marginTop: 6 }}>What we found</Text>
+              <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.5, marginTop: 6 }}>{t('What we found')}</Text>
               {reasons.slice(0, 10).map((r, i) => {
                 const sev = severity(r.deduction ?? 0);
                 return (
                   <Animated.View key={r.code ?? i} entering={enter(i + 3)} style={[st.finding, { borderLeftColor: sev.color }]}>
-                    <Text style={{ color: sev.color, fontSize: 11, fontFamily: fonts.monoBold, letterSpacing: 1 }}>{sev.label.toUpperCase()}</Text>
+                    <Text style={{ color: sev.color, fontSize: 11, fontFamily: fonts.monoBold, letterSpacing: 1 }}>{upper(sev.label)}</Text>
                     <Text style={{ color: colors.text, fontSize: 14.5, lineHeight: 22, fontFamily: fonts.regular }}>{r.message}</Text>
                   </Animated.View>
                 );
@@ -153,7 +157,7 @@ export default function ScanReport() {
             </View>
           ) : null}
           {assessment?.missing_checks?.length ? (
-            <Muted>{`Not checked: ${assessment.missing_checks.join(', ').replace(/_/g, ' ')}`}</Muted>
+            <Muted>{t('Not checked: {list}', { list: assessment.missing_checks.join(', ').replace(/_/g, ' ') })}</Muted>
           ) : null}
           {assessment?.warning ? <Text style={{ color: colors.faint, fontSize: 12, fontFamily: fonts.regular }}>{assessment.warning}</Text> : null}
           <Evidence data={report.raw_report} start={4} />

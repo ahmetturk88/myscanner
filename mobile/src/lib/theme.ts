@@ -1,3 +1,5 @@
+import { capitalize, t } from '@/lib/i18n';
+
 /** MyScanner brand colours, matching the website. */
 export const colors = {
   bg: '#070b14',
@@ -62,39 +64,47 @@ export function tone(verdict?: string | null): Tone {
   return 'unknown';
 }
 
-export const toneStyle: Record<Tone, { color: string; label: string }> = {
-  risk: { color: colors.red, label: 'High risk' },
-  review: { color: colors.amber, label: 'Needs review' },
-  safe: { color: colors.green, label: 'No threat found' },
-  working: { color: colors.cyan, label: 'Scanning…' },
-  unknown: { color: colors.muted, label: 'Unknown' },
+// Labels are getters so they are read in the current language.
+export const toneStyle: Record<Tone, { color: string; readonly label: string }> = {
+  risk: { color: colors.red, get label() { return t('High risk'); } },
+  review: { color: colors.amber, get label() { return t('Needs review'); } },
+  safe: { color: colors.green, get label() { return t('No threat found'); } },
+  working: { color: colors.cyan, get label() { return t('Scanning…'); } },
+  unknown: { color: colors.muted, get label() { return t('Unknown'); } },
 };
 
 /** Tool verdicts whose words the generic matching below would get wrong. */
-const EXACT: Record<string, [Tone, string]> = {
-  no_indicators: ['safe', 'No indicators found'],
-  verified_connection: ['safe', 'Valid certificate'],
-  verification_failed: ['risk', 'Certificate problem'],
-  no_domain: ['risk', 'Domain does not exist'],
-  not_found: ['safe', 'No threat found'],
-  clean: ['safe', 'No threat found'],
-  ip_high: ['risk', 'Reported for abuse'],
-  ip_review: ['review', 'Some abuse reports'],
-  ip_low: ['safe', 'No significant reports'],
+const EXACT: Record<string, [Tone, () => string]> = {
+  no_indicators: ['safe', () => t('No indicators found')],
+  verified_connection: ['safe', () => t('Valid certificate')],
+  verification_failed: ['risk', () => t('Certificate problem')],
+  no_domain: ['risk', () => t('Domain does not exist')],
+  not_found: ['safe', () => t('No threat found')],
+  clean: ['safe', () => t('No threat found')],
+  ip_high: ['risk', () => t('Reported for abuse')],
+  ip_review: ['review', () => t('Some abuse reports')],
+  ip_low: ['safe', () => t('No significant reports')],
 };
 
-for (const [key, [t]] of Object.entries(EXACT)) EXACT_TONE[key] = t;
+for (const [key, [exactTone]] of Object.entries(EXACT)) EXACT_TONE[key] = exactTone;
+
+/** Strength ratings ("weak", "very strong") in the current language. */
+const STRENGTH: Record<string, () => string> = {
+  weak: () => t('weak'), fair: () => t('fair'), moderate: () => t('moderate'), good: () => t('good'), strong: () => t('strong'),
+};
 
 /** Colour and label for a verdict string from the API. */
 export function verdictStyle(verdict?: string | null) {
   const exact = verdict ? EXACT[verdict.trim().toLowerCase()] : undefined;
-  if (exact) return { color: toneStyle[exact[0]].color, label: exact[1] };
-  const t = tone(verdict);
+  if (exact) return { color: toneStyle[exact[0]].color, label: exact[1]() };
+  const level = tone(verdict);
   // Strength ratings read better as themselves ("Weak", "Strong") than as a risk level.
-  if (verdict && /^(very )?(weak|fair|moderate|good|strong)$/i.test(verdict.trim())) {
-    return { color: toneStyle[t === 'unknown' ? 'review' : t].color, label: verdict.trim().replace(/^./, (c) => c.toUpperCase()) };
+  const strength = verdict?.trim().toLowerCase().match(/^(very )?(weak|fair|moderate|good|strong)$/);
+  if (strength) {
+    const word = STRENGTH[strength[2]]();
+    return { color: toneStyle[level === 'unknown' ? 'review' : level].color, label: capitalize(strength[1] ? t('very {word}', { word }) : word) };
   }
-  return t === 'unknown' && verdict ? { color: colors.muted, label: verdict.replace(/_/g, ' ') } : toneStyle[t];
+  return level === 'unknown' && verdict ? { color: colors.muted, label: verdict.replace(/_/g, ' ') } : toneStyle[level];
 }
 
 /** "2 min ago" style time for "YYYY-MM-DD HH:MM:SS" UTC strings from the API. */
@@ -103,8 +113,8 @@ export function ago(date?: string) {
   const then = Date.parse(date.replace(' ', 'T') + 'Z');
   if (Number.isNaN(then)) return date;
   const s = Math.max(0, (Date.now() - then) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  return `${Math.floor(s / 86400)} d ago`;
+  if (s < 60) return t('just now');
+  if (s < 3600) return t('{n} min ago', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('{n} h ago', { n: Math.floor(s / 3600) });
+  return t('{n} d ago', { n: Math.floor(s / 86400) });
 }

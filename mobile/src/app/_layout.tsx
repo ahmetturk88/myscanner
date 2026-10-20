@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
-import { loadSettings } from '@/lib/settings';
+import { loadSettings, useSettings, useSettingsReady } from '@/lib/settings';
 import { colors } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -20,16 +20,19 @@ const theme = {
 
 function Navigator() {
   const { ready, user } = useAuth();
+  const settingsReady = useSettingsReady();
+  const { language } = useSettings();
   const [fontsLoaded, fontError] = useFonts({
     DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold, SpaceMono_400Regular, SpaceMono_700Bold,
   });
-  const loaded = ready && (fontsLoaded || !!fontError);
+  const loaded = ready && settingsReady && (fontsLoaded || !!fontError);
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
   if (!loaded) return null;
+  // Keyed by language: picking another language remounts every screen, so all text is drawn again in it.
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
+    <Stack key={language} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
       <Stack.Protected guard={!!user}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="scan/[id]" />

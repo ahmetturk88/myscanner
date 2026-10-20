@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { enter } from '@/components/motion';
+import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 
 /** "How it works": the tool's steps as a short numbered timeline. */
@@ -9,7 +10,7 @@ export function HowItWorks({ steps }: { steps: [string, string][] }) {
   if (!steps.length) return null;
   return (
     <View style={{ gap: 4, marginTop: 6 }}>
-      <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, marginBottom: 8 }}>How it works</Text>
+      <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, marginBottom: 8 }}>{t('How it works')}</Text>
       {steps.map(([title, text], i) => (
         <Animated.View key={title} entering={enter(i + 2)} style={{ flexDirection: 'row', gap: 14 }}>
           <View style={{ alignItems: 'center' }}>

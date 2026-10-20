@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
 import { ApiError, SITE } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const toBase64Url = (base64: string) => base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -25,11 +26,11 @@ export async function providerSignIn(provider: string) {
   const redirect = Linking.createURL('auth');
   const start = `${SITE}/api/mobile/v1/auth/oauth/${provider}?redirect=${encodeURIComponent(redirect)}&challenge=${challenge}`;
   const result = await WebBrowser.openAuthSessionAsync(start, redirect);
-  if (result.type !== 'success') throw new ApiError('Sign-in was cancelled.', 0);
+  if (result.type !== 'success') throw new ApiError(t('Sign-in was cancelled.'), 0);
   const { queryParams } = Linking.parse(result.url);
   const error = queryParams?.error;
   const code = queryParams?.code;
   if (typeof error === 'string') throw new ApiError(error, 0);
-  if (typeof code !== 'string') throw new ApiError('Sign-in did not complete. Please try again.', 0);
+  if (typeof code !== 'string') throw new ApiError(t('Sign-in did not complete. Please try again.'), 0);
   return { code, verifier };
 }

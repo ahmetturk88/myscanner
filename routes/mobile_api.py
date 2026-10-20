@@ -8,6 +8,7 @@ is why this blueprint, and only it, is exempt from the cookie-based CSRF check.
 Tools reuse the website's own endpoints, so quotas, validation and ownership
 rules are identical for the app and the site.
 """
+import json
 from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, g, jsonify, redirect, request, session, url_for
@@ -44,6 +45,39 @@ def require_app_token():
         return jsonify(error='Your session has ended. Please sign in again.'), 401, {'WWW-Authenticate': 'Bearer'}
     g._login_user = user  # Flask-Login's current user for this request; the cookie is not consulted
     return None
+
+
+def _localise_plain(value, lang):
+    """Every report summary under a 'plain' key, translated; everything else as it was."""
+    from services.report_i18n import translate_plain
+    if isinstance(value, dict):
+        return {key: translate_plain(item, lang) if key == 'plain' and isinstance(item, dict) and 'headline' in item
+                else _localise_plain(item, lang) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_localise_plain(item, lang) for item in value]
+    return value
+
+
+@mobile_bp.after_request
+def localise_reports(response):
+    """Plain-language summaries in the app's language (Accept-Language: tr); English otherwise."""
+    try:
+        from services.report_i18n import CATALOGS, preferred_language
+        lang = preferred_language(request.headers.get('Accept-Language'))
+        if (lang not in CATALOGS or response.status_code != 200 or response.is_streamed
+                or response.mimetype != 'application/json' or response.direct_passthrough):
+            return response
+        data = json.loads(response.get_data(as_text=True))
+        localised = _localise_plain(data, lang)
+        if localised == data:
+            return response
+        response.set_data(json.dumps(localised, ensure_ascii=False))  # set_data also updates Content-Length
+        vary = response.headers.get('Vary')
+        if 'accept-language' not in (vary or '').lower():
+            response.headers['Vary'] = f'{vary}, Accept-Language' if vary else 'Accept-Language'
+    except Exception:
+        current_app.logger.warning('Could not translate a report summary', exc_info=True)
+    return response
 
 
 def _call(endpoint, **kwargs):

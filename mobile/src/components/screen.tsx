@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
 import { Ambient, PressableScale } from '@/components/motion';
+import { t, upper } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import type { Tool } from '@/lib/tools';
 
@@ -34,7 +35,7 @@ export function useKeyboardVisible() {
 
 export function BackButton() {
   return (
-    <PressableScale accessibilityLabel="Back" onPress={() => (router.canGoBack() ? router.back() : router.navigate('/'))} style={s.round}>
+    <PressableScale accessibilityLabel={t('Back')} onPress={() => (router.canGoBack() ? router.back() : router.navigate('/'))} style={s.round}>
       <Icon name="back" size={20} color={colors.text} />
     </PressableScale>
   );
@@ -78,7 +79,7 @@ export function Screen({ title, eyebrow, subtitle, back, right, children, tabs =
           progressBackgroundColor="#10233a" progressViewOffset={top} /> : undefined}>
         <Animated.View style={[{ gap: 6, transformOrigin: 'left' }, big]} entering={FadeIn.duration(400)}>
           {badge}
-          {eyebrow ? <Text style={s.eyebrow}>{eyebrow.toUpperCase()}</Text> : null}
+          {eyebrow ? <Text style={s.eyebrow}>{upper(eyebrow)}</Text> : null}
           {/* A long single word (a hostname) shrinks to one line instead of breaking mid-word. */}
           <Text style={s.title} {...(typeof (largeTitle ?? title) === 'string' && !/\s/.test(String(largeTitle ?? title))
             ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.55 } : {})}>{largeTitle ?? title}</Text>

@@ -3,6 +3,7 @@ import Animated from 'react-native-reanimated';
 
 import { enter } from '@/components/motion';
 
+import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 
 // Internal or technical fields that only add noise to a quick read; the AI explanation covers them.
@@ -12,7 +13,7 @@ const humanize = (key: string) => key.replace(/_/g, ' ').replace(/\b(ip|dns|tls|
 
 function short(value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null;
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'boolean') return value ? t('Yes') : t('No');
   if (typeof value === 'number') return String(value);
   if (typeof value === 'string') return value.length > 160 ? `${value.slice(0, 160)}…` : value.replace(/_/g, ' ');
   if (Array.isArray(value)) {
@@ -47,7 +48,7 @@ export function Details({ data, limit = 12 }: { data: Record<string, unknown>; l
       ))}
       {advice.length ? (
         <View style={{ gap: 6, marginTop: 4 }}>
-          <Text style={{ color: colors.teal, fontSize: 12, letterSpacing: 2, fontFamily: fonts.mono }}>WHAT TO DO</Text>
+          <Text style={{ color: colors.teal, fontSize: 12, letterSpacing: 2, fontFamily: fonts.mono }}>{t('WHAT TO DO')}</Text>
           {advice.map((a) => <Text key={a} style={{ color: colors.soft, fontSize: 14.5, lineHeight: 22, fontFamily: fonts.regular }}>{'•  '}{a}</Text>)}
         </View>
       ) : null}

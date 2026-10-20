@@ -9,6 +9,7 @@ import { Ambient, enter, Pulse } from '@/components/motion';
 import { Button, ErrorText, Field } from '@/components/ui';
 import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 
 /** The website's sign-in page: the brand panel, then the sign-in form. */
@@ -49,27 +50,27 @@ export default function Login() {
             </Animated.View>
             <Animated.View entering={enter(1)} style={{ gap: 8, alignItems: 'center' }}>
               <Text style={{ color: colors.text, fontSize: 30, lineHeight: 35, fontFamily: fonts.bold, letterSpacing: -1.1, textAlign: 'center' }}>
-                Evidence <Text style={{ color: colors.cyan }}>before</Text> trust.
+                {t('Evidence ')}<Text style={{ color: colors.cyan }}>{t('before')}</Text>{t(' trust.')}
               </Text>
               <Text style={{ color: colors.soft, fontSize: 15, lineHeight: 23, fontFamily: fonts.regular, textAlign: 'center', maxWidth: 320 }}>
-                Check links, files, emails and domains before you trust them.
+                {t('Check links, files, emails and domains before you trust them.')}
               </Text>
             </Animated.View>
             <Animated.View entering={enter(2)} style={s.form}>
-              <Field label="Email" icon="mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email"
-                keyboardType="email-address" textContentType="emailAddress" placeholder="you@example.com" />
-              <Field label="Password" icon="lock" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password"
-                textContentType="password" placeholder="Your password" onSubmitEditing={submit} returnKeyType="go" />
+              <Field label={t('Email')} icon="mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email"
+                keyboardType="email-address" textContentType="emailAddress" placeholder={t('you@example.com')} />
+              <Field label={t('Password')} icon="lock" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password"
+                textContentType="password" placeholder={t('Your password')} onSubmitEditing={submit} returnKeyType="go" />
               <Pressable onPress={() => open('/forgot-password')} style={{ alignSelf: 'flex-end' }} hitSlop={8}>
-                <Text style={{ color: colors.cyan, fontSize: 14, fontFamily: fonts.semibold }}>Forgot password?</Text>
+                <Text style={{ color: colors.cyan, fontSize: 14, fontFamily: fonts.semibold }}>{t('Forgot password?')}</Text>
               </Pressable>
               <ErrorText>{error}</ErrorText>
-              <Button label="Sign in" arrow="→" onPress={submit} busy={busy} disabled={!email.trim() || !password} />
+              <Button label={t('Sign in')} arrow="→" onPress={submit} busy={busy} disabled={!email.trim() || !password} />
               {providers.length ? (
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
-                    <Text style={{ color: colors.faint, fontSize: 13, fontFamily: fonts.regular }}>or continue with</Text>
+                    <Text style={{ color: colors.faint, fontSize: 13, fontFamily: fonts.regular }}>{t('or continue with')}</Text>
                     <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
                   </View>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -83,7 +84,7 @@ export default function Login() {
             </Animated.View>
             <Animated.View entering={enter(3)}>
               <Text style={{ color: colors.soft, fontSize: 14.5, textAlign: 'center', fontFamily: fonts.regular }}>
-                New to MyScanner? <Text onPress={() => open('/register')} style={{ color: colors.cyan, fontFamily: fonts.bold }}>Create a free account</Text>
+                {t('New to MyScanner?')} <Text onPress={() => open('/register')} style={{ color: colors.cyan, fontFamily: fonts.bold }}>{t('Create a free account')}</Text>
               </Text>
             </Animated.View>
           </ScrollView>

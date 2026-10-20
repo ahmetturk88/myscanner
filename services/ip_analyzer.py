@@ -6,6 +6,10 @@ from datetime import datetime, timezone
 from services.safe_http import PublicHTTPSession, _public_address, TargetResolutionError, UnsafeTargetError
 from requests.exceptions import Timeout, ConnectionError
 
+PRIVATE_ADDRESS = ('This is a private address inside a local network, like a home router or a device on your Wi-Fi. '
+                   'Nothing online can look it up. To see what it is, open your router’s list of connected devices.')
+
+
 class IPAnalyzer:
     def __init__(self):
         self.deadline = time.monotonic() + 25
@@ -94,9 +98,14 @@ class IPAnalyzer:
                     raise ValueError()
                 address = ipaddress.ip_address(ip.strip())
                 ip = str(address)
-                if not _public_address(ip): raise ValueError()
             except (ValueError, TypeError):
                 return {'error':'A public IPv4 or IPv6 address is required','verdict':'unknown'}
+            if not _public_address(ip):
+                # A home-network or reserved address exists in millions of places at once, so no
+                # public source knows it; say what it is instead of a bare validation error.
+                return {'error':(PRIVATE_ADDRESS if address.is_private or address.is_loopback or address.is_link_local
+                                 else 'This address is reserved and isn’t used on the public internet, so it can’t be looked up.'),
+                        'verdict':'unknown'}
             result = {'schema_version':2,'ip':ip,'ip_version':address.version,'verdict':'unknown','is_proxy':None,'is_hosting':None,'is_mobile':None,'blacklist_count':None,'blacklist_results':[], 'scope':'Network metadata and AbuseIPDB community reports only; no port scan, target connection, malware execution or safety guarantee.'}
             result.update(self._get_ip_info(ip))
             reputation = self._check_abuseipdb(ip, abuseipdb_api_key) if abuseipdb_api_key else {'status':'not_configured','source':'AbuseIPDB','reason':'api_key_not_configured'}

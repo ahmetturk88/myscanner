@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
@@ -9,7 +9,7 @@ import { Evidence } from '@/components/evidence';
 import { HowItWorks } from '@/components/how';
 import { Icon } from '@/components/icon';
 import { enter, PressableScale } from '@/components/motion';
-import { hasPlain, PlainReport, withoutPlain } from '@/components/report';
+import { hasPlain, PlainReport, reportOf, withoutPlain } from '@/components/report';
 import { ResultCard } from '@/components/result';
 import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
@@ -54,7 +54,8 @@ export default function FileScanner() {
     setBusy(true); setError(null); setResult(null); setProgress('Uploading');
     try {
       const queued: any = await upload('/tools/file', { uri: file.uri, name: file.name, mimeType: file.mimeType });
-      const data = await waitForTask(queued.task_id, setProgress, () => alive.current);
+      let data = await waitForTask(queued.task_id, setProgress, () => alive.current);
+      data = reportOf(data);
       setResult(data);
       if (!hasPlain(data?.plain)) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {

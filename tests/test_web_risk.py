@@ -65,7 +65,8 @@ class AssessmentTests(unittest.TestCase):
     def test_unconfigured_or_unavailable_web_risk_is_not_a_gap(self):
         for status in ('not_configured', 'unavailable'):
             r = assess_url(*reports({'status': status, 'threat_types': []}))
-            self.assertEqual(r['verdict'], 'suspicious', status)  # the provider flag still asks for review
+            self.assertEqual(r['verdict'], 'harmless', status)  # v10: the provider flag alone is only noted
+            self.assertTrue(r['provider_note'])
             self.assertFalse(any('Web Risk' in m for m in r['missing_checks']))
 
 

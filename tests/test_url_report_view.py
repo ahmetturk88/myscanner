@@ -120,6 +120,37 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(defang('HTTPS://a.b.c/x.exe'), 'hxxps://a[.]b[.]c/x[.]exe')
         self.assertEqual(defang(None), '')
 
+class PolicyTenTests(unittest.TestCase):
+    """Field reports: our own site and an elevator QR were "Be careful" with nothing shown; a bit.ly preview page was "safe"."""
+    def test_warning_verdict_always_has_a_visible_reason(self):
+        for kw in ({'https': False}, {'content_risk': 90, 'login': True}, {'age': 5}):
+            assessment, plain = report(**kw)
+            if plain['tone'] in ('danger', 'caution'):
+                self.assertTrue([r for r in plain['reasons'] if r['tone'] in ('bad', 'warn')], kw)
+
+    def test_provider_opinion_alone_keeps_an_honest_site_safe(self):
+        assessment, plain = report(vet={'verdict': 'suspicious'})
+        self.assertEqual((assessment['verdict'], plain['tone']), ('harmless', 'safe'))
+        self.assertNotIn('You can open this link.', plain['actions'])
+
+    def test_short_link_that_stayed_on_the_shortener(self):
+        local, deep = evidence()
+        local['is_shortened'] = True
+        deep['behavior'].update(is_shortened=True, behavior_risk_score=15, original_url='https://bit.ly/3x', final_url='https://bit.ly/3x')
+        assessment = assess_url(local, deep)
+        plain = plain_report(assessment, local, deep, 'https://bit.ly/3x')
+        self.assertEqual(plain['tone'], 'unknown')
+        self.assertEqual(plain['reasons'][0]['title'], 'We couldn’t see where it leads')
+        self.assertEqual({c['name']: c['state'] for c in plain['checks']}['Suspicious address'], 'warn')
+
+    def test_look_alike_names_the_copied_site(self):
+        local, deep = evidence(vet={'typosquatting': {'is_suspicious': True}})
+        local['phishing'] = {'risk_score': 20, 'issues': ['Possible typosquatting of paypal.com']}
+        assessment = assess_url(local, deep)
+        plain = plain_report(assessment, local, deep, 'https://paypa1.com/')
+        self.assertIn('The name looks like paypal.com', [r['title'] for r in plain['reasons']])
+        self.assertEqual({c['name']: c['result'] for c in plain['checks']}['Look-alike or fake brand'], 'paypal.com')
+
 
 if __name__ == '__main__':
     unittest.main()

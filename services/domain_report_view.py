@@ -77,7 +77,8 @@ def plain_domain_report(result):
         tone, label, headline = 'safe', 'NO WARNING SIGNS', 'No warning signs found'
         summary = 'Its registration and DNS look normal. This lookup doesn’t open the website, so it isn’t a safety check of the site.'
         actions = ['To check the website itself, scan its link with the link scanner.',
-                   'An old, normal domain can still host a hacked page.']
+                   'An old, normal domain can still host a hacked page.' if age is not None and age >= 730
+                   else 'A normal registration can still host a scam page.']
 
     def check(name, state, value):
         return {'name': name, 'state': state, 'result': value}

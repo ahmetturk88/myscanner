@@ -36,3 +36,15 @@ class IPWorkspaceTests(unittest.TestCase):
         r=a.analyze_ip('8.8.8.8','key');f=r['findings'][0]
         self.assertEqual((f['severity'],f['code'],r['verdict'],r['reputation']['is_whitelisted']),('info','abuse_reports_discounted','reported',True));self.assertIn('whitelisted',f['detail'])
 if __name__=='__main__':unittest.main()
+
+
+class PrivateAddressTests(unittest.TestCase):
+    def test_private_address_is_explained_not_looked_up(self):
+        from unittest.mock import patch
+        from services.ip_analyzer import IPAnalyzer
+        with patch.object(IPAnalyzer, '_get_ip_info') as lookup:
+            for value in ('192.168.1.1', '10.0.0.5', '127.0.0.1', 'fe80::1'):
+                result = IPAnalyzer().analyze_ip(value, 'key')
+                self.assertIn('private address inside a local network', result['error'], value)
+            lookup.assert_not_called()
+        self.assertEqual(IPAnalyzer().analyze_ip('not-an-ip', 'key')['error'], 'A public IPv4 or IPv6 address is required')

@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -54,21 +54,52 @@ function parse(text: string): Explanation {
 function ExplanationView({ data }: { data: Explanation }) {
   return (
     <View style={{ gap: 12 }}>
-      {data.headline ? <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, lineHeight: 26 }}>{data.headline}</Text> : null}
-      {data.summary ? <Text style={ui.body}>{data.summary}</Text> : null}
+      {data.headline ? <DirectedText text={data.headline} style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold, lineHeight: 26 }} /> : null}
+      {data.summary ? <DirectedText text={data.summary} style={ui.body} /> : null}
       {SECTIONS.map(([key, title, tint]) => {
         const items = data[key] as any[];
         if (!items.length) return null;
         return (
           <View key={key} style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
             <Text style={{ color: tint, fontSize: 12, fontFamily: fonts.mono, letterSpacing: 1.5 }}>{title.toUpperCase()}</Text>
-            {items.map((item, i) => (
-              <Text key={i} style={ui.body}>
-                {'•  '}{typeof item === 'string' ? item : item.point}
-                {typeof item === 'object' && item.evidence ? <Text style={{ color: colors.faint, fontSize: 13 }}>{`\n    ${item.evidence}`}</Text> : null}
-              </Text>
-            ))}
+            {items.map((item, i) => {
+              const point = typeof item === 'string' ? item : item.point;
+              const rtl = isRtl(point);
+              return (
+                <View key={i} style={{ gap: 2 }}>
+                  <Text style={[ui.body, { writingDirection: rtl ? 'rtl' : 'ltr', textAlign: rtl ? 'right' : 'left' }]}>{'•  '}{point}</Text>
+                  {typeof item === 'object' && item.evidence ? (
+                    <Text style={{ color: colors.faint, fontSize: 13, paddingHorizontal: 16, writingDirection: rtl ? 'rtl' : 'ltr', textAlign: rtl ? 'right' : 'left' }}>{item.evidence}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const RTL_LETTERS = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/g;
+const LTR_LETTERS = /[A-Za-z\u00C0-\u024F]/g;
+
+/** Right-to-left when most letters on the line are Arabic (or Hebrew); English terms inside don't flip it. */
+export function isRtl(line: string) {
+  return (line.match(RTL_LETTERS)?.length ?? 0) > (line.match(LTR_LETTERS)?.length ?? 0);
+}
+
+/** Text laid out line by line, so a reply mixing Arabic and English keeps each line's own direction. */
+export function DirectedText({ text, style }: { text: string; style: any }) {
+  const lines = text.split('\n');
+  return (
+    <View style={{ gap: 2 }}>
+      {lines.map((line, i) => {
+        const rtl = isRtl(line);
+        return (
+          <Text key={i} selectable style={[style, { writingDirection: rtl ? 'rtl' : 'ltr', textAlign: rtl ? 'right' : 'left' }]}>
+            {line || ' '}
+          </Text>
         );
       })}
     </View>
@@ -77,7 +108,7 @@ function ExplanationView({ data }: { data: Explanation }) {
 
 export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: string }) {
   const mine = role === 'user';
-  const body = text ? <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 24, writingDirection: 'auto', fontFamily: fonts.regular }}>{text}</Text> : <TypingDots />;
+  const body = text ? <DirectedText text={text} style={{ color: colors.text, fontSize: 15, lineHeight: 24, fontFamily: fonts.regular }} /> : <TypingDots />;
   if (mine) {
     return (
       <LinearGradient colors={gradients.user} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}

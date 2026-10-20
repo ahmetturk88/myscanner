@@ -7,7 +7,7 @@ the password, and is never shareable.
 from urllib.parse import urlsplit
 
 from services.url_assessment import mapping
-from services.url_report_view import defang, tally, url_parts
+from services.url_report_view import age_text, defang, tally, url_parts
 
 PATTERNS = {
     'dictionary': ('It uses common words or names', 'Attackers try dictionary words and well-known passwords first.'),
@@ -94,6 +94,19 @@ def plain_password_report(result):
             'share_text': ''}
 
 
+# Each verification failure gets its own plain explanation (keys are the analyzer's reason codes).
+SSL_FAILURES = {
+    'expired': ('Certificate has expired', 'Browsers block the page with a warning until the owner renews it.'),
+    'not_yet_valid': ('Certificate isn’t valid yet', 'Its start date is in the future, often a wrong server clock. Browsers will warn.'),
+    'self_signed': ('Self-signed certificate', 'The site vouched for itself instead of a trusted authority, so anyone could have made it.'),
+    'self_signed_chain': ('Signed by an authority browsers don’t trust', 'The chain ends at a private authority that isn’t in browsers’ trusted list.'),
+    'untrusted_issuer': ('Signed by an unknown authority', 'The certificate’s issuer couldn’t be found or isn’t trusted by browsers.'),
+    'incomplete_chain': ('The certificate chain is incomplete', 'The server didn’t send the in-between certificates, so many browsers and apps can’t verify it.'),
+    'revoked': ('Certificate was cancelled', 'Its issuer revoked it, usually because it was compromised or issued by mistake.'),
+    'hostname_mismatch': ('Certificate is for another site', 'It was issued for a different name, which is what a redirect or interception looks like.'),
+}
+
+
 def plain_ssl_report(result):
     result = mapping(result)
     host = result.get('domain') if isinstance(result.get('domain'), str) else ''
@@ -107,8 +120,11 @@ def plain_ssl_report(result):
 
     reasons = []
     if valid is False:
-        title = failures[0].get('title') if failures and isinstance(failures[0].get('title'), str) else 'Certificate verification failed'
-        reasons.append(reason('bad', title, 'Browsers will show a security warning. Someone could read or change what you send.'))
+        title, detail = SSL_FAILURES.get(code, (failures[0].get('title') if failures and isinstance(failures[0].get('title'), str) else 'Certificate verification failed',
+                                                'Browsers will show a security warning. Someone could read or change what you send.'))
+        if code == 'expired' and days is not None and days < 0:
+            detail = f'It ran out {age_text(-days)} ago. ' + detail
+        reasons.append(reason('bad', title, detail))
     elif valid is True:
         reasons.append(reason('ok', 'Valid certificate', f'Issued by {issuer[:60]} for this exact name.' if issuer and issuer != 'Not provided' else 'Issued by a trusted authority for this exact name.'))
         if days is not None and days < 14:
@@ -120,11 +136,13 @@ def plain_ssl_report(result):
     else:
         reasons.append(reason('na', 'Couldn’t connect securely', 'The site didn’t answer on HTTPS, so we couldn’t see its certificate.'
                               if code != 'dns_unavailable' else 'The name doesn’t resolve, so there was nothing to connect to.'))
-    reasons.append(reason('info', 'This checks the connection only', 'A valid certificate means the connection is private. It doesn’t mean the site is honest: scam sites have them too.'))
+    if valid is True:
+        reasons.append(reason('info', 'This checks the connection only', 'A valid certificate means the connection is private. It doesn’t mean the site is honest: scam sites have them too.'))
 
     if valid is False:
-        tone, label, headline = 'caution', 'NOT SECURE', 'This site’s connection isn’t secure'
-        summary = 'Its certificate failed verification, so browsers will warn visitors.'
+        # Browsers block the page behind a full-screen warning, so this is red (v10).
+        tone, label, headline = 'danger', 'NOT SECURE', 'This site’s connection isn’t secure'
+        summary = 'Its certificate failed verification, so browsers will warn visitors or block the page.'
         actions = ['Don’t enter passwords or payment details while the browser shows a warning.',
                    'If it is your site, renew or reinstall the certificate.']
     elif valid is True and version and version not in ('TLSv1.2', 'TLSv1.3'):
@@ -142,15 +160,20 @@ def plain_ssl_report(result):
 
     def state(name, ok, bad='Failed'):
         status = states.get(name)
-        return check(ok[0], 'ok', ok[1]) if status == 'completed' else check(ok[0], 'bad', bad) if status == 'invalid' else check(ok[0], 'na', 'Not checked')
+        # After a failed verification, an unanswered check was cut short, not skipped.
+        missing = check(ok[0], 'na', 'Couldn’t confirm' if valid is False else 'Not checked')
+        return check(ok[0], 'ok', ok[1]) if status == 'completed' else check(ok[0], 'bad', bad) if status == 'invalid' else missing
     checks = [state('Chain trust', ('Trusted issuer', 'Yes'), 'No'),
-              state('Hostname identity', ('Matches the name', 'Yes'), 'No'),
-              state('Validity period', ('In date', 'Yes'), 'Expired or not yet valid')]
+              state('Hostname identity', ('Matches the name', 'Yes'), 'No')]
+    # One row for the validity period: the date says more than a separate "in date" yes/no.
     if days is not None and valid is not None:
-        checks.append(check('Expires', 'bad' if days < 0 else 'info' if days < 14 else 'ok', f'in {days} days' if days >= 0 else 'Expired'))
+        checks.append(check('Valid until', 'bad' if days < 0 else 'info' if days < 14 else 'ok',
+                            f'Expired {age_text(-days)} ago' if days < 0 else f'{days} day' + ('' if days == 1 else 's') + ' left' if days < 60 else f'{age_text(days)} left'))
+    else:
+        checks.append(state('Validity period', ('Valid until', 'In date'), 'Expired or not yet valid'))
     if version:
         checks.append(check('Encryption', 'ok' if version in ('TLSv1.2', 'TLSv1.3') else 'warn', version.replace('TLSv', 'TLS ')))
-    share = (f'Careful: MyScanner says the connection to {defang(host)} isn’t secure.' if tone == 'caution'
+    share = (f'Careful: MyScanner says the connection to {defang(host)} isn’t secure.' if tone in ('caution', 'danger')
              else f'MyScanner verified the certificate of {defang(host)}.' if tone == 'safe'
              else f'MyScanner couldn’t check the certificate of {defang(host)}.')
     return {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,

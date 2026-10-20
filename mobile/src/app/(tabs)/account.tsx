@@ -98,8 +98,7 @@ export default function Account() {
       </Animated.View>
 
       <Animated.View entering={enter(6)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>
-        <Row icon="shield" label="Privacy policy" onPress={() => open('/privacy')} />
-        <Row icon="doc" label="Terms of service" onPress={() => open('/terms')} />
+        <Row icon="settings" label="Settings" onPress={() => router.push('/settings')} />
         <Row icon="mail" label="Contact and feedback" onPress={() => open('/contact')} last />
       </Animated.View>
       <Animated.View entering={enter(7)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>

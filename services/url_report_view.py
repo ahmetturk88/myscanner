@@ -6,7 +6,9 @@ the technical evidence below it does. The verdict itself is never changed here.
 """
 from urllib.parse import urlsplit
 
-from services.url_assessment import NOT_VISITED, mapping
+import re
+
+from services.url_assessment import NOT_VISITED, SHORT_UNRESOLVED, mapping
 
 VERDICTS = {
     'malicious': ('danger', 'DANGEROUS', 'Don’t open this link'),
@@ -29,18 +31,18 @@ REASONS = {
     'web_risk_social_engineering': ('bad', 'Google lists it as a scam', 'Google Web Risk lists this link as phishing or a scam page.'),
     'tls_invalid': ('bad', 'Its security certificate is invalid', 'Your browser would show a warning. Others could read or change what you send.'),
     'no_https': ('warn', 'No secure connection', 'The link uses plain HTTP, so what you type could be read by others on the network.'),
-    'typosquatting': ('warn', 'The name looks like another site', 'The address is very close to a well-known site’s name. Check the spelling carefully.'),
+    'typosquatting': ('warn', 'The name may imitate another site', 'A look-alike check flagged this name but couldn’t say which site it copies. Check the spelling yourself.'),
     'homoglyph': ('warn', 'Look-alike letters in the address', 'Some letters only look like normal ones, a trick used to imitate real sites.'),
     'punycode': ('warn', 'Unusual characters in the address', 'The address uses international characters, sometimes used to imitate real sites.'),
     'brand_mismatch': ('warn', 'It uses another company’s name', 'The page shows a brand that doesn’t match its address.'),
     'ip_url': ('warn', 'A number instead of a name', 'The link uses an IP address instead of a website name. Real companies rarely do this.'),
-    'shortener': ('info', 'A short link hides where it goes', 'Short links hide the real destination; we followed it to check where it leads.'),
+    'shortener': ('info', 'A short link hides where it goes', 'Short links hide the real destination; we followed it and checked where it leads.'),
     'url_phishing_patterns': ('warn', 'Words often used in scam links', 'The address uses words like “login” or “verify” that scam links often contain.'),
     'domain_randomness': ('warn', 'A random-looking name', 'The site name looks randomly generated, which is common for throwaway scam sites.'),
     'domain_history': ('warn', 'The site’s history raises concerns', 'Its registration record shows signs common on scam sites.'),
     'hidden_iframe': ('warn', 'Hidden content on the page', 'The page loads hidden content, a technique used to track or attack visitors.'),
     'redirect_behavior': ('warn', 'It sends you through several addresses', 'The link redirects several times before reaching the final page.'),
-    'content_indicators': ('warn', 'The page shows warning signs', 'The page contains wording or elements that are common on scam pages.'),
+    'content_indicators': ('warn', 'The page shows warning signs', 'The page has a form or wording that scam pages often use.'),
     'headers_weak': ('info', 'Some recommended protections are missing', 'Common on ordinary sites too; not a sign of a scam by itself.'),
     'unverified_report': ('info', 'An unconfirmed scam report', 'Someone reported this link as phishing; reviewers haven’t confirmed it yet.'),
 }
@@ -91,6 +93,16 @@ def defang(url):
     return text.replace('.', '[.]')
 
 
+def imitated(local, deep):
+    """The well-known site a look-alike name copies, when our analyzer named one."""
+    for data in (local, deep):
+        for issue in mapping(data.get('phishing')).get('issues') or []:
+            match = re.fullmatch(r'Possible typosquatting of ([a-z0-9-]{2,30}\.com)', issue) if isinstance(issue, str) else None
+            if match:
+                return match.group(1)
+    return ''
+
+
 def plain_report(assessment, local, deep, url):
     assessment, local, deep = mapping(assessment), mapping(local), mapping(deep)
     verdict = assessment.get('verdict') if assessment.get('verdict') in VERDICTS else 'unknown'
@@ -107,6 +119,8 @@ def plain_report(assessment, local, deep, url):
     login = page.get('has_login_form') is True or mapping(deep.get('page_content')).get('has_login_form') is True
     payment = page.get('has_payment_form') is True
     missing = [m for m in assessment.get('missing_checks') or [] if isinstance(m, str)]
+    unresolved = SHORT_UNRESOLVED in missing
+    copied = imitated(local, deep)
 
     reasons = []
     rank = {'bad': 0, 'warn': 1, 'info': 2}
@@ -117,6 +131,10 @@ def plain_report(assessment, local, deep, url):
         elif code == 'content_indicators' and (login or payment):
             title = 'It asks for your password' if login else 'It asks for payment details'
             detail = 'The page has a form that sends what you type to this site. Only enter it on sites you opened yourself.'
+        elif code == 'typosquatting' and copied:
+            title, detail = f'The name looks like {copied}', f'The address is very close to {copied} but isn’t it. Check the spelling carefully.'
+        elif code == 'shortener' and unresolved:
+            continue  # explained by the "couldn’t see where it leads" reason below
         elif code == 'domain_history' and age is not None and age < 365:
             title, detail = 'A very new site', f'The site was registered {age_text(age)} ago. Scam sites are usually new.'
         reasons.append({'tone': kind, 'title': title, 'detail': detail})
@@ -130,13 +148,21 @@ def plain_report(assessment, local, deep, url):
             good.append({'tone': 'ok', 'title': 'A long-established site', 'detail': f'The address was registered {age_text(age)} ago.'})
         elif assessed('identity') and not (LOOK_ALIKE | ADDRESS) & set(found):
             good.append({'tone': 'ok', 'title': 'No look-alike tricks', 'detail': 'The address doesn’t imitate another site’s name.'})
-        reasons = good + [r for r in reasons if r['tone'] == 'info']
+        # A minor warning that didn't change the verdict is still shown, so every
+        # warning in the checks list has a reason next to it.
+        reasons = [r for r in reasons if r['tone'] == 'warn'] + good + [r for r in reasons if r['tone'] == 'info']
     warnings = [r for r in reasons if r['tone'] in ('bad', 'warn')]
+    if tone in ('danger', 'caution') and not warnings:
+        # Never a warning verdict without a visible reason (v10 invariant).
+        warnings = [{'tone': 'warn', 'title': 'Several small warning signs', 'detail': 'None is serious alone, but together they lowered the score. The technical evidence lists each one.'}]
+        reasons = warnings + reasons
     if len(warnings) >= 3:
         reasons = warnings  # minor notes stay in the technical evidence
     if verdict == 'unknown':
         if reputation_only:
             reasons.insert(0, {'tone': 'na', 'title': 'We didn’t open the page', 'detail': 'It uses an unusual port, so only its reputation was checked.'})
+        elif unresolved:
+            reasons.insert(0, {'tone': 'warn', 'title': 'We couldn’t see where it leads', 'detail': 'The short-link service showed its own page instead of sending us on, so the real destination wasn’t checked.'})
         elif missing:
             count = len(missing)
             reasons.insert(0, {'tone': 'na', 'title': 'Some checks couldn’t run', 'detail': f'{count} check' + (' was' if count == 1 else 's were') + ' unavailable, so we can’t call it safe.'})
@@ -164,14 +190,20 @@ def plain_report(assessment, local, deep, url):
                    'Not sure? Ask the sender through another app or a phone call.']
     elif tone == 'unknown':
         summary = ('It uses an unusual port, so we only checked its reputation and didn’t open the page.' if reputation_only
+                   else 'It’s a short link, and we couldn’t see the page it really leads to. Don’t trust it yet.' if unresolved
                    else 'Some checks couldn’t run, so we can’t say it’s safe. Nothing we did check looked dangerous.' if not warnings
                    else 'Some checks couldn’t run, and we found a few warning signs.')
         actions = ['Treat it with care until it can be checked fully.',
                    'Don’t enter passwords or payment details unless you opened the site yourself.',
                    'Try scanning it again in a few minutes.']
     else:
-        summary = 'It isn’t on any threat list we checked, and we found no warning signs.'
-        actions = ['You can open this link.', 'Even on safe sites, only sign in on pages you opened yourself.']
+        if warnings:
+            headline = 'No serious warning signs'
+            summary = 'It isn’t on any threat list we checked. We noticed a minor sign, explained below.'
+        else:
+            summary = 'It isn’t on any threat list we checked, and we found no warning signs.'
+        actions = ['Nothing we checked suggests it’s dangerous right now.',
+                   'Only sign in or pay on pages you opened yourself, not from a link in a message.']
 
     def check(name, state, result):
         return {'name': name, 'state': state, 'result': result}
@@ -184,12 +216,13 @@ def plain_report(assessment, local, deep, url):
         check('Secure connection', 'bad', 'Invalid certificate') if 'tls_invalid' in codes else
         check('Secure connection', 'warn', 'No HTTPS') if 'no_https' in codes else
         check('Secure connection', 'ok', 'Valid HTTPS') if assessed('transport') else check('Secure connection', 'na', 'Not checked'),
-        check('Look-alike or fake brand', 'warn', brand if 'brand_mismatch' in codes and brand else 'Found') if codes & LOOK_ALIKE else
+        check('Look-alike or fake brand', 'warn', brand if 'brand_mismatch' in codes and brand else copied if 'typosquatting' in codes and copied else 'Possible') if codes & LOOK_ALIKE else
         check('Look-alike or fake brand', 'ok', 'None') if assessed('identity') else check('Look-alike or fake brand', 'na', 'Not checked'),
-        check('Suspicious address', 'warn', 'Short link' if codes & ADDRESS == {'shortener'} else 'Found') if codes & ADDRESS else
+        check('Suspicious address', 'warn', 'Short link' if codes & ADDRESS == {'shortener'} else 'Found') if codes & ADDRESS - {'shortener'} or unresolved else
+        check('Suspicious address', 'info', 'Short link') if 'shortener' in codes else
         check('Suspicious address', 'ok', 'None') if assessed('identity') else check('Suspicious address', 'na', 'Not checked'),
         check('Site age', 'warn' if age < 90 else 'ok', age_text(age)) if age is not None else
-        check('Site age', 'warn', 'Risk signs') if 'domain_history' in codes else check('Site age', 'na', 'Unknown'),
+        check('Site age', 'warn', 'Risk signs') if 'domain_history' in codes else check('Site age', 'na', 'Not available'),
         check('Page content', 'warn', 'Asks for password' if login else 'Warning signs') if codes & {'content_indicators', 'hidden_iframe'} else
         check('Page content', 'ok', 'Nothing unusual') if assessed('content') else check('Page content', 'na', not_opened),
         check('Redirects', 'warn', 'Several') if 'redirect_behavior' in codes else

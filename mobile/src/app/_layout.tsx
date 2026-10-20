@@ -7,9 +7,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { loadSettings } from '@/lib/settings';
 import { colors } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
+loadSettings();
 
 const theme = {
   ...DarkTheme,
@@ -35,6 +37,7 @@ function Navigator() {
         <Stack.Screen name="file" />
         <Stack.Screen name="qr" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="delete-account" />
+        <Stack.Screen name="settings" />
       </Stack.Protected>
       <Stack.Protected guard={!user}>
         <Stack.Screen name="login" options={{ animation: 'fade' }} />

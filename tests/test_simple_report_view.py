@@ -71,14 +71,26 @@ class SSLTests(unittest.TestCase):
         self.assertEqual(checks(plain)['Encryption'], ('ok', 'TLS 1.3'))
 
     def test_expired_certificate(self):
-        failed = ssl(valid=False, days_remaining=-3, tls_version='TLSv1.2',
+        failed = ssl(valid=False, days_remaining=-4209, tls_version='TLSv1.2', reason_code='expired',
                      findings=[{'severity': 'danger', 'title': 'Certificate has expired'}])
+        failed['checks'][2]['status'] = 'unavailable'
         failed['checks'][4]['status'] = 'invalid'
         plain = plain_ssl_report(failed)
-        self.assertEqual((plain['tone'], plain['label']), ('caution', 'NOT SECURE'))
+        # Browsers block the page, so a failed certificate is red, and it is counted once.
+        self.assertEqual((plain['tone'], plain['label']), ('danger', 'NOT SECURE'))
         self.assertEqual(plain['reasons'][0]['title'], 'Certificate has expired')
-        self.assertEqual(checks(plain)['In date'], ('bad', 'Expired or not yet valid'))
+        self.assertIn('It ran out 11 years ago.', plain['reasons'][0]['detail'])
+        self.assertNotIn('This checks the connection only', [r['title'] for r in plain['reasons']])
+        self.assertEqual(checks(plain)['Valid until'], ('bad', 'Expired 11 years ago'))
+        self.assertNotIn('In date', checks(plain))
+        self.assertEqual(checks(plain)['Trusted issuer'], ('na', 'Couldn’t confirm'))
+        self.assertEqual(plain['tally'], '1 bad · 2 fine · 1 not checked')
         self.assertIn('example[.]com', plain['share_text'])
+
+    def test_each_failure_has_its_own_explanation(self):
+        details = {plain_ssl_report(ssl(valid=False, reason_code=code))['reasons'][0]['detail']
+                   for code in ('self_signed', 'self_signed_chain', 'hostname_mismatch', 'untrusted_issuer')}
+        self.assertEqual(len(details), 4)
 
     def test_old_protocol(self):
         plain = plain_ssl_report(ssl(tls_version='TLSv1'))

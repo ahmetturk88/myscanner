@@ -85,6 +85,17 @@ Sign in with the email and password above. All tools are on the Home tab. To tes
 ### Ads
 **No, my app does not contain ads.**
 
+### Advertising ID
+**No.** No SDK in the app reads it, and `app.json` blocks
+`com.google.android.gms.permission.AD_ID` so a future dependency can't add it
+silently.
+
+### Content questionnaire notes
+- Users interact or exchange content: **No** (sharing a warning opens the phone's share sheet).
+- Digital content not in the original download: **Yes** (AI explanations and page screenshots).
+- Web browser or search engine: **No**. News or education app: **No**.
+- Financial features: **My app doesn't provide any financial features.**
+
 ### Content rating (IARC questionnaire)
 - Category: **Utility, Productivity, Communication or Other**
 - Violence, sexuality, language, controlled substances, gambling: **No** to all
@@ -97,8 +108,9 @@ Sign in with the email and password above. All tools are on the Home tab. To tes
 Expected result: Everyone / PEGI 3.
 
 ### Target audience
-**18 and over** only. Don't select younger ages: that brings in the Families
-policy, which this app is not designed for.
+**16–17 and 18 and over** (the terms of service set the minimum age at 16).
+Never select an age group under 13: that brings in the Families policy, which
+this app is not designed for.
 
 ### News app
 **No.**

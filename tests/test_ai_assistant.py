@@ -147,9 +147,15 @@ class ProviderTests(unittest.TestCase):
                 ai_assistant.collect(ai_assistant.chat_stream('ip', '{}', [], 'hi'))
 
     def test_providers_follow_configured_order_and_skip_missing_keys(self):
-        env = {'AI_PROVIDERS': 'groq,gemini', 'GROQ_API_KEY': 'q' * 20, 'GEMINI_API_KEY': '', 'AI_GROQ_MODEL': 'm1'}
+        env = {'AI_PROVIDERS': 'groq,gemini', 'GROQ_API_KEY': 'q' * 20, 'GEMINI_API_KEY': '', 'AI_GROQ_MODEL': 'm1', 'AI_GROQ_FALLBACK_MODEL': ''}
         with patch.dict('os.environ', env, clear=False):
             self.assertEqual(ai_assistant.providers(), [('groq', 'q' * 20, 'm1')])
+
+    def test_fallback_models_follow_every_main_model(self):
+        env = {'AI_PROVIDERS': 'groq,gemini', 'GROQ_API_KEY': 'q' * 20, 'GEMINI_API_KEY': 'g' * 20,
+               'AI_GROQ_MODEL': 'm1', 'AI_GROQ_FALLBACK_MODEL': 'm2', 'AI_GEMINI_MODEL': 'g1', 'AI_GEMINI_FALLBACK_MODEL': 'g1'}
+        with patch.dict('os.environ', env, clear=False):
+            self.assertEqual(ai_assistant.providers(), [('groq', 'q' * 20, 'm1'), ('gemini', 'g' * 20, 'g1'), ('groq', 'q' * 20, 'm2')])
 
     def test_gemini_thinking_budget_can_be_left_to_the_model(self):
         with patch.dict('os.environ', {'AI_GEMINI_THINKING_BUDGET': 'default'}), \

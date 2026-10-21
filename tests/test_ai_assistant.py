@@ -69,6 +69,23 @@ class EvidenceAndParsingTests(unittest.TestCase):
         huge = {'rows': [{'k': 'v' * 400} for _ in range(25)] * 20}
         self.assertLessEqual(len(ai_assistant.sanitize_evidence(huge)), ai_assistant.EVIDENCE_LIMIT)
 
+    def test_final_verdict_comes_first_and_analyzer_opinions_are_inputs(self):
+        evidence = {'plain': {'tone': 'safe', 'label': 'Looks safe', 'headline': 'No warning signs found'},
+                    'url': 'https://myscanners.com', 'verdict': 'safe',
+                    'local_analysis': {'verdict': 'suspicious', 'local_verdict': 'suspicious', 'verdict_icon': 'x', 'domain': 'myscanners.com'},
+                    'urlvet': {'verdict': 'suspicious', 'trust_score': 40},
+                    'aggregate_assessment': {'verdict': 'safe'}}
+        data = json.loads(ai_assistant.sanitize_evidence(evidence))
+        self.assertEqual(next(iter(data)), 'final_verdict')
+        self.assertEqual(data['final_verdict']['label'], 'Looks safe')
+        self.assertNotIn('verdict', data)
+        self.assertNotIn('verdict', data['local_analysis']);self.assertNotIn('verdict_icon', data['local_analysis'])
+        self.assertEqual(data['local_analysis']['raw_opinion_not_the_verdict'], {'verdict': 'suspicious', 'local_verdict': 'suspicious'})
+        self.assertEqual(data['urlvet']['raw_opinion_not_the_verdict'], {'verdict': 'suspicious'})
+        self.assertEqual(data['aggregate_assessment'], {'verdict': 'safe'})
+        # Reports without a final verdict pass through unchanged.
+        self.assertEqual(json.loads(ai_assistant.sanitize_evidence({'verdict': 'x'})), {'verdict': 'x'})
+
     def test_labelled_text_becomes_the_fixed_plain_text_shape(self):
         result = ai_assistant.parse_explanation(GOOD)
         self.assertEqual(result['headline'], 'This link imitates a bank login page.')

@@ -221,8 +221,8 @@ def _gemini(key, model, system, turns, max_tokens):
     # Some models (gemini-flash-lite-latest) reject thinkingBudget 0 with a 400; ask again with the model's default.
     if response.status_code == 400 and 'thinkingConfig' in config:
         response.close()
-        del config['thinkingConfig']
-        response = _gemini_post(key, model, body)
+        config = {k: v for k, v in config.items() if k != 'thinkingConfig'}
+        response = _gemini_post(key, model, body | {'generationConfig': config})
     with response:
         if response.status_code != 200:
             raise AIUnavailable(f'gemini_http_{response.status_code}')

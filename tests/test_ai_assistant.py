@@ -28,6 +28,9 @@ class FakeStream:
     def __exit__(self, *exc):
         return False
 
+    def close(self):
+        pass
+
     def iter_lines(self, decode_unicode=False):
         for index, line in enumerate(self.lines):
             if index == self.fail_after:
@@ -156,6 +159,14 @@ class ProviderTests(unittest.TestCase):
                'AI_GROQ_MODEL': 'm1', 'AI_GROQ_FALLBACK_MODEL': 'm2', 'AI_GEMINI_MODEL': 'g1', 'AI_GEMINI_FALLBACK_MODEL': 'g1'}
         with patch.dict('os.environ', env, clear=False):
             self.assertEqual(ai_assistant.providers(), [('groq', 'q' * 20, 'm1'), ('gemini', 'g' * 20, 'g1'), ('groq', 'q' * 20, 'm2')])
+
+    def test_gemini_retries_without_thinking_budget_when_the_model_rejects_it(self):
+        with patch.object(ai_assistant, 'providers', return_value=PROVIDERS[:1]), \
+             patch('services.ai_assistant.requests.post', side_effect=[gemini_stream(status=400), gemini_stream('ok')]) as post:
+            text, provider = ai_assistant.collect(ai_assistant.general_stream([], 'hi'))
+        self.assertEqual((text, provider), ('ok', 'gemini'))
+        self.assertIn('thinkingConfig', post.call_args_list[0].kwargs['json']['generationConfig'])
+        self.assertNotIn('thinkingConfig', post.call_args_list[1].kwargs['json']['generationConfig'])
 
     def test_gemini_thinking_budget_can_be_left_to_the_model(self):
         with patch.dict('os.environ', {'AI_GEMINI_THINKING_BUDGET': 'default'}), \

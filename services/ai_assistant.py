@@ -203,6 +203,12 @@ def _sse_data(response):
             continue
 
 
+def _gemini_post(key, model, body):
+    return requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent',
+                         params={'alt': 'sse'}, headers={'x-goog-api-key': key, 'Content-Type': 'application/json'},
+                         json=body, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), stream=True)
+
+
 def _gemini(key, model, system, turns, max_tokens):
     config = {'temperature': 0.3, 'maxOutputTokens': max_tokens}
     budget = os.environ.get('AI_GEMINI_THINKING_BUDGET', '0').strip()
@@ -211,9 +217,13 @@ def _gemini(key, model, system, turns, max_tokens):
     body = {'systemInstruction': {'parts': [{'text': system}]},
             'contents': [{'role': 'model' if t['role'] == 'assistant' else 'user', 'parts': [{'text': t['text']}]} for t in turns],
             'generationConfig': config}
-    with requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent',
-                       params={'alt': 'sse'}, headers={'x-goog-api-key': key, 'Content-Type': 'application/json'},
-                       json=body, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), stream=True) as response:
+    response = _gemini_post(key, model, body)
+    # Some models (gemini-flash-lite-latest) reject thinkingBudget 0 with a 400; ask again with the model's default.
+    if response.status_code == 400 and 'thinkingConfig' in config:
+        response.close()
+        del config['thinkingConfig']
+        response = _gemini_post(key, model, body)
+    with response:
         if response.status_code != 200:
             raise AIUnavailable(f'gemini_http_{response.status_code}')
         for event in _sse_data(response):

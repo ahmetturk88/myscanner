@@ -23,7 +23,7 @@ TOOLS = {
     'subdomain': 'Subdomain finder', 'qr': 'QR code scanner', 'password': 'Password security checker',
 }
 LANGUAGES = {'en': 'Write the explanation in clear English.'}
-EVIDENCE_LIMIT = 30000
+EVIDENCE_LIMIT = 16000  # about 4k tokens; 30k characters hit the free tiers' per-minute limits
 CHAT_MESSAGE_LIMIT = 1000
 CHAT_HISTORY_TURNS = 10
 CONNECT_TIMEOUT = 10
@@ -76,19 +76,35 @@ class AIUnavailable(Exception):
     """No configured provider produced a usable answer."""
 
 
+# Each provider also gets a lighter fallback model: limits and overload are per
+# model, so a second model often answers when the first returns 429 or 503.
+DEFAULT_MODELS = {'gemini': ('AI_GEMINI_MODEL', 'gemini-flash-latest', 'AI_GEMINI_FALLBACK_MODEL', 'gemini-flash-lite-latest'),
+                  'groq': ('AI_GROQ_MODEL', 'openai/gpt-oss-120b', 'AI_GROQ_FALLBACK_MODEL', 'openai/gpt-oss-20b')}
+
+
 def providers():
-    """Configured providers in fallback order, as (name, key, model) tuples."""
+    """Configured providers in fallback order, as (name, key, model) tuples.
+
+    Every provider's main model comes first, then the fallback models in the same order.
+    """
     keys = {'gemini': gemini_key, 'groq': groq_key}
-    models = {'gemini': os.environ.get('AI_GEMINI_MODEL', 'gemini-flash-latest'),
-              'groq': os.environ.get('AI_GROQ_MODEL', 'openai/gpt-oss-120b')}
-    order = [name.strip() for name in os.environ.get('AI_PROVIDERS', 'gemini,groq').split(',')]
-    result = []
+    order = []
+    for name in os.environ.get('AI_PROVIDERS', 'gemini,groq').split(','):
+        name = name.strip()
+        if name in keys and name not in order:
+            order.append(name)
+    main, fallback = [], []
     for name in order:
-        if name in keys and name not in [r[0] for r in result]:
-            key = keys[name]()
-            if key:
-                result.append((name, key, models[name].strip()))
-    return result
+        key = keys[name]()
+        if not key:
+            continue
+        model_env, model_default, fallback_env, fallback_default = DEFAULT_MODELS[name]
+        model = os.environ.get(model_env, model_default).strip()
+        spare = os.environ.get(fallback_env, fallback_default).strip()
+        main.append((name, key, model))
+        if spare and spare != model:
+            fallback.append((name, key, spare))
+    return main + fallback
 
 
 def enabled():

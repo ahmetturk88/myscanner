@@ -261,7 +261,11 @@
         await ask(log, `/api/ai/contexts/${encodeURIComponent(id)}/chat`, {message});
         busy(false, '');
       } catch (error) {
-        busy(false, error.message);
+        // The panel's status line sits above the explanation, out of view while
+        // chatting, so failures looked like silence. Say it where the user is looking.
+        addMessage(log, 'error', error.message);
+        input.value = message;
+        busy(false, '');
       }
     });
 

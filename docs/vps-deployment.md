@@ -230,7 +230,11 @@ and answers are validated and rendered as text.
 - Providers are tried in `AI_PROVIDERS` order (default `gemini,groq`); the next
   one answers when one fails or is rate limited. Models: `AI_GEMINI_MODEL`
   (default `gemini-flash-latest`) and `AI_GROQ_MODEL` (default
-  `openai/gpt-oss-120b`), both overridable in `.env.vps.rehearsal`.
+  `openai/gpt-oss-120b`), both overridable in `.env.vps.rehearsal`. After every
+  main model fails, the fallback models are tried: `AI_GEMINI_FALLBACK_MODEL`
+  (default `gemini-flash-lite-latest`) and `AI_GROQ_FALLBACK_MODEL` (default
+  `openai/gpt-oss-20b`); set one empty to turn it off. Rate limits and overload
+  are per model, so these often answer when the main models return 429 or 503.
 - Keys live in `.deploy/rehearsal/gemini_api_key` and `groq_api_key` (empty
   disables a provider; with both empty the panel is hidden).
 - Each new explanation or chat answer costs one `ai_assistant` unit (10 per day

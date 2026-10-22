@@ -1,6 +1,6 @@
 {
   "name": "myscanner-mobile",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",

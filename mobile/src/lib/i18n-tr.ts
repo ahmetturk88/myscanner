@@ -426,4 +426,5 @@ export const TR: Record<string, string> = {
   "A new version of MyScanner is ready with the latest improvements.": "MyScanner'ın en son iyileştirmeleri içeren yeni sürümü hazır.",
   "Later": "Sonra",
   "Update": "Güncelle",
+  "MyScanner on LinkedIn": "LinkedIn'de MyScanner",
 };

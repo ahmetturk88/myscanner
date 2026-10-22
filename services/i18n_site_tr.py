@@ -342,6 +342,8 @@ SITE_TR = {
     'Email': 'E-posta',
     'Best for detailed questions and attachments.': 'Ayrıntılı sorular ve ekler için en iyisi.',
     'Copy address': 'Adresi kopyala',
+    'Follow MyScanner': 'MyScanner\'ı takip et',
+    'Scam alerts, security tips and product updates.': 'Dolandırıcılık uyarıları, güvenlik ipuçları ve ürün güncellemeleri.',
     'Phone': 'Telefon',
     'Mon–Fri 9:00–18:00 · Sat 10:00–16:00 (GMT+3)': 'Pzt–Cum 9:00–18:00 · Cmt 10:00–16:00 (GMT+3)',
     'Copy number': 'Numarayı kopyala',

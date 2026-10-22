@@ -48,6 +48,9 @@ class SeoTests(unittest.TestCase):
         graph = json.loads(page.find('script', type='application/ld+json').string)['@graph']
         org = next(node for node in graph if node['@type'] == 'Organization')
         self.assertTrue(org['logo'].endswith('brand/myscanner-mark.png'))
+        self.assertIn('https://www.linkedin.com/company/myscanners/', org['sameAs'])
+        footer = page.find('footer')
+        self.assertTrue(footer.find('a', href='https://www.linkedin.com/company/myscanners/'))
         self.assertEqual(self.client.get('/static/brand/myscanner-mark.png').status_code, 200)
 
     def test_structured_data_only_on_home(self):

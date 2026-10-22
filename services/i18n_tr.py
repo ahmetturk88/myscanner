@@ -512,6 +512,20 @@ TR = {
     'You can open it if you expected it from someone you trust.': 'Güvendiğin birinden bekliyorsan açabilirsin.',
     'If a document asks you to enable macros or content, don’t.': 'Bir belge senden makroları ya da içeriği etkinleştirmeni isterse yapma.',
     'Malware library': 'Kötü amaçlı yazılım kütüphanesi',
+    'Antivirus': 'Antivirüs',
+    'Malware found': 'Kötü amaçlı yazılım bulundu',
+    'Warning': 'Uyarı',
+    'Clean': 'Temiz',
+    'Test file detected': 'Test dosyası algılandı',
+    'Antivirus found malware': 'Antivirüs kötü amaçlı yazılım buldu',
+    'ClamAV, an antivirus engine, recognises it as {signature}.':
+        'Bir antivirüs motoru olan ClamAV bu dosyayı {signature} olarak tanıyor.',
+    'Antivirus warning': 'Antivirüs uyarısı',
+    'ClamAV flags a risky feature in it ({signature}). This is a warning sign, not proof of malware.':
+        'ClamAV dosyada riskli bir özellik işaretliyor ({signature}). Bu bir uyarı işaretidir, kötü amaçlı yazılım kanıtı değildir.',
+    'Antivirus found nothing': 'Antivirüs bir şey bulmadı',
+    'ClamAV, an antivirus engine updated every day, found no known malware in it.':
+        'Her gün güncellenen bir antivirüs motoru olan ClamAV, dosyada bilinen bir kötü amaçlı yazılım bulmadı.',
     'Real file type': 'Gerçek dosya türü',
     'Program in disguise': 'Kılık değiştirmiş program',
     'Antivirus test file': 'Antivirüs test dosyası',

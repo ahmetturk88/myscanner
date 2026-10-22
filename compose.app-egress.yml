@@ -37,6 +37,7 @@ services:
     environment: {SCANNER_ROLE: worker}
     networks: [data, outbound, urlvet-api]
     depends_on:
+      clamav: {condition: service_started}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
       urlvet-egress: {condition: service_healthy}

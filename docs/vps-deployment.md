@@ -243,6 +243,28 @@ and answers are validated and rendered as text.
 
 Check the setup from the server: `docker compose ... exec web python -m services.ai_selfcheck`.
 
+## File scanner antivirus (ClamAV)
+
+The `clamav` service (image `clamav/clamav:1.5`) runs clamd and freshclam.
+Workers send each uploaded file to `clamav:3310` (`CLAMAV_HOST`; empty turns it
+off) over clamd's INSTREAM protocol. A signature match makes the file
+malicious; `Heuristics.*` and `PUA.*` names make it suspicious; an unreachable
+scanner adds "Antivirus scan unavailable" to the missing checks.
+
+- First start downloads about 400 MB of signatures and takes a few minutes;
+  until then file reports say the antivirus was unavailable.
+- Memory: about 1.2 GB with `ConcurrentDatabaseReload no` (limit 2 GB). The
+  host has no swap by default; add 2 GB as a safety margin:
+  `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab`
+- Signatures update 12 times a day (`FRESHCLAM_CHECKS`).
+- The worker egress rules allow only TCP 3310 to the resolved clamav address;
+  if clamav is missing at start the worker still starts without it. The rule
+  holds the address seen at start, so after clamav is recreated run
+  `dc up -d --force-recreate worker-egress worker tip-worker bulk-worker`.
+
+Check it from the server: `docker compose ... exec worker python -m services.clamav_client`
+(prints PASS when the EICAR test string is detected).
+
 ## Google and GitHub sign-in
 
 A provider button appears only when both its client id and secret are set.

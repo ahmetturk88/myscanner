@@ -56,10 +56,17 @@ def plain_file_report(report):
     suspicious = [s for s in meta.get('suspicious') or [] if isinstance(s, str)]
     remote = any('External Office relationship:' in s for s in suspicious)
     encrypted = meta.get('encrypted') is True or bool(meta.get('encrypted_members'))
-    links = len(iocs.get('urls') or []) if isinstance(iocs.get('urls'), list) else 0
+    found_links = iocs.get('url') if isinstance(iocs.get('url'), list) else iocs.get('urls')
+    links = len(found_links) if isinstance(found_links, list) else 0
     darkweb = bool(iocs.get('onion_addresses') or iocs.get('bitcoin_addresses'))
     metadata_failed = bool(meta.get('error') or meta.get('metadata_error'))
     missing = [m for m in report.get('missing_checks') or [] if isinstance(m, str)]
+    antivirus = mapping(report.get('antivirus'))
+    av_status = antivirus.get('status')
+    av_signature = antivirus.get('signature') if isinstance(antivirus.get('signature'), str) else ''
+    av_signature = av_signature[:80] or 'a known signature'
+    av_malware = av_status == 'found' and antivirus.get('kind') == 'malware' and not eicar
+    av_heuristic = av_status == 'found' and antivirus.get('kind') == 'heuristic' and not eicar
 
     reasons = []
     def add(kind_, title, detail):
@@ -69,6 +76,10 @@ def plain_file_report(report):
         add('info', 'The EICAR test file', 'It is harmless by design. Security tools report it as malware on purpose, so people can check that they work.')
     if matched:
         add('bad', 'Known malware', 'MalwareBazaar, a public malware library, has this exact file' + (f', named {signature}.' if signature else '.'))
+    if av_malware:
+        add('bad', 'Antivirus found malware', f'ClamAV, an antivirus engine, recognises it as {av_signature}.')
+    elif av_heuristic:
+        add('warn', 'Antivirus warning', f'ClamAV flags a risky feature in it ({av_signature}). This is a warning sign, not proof of malware.')
     if disguise:
         hidden = 'right-to-left' in disguise
         add('bad', 'The name hides a program' if not hidden else 'The name is reversed on purpose',
@@ -93,6 +104,8 @@ def plain_file_report(report):
     if encrypted:
         add('info', 'Password-protected contents', 'We couldn’t look inside the locked parts. Scammers lock files to hide malware from scanners.')
     if verdict == 'not_found' and not reasons:
+        if av_status == 'clean':
+            add('ok', 'Antivirus found nothing', 'ClamAV, an antivirus engine updated every day, found no known malware in it.')
         if provider.get('status') == 'not_found':
             add('ok', 'Not in the malware library', 'MalwareBazaar doesn’t know this exact file as malware.')
         if not metadata_failed and not any(meta.get(key) is True for key, _ in HIDDEN_CODE):
@@ -112,7 +125,7 @@ def plain_file_report(report):
         actions = ['Nothing to worry about if you were testing a security tool.',
                    'Didn’t expect this file? Delete it and ask the sender why they sent it.']
     elif tone == 'danger':
-        summary = ('It is a known piece of malware. Opening it could infect your device.' if matched
+        summary = ('It is a known piece of malware. Opening it could infect your device.' if matched or av_malware
                    else 'It is a program disguised as a document, a common way to spread malware.' if disguise
                    else 'We found strong warning signs. Treat it as dangerous.')
         actions = ['Don’t open or run this file. Delete it.',
@@ -144,6 +157,11 @@ def plain_file_report(report):
     checks = [
         check('Malware library', 'bad', signature or 'Known malware') if matched else
         check('Malware library', 'ok', 'Not listed') if provider.get('status') == 'not_found' else check('Malware library', 'na', 'Not checked'),
+        *([check('Antivirus', 'ok', 'Test file detected') if eicar and av_status == 'found' else
+           check('Antivirus', 'bad', 'Malware found') if av_malware else
+           check('Antivirus', 'warn', 'Warning') if av_heuristic else
+           check('Antivirus', 'ok', 'Clean') if av_status == 'clean' else
+           check('Antivirus', 'na', 'Not checked')] if av_status in ('found', 'clean', 'unavailable') else []),
         check('Real file type', 'bad', 'Program in disguise') if disguise else
         check('Real file type', 'ok', 'Antivirus test file') if eicar else
         check('Real file type', 'warn', 'Doesn’t match name') if kind.get('is_spoofed') is True else

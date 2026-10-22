@@ -47,7 +47,7 @@
         <details class="fw-supported"><summary>Supported file types</summary><p>Any file up to 50 MB: its real format is read from its bytes, not its name. Deepest checks for:<br>EXE · DLL · SCR · MSI · ELF<br>PDF · DOC · DOCX · XLS · XLSX · PPT · PPTX<br>ZIP · RAR · 7Z<br>JS · PY · PS1 · SH · BAT · VBS and other text<br>JPG · PNG · GIF images</p></details>
       </aside>
     </div>
-    <p class="fw-upload-disclosure">The selected file is sent to MyScanner for analysis. Hash reputation queries use its fingerprint. Avoid uploading sensitive documents. This is static inspection, not a sandbox or an antivirus guarantee.</p>
+    <p class="fw-upload-disclosure">The selected file is sent to MyScanner for analysis. Hash reputation queries use its fingerprint. Avoid uploading sensitive documents. It is checked with static inspection and the ClamAV antivirus engine on our own server; it is never run, and no scan can guarantee safety.</p>
   </section>
 
   <section class="fw-loading" id="loading-div" aria-labelledby="loading-title" hidden>
@@ -78,6 +78,6 @@
   <div class="fw-feedback" id="file-feedback" role="status" aria-live="polite"></div>
 </div>
 <script src="{{ url_for('static', filename='plain_report.js', v='20261020-1') }}" defer></script>
-<script src="{{ url_for('static', filename='file_workspace.js', v='20261022-1') }}" defer></script>
+<script src="{{ url_for('static', filename='file_workspace.js', v='20261022-2') }}" defer></script>
 {% endblock %}
 

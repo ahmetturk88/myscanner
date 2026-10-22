@@ -1033,6 +1033,10 @@ class FileDeepAnalyzer:
         
         # 7. سمعة التجزئة
         hash_reputation = self.check_hash_reputation(hashes["sha256"])
+
+        # 7b. Antivirus engine (ClamAV); a signature match is a confirmed finding.
+        from services.clamav_client import scan_bytes
+        antivirus = scan_bytes(file_content)
         
         # 8. حساب درجة الخطورة (معدلة)
         security_score = 100
@@ -1174,6 +1178,16 @@ class FileDeepAnalyzer:
         if file_type.get('actual_type') == 'unknown':missing_checks.append('File format could not be identified')
         if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
         # Byte-pattern heuristics are not a signature engine or a sandbox.
+        if antivirus.get('status') == 'unavailable':missing_checks.append('Antivirus scan unavailable')
+        if antivirus.get('status') == 'found':
+            signature = antivirus.get('signature') or 'unnamed signature'
+            if antivirus.get('kind') == 'malware':
+                verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
+                recommendations.insert(0,f'🚨 Antivirus (ClamAV) detected known malware: {signature}. Do not open this file.')
+            elif verdict != 'malicious':
+                # Heuristics.* and PUA.* describe risky features, not known malware.
+                verdict='suspicious';verdict_icon='⚠️';severity='medium';security_score=min(security_score,55)
+                recommendations.insert(0,f'⚠️ Antivirus (ClamAV) flags a risky feature: {signature}.')
         if hash_reputation.get('is_malicious') is True:
             verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
         if eicar:
@@ -1188,7 +1202,7 @@ class FileDeepAnalyzer:
             "filename": original_filename,
             "coverage_status": "partial" if missing_checks else "completed",
             "missing_checks": missing_checks,
-            "scope": "Static metadata, byte patterns and hash reputation; no execution, sandbox or antivirus guarantee.",
+            "scope": "Static metadata, byte patterns, hash reputation and an antivirus engine when available; no execution or sandbox, and no guarantee of safety.",
             "file_size_bytes": file_size,
             "file_size_mb": round(file_size / 1024 / 1024, 2),
             "file_type": file_type,
@@ -1198,6 +1212,7 @@ class FileDeepAnalyzer:
             "iocs": iocs,
             "yara": yara_result,
             "hash_reputation": hash_reputation,
+            "antivirus": antivirus,
             "warnings": warnings,
             "security_score": security_score,
             "verdict": verdict,

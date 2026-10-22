@@ -2,7 +2,7 @@
   "expo": {
     "name": "MyScanner",
     "slug": "myscanner",
-    "version": "0.7.3",
+    "version": "0.7.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myscanner",
@@ -17,7 +17,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 10,
+      "versionCode": 11,
       "blockedPermissions": [
         "com.google.android.gms.permission.AD_ID"
       ]

@@ -4,21 +4,21 @@
  * packets between nodes, a scan beam sweeps down the screen, and now and then
  * a red packet is stopped at a checkpoint node.
  *
- * Everything moves on the UI thread from one clock (useFrameCallback, ~30 fps).
- * The clock stops when the screen is not focused, and the network is drawn
- * still for people who turn on Reduce motion.
+ * The grid is drawn once and kept as a texture; packets are plain views moved
+ * with transforms on the UI thread from one clock (useFrameCallback, ~30 fps),
+ * so nothing is redrawn while they move. The clock starts after the screen
+ * transition, stops when the screen is not focused, and the network is still
+ * for people who turn on Reduce motion.
  */
 import { useIsFocused } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedProps, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { InteractionManager, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 import { Glow } from '@/components/motion';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const CELL = 34;
 const CYAN = '#77dcff';
@@ -94,36 +94,66 @@ function travel(p: Packet, time: number) {
   return (time * p.speed + p.offset) % cycle;
 }
 
+/**
+ * One data packet. Everything here animates transform and opacity only, so the
+ * GPU moves it without redrawing anything; the grid underneath is drawn once.
+ */
 function DataPacket({ p, clock }: { p: Packet; clock: SharedValue<number> }) {
-  const trail = useAnimatedProps(() => {
+  const head = useAnimatedStyle(() => {
     const d = travel(p, clock.value);
-    if (d > p.route.total) return { d: 'M0 0', strokeOpacity: 0 };
-    const [ax, ay] = point(p.route, d);
-    const [bx, by] = point(p.route, d - p.tail / 2);
-    const [cx, cy] = point(p.route, d - p.tail);
-    return { d: `M${ax} ${ay}L${bx} ${by}L${cx} ${cy}`, strokeOpacity: 0.5 };
-  });
-  const head = useAnimatedProps(() => {
-    const d = travel(p, clock.value);
-    if (d > p.route.total) return { cx: -20, cy: -20, opacity: 0 };
+    if (d > p.route.total) return { opacity: 0 };
     const [x, y] = point(p.route, d);
-    return { cx: x, cy: y, opacity: 1 };
+    return { opacity: 1, transform: [{ translateX: x - HEAD / 2 }, { translateY: y - HEAD / 2 }] };
   });
-  const burst = useAnimatedProps(() => {
+  // The trail lies along the current run; one view for horizontal runs, one for vertical.
+  const trail = (horizontal: boolean) => {
+    'worklet';
+    const d = travel(p, clock.value);
+    if (d > p.route.total || d < 2) return { opacity: 0 };
+    const [x, y] = point(p.route, d);
+    const [bx, by] = point(p.route, d - 2);
+    const dx = x - bx, dy = y - by;
+    if (horizontal !== Math.abs(dx) >= Math.abs(dy)) return { opacity: 0 };
+    const length = Math.min(p.tail, d);
+    return horizontal
+      ? { opacity: 0.55, transform: [{ translateX: dx >= 0 ? x - length : x }, { translateY: y - 0.8 }, { scaleX: length / p.tail }] }
+      : { opacity: 0.55, transform: [{ translateX: x - 0.8 }, { translateY: dy >= 0 ? y - length : y }, { scaleY: length / p.tail }] };
+  };
+  const trailH = useAnimatedStyle(() => trail(true));
+  const trailV = useAnimatedStyle(() => trail(false));
+  const end = p.route.xs.length - 1;
+  const ring = p.threat ? 40 : 26;
+  const burst = useAnimatedStyle(() => {
     // At the end node: a ring expands; a threat gets a bigger red one, as if stopped.
     const d = travel(p, clock.value);
     const phase = d > p.route.total ? Math.min(1, (d - p.route.total) / (p.speed * 1.1)) : 1;
-    return { r: 3 + (p.threat ? 18 : 10) * phase, strokeOpacity: (p.threat ? 0.8 : 0.45) * (1 - phase) };
+    return { opacity: (p.threat ? 0.8 : 0.45) * (1 - phase), transform: [{ scale: 0.15 + 0.85 * phase }] };
   });
-  const end = p.route.xs.length - 1;
   return (
     <>
-      <AnimatedPath animatedProps={trail} stroke={p.color} strokeWidth={1.6} fill="none" strokeLinecap="round" />
-      <AnimatedCircle animatedProps={head} r={2.2} fill={p.color} stroke={p.color} strokeWidth={5} strokeOpacity={0.22} />
-      <AnimatedCircle animatedProps={burst} cx={p.route.xs[end]} cy={p.route.ys[end]} fill="none" stroke={p.color} strokeWidth={p.threat ? 1.5 : 1} />
+      <Animated.View style={[st.dot, { width: p.tail, height: 1.6, backgroundColor: p.color, transformOrigin: 'left' }, trailH]} />
+      <Animated.View style={[st.dot, { width: 1.6, height: p.tail, backgroundColor: p.color, transformOrigin: 'top' }, trailV]} />
+      <Animated.View style={[st.dot, { width: HEAD, height: HEAD, borderRadius: HEAD / 2, backgroundColor: p.color, shadowColor: p.color }, st.glow, head]} />
+      <Animated.View style={[st.dot, { left: p.route.xs[end] - ring / 2, top: p.route.ys[end] - ring / 2, width: ring, height: ring,
+        borderRadius: ring / 2, borderWidth: p.threat ? 1.5 : 1, borderColor: p.color }, burst]} />
     </>
   );
 }
+
+/** Grid, traces and nodes: drawn once and kept as a texture, never redrawn by the animation. */
+const StaticNetwork = memo(function StaticNetwork({ width, height, net }: { width: number; height: number; net: ReturnType<typeof buildNetwork> }) {
+  return (
+    <View style={StyleSheet.absoluteFill} renderToHardwareTextureAndroid shouldRasterizeIOS>
+      <Svg width={width} height={height}>
+        <Path d={net.grid} stroke={CYAN} strokeOpacity={0.05} strokeWidth={1} />
+        <Path d={net.traces} stroke={CYAN} strokeOpacity={0.13} strokeWidth={1.1} fill="none" />
+        {net.routes.map((r, i) => (
+          <Rect key={i} x={r.xs[r.xs.length - 1] - 1.6} y={r.ys[r.ys.length - 1] - 1.6} width={3.2} height={3.2} fill={CYAN} fillOpacity={0.45} />
+        ))}
+      </Svg>
+    </View>
+  );
+});
 
 export function NetworkBackground() {
   const { width, height } = useWindowDimensions();
@@ -138,7 +168,13 @@ export function NetworkBackground() {
     lastTick.value += step;
     if (lastTick.value >= 0.032) { clock.value += lastTick.value; lastTick.value = 0; }
   }, false);
-  const moving = focused && !reduced;
+  // Start only once the screen transition has finished, so the two never compete.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setSettled(true));
+    return () => task.cancel();
+  }, []);
+  const moving = focused && !reduced && settled;
   useEffect(() => { frame.setActive(moving); }, [frame, moving]);
 
   const beam = useAnimatedStyle(() => {
@@ -151,14 +187,8 @@ export function NetworkBackground() {
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient colors={['#04080f', '#071321', '#050a12']} style={StyleSheet.absoluteFill} />
       <View style={{ position: 'absolute', top: -170, left: -110 }}><Glow size={440} color="#1f7fb3" opacity={0.26} /></View>
-      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-        <Path d={net.grid} stroke={CYAN} strokeOpacity={0.05} strokeWidth={1} />
-        <Path d={net.traces} stroke={CYAN} strokeOpacity={0.13} strokeWidth={1.1} fill="none" />
-        {net.routes.map((r, i) => (
-          <Rect key={i} x={r.xs[r.xs.length - 1] - 1.6} y={r.ys[r.ys.length - 1] - 1.6} width={3.2} height={3.2} fill={CYAN} fillOpacity={0.45} />
-        ))}
-        {moving ? net.packets.map((p, i) => <DataPacket key={i} p={p} clock={clock} />) : null}
-      </Svg>
+      <StaticNetwork width={width} height={height} net={net} />
+      {moving ? net.packets.map((p, i) => <DataPacket key={i} p={p} clock={clock} />) : null}
       {moving ? (
         <Animated.View style={[{ position: 'absolute', left: 0, right: 0, height: BEAM }, beam]}>
           <LinearGradient colors={['rgba(119,220,255,0)', 'rgba(119,220,255,0.06)', 'rgba(119,220,255,0.15)']} locations={[0, 0.8, 1]} style={StyleSheet.absoluteFill} />
@@ -168,3 +198,9 @@ export function NetworkBackground() {
     </View>
   );
 }
+
+const HEAD = 4.4;
+const st = StyleSheet.create({
+  dot: { position: 'absolute', left: 0, top: 0 },
+  glow: { shadowOpacity: 0.9, shadowRadius: 5, shadowOffset: { width: 0, height: 0 } },
+});

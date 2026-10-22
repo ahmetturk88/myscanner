@@ -1573,22 +1573,10 @@ def file_scanner():
 # Other Pages
 # ================================================================
 
-@app.route('/search')
-@login_required
-def search():
-    return render_template('search.html')
-
 @app.route('/favicon.ico')
 def favicon():
     return send_file(os.path.join(app.static_folder, 'brand', 'myscanner-favicon.ico'), mimetype='image/x-icon', max_age=86400)
 
-@app.route('/products')
-def products():
-    return render_template('products.html')
-
-@app.route('/resources')
-def resources():
-    return render_template('resources.html')
 
 @app.route('/about')
 def about():

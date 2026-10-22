@@ -146,3 +146,21 @@ def localise_response(response):
         if localised != data:
             response.set_data(json.dumps(localised, ensure_ascii=False))
     return response
+
+
+def client_catalog(lang):
+    """The catalog as a script for static/site_i18n.js, and a short version for cache busting."""
+    import hashlib
+    cached = getattr(client_catalog, 'cache', {}).get(lang)
+    if cached:
+        return cached
+    catalog = _catalogs().get(lang)
+    if not catalog:
+        return None
+    patterns, months = _patterns(lang)
+    payload = {'words': catalog, 'months': months,
+               'patterns': [[p.pattern, re.sub(r'\\(\d)', r'$\1', r)] for p, r in patterns]}
+    body = 'window.MYSCANNER_I18N=' + json.dumps(payload, ensure_ascii=False, separators=(',', ':')) + ';'
+    result = (body, hashlib.sha256(body.encode()).hexdigest()[:10])
+    client_catalog.cache = {**getattr(client_catalog, 'cache', {}), lang: result}
+    return result

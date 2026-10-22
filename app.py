@@ -95,7 +95,7 @@ trusted_proxy = configure_trusted_proxy(app)
 from services.security_headers import init_security_headers
 init_security_headers(app)
 # Website language: pages render in English and are translated after rendering (services/site_i18n.py).
-from services.site_i18n import current_language, localise_response
+from services.site_i18n import client_catalog, current_language, localise_response
 app.after_request(localise_response)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -499,7 +499,20 @@ def inject_site_language():
         args = {key: value for key, value in request.args.items() if key != 'lang'}
         args['lang'] = code
         return request.path + '?' + urlencode(args)
-    return {'site_lang': current_language(), 'lang_url': lang_url}
+    lang = current_language()
+    catalog = client_catalog(lang) if lang != 'en' else None
+    return {'site_lang': lang, 'lang_url': lang_url, 'i18n_version': catalog[1] if catalog else ''}
+
+
+@app.route('/i18n/<lang>.js')
+def site_i18n_catalog(lang):
+    """The translation catalog for static/site_i18n.js; versioned, so it can be cached for long."""
+    catalog = client_catalog(lang) if lang != 'en' else None
+    if not catalog:
+        return Response('', status=404, mimetype='text/javascript')
+    response = Response(catalog[0], mimetype='text/javascript')
+    response.headers['Cache-Control'] = 'public, max-age=604800'
+    return response
 
 
 @app.route('/robots.txt')

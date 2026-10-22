@@ -76,6 +76,26 @@ class RealPagesTests(unittest.TestCase):
                 self.assertIn(phrase, response.get_data(as_text=True))
                 self.assertIn('hreflang="tr"', response.get_data(as_text=True))
 
+    def test_browser_catalog_is_served_versioned_and_loaded_only_for_turkish(self):
+        import test_task_ownership  # noqa: F401
+        from app import app
+        client = app.test_client()
+        english = client.get('/?lang=en').get_data(as_text=True)
+        self.assertNotIn('site_i18n.js', english)
+        turkish = client.get('/?lang=tr').get_data(as_text=True)
+        self.assertIn('/i18n/tr.js?v=', turkish)
+        self.assertIn('site_i18n.js', turkish)
+        script = client.get('/i18n/tr.js')
+        self.assertEqual(script.status_code, 200)
+        self.assertIn('max-age=604800', script.headers['Cache-Control'])
+        body = script.get_data(as_text=True)
+        self.assertTrue(body.startswith('window.MYSCANNER_I18N='))
+        payload = json.loads(body[len('window.MYSCANNER_I18N='):-1])
+        self.assertEqual(payload['words']['This file is empty. Choose a non-empty file.'], 'Bu dosya boş. Boş olmayan bir dosya seç.')
+        self.assertIn(['^(\\d+) scans?$', '$1 tarama'], payload['patterns'])
+        self.assertEqual(client.get('/i18n/en.js').status_code, 404)
+        self.assertEqual(client.get('/i18n/xx.js').status_code, 404)
+
 
 if __name__ == '__main__':
     unittest.main()

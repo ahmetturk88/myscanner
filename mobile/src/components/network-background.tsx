@@ -1,11 +1,10 @@
 /**
- * The app's background: a quiet secure network, matching the website
- * (static/net_background.js). A faint dot grid with a few circuit traces near
- * the top and bottom of the screen; now and then a data packet glides along
- * one, easing in and out, and the node it reaches answers with a soft ring.
- * One packet in five is a threat, stopped with a red ring. A slow, faint scan
- * line passes every so often. The middle of the screen, where the text is,
- * stays calm.
+ * The app's background: a secure network, matching the website
+ * (static/net_background.js). A fine grid with circuit traces covers the
+ * whole screen; its nodes glint softly one after another, and now and then a
+ * data packet glides along a trace, easing in and out, and the node it
+ * reaches answers with a soft ring. Now and then a packet is a threat,
+ * stopped with a red ring.
  *
  * The grid is drawn once and kept as a texture; packets are plain views moved
  * with transforms on the UI thread from one clock (useFrameCallback, ~30 fps),
@@ -27,10 +26,7 @@ const CELL = 34;
 const CYAN = '#77dcff';
 const TEAL = '#5eead4';
 const RED = '#fb7185';
-const BG = '5,10,18';
-const SWEEP = 9;   // seconds the scan line takes to cross the screen
-const CYCLE = 22;  // seconds between sweeps
-const BEAM = 90;
+const GLINT = 7;    // seconds between two glints of the same node
 const TAIL = 40;
 const HEAD = 4;
 const ARRIVE = 1.6; // seconds the arrival ring plays
@@ -52,16 +48,14 @@ function buildNetwork(width: number, height: number) {
   const random = seeded(Math.round(width) * 31 + Math.round(height));
   const cols = Math.ceil(width / CELL);
   const rows = Math.ceil(height / CELL);
-  // Dots at the grid crossings, not lines: structure without stripes behind the text.
-  let dots = '';
-  for (let i = 1; i < rows; i++) for (let j = 1; j < cols; j++) dots += `M${j * CELL} ${i * CELL}h0.01`;
+  let grid = '';
+  for (let i = 0; i <= rows; i++) grid += `M0 ${i * CELL}H${width}`;
+  for (let j = 0; j <= cols; j++) grid += `M${j * CELL} 0V${height}`;
 
   const routes: Route[] = [];
-  const band = Math.max(3, Math.floor(rows * 0.3));
-  while (routes.length < 5) {
-    // An orthogonal trace in the top or bottom band, like a circuit board.
-    const top = routes.length % 2 === 0;
-    const low = top ? 0 : rows - band, high = top ? band : rows;
+  while (routes.length < 7) {
+    // An orthogonal trace, like a circuit board; each in its own slice of the screen so they spread out.
+    const low = Math.floor((routes.length / 7) * rows), high = Math.min(rows, Math.ceil(((routes.length + 1) / 7) * rows) + 2);
     let x = Math.floor(random() * (cols + 1));
     let y = low + Math.floor(random() * (high - low + 1));
     const xs = [x * CELL], ys = [y * CELL];
@@ -69,7 +63,7 @@ function buildNetwork(width: number, height: number) {
     const turns = 2 + Math.floor(random() * 2);
     for (let i = 0; i < turns; i++) {
       const step = (random() < 0.5 ? -1 : 1) * (2 + Math.floor(random() * 4));
-      if (horizontal) x = Math.max(0, Math.min(cols, x + step)); else y = Math.max(low, Math.min(high, y + step));
+      if (horizontal) x = Math.max(0, Math.min(cols, x + step)); else y = Math.max(0, Math.min(rows, y + step));
       if (xs[xs.length - 1] !== x * CELL || ys[ys.length - 1] !== y * CELL) { xs.push(x * CELL); ys.push(y * CELL); }
       horizontal = !horizontal;
     }
@@ -83,16 +77,19 @@ function buildNetwork(width: number, height: number) {
     const end = r.xs.length - 1;
     return `M${r.xs[0] - 1.2} ${r.ys[0] - 1.2}h2.4v2.4h-2.4zM${r.xs[end] - 1.8} ${r.ys[end] - 1.8}h3.6v3.6h-3.6z`;
   }).join('');
-  const packets: Packet[] = routes.map((route, i) => {
+  // Nodes that glint: both ends of every trace, each at its own moment.
+  const glints = routes.flatMap((r, i) => [[r.xs[0], r.ys[0]], [r.xs[r.xs.length - 1], r.ys[r.ys.length - 1]]]
+    .map(([x, y], k) => ({ x, y, offset: ((i * 2 + k) * 0.618 % 1) * GLINT })));
+  const packets: Packet[] = routes.slice(0, 5).map((route, i) => {
     const threat = i === 3;
     const travel = route.total / (42 + random() * 22);
     // The threat comes round less often than the others, so red stays a rare moment.
     const period = travel + ARRIVE + 3 + random() * 5 + (threat ? 9 : 0);
     // Spread the start times so one or two packets are moving at any moment.
-    return { route, threat, travel, period, offset: (i / routes.length) * period + random() * 1.5,
+    return { route, threat, travel, period, offset: (i / 5) * period + random() * 1.5,
              color: threat ? RED : i % 2 ? TEAL : CYAN };
   });
-  return { dots, traces, nodes, routes, packets };
+  return { grid, traces, nodes, routes, packets, glints };
 }
 
 function point(route: Route, distance: number): [number, number] {
@@ -166,14 +163,29 @@ function DataPacket({ p, clock }: { p: Packet; clock: SharedValue<number> }) {
   );
 }
 
-/** Dots, traces and nodes: drawn once and kept as a texture, never redrawn by the animation. */
+/** A node that brightens for a moment and fades, like light catching it. */
+function Glint({ g, clock }: { g: { x: number; y: number; offset: number }; clock: SharedValue<number> }) {
+  const style = useAnimatedStyle(() => {
+    const k = ((clock.value + g.offset) % GLINT) / 1.6;
+    const v = k < 1 ? Math.sin(Math.PI * k) : 0;
+    return { opacity: v * 0.9, transform: [{ scale: 0.6 + 0.4 * v }] };
+  });
+  return (
+    <Animated.View style={[st.at, { left: g.x, top: g.y }, style]}>
+      <View style={[st.halo, { backgroundColor: CYAN }]} />
+      <View style={[st.head, { backgroundColor: '#c9f3ff', shadowColor: CYAN }]} />
+    </Animated.View>
+  );
+}
+
+/** Grid, traces and nodes: drawn once and kept as a texture, never redrawn by the animation. */
 const StaticNetwork = memo(function StaticNetwork({ width, height, net }: { width: number; height: number; net: ReturnType<typeof buildNetwork> }) {
   return (
     <View style={StyleSheet.absoluteFill} renderToHardwareTextureAndroid shouldRasterizeIOS>
       <Svg width={width} height={height}>
-        <Path d={net.dots} stroke={CYAN} strokeOpacity={0.11} strokeWidth={1.4} strokeLinecap="round" />
-        <Path d={net.traces} stroke={CYAN} strokeOpacity={0.09} strokeWidth={1} fill="none" />
-        <Path d={net.nodes} fill={CYAN} fillOpacity={0.4} />
+        <Path d={net.grid} stroke={CYAN} strokeOpacity={0.06} strokeWidth={1} />
+        <Path d={net.traces} stroke={CYAN} strokeOpacity={0.15} strokeWidth={1.1} fill="none" />
+        <Path d={net.nodes} fill={CYAN} fillOpacity={0.5} />
       </Svg>
     </View>
   );
@@ -201,29 +213,13 @@ export function NetworkBackground() {
   const moving = focused && !reduced && settled;
   useEffect(() => { frame.setActive(moving); }, [frame, moving]);
 
-  const beam = useAnimatedStyle(() => {
-    const t = (clock.value + 6) % CYCLE;
-    if (t >= SWEEP) return { opacity: 0 };
-    const k = t / SWEEP;
-    // Fades in at the top and out at the bottom, so it never pops.
-    return { opacity: Math.min(1, k * 6, (1 - k) * 6), transform: [{ translateY: -BEAM + (height + BEAM) * k }] };
-  });
-
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient colors={['#04080f', '#071321', '#050a12']} style={StyleSheet.absoluteFill} />
       <View style={{ position: 'absolute', top: -170, left: -110 }}><Glow size={440} color="#1f7fb3" opacity={0.22} /></View>
       <StaticNetwork width={width} height={height} net={net} />
+      {moving ? net.glints.map((g, i) => <Glint key={`g${i}`} g={g} clock={clock} />) : null}
       {moving ? net.packets.map((p, i) => <DataPacket key={i} p={p} clock={clock} />) : null}
-      {moving ? (
-        <Animated.View style={[{ position: 'absolute', left: 0, right: 0, height: BEAM }, beam]}>
-          <LinearGradient colors={['rgba(119,220,255,0)', 'rgba(119,220,255,0.035)']} style={StyleSheet.absoluteFill} />
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: 'rgba(119,220,255,0.16)' }} />
-        </Animated.View>
-      ) : null}
-      {/* A soft veil over the middle, so the text there reads on a calm background. */}
-      <LinearGradient colors={[`rgba(${BG},0)`, `rgba(${BG},0.6)`, `rgba(${BG},0.6)`, `rgba(${BG},0)`]}
-        locations={[0.2, 0.38, 0.62, 0.8]} style={StyleSheet.absoluteFill} />
     </View>
   );
 }

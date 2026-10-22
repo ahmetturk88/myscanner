@@ -1,10 +1,9 @@
-/* Site-wide background: a quiet secure network.
-   A faint dot grid with a few circuit traces; now and then a data packet
-   glides along one, easing in and out with a soft comet tail, and the node it
-   reaches answers with a gentle ring. Rarely a packet is a threat and is
-   stopped with a red square. A slow, faint scan line passes every so often.
-   The middle of the page, where the text is, is kept calm: everything fades
-   towards the centre. Decorative only (aria-hidden), drawn on one fixed
+/* Site-wide background: a secure network.
+   A fine grid with circuit traces covers the page; its nodes glint softly one
+   after another, and now and then a data packet glides along a trace, easing
+   in and out with a soft comet tail, and the node it reaches answers with a
+   gentle ring. Rarely a packet is a threat and is stopped with a red square.
+   Decorative only (aria-hidden), drawn on one fixed
    canvas behind the page. It pauses in hidden tabs and is static for people
    who prefer reduced motion. */
 (function () {
@@ -13,10 +12,10 @@
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
   const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const CELL = 44, TAIL = 64, ARRIVE = 1.6, SWEEP = 10, CYCLE = 24;
+  const CELL = 44, TAIL = 64, ARRIVE = 1.6, GLINT = 8, SHINE = 1.8;
   const CYAN = '119,220,255', TEAL = '94,234,212', RED = '251,113,133';
   let width = 0, height = 0, cols = 0, rows = 0, ratio = 1;
-  let layer = null, routes = [], packets = [], frame = 0, last = 0, clock = 0;
+  let layer = null, layerUrl = '', routes = [], packets = [], glints = [], frame = 0, last = 0, clock = 0;
 
   const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -62,37 +61,28 @@
     return h - Math.floor(h) < 0.1;
   }
 
-  function calm(x, y) {
-    // 1 at the edges, down to 0.2 in the middle of the page.
-    const dx = (x - width / 2) / (width * 0.5), dy = (y - height / 2) / (height * 0.55);
-    return 0.2 + 0.8 * Math.min(1, dx * dx + dy * dy);
-  }
-
   function drawStatic() {
     // Dots, traces and nodes never change, so they are drawn once to an offscreen layer.
     layer = document.createElement('canvas');
     layer.width = canvas.width; layer.height = canvas.height;
     const c = layer.getContext('2d');
     c.setTransform(ratio, 0, 0, ratio, 0, 0);
-    c.fillStyle = `rgba(${CYAN},0.12)`;
-    for (let i = 1; i < rows; i++) for (let j = 1; j < cols; j++) c.fillRect(j * CELL - 0.75, i * CELL - 0.75, 1.5, 1.5);
     c.lineWidth = 1;
-    c.strokeStyle = `rgba(${CYAN},0.08)`;
+    c.strokeStyle = `rgba(${CYAN},0.05)`;
+    c.beginPath();
+    for (let i = 0; i <= rows; i++) { const y = i * CELL + 0.5; c.moveTo(0, y); c.lineTo(width, y); }
+    for (let j = 0; j <= cols; j++) { const x = j * CELL + 0.5; c.moveTo(x, 0); c.lineTo(x, height); }
+    c.stroke();
+    c.strokeStyle = `rgba(${CYAN},0.12)`;
     c.beginPath();
     routes.forEach(r => r.points.forEach(([x, y], i) => (i ? c.lineTo(x + 0.5, y + 0.5) : c.moveTo(x + 0.5, y + 0.5))));
     c.stroke();
-    c.fillStyle = `rgba(${CYAN},0.35)`;
+    c.fillStyle = `rgba(${CYAN},0.45)`;
     routes.forEach(r => {
       const [sx, sy] = r.points[0], [ex, ey] = r.points[r.points.length - 1];
       c.fillRect(sx - 1.2, sy - 1.2, 2.4, 2.4);
       c.fillRect(ex - 1.8, ey - 1.8, 3.6, 3.6);
     });
-    // Fade the middle once, here, rather than masking the canvas every frame.
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = 'destination-out';
-    const veil = c.createRadialGradient(layer.width / 2, layer.height / 2, 0, layer.width / 2, layer.height / 2, Math.max(layer.width, layer.height) * 0.5);
-    veil.addColorStop(0, 'rgba(0,0,0,0.8)'); veil.addColorStop(1, 'rgba(0,0,0,0)');
-    c.fillStyle = veil; c.fillRect(0, 0, layer.width, layer.height);
   }
 
   function build() {
@@ -103,9 +93,12 @@
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     cols = Math.ceil(width / CELL); rows = Math.ceil(height / CELL);
     const area = (width * height) / (1440 * 900);
-    routes = Array.from({ length: Math.round(Math.max(6, Math.min(14, 11 * area))) }, route).filter(r => r.total > CELL * 3);
+    routes = Array.from({ length: Math.round(Math.max(8, Math.min(20, 16 * area))) }, route).filter(r => r.total > CELL * 3);
     packets = routes.map((r, i) => packet(r, i, routes.length));
+    // Both ends of every trace glint now and then, each at its own moment.
+    glints = routes.flatMap(r => [r.points[0], r.points[r.points.length - 1]]).map(([x, y], i) => ({ x, y, offset: ((i * 0.618) % 1) * GLINT }));
     drawStatic();
+    useLayerAsBackground();
   }
 
   function drawPacket(p) {
@@ -115,7 +108,7 @@
     if (t < p.travel) {
       // Eased: sets off and arrives gently; the tail stretches with the speed.
       const k = t / p.travel, d = r.total * (0.5 - 0.5 * Math.cos(Math.PI * k)), pace = Math.sin(Math.PI * k);
-      const [x, y] = at(r, d), fade = Math.min(1, t / 0.8) * calm(x, y), tail = Math.min(d, TAIL * (0.2 + 0.8 * pace));
+      const [x, y] = at(r, d), fade = Math.min(1, t / 0.8), tail = Math.min(d, TAIL * (0.2 + 0.8 * pace));
       ctx.lineWidth = 1.5;
       ctx.lineCap = 'round';
       for (let s = 0, steps = 5; s < steps; s++) {
@@ -134,7 +127,7 @@
       const k = t / ARRIVE, eased = 1 - (1 - k) * (1 - k);
       const [ex, ey] = r.points[r.points.length - 1];
       ctx.lineWidth = 1;
-      ctx.strokeStyle = `rgba(${color},${(threat ? 0.7 : 0.4) * (1 - k) * calm(ex, ey)})`;
+      ctx.strokeStyle = `rgba(${color},${(threat ? 0.7 : 0.4) * (1 - k)})`;
       ctx.beginPath();
       if (threat) { const s = 4 + 12 * eased; ctx.rect(ex - s + 0.5, ey - s + 0.5, s * 2, s * 2); }
       else ctx.arc(ex + 0.5, ey + 0.5, 3 + 12 * eased, 0, Math.PI * 2);
@@ -142,24 +135,41 @@
     }
   }
 
-  function drawScan() {
-    const t = (clock + 8) % CYCLE;
-    if (t >= SWEEP) return;
-    const k = t / SWEEP, y = -60 + (height + 60) * k, alpha = Math.min(1, k * 6, (1 - k) * 6);
-    const band = ctx.createLinearGradient(0, y - 70, 0, y);
-    band.addColorStop(0, `rgba(${CYAN},0)`); band.addColorStop(1, `rgba(${CYAN},${0.035 * alpha})`);
-    ctx.fillStyle = band; ctx.fillRect(0, y - 70, width, 70);
-    ctx.fillStyle = `rgba(${CYAN},${0.16 * alpha})`; ctx.fillRect(0, y, width, 1);
+  function drawGlints() {
+    // A node catches the light: a soft halo swells and fades around it.
+    glints.forEach(g => {
+      const k = ((clock + g.offset) % GLINT) / SHINE;
+      if (k >= 1) return;
+      const v = Math.sin(Math.PI * k);
+      ctx.fillStyle = `rgba(${CYAN},${0.12 * v})`;
+      ctx.beginPath(); ctx.arc(g.x + 0.5, g.y + 0.5, 3 + 5 * v, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(201,243,255,${0.85 * v})`;
+      ctx.fillRect(g.x - 1.3, g.y - 1.3, 2.6, 2.6);
+    });
+  }
+
+  function useLayerAsBackground() {
+    // The still network becomes the canvas's CSS background, so frames only draw what moves.
+    if (still || !layer.toBlob || !window.URL) return;
+    const built = layer;
+    built.toBlob(blob => {
+      if (!blob || built !== layer) return;
+      if (layerUrl) URL.revokeObjectURL(layerUrl);
+      layerUrl = URL.createObjectURL(blob);
+      canvas.style.background = `url(${layerUrl}) 0 0 / ${width}px ${height}px no-repeat`;
+      layer = null;
+    });
   }
 
   function draw(time) {
-    const dt = last ? Math.min(0.05, (time - last) / 1000) : 0.016;
+    if (frame && time - last < 30 && !still) { frame = requestAnimationFrame(draw); return; }  // ~30 fps is plenty for slow motion
+    const dt = last ? Math.min(0.08, (time - last) / 1000) : 0.016;
     last = time;
     clock += dt;
     ctx.clearRect(0, 0, width, height);
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(layer, 0, 0); ctx.restore();
+    if (layer) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(layer, 0, 0); ctx.restore(); }
     if (still) return;
-    drawScan();
+    drawGlints();
     packets.forEach(drawPacket);
     frame = requestAnimationFrame(draw);
   }

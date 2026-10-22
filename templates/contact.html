@@ -54,6 +54,16 @@
             <button class="pg-mini" type="button" data-copy="+905518414487"><span class="pg-ic ic-copy"></span><span>Copy number</span></button>
           </div>
         </article>
+        {% for link in social_links %}
+        <article class="pg-card glow pg-channel pg-reveal" style="--d:.12s">
+          <div class="pg-badge"><span class="pg-ic ic-{{ link.icon }}"></span></div>
+          <div class="pg-channel-body">
+            <h3>{{ link.title }}</h3>
+            <a class="pg-value" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }} ↗</a>
+            <p>{{ link.text }}</p>
+          </div>
+        </article>
+        {% endfor %}
         <article class="pg-card glow pg-channel pg-reveal" style="--d:.16s">
           <div class="pg-badge" style="color:var(--rose)"><span class="pg-ic ic-shield"></span></div>
           <div class="pg-channel-body">

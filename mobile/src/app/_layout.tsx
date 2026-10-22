@@ -6,9 +6,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { UpdateCard, UpdateRequired } from '@/components/update-prompt';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { loadSettings, useSettings, useSettingsReady } from '@/lib/settings';
 import { colors } from '@/lib/theme';
+import { useAppUpdate } from '@/lib/update';
 
 SplashScreen.preventAutoHideAsync();
 loadSettings();
@@ -25,27 +27,33 @@ function Navigator() {
   const [fontsLoaded, fontError] = useFonts({
     DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold, SpaceMono_400Regular, SpaceMono_700Bold,
   });
-  const loaded = ready && settingsReady && (fontsLoaded || !!fontError);
+  const appUpdate = useAppUpdate();
+  // The splash screen also waits (briefly) for the update check, so an old build never flashes the app first.
+  const loaded = ready && settingsReady && (fontsLoaded || !!fontError) && appUpdate.checked;
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
   if (!loaded) return null;
+  if (appUpdate.kind === 'required') return <UpdateRequired onUpdate={appUpdate.update} />;
   // Keyed by language: picking another language remounts every screen, so all text is drawn again in it.
   return (
-    <Stack key={language} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
-      <Stack.Protected guard={!!user}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="scan/[id]" />
-        <Stack.Screen name="tool/[name]" />
-        <Stack.Screen name="file" />
-        <Stack.Screen name="qr" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="delete-account" />
-        <Stack.Screen name="settings" />
-      </Stack.Protected>
-      <Stack.Protected guard={!user}>
-        <Stack.Screen name="login" options={{ animation: 'fade' }} />
-      </Stack.Protected>
-    </Stack>
+    <>
+      <Stack key={language} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
+        <Stack.Protected guard={!!user}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="scan/[id]" />
+          <Stack.Screen name="tool/[name]" />
+          <Stack.Screen name="file" />
+          <Stack.Screen name="qr" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="delete-account" />
+          <Stack.Screen name="settings" />
+        </Stack.Protected>
+        <Stack.Protected guard={!user}>
+          <Stack.Screen name="login" options={{ animation: 'fade' }} />
+        </Stack.Protected>
+      </Stack>
+      {appUpdate.kind === 'available' ? <UpdateCard onUpdate={appUpdate.update} onLater={appUpdate.later} /> : null}
+    </>
   );
 }
 

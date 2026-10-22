@@ -1,35 +1,38 @@
 /**
- * The app's background: a secure data network, matching the website
- * (static/net_background.js). Circuit-like traces on a fine grid carry data
- * packets between nodes, a scan beam sweeps down the screen, and now and then
- * a red packet is stopped at a checkpoint node.
+ * The app's background: a secure network, matching the website
+ * (static/net_background.js). A fine grid with circuit traces covers the
+ * whole screen; its nodes glint softly one after another, and now and then a
+ * data packet glides along a trace, easing in and out, and the node it
+ * reaches answers with a soft ring. Now and then a packet is a threat,
+ * stopped with a red ring.
  *
- * Everything moves on the UI thread from one clock (useFrameCallback, ~30 fps).
- * The clock stops when the screen is not focused, and the network is drawn
- * still for people who turn on Reduce motion.
+ * The grid is drawn once and kept as a texture; packets are plain views moved
+ * with transforms on the UI thread from one clock (useFrameCallback, ~30 fps),
+ * so nothing is redrawn while they move. The clock starts after the screen
+ * transition, stops when the screen is not focused, and the network is still
+ * for people who turn on Reduce motion.
  */
 import { useIsFocused } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedProps, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { InteractionManager, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 
 import { Glow } from '@/components/motion';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const CELL = 34;
 const CYAN = '#77dcff';
 const TEAL = '#5eead4';
 const RED = '#fb7185';
-const SWEEP = 6;   // seconds the scan beam takes to cross the screen
-const CYCLE = 11;  // seconds between sweeps
-const BEAM = 150;
+const GLINT = 7;    // seconds between two glints of the same node
+const TAIL = 40;
+const HEAD = 4;
+const ARRIVE = 1.6; // seconds the arrival ring plays
 
 type Route = { xs: number[]; ys: number[]; lengths: number[]; total: number };
-type Packet = { route: Route; speed: number; offset: number; color: string; threat: boolean; tail: number };
+type Packet = { route: Route; travel: number; period: number; offset: number; color: string; threat: boolean };
 
 /** A small seeded random generator, so the network keeps its shape between renders. */
 function seeded(seed: number) {
@@ -50,15 +53,16 @@ function buildNetwork(width: number, height: number) {
   for (let j = 0; j <= cols; j++) grid += `M${j * CELL} 0V${height}`;
 
   const routes: Route[] = [];
-  while (routes.length < 8) {
-    // An orthogonal trace: alternating horizontal and vertical runs, like a circuit board.
+  while (routes.length < 7) {
+    // An orthogonal trace, like a circuit board; each in its own slice of the screen so they spread out.
+    const low = Math.floor((routes.length / 7) * rows), high = Math.min(rows, Math.ceil(((routes.length + 1) / 7) * rows) + 2);
     let x = Math.floor(random() * (cols + 1));
-    let y = Math.floor(random() * (rows + 1));
+    let y = low + Math.floor(random() * (high - low + 1));
     const xs = [x * CELL], ys = [y * CELL];
-    let horizontal = random() < 0.5;
-    const turns = 2 + Math.floor(random() * 3);
+    let horizontal = random() < 0.6;
+    const turns = 2 + Math.floor(random() * 2);
     for (let i = 0; i < turns; i++) {
-      const step = (random() < 0.5 ? -1 : 1) * (2 + Math.floor(random() * 5));
+      const step = (random() < 0.5 ? -1 : 1) * (2 + Math.floor(random() * 4));
       if (horizontal) x = Math.max(0, Math.min(cols, x + step)); else y = Math.max(0, Math.min(rows, y + step));
       if (xs[xs.length - 1] !== x * CELL || ys[ys.length - 1] !== y * CELL) { xs.push(x * CELL); ys.push(y * CELL); }
       horizontal = !horizontal;
@@ -66,15 +70,26 @@ function buildNetwork(width: number, height: number) {
     const lengths = [0];
     for (let i = 1; i < xs.length; i++) lengths.push(lengths[i - 1] + Math.abs(xs[i] - xs[i - 1]) + Math.abs(ys[i] - ys[i - 1]));
     const total = lengths[lengths.length - 1];
-    if (total > CELL * 3) routes.push({ xs, ys, lengths, total });
+    if (total > CELL * 4) routes.push({ xs, ys, lengths, total });
   }
   const traces = routes.map((r) => r.xs.map((x, i) => `${i ? 'L' : 'M'}${x} ${r.ys[i]}`).join('')).join('');
-  const packets: Packet[] = routes.map((route, i) => {
-    const threat = i === 2 || i === 6;
-    return { route, threat, speed: 55 + random() * 60, offset: random() * 400, tail: threat ? 34 : 52,
-             color: threat ? RED : i % 3 === 0 ? TEAL : CYAN };
+  const nodes = routes.map((r) => {
+    const end = r.xs.length - 1;
+    return `M${r.xs[0] - 1.2} ${r.ys[0] - 1.2}h2.4v2.4h-2.4zM${r.xs[end] - 1.8} ${r.ys[end] - 1.8}h3.6v3.6h-3.6z`;
+  }).join('');
+  // Nodes that glint: both ends of every trace, each at its own moment.
+  const glints = routes.flatMap((r, i) => [[r.xs[0], r.ys[0]], [r.xs[r.xs.length - 1], r.ys[r.ys.length - 1]]]
+    .map(([x, y], k) => ({ x, y, offset: ((i * 2 + k) * 0.618 % 1) * GLINT })));
+  const packets: Packet[] = routes.slice(0, 5).map((route, i) => {
+    const threat = i === 3;
+    const travel = route.total / (42 + random() * 22);
+    // The threat comes round less often than the others, so red stays a rare moment.
+    const period = travel + ARRIVE + 3 + random() * 5 + (threat ? 9 : 0);
+    // Spread the start times so one or two packets are moving at any moment.
+    return { route, threat, travel, period, offset: (i / 5) * period + random() * 1.5,
+             color: threat ? RED : i % 2 ? TEAL : CYAN };
   });
-  return { grid, traces, routes, packets };
+  return { grid, traces, nodes, routes, packets, glints };
 }
 
 function point(route: Route, distance: number): [number, number] {
@@ -87,50 +102,106 @@ function point(route: Route, distance: number): [number, number] {
   return [route.xs[i - 1] + (route.xs[i] - route.xs[i - 1]) * f, route.ys[i - 1] + (route.ys[i] - route.ys[i - 1]) * f];
 }
 
-/** Where a packet is: distance along its route, or past the end while its burst plays. */
-function travel(p: Packet, time: number) {
+/** Seconds into this packet's own cycle: gliding while < travel, then its arrival ring, then rest. */
+function local(p: Packet, time: number) {
   'worklet';
-  const cycle = p.route.total + p.speed * 1.6;
-  return (time * p.speed + p.offset) % cycle;
+  return (time + p.offset) % p.period;
 }
 
+/** How far along the route, eased so the packet sets off and arrives gently; and how fast, 0..1. */
+function glide(p: Packet, t: number) {
+  'worklet';
+  const k = t / p.travel;
+  return { d: p.route.total * (0.5 - 0.5 * Math.cos(Math.PI * k)), pace: Math.sin(Math.PI * k) };
+}
+
+/**
+ * One data packet. Everything here animates transform and opacity only, so the
+ * GPU moves it without redrawing anything; the grid underneath is drawn once.
+ */
 function DataPacket({ p, clock }: { p: Packet; clock: SharedValue<number> }) {
-  const trail = useAnimatedProps(() => {
-    const d = travel(p, clock.value);
-    if (d > p.route.total) return { d: 'M0 0', strokeOpacity: 0 };
-    const [ax, ay] = point(p.route, d);
-    const [bx, by] = point(p.route, d - p.tail / 2);
-    const [cx, cy] = point(p.route, d - p.tail);
-    return { d: `M${ax} ${ay}L${bx} ${by}L${cx} ${cy}`, strokeOpacity: 0.5 };
+  const head = useAnimatedStyle(() => {
+    const t = local(p, clock.value);
+    if (t >= p.travel + 0.4) return { opacity: 0 };
+    const [x, y] = point(p.route, glide(p, Math.min(t, p.travel)).d);
+    const opacity = t < p.travel ? Math.min(1, t / 0.7) : 1 - (t - p.travel) / 0.4;
+    return { opacity, transform: [{ translateX: x }, { translateY: y }] };
   });
-  const head = useAnimatedProps(() => {
-    const d = travel(p, clock.value);
-    if (d > p.route.total) return { cx: -20, cy: -20, opacity: 0 };
+  // A soft comet tail that stretches with speed and turns with the trace.
+  const tail = useAnimatedStyle(() => {
+    const t = local(p, clock.value);
+    if (t >= p.travel) return { opacity: 0 };
+    const { d, pace } = glide(p, t);
     const [x, y] = point(p.route, d);
-    return { cx: x, cy: y, opacity: 1 };
-  });
-  const burst = useAnimatedProps(() => {
-    // At the end node: a ring expands; a threat gets a bigger red one, as if stopped.
-    const d = travel(p, clock.value);
-    const phase = d > p.route.total ? Math.min(1, (d - p.route.total) / (p.speed * 1.1)) : 1;
-    return { r: 3 + (p.threat ? 18 : 10) * phase, strokeOpacity: (p.threat ? 0.8 : 0.45) * (1 - phase) };
+    const [bx, by] = point(p.route, d - 1.5);
+    const angle = Math.abs(x - bx) >= Math.abs(y - by) ? (x >= bx ? 0 : 180) : (y >= by ? 90 : -90);
+    const length = Math.min(TAIL * (0.2 + 0.8 * pace), d);
+    return { opacity: Math.min(1, t / 0.7) * 0.8,
+             transform: [{ translateX: x - TAIL }, { translateY: y - 1 }, { rotate: `${angle}deg` }, { scaleX: Math.max(0.01, length / TAIL) }] };
   });
   const end = p.route.xs.length - 1;
+  const size = p.threat ? 34 : 26;
+  const ring = useAnimatedStyle(() => {
+    const t = local(p, clock.value) - p.travel;
+    if (t < 0 || t > ARRIVE) return { opacity: 0 };
+    const k = t / ARRIVE;
+    const eased = 1 - (1 - k) * (1 - k);
+    return { opacity: (p.threat ? 0.7 : 0.4) * (1 - k), transform: [{ scale: 0.2 + 0.8 * eased }] };
+  });
   return (
     <>
-      <AnimatedPath animatedProps={trail} stroke={p.color} strokeWidth={1.6} fill="none" strokeLinecap="round" />
-      <AnimatedCircle animatedProps={head} r={2.2} fill={p.color} stroke={p.color} strokeWidth={5} strokeOpacity={0.22} />
-      <AnimatedCircle animatedProps={burst} cx={p.route.xs[end]} cy={p.route.ys[end]} fill="none" stroke={p.color} strokeWidth={p.threat ? 1.5 : 1} />
+      <Animated.View style={[st.at, { width: TAIL, height: 2, transformOrigin: 'right' }, tail]}>
+        <LinearGradient colors={[`${p.color}00`, `${p.color}aa`]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+      <Animated.View style={[st.at, head]}>
+        <View style={[st.halo, { backgroundColor: p.color }]} />
+        <View style={[st.head, { backgroundColor: p.color, shadowColor: p.color }]} />
+      </Animated.View>
+      <Animated.View style={[st.at, { left: p.route.xs[end] - size / 2, top: p.route.ys[end] - size / 2, width: size, height: size,
+        borderRadius: size / 2, borderWidth: 1, borderColor: p.color }, ring]} />
     </>
   );
 }
 
+/** A node that brightens for a moment and fades, like light catching it. */
+function Glint({ g, clock }: { g: { x: number; y: number; offset: number }; clock: SharedValue<number> }) {
+  const style = useAnimatedStyle(() => {
+    const k = ((clock.value + g.offset) % GLINT) / 1.6;
+    const v = k < 1 ? Math.sin(Math.PI * k) : 0;
+    return { opacity: v * 0.9, transform: [{ scale: 0.6 + 0.4 * v }] };
+  });
+  return (
+    <Animated.View style={[st.at, { left: g.x, top: g.y }, style]}>
+      <View style={[st.halo, { backgroundColor: CYAN }]} />
+      <View style={[st.head, { backgroundColor: '#c9f3ff', shadowColor: CYAN }]} />
+    </Animated.View>
+  );
+}
+
+/** Grid, traces and nodes: drawn once and kept as a texture, never redrawn by the animation. */
+const StaticNetwork = memo(function StaticNetwork({ width, height, net }: { width: number; height: number; net: ReturnType<typeof buildNetwork> }) {
+  return (
+    <View style={StyleSheet.absoluteFill} renderToHardwareTextureAndroid shouldRasterizeIOS>
+      <Svg width={width} height={height}>
+        <Path d={net.grid} stroke={CYAN} strokeOpacity={0.06} strokeWidth={1} />
+        <Path d={net.traces} stroke={CYAN} strokeOpacity={0.15} strokeWidth={1.1} fill="none" />
+        <Path d={net.nodes} fill={CYAN} fillOpacity={0.5} />
+      </Svg>
+    </View>
+  );
+});
+
+/** The background for a screen inside the navigator: it moves only while the screen is in front. */
 export function NetworkBackground() {
+  return <NetworkLayer focused={useIsFocused()} />;
+}
+
+/** The background itself; outside the navigator (the update screen) pass focused yourself. */
+export function NetworkLayer({ focused }: { focused: boolean }) {
   const { width, height } = useWindowDimensions();
-  const focused = useIsFocused();
   const reduced = useReducedMotion();
   const net = useMemo(() => buildNetwork(width, height), [width, height]);
-  const clock = useSharedValue(4);
+  const clock = useSharedValue(0);
   const lastTick = useSharedValue(0);
   const frame = useFrameCallback((info) => {
     // About 30 updates a second is smooth for slow-moving packets and halves the work.
@@ -138,33 +209,29 @@ export function NetworkBackground() {
     lastTick.value += step;
     if (lastTick.value >= 0.032) { clock.value += lastTick.value; lastTick.value = 0; }
   }, false);
-  const moving = focused && !reduced;
+  // Start only once the screen transition has finished, so the two never compete.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setSettled(true));
+    return () => task.cancel();
+  }, []);
+  const moving = focused && !reduced && settled;
   useEffect(() => { frame.setActive(moving); }, [frame, moving]);
-
-  const beam = useAnimatedStyle(() => {
-    const t = clock.value % CYCLE;
-    const visible = t < SWEEP;
-    return { opacity: visible ? 1 : 0, transform: [{ translateY: visible ? -BEAM + (height + BEAM * 2) * (t / SWEEP) : -BEAM * 2 }] };
-  });
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient colors={['#04080f', '#071321', '#050a12']} style={StyleSheet.absoluteFill} />
-      <View style={{ position: 'absolute', top: -170, left: -110 }}><Glow size={440} color="#1f7fb3" opacity={0.26} /></View>
-      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-        <Path d={net.grid} stroke={CYAN} strokeOpacity={0.05} strokeWidth={1} />
-        <Path d={net.traces} stroke={CYAN} strokeOpacity={0.13} strokeWidth={1.1} fill="none" />
-        {net.routes.map((r, i) => (
-          <Rect key={i} x={r.xs[r.xs.length - 1] - 1.6} y={r.ys[r.ys.length - 1] - 1.6} width={3.2} height={3.2} fill={CYAN} fillOpacity={0.45} />
-        ))}
-        {moving ? net.packets.map((p, i) => <DataPacket key={i} p={p} clock={clock} />) : null}
-      </Svg>
-      {moving ? (
-        <Animated.View style={[{ position: 'absolute', left: 0, right: 0, height: BEAM }, beam]}>
-          <LinearGradient colors={['rgba(119,220,255,0)', 'rgba(119,220,255,0.06)', 'rgba(119,220,255,0.15)']} locations={[0, 0.8, 1]} style={StyleSheet.absoluteFill} />
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: 'rgba(119,220,255,0.45)' }} />
-        </Animated.View>
-      ) : null}
+      <View style={{ position: 'absolute', top: -170, left: -110 }}><Glow size={440} color="#1f7fb3" opacity={0.22} /></View>
+      <StaticNetwork width={width} height={height} net={net} />
+      {moving ? net.glints.map((g, i) => <Glint key={`g${i}`} g={g} clock={clock} />) : null}
+      {moving ? net.packets.map((p, i) => <DataPacket key={i} p={p} clock={clock} />) : null}
     </View>
   );
 }
+
+const st = StyleSheet.create({
+  at: { position: 'absolute', left: 0, top: 0 },
+  halo: { position: 'absolute', left: -7, top: -7, width: 14, height: 14, borderRadius: 7, opacity: 0.16 },
+  head: { position: 'absolute', left: -HEAD / 2, top: -HEAD / 2, width: HEAD, height: HEAD, borderRadius: HEAD / 2,
+          shadowOpacity: 0.9, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
+});

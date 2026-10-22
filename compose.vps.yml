@@ -22,6 +22,9 @@ x-app: &app
     CLAMAV_HOST: ${CLAMAV_HOST-clamav}
     # Optional error alerts (Sentry); empty keeps reporting off.
     SENTRY_DSN: ${SENTRY_DSN:-}
+    # In-app update prompts for the Android app (services/app_release.py); 0 turns them off.
+    MOBILE_LATEST_BUILD: ${MOBILE_LATEST_BUILD:-0}
+    MOBILE_MIN_BUILD: ${MOBILE_MIN_BUILD:-0}
   extra_hosts: [host.docker.internal:host-gateway]
   networks: [data, outbound]
   secrets: [db_app_password, redis_password, session_key]

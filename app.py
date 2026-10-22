@@ -39,6 +39,7 @@ from services.site_analyzer import SiteAnalyzer
 from services.url_analyzer import URLDeepAnalyzer
 from services.subdomain_finder import SubdomainFinder
 from services.password_analyzer import PasswordAnalyzer
+from services.social import SOCIAL_LINKS
 from models import User, Scan
 from models import User, Scan, LogEntry
 from services.ip_analyzer import IPAnalyzer
@@ -73,6 +74,7 @@ from services.pdf_report_generator import generate_vulnerability_report
 # Initialization
 # ================================================================
 app = Flask(__name__)
+app.jinja_env.globals['social_links'] = SOCIAL_LINKS
 from services.error_reporting import init_error_reporting, report_exception
 init_error_reporting('web')
 from logging_config import setup_logging

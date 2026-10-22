@@ -12,7 +12,7 @@
    <div class="shell-footer-brand">
     <a href="/" aria-label="MyScanner home"><img src="{{ url_for('static',filename='brand/myscanner-logo.png',v='20261016') }}" alt="MyScanner — Scan, verify, stay protected" width="1520" height="440" loading="lazy"></a>
     <p>Tools for reviewing security evidence across links, identity, files and infrastructure.</p>
-    <span class="shell-status"><span class="shell-status-dot"></span>Pre-launch · testing in progress</span>
+    <span class="shell-status"><span class="shell-status-dot"></span>Live · free to use</span>
     <a class="shell-github" href="https://github.com/ahmetturk88/myscanner" target="_blank" rel="noopener noreferrer"><img src="{{ url_for('static',filename='icons/github.svg') }}" alt="" width="18" height="18">Explore the project on GitHub ↗</a>
    </div>
    <nav aria-label="Footer inspections"><h3>Inspect</h3><a href="{{ url_for('dashboard') }}"><span class="pg-ic ic-link"></span>Links &amp; destinations</a><a href="{{ url_for('email_check') }}"><span class="pg-ic ic-at"></span>Email identity</a><a href="{{ url_for('file_scanner') }}"><span class="pg-ic ic-file"></span>Files &amp; hashes</a><a href="{{ url_for('site_scanner') }}"><span class="pg-ic ic-globe"></span>Website evidence</a><a href="{{ url_for('password_check') }}"><span class="pg-ic ic-key"></span>Password security</a></nav>

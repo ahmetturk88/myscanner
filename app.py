@@ -56,8 +56,8 @@ from services.permissions import check_permission, reserve_request_quota
 from models.async_scan_task import AsyncScanTask
 from services.safe_http import PublicHTTPSession, UnsafeTargetError
 from services.task_dispatch import enqueue_owned_task
-from services.upload_validation import (UploadValidationError, read_validated_upload,
-    save_temporary_upload, remove_temporary_upload)
+from services.upload_validation import (FILE_MAX_SIZE, UploadValidationError, store_validated_upload,
+    remove_temporary_upload)
 from werkzeug.exceptions import RequestEntityTooLarge
 from datetime import datetime, timedelta, timezone
 from logging_config import log_activity
@@ -96,8 +96,8 @@ from services.security_headers import init_security_headers
 init_security_headers(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Allow a 32 MB Sandbox file plus bounded multipart overhead.
-app.config['MAX_CONTENT_LENGTH'] = 33 * 1024 * 1024
+# Allow a 50 MB scanned file plus bounded multipart overhead (Caddy allows the same).
+app.config['MAX_CONTENT_LENGTH'] = 51 * 1024 * 1024
 
 @app.errorhandler(CSRFError)
 def csrf_failure(error):
@@ -126,13 +126,9 @@ SMTP_PROBE_ENABLED = os.getenv('EMAIL_SMTP_PROBE', 'on').strip().lower() in ('1'
 RESEND_API_KEY = resend_key()
 # File Scanner Settings
 UPLOAD_FOLDER = 'temp_uploads'
-ALLOWED_EXTENSIONS = {'exe', 'dll', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', '7z', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'scr', 'msi'}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE = FILE_MAX_SIZE  # any file type; the analyzer identifies files by their bytes
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 # ================================================================
 # Email Checker Constants & Lists
 # ================================================================
@@ -859,14 +855,12 @@ def api_file_deep_analysis():
 
 
 def _queue_file_job(kind):
-    filename, file_content = read_validated_upload(
-        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
-    )
+    filename, temp_path = store_validated_upload(request.files.get('file'), MAX_FILE_SIZE, UPLOAD_FOLDER)
     failure = reserve_request_quota('file_scan')
     if failure is not None:
+        remove_temporary_upload(temp_path)
         return failure
     from services.evidence_jobs import queue_evidence_job
-    temp_path = save_temporary_upload(file_content, filename, UPLOAD_FOLDER)
     log_activity(current_user.username, 'file_scan', f'File scan queued: {filename}')
     return queue_evidence_job(kind, {'path': temp_path, 'filename': filename})
 
@@ -883,13 +877,11 @@ def async_scan_file():
     بدء فحص ملف في الخلفية (غير متزامن)
     يعود فوراً بـ task_id لتتبع التقدم
     """
-    filename, file_content = read_validated_upload(
-        request.files.get('file'), ALLOWED_EXTENSIONS, MAX_FILE_SIZE
-    )
+    filename, temp_path = store_validated_upload(request.files.get('file'), MAX_FILE_SIZE, UPLOAD_FOLDER)
     failure = reserve_request_quota('file_scan')
     if failure is not None:
+        remove_temporary_upload(temp_path)
         return failure
-    temp_path = save_temporary_upload(file_content, filename, UPLOAD_FOLDER)
     try:
         task_id = enqueue_owned_task(
             scan_file_task, (temp_path, filename, current_user.id), current_user.id

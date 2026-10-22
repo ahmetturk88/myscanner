@@ -20,7 +20,7 @@ def unavailable(kind, reason):
 
 
 def archive_observations(content, kind):
-    if kind not in ('rar', '7z') or len(content) > 10 * 1024 * 1024:
+    if kind not in ('rar', '7z') or len(content) > 50 * 1024 * 1024:  # the upload limit
         return unavailable(kind, 'Archive input unsupported or exceeds limit')
     if os.name != 'posix':
         return unavailable(kind, 'Bounded archive parser requires the Linux scanner container')

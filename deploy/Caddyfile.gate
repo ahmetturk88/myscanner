@@ -10,7 +10,7 @@
     @compressible not path /api/ai/*
     encode @compressible zstd gzip
     request_body {
-        max_size 33MB
+        max_size 51MB
     }
     reverse_proxy web:8000 {
         header_up X-Forwarded-For {remote_host}

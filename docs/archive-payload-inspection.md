@@ -2,7 +2,7 @@
 
 ZIP uploads now have bounded static member inspection in a disposable Linux subprocess. Member names are never used as filesystem paths. Uploaded code is never executed; decoded member bytes remain in memory.
 
-Limits: 10 MiB input, 1 MiB per decoded member, 8 MiB cumulative decoded bytes, 100 entries across the tree, two nested ZIP levels, compression ratio at most 100, six seconds wall time, three seconds CPU, 256 MiB process address space and 1 MiB output. Temporary input/result files are deleted after success, failure or timeout.
+Limits: 50 MiB input, 1 MiB per decoded member, 8 MiB cumulative decoded bytes, 100 entries across the tree, two nested ZIP levels, compression ratio at most 100, six seconds wall time, three seconds CPU, 256 MiB process address space and 1 MiB output. Temporary input/result files are deleted after success, failure or timeout.
 
 Each read member receives a SHA-256 fingerprint and observed magic/text type. Literal code-related patterns are contextual observations, not malware detections. No member fingerprints are sent to external providers. Encrypted members, symbolic links, corrupt entries, excess budgets and unsupported nested formats remain explicitly unverified. RAR/7z uploads retain directory-only inspection. OpenXML retains its separate bounded XML checks.
 

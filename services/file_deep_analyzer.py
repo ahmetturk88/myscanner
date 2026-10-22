@@ -63,6 +63,24 @@ EXECUTABLE_EXTENSIONS = {'exe', 'scr', 'com', 'pif', 'bat', 'cmd', 'js', 'jse', 
 DOCUMENT_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'jpg', 'jpeg', 'png', 'gif', 'mp3', 'mp4', 'zip', 'rar', 'csv'}
 
 
+# What a file name's extension promises; used only to spot a mismatch with the bytes.
+_TEXT = ('txt',)
+EXPECTED_TYPES = {
+    'pdf': ('pdf',), 'doc': ('doc', 'docx', 'ole'), 'docx': ('docx', 'doc', 'ole'), 'docm': ('docx',),
+    'xls': ('xls', 'xlsx', 'ole'), 'xlsx': ('xlsx', 'xls', 'ole'), 'xlsm': ('xlsx',),
+    'ppt': ('ppt', 'pptx', 'ole'), 'pptx': ('pptx', 'ppt', 'ole'), 'pptm': ('pptx',),
+    'zip': ('zip',), 'jar': ('zip',), 'apk': ('zip',), 'rar': ('rar',), '7z': ('7z',),
+    'jpg': ('jpg',), 'jpeg': ('jpg',), 'png': ('png',), 'gif': ('gif',), 'webp': ('webp',),
+    'exe': ('exe',), 'dll': ('exe',), 'scr': ('exe',), 'msi': ('exe', 'ole'),
+    **{name: _TEXT for name in ('txt', 'csv', 'json', 'xml', 'html', 'htm', 'md', 'svg', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'rb', 'pl')},
+}
+EXECUTABLE_NAMES = {'exe', 'dll', 'scr', 'msi', 'com', 'sys', 'cpl', 'ocx', 'drv', 'efi', 'bin', 'elf', 'so', 'run', 'out', ''}
+# Byte patterns and IoC text only mean something in bytes that are not compressed or
+# encoded. In images, media, archives and unidentified binaries they match by chance:
+# 50 MB of random bytes matched six rules (file-evidence-v5).
+PATTERN_SCOPE = 'Executables, Office documents and text only; compressed, media and unidentified bytes match these short patterns by chance.'
+
+
 def is_eicar(content):
     """The industry test file: the signature, optionally followed by whitespace, within 128 bytes."""
     return len(content) <= 128 and content.rstrip(b' \t\r\n\x1a') == EICAR_SIGNATURE
@@ -450,19 +468,14 @@ class FileDeepAnalyzer:
         result["is_image"] = result["actual_type"] in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp']
         result["is_pdf"] = result["actual_type"] == "pdf"
         
-        # كشف تزوير الامتداد (موسع)
-        ext_to_type = {
-            'pdf': ['pdf'], 'exe': ['exe', 'dll', 'scr', 'msi'], 'doc': ['doc', 'docx'],
-            'docx': ['docx', 'doc'], 'xls': ['xls', 'xlsx'], 'xlsx': ['xlsx', 'xls'],
-            'ppt': ['ppt', 'pptx'], 'pptx': ['pptx', 'ppt'], 'zip': ['zip', 'jar', 'apk'],
-            'rar': ['rar'], 'jpg': ['jpg', 'jpeg'], 'jpeg': ['jpg', 'jpeg'],
-            'png': ['png'], 'txt': ['txt','py','js','ps1','sh','bat','vbs','rb','pl'], 'html': ['html', 'htm'], 'js': ['js'],
-            'py': ['py'], 'ps1': ['ps1'], 'sh': ['sh'], 'bat': ['bat']
-        }
-        for ext_type, extensions in ext_to_type.items():
-            if result["actual_type"] == ext_type and result["extension"] not in extensions:
-                result["is_spoofed"] = True
-                break
+        # Extension spoofing: the name claims one format and the bytes show another.
+        # Only names with a known meaning are compared, so any-type uploads such as
+        # .csv, .epub or .odt are not flagged just for being unfamiliar (file-evidence-v5).
+        extension, actual = result["extension"], result["actual_type"]
+        if actual in ('exe', 'elf') and extension not in EXECUTABLE_NAMES:
+            result["is_spoofed"] = True
+        elif actual != 'unknown' and actual not in EXPECTED_TYPES.get(extension, (actual,)):
+            result["is_spoofed"] = True
         
         return result
     
@@ -991,6 +1004,8 @@ class FileDeepAnalyzer:
             metadata.update(self.extract_metadata_script(file_content, filename))
         elif file_type.get("is_image"):
             metadata.update(self.extract_metadata_image(file_content))
+        elif str(file_type.get('mime_type', '')).startswith(('audio/', 'video/')):
+            metadata['parser'] = 'audio or video file (media contents are not decoded)'
         elif file_type.get('actual_type') == 'txt':
             # Plain text has no internal structure to parse; its bytes are covered by the pattern and IoC checks.
             metadata['parser'] = 'plain text (no structure to parse)'
@@ -1002,7 +1017,10 @@ class FileDeepAnalyzer:
         
         # 5. المؤشرات (IoCs)
         # Compressed container bytes and member names are not decoded payload evidence.
-        iocs = {key: [] for key in self.IOC_PATTERNS} if file_type.get('is_archive') or file_type.get('is_pdf') else self.extract_iocs(file_content)
+        patterns_apply = bool(file_type.get('is_executable') or file_type.get('is_office') or file_type.get('actual_type') == 'txt')
+        iocs = self.extract_iocs(file_content) if patterns_apply else {key: [] for key in self.IOC_PATTERNS}
+        if not patterns_apply and not file_type.get('is_pdf'):
+            metadata['ioc_scope'] = PATTERN_SCOPE
         if file_type.get('is_pdf'):
             iocs = self.extract_iocs('\n'.join(metadata.get('uris', [])).encode('utf-8'))
             metadata['ioc_scope'] = 'Explicit PDF URI action values only; no raw or compressed byte matching.'
@@ -1010,7 +1028,8 @@ class FileDeepAnalyzer:
         # 6. فحص YARA (مع اسم الملف للفلترة)
         yara_result = ({'matched_rules': [], 'details': [], 'risk_score': 0, 'count': 0,
                         'status': 'not_checked', 'scope': 'Raw PDF byte patterns skipped; object findings are reported separately.'}
-                       if file_type.get('is_pdf') else self.scan_with_yara(file_content, filename))
+                       if file_type.get('is_pdf') else self.scan_with_yara(file_content, filename) if patterns_apply
+                       else {'matched_rules': [], 'details': [], 'risk_score': 0, 'count': 0, 'status': 'not_checked', 'scope': PATTERN_SCOPE})
         
         # 7. سمعة التجزئة
         hash_reputation = self.check_hash_reputation(hashes["sha256"])

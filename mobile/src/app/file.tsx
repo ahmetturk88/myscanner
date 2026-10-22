@@ -45,7 +45,7 @@ export default function FileScanner() {
     const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
     if (picked.canceled || !picked.assets?.length) return;
     const asset = picked.assets[0];
-    if (asset.size && asset.size > 10 * 1024 * 1024) { setError(t('This file is larger than 10 MB.')); return; }
+    if (asset.size && asset.size > 50 * 1024 * 1024) { setError(t('This file is larger than 50 MB.')); return; }
     setFile(asset); setResult(null);
   }
 
@@ -78,7 +78,7 @@ export default function FileScanner() {
             </View>
           </Floating>
           <Text style={{ color: colors.text, fontSize: 16, fontFamily: fonts.bold, textAlign: 'center' }} numberOfLines={2}>{file ? file.name : t('Choose a file')}</Text>
-          <Text style={{ color: colors.faint, fontSize: 13, textAlign: 'center', fontFamily: fonts.regular }}>{file?.size ? t('{size} KB · tap to change', { size: (file.size / 1024).toFixed(0) }) : t('PDF, Office, archives, apps and scripts · up to 10 MB')}</Text>
+          <Text style={{ color: colors.faint, fontSize: 13, textAlign: 'center', fontFamily: fonts.regular }}>{file?.size ? t('{size} KB · tap to change', { size: (file.size / 1024).toFixed(0) }) : t('Any file type · up to 50 MB')}</Text>
         </PressableScale>
       </Animated.View>
       {!busy ? <Button label={t('Analyze file')} arrow="→" onPress={scan} disabled={!file} /> : null}

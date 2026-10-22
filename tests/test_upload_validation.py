@@ -11,7 +11,7 @@ from werkzeug.datastructures import FileStorage
 
 import test_task_ownership
 from services.upload_validation import (
-    UploadValidationError, read_validated_upload, save_temporary_upload,
+    UploadValidationError, read_validated_upload, save_temporary_upload, store_validated_upload,
 )
 
 
@@ -33,6 +33,22 @@ class UploadHelperTests(unittest.TestCase):
         for file in [None, self.upload(filename=''), self.upload(filename='sample.txt'), self.upload(b'')]:
             with self.subTest(file=file), self.assertRaises(UploadValidationError):
                 read_validated_upload(file, {'pdf'}, 4)
+
+    def test_any_type_names_are_kept_safe(self):
+        cases = {'فاتورة.PDF': 'file.pdf', 'README': 'README', 'archive.tar.gz': 'archive.tar.gz',
+                 '..\\..\\evil.exe': 'evil.exe', 'odd.ext!!': 'odd'}
+        for original, expected in cases.items():
+            with self.subTest(original=original):
+                self.assertEqual(read_validated_upload(self.upload(filename=original), None, 4)[0], expected)
+
+    def test_streamed_upload_never_exceeds_limit_and_leaves_nothing_behind(self):
+        with tempfile.TemporaryDirectory() as folder:
+            name, path = store_validated_upload(self.upload(b'1234', 'a.bin'), 4, folder)
+            self.assertEqual((name, Path(path).read_bytes()), ('a.bin', b'1234'))
+            for content in (b'12345', b''):
+                with self.subTest(content=content), self.assertRaises(UploadValidationError):
+                    store_validated_upload(self.upload(content, 'b.bin'), 4, folder)
+            self.assertEqual([p.name for p in Path(folder).iterdir()], [Path(path).name])
 
     def test_path_traversal_name_never_enters_storage_path(self):
         name, content = read_validated_upload(self.upload(filename='../../secret.PDF'), {'pdf'}, 4)
@@ -63,10 +79,15 @@ class UploadEndpointTests(test_task_ownership.TaskOwnershipTests):
         self.sign_in(self.owner)
         return self.client.post(path, data={'file': (BytesIO(content), filename)})
 
-    def test_all_file_routes_reject_disallowed_extension(self):
-        for path in ['/api/scan-file', '/api/file-deep-analysis', '/api/async-scan-file', '/api/sandbox/analyze-file']:
-            with self.subTest(path=path):
-                self.assertEqual(self.post_file(path, filename='sample.txt').status_code, 400)
+    def test_sandbox_keeps_its_allow_list_and_the_file_scanner_takes_any_type(self):
+        self.assertEqual(self.post_file('/api/sandbox/analyze-file', filename='sample.txt').status_code, 400)
+        with tempfile.TemporaryDirectory() as folder, patch.object(self.production, 'UPLOAD_FOLDER', folder), \
+             patch('services.evidence_jobs.queue_evidence_job', return_value=({'task_id': 't'}, 202)), \
+             patch('app.enqueue_owned_task', return_value='t'):
+            for path, name in [('/api/scan-file', 'notes.xyz'), ('/api/file-deep-analysis', 'README'), ('/api/async-scan-file', 'فاتورة.pdf')]:
+                with self.subTest(path=path):
+                    self.assertIn(self.post_file(path, filename=name).status_code, (200, 202))
+            self.assertEqual(len(list(Path(folder).iterdir())), 3)
 
     def test_all_standard_file_routes_enforce_size_limit(self):
         with patch.object(self.production, 'MAX_FILE_SIZE', 4):

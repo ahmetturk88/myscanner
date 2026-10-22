@@ -1,6 +1,6 @@
 # RAR and 7z directory inspection
 
-Linux scanner images install the libarchive runtime (via libarchive-tools) and ExifTool from their distribution. RAR4, RAR5 and 7z are dispatched by observed magic bytes, not the uploaded name. Native parsing runs in a separate process: 6 seconds wall time, 3 seconds CPU, 256 MiB address space, 1 MiB output, zero core dump. Maximum upload remains 10 MiB. At most 1000 entries are inspected and 100 names displayed. Temporary input and result files are removed.
+Linux scanner images install the libarchive runtime (via libarchive-tools) and ExifTool from their distribution. RAR4, RAR5 and 7z are dispatched by observed magic bytes, not the uploaded name. Native parsing runs in a separate process: 6 seconds wall time, 3 seconds CPU, 256 MiB address space, 1 MiB output, zero core dump. Maximum upload is 50 MiB (any file type). At most 1000 entries are inspected and 100 names displayed. Temporary input and result files are removed.
 
 The directory lists sizes, script/executable suffixes, unsafe paths and encryption flags when readable. Files are never extracted to disk or executed. Some solid formats require internal decoding to reach subsequent headers. Unsupported, encrypted or malformed headers and time/resource limits remain explicit partial evidence. Encryption is unknown when the parser cannot determine it; a filename containing “password” is not evidence of encryption. Nested archives and member payloads are not analyzed. A directory negative is not a malware-negative result.
 

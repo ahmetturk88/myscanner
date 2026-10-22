@@ -4,7 +4,7 @@
   const root = document.getElementById('file-workspace');
   if (!root) return;
   const $ = id => document.getElementById(id);
-  const allowed = new Set('exe dll pdf doc docx xls xlsx zip rar 7z js py ps1 sh bat vbs scr msi'.split(' '));
+  const MAX_BYTES = 50 * 1024 * 1024;  // services/upload_validation.FILE_MAX_SIZE; any type is accepted
   const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const list = value => Array.isArray(value) ? value : [];
   const text = value => value == null ? '' : String(value);
@@ -47,11 +47,10 @@
   function select(file) {
     if (busy || !file) return;
     error('');
-    const ext = text(file.name).split('.').pop().toLowerCase();
+    const ext = text(file.name).includes('.') ? text(file.name).split('.').pop().toLowerCase().slice(0, 6) : 'file';
     let message = '';
     if (!file.size) message = 'This file is empty. Choose a non-empty file.';
-    else if (file.size > 10 * 1024 * 1024) message = 'This file exceeds 10 MiB. Choose a smaller file.';
-    else if (!text(file.name).includes('.') || !allowed.has(ext)) message = 'This file type is not supported. Check the supported file types below.';
+    else if (file.size > MAX_BYTES) message = 'This file is larger than 50 MB. Choose a smaller file.';
     if (message) { error(message); $('file-input').value = ''; return; }
     selected = file;
     lastResult = null; $('result-card').hidden = true;

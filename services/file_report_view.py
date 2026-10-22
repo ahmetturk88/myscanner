@@ -8,6 +8,7 @@ from datetime import datetime
 
 from services.url_assessment import mapping
 from services.url_report_view import tally
+from services.file_deep_analyzer import PATTERN_SCOPE
 
 VERDICTS = {
     'malicious': ('danger', 'DANGEROUS', 'Don’t open this file'),
@@ -159,8 +160,11 @@ def plain_file_report(report):
                       check('Archive contents', 'warn', 'Unsafe names') if meta.get('has_path_traversal') is True else
                       check('Archive contents', 'ok', f'{inspected} files checked') if payload.get('status') in ('assessed', 'partial') and isinstance(inspected, int)
                       else check('Archive contents', 'na', 'Not inspected'))
+    # Compressed, media and unidentified bytes are not searched for links (file-evidence-v5).
+    links_skipped = meta.get('ioc_scope') == PATTERN_SCOPE
     checks.append(check('Links inside', 'warn', 'Dark-web / crypto') if darkweb else
-                  check('Links inside', 'info', f'{links} link' + ('s' if links != 1 else '')) if links else check('Links inside', 'ok', 'None'))
+                  check('Links inside', 'info', f'{links} link' + ('s' if links != 1 else '')) if links else
+                  check('Links inside', 'na', 'Not checked') if links_skipped else check('Links inside', 'ok', 'None'))
     shown = name or 'this file'
     share = (f'Warning: MyScanner rates the file “{shown}” as dangerous. Don’t open it.' if tone == 'danger'
              else f'MyScanner says “{shown}” is the EICAR antivirus test file. It is harmless.' if eicar

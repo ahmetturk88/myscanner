@@ -63,6 +63,24 @@ EXECUTABLE_EXTENSIONS = {'exe', 'scr', 'com', 'pif', 'bat', 'cmd', 'js', 'jse', 
 DOCUMENT_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'jpg', 'jpeg', 'png', 'gif', 'mp3', 'mp4', 'zip', 'rar', 'csv'}
 
 
+# What a file name's extension promises; used only to spot a mismatch with the bytes.
+_TEXT = ('txt',)
+EXPECTED_TYPES = {
+    'pdf': ('pdf',), 'doc': ('doc', 'docx', 'ole'), 'docx': ('docx', 'doc', 'ole'), 'docm': ('docx',),
+    'xls': ('xls', 'xlsx', 'ole'), 'xlsx': ('xlsx', 'xls', 'ole'), 'xlsm': ('xlsx',),
+    'ppt': ('ppt', 'pptx', 'ole'), 'pptx': ('pptx', 'ppt', 'ole'), 'pptm': ('pptx',),
+    'zip': ('zip',), 'jar': ('zip',), 'apk': ('zip',), 'rar': ('rar',), '7z': ('7z',),
+    'jpg': ('jpg',), 'jpeg': ('jpg',), 'png': ('png',), 'gif': ('gif',), 'webp': ('webp',),
+    'exe': ('exe',), 'dll': ('exe',), 'scr': ('exe',), 'msi': ('exe', 'ole'),
+    **{name: _TEXT for name in ('txt', 'csv', 'json', 'xml', 'html', 'htm', 'md', 'svg', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'rb', 'pl')},
+}
+EXECUTABLE_NAMES = {'exe', 'dll', 'scr', 'msi', 'com', 'sys', 'cpl', 'ocx', 'drv', 'efi', 'bin', 'elf', 'so', 'run', 'out', ''}
+# Byte patterns and IoC text only mean something in bytes that are not compressed or
+# encoded. In images, media, archives and unidentified binaries they match by chance:
+# 50 MB of random bytes matched six rules (file-evidence-v5).
+PATTERN_SCOPE = 'Executables, Office documents and text only; compressed, media and unidentified bytes match these short patterns by chance.'
+
+
 def is_eicar(content):
     """The industry test file: the signature, optionally followed by whitespace, within 128 bytes."""
     return len(content) <= 128 and content.rstrip(b' \t\r\n\x1a') == EICAR_SIGNATURE
@@ -450,19 +468,14 @@ class FileDeepAnalyzer:
         result["is_image"] = result["actual_type"] in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp']
         result["is_pdf"] = result["actual_type"] == "pdf"
         
-        # كشف تزوير الامتداد (موسع)
-        ext_to_type = {
-            'pdf': ['pdf'], 'exe': ['exe', 'dll', 'scr', 'msi'], 'doc': ['doc', 'docx'],
-            'docx': ['docx', 'doc'], 'xls': ['xls', 'xlsx'], 'xlsx': ['xlsx', 'xls'],
-            'ppt': ['ppt', 'pptx'], 'pptx': ['pptx', 'ppt'], 'zip': ['zip', 'jar', 'apk'],
-            'rar': ['rar'], 'jpg': ['jpg', 'jpeg'], 'jpeg': ['jpg', 'jpeg'],
-            'png': ['png'], 'txt': ['txt','py','js','ps1','sh','bat','vbs','rb','pl'], 'html': ['html', 'htm'], 'js': ['js'],
-            'py': ['py'], 'ps1': ['ps1'], 'sh': ['sh'], 'bat': ['bat']
-        }
-        for ext_type, extensions in ext_to_type.items():
-            if result["actual_type"] == ext_type and result["extension"] not in extensions:
-                result["is_spoofed"] = True
-                break
+        # Extension spoofing: the name claims one format and the bytes show another.
+        # Only names with a known meaning are compared, so any-type uploads such as
+        # .csv, .epub or .odt are not flagged just for being unfamiliar (file-evidence-v5).
+        extension, actual = result["extension"], result["actual_type"]
+        if actual in ('exe', 'elf') and extension not in EXECUTABLE_NAMES:
+            result["is_spoofed"] = True
+        elif actual != 'unknown' and actual not in EXPECTED_TYPES.get(extension, (actual,)):
+            result["is_spoofed"] = True
         
         return result
     
@@ -991,18 +1004,41 @@ class FileDeepAnalyzer:
             metadata.update(self.extract_metadata_script(file_content, filename))
         elif file_type.get("is_image"):
             metadata.update(self.extract_metadata_image(file_content))
+        elif str(file_type.get('mime_type', '')).startswith(('audio/', 'video/')):
+            metadata['parser'] = 'audio or video file (media contents are not decoded)'
         elif file_type.get('actual_type') == 'txt':
             # Plain text has no internal structure to parse; its bytes are covered by the pattern and IoC checks.
             metadata['parser'] = 'plain text (no structure to parse)'
         else:
             metadata['error'] = 'No structural parser selected for the observed format'
 
+        # 3b. Format-specific inspection: apps, web pages, SVG, saved emails, Office macros, QR images.
+        from services.format_inspectors import inspect as inspect_format
+        try:
+            inspection = inspect_format(file_content, original_filename, file_type)
+        except Exception as error:  # a broken inspector must not lose the rest of the report
+            logger.warning('Format inspection failed: %s', type(error).__name__)
+            inspection = None
+        if inspection:
+            metadata['inspection'] = inspection
+            facts = inspection.get('facts') or {}
+            if inspection.get('format') == 'office' and inspection.get('status') == 'assessed':
+                # The macro parser settles what the legacy OLE container check could not.
+                if metadata.get('has_macros') is None or 'Legacy OLE' in str(metadata.get('error', '')):
+                    metadata['has_macros'] = facts.get('has_macros')
+                    metadata.pop('error', None)
+                    metadata['coverage_status'] = 'assessed'
+                    metadata['scope'] = 'Office macros inspected with olevba; nothing was executed.'
+
         # 4. exiftool metadata (اختياري)
         exiftool_data = self.extract_metadata_via_exiftool(file_content, filename) if self.use_exiftool else {}
         
         # 5. المؤشرات (IoCs)
         # Compressed container bytes and member names are not decoded payload evidence.
-        iocs = {key: [] for key in self.IOC_PATTERNS} if file_type.get('is_archive') or file_type.get('is_pdf') else self.extract_iocs(file_content)
+        patterns_apply = bool(file_type.get('is_executable') or file_type.get('is_office') or file_type.get('actual_type') == 'txt')
+        iocs = self.extract_iocs(file_content) if patterns_apply else {key: [] for key in self.IOC_PATTERNS}
+        if not patterns_apply and not file_type.get('is_pdf'):
+            metadata['ioc_scope'] = PATTERN_SCOPE
         if file_type.get('is_pdf'):
             iocs = self.extract_iocs('\n'.join(metadata.get('uris', [])).encode('utf-8'))
             metadata['ioc_scope'] = 'Explicit PDF URI action values only; no raw or compressed byte matching.'
@@ -1010,10 +1046,15 @@ class FileDeepAnalyzer:
         # 6. فحص YARA (مع اسم الملف للفلترة)
         yara_result = ({'matched_rules': [], 'details': [], 'risk_score': 0, 'count': 0,
                         'status': 'not_checked', 'scope': 'Raw PDF byte patterns skipped; object findings are reported separately.'}
-                       if file_type.get('is_pdf') else self.scan_with_yara(file_content, filename))
+                       if file_type.get('is_pdf') else self.scan_with_yara(file_content, filename) if patterns_apply
+                       else {'matched_rules': [], 'details': [], 'risk_score': 0, 'count': 0, 'status': 'not_checked', 'scope': PATTERN_SCOPE})
         
         # 7. سمعة التجزئة
         hash_reputation = self.check_hash_reputation(hashes["sha256"])
+
+        # 7b. Antivirus engine (ClamAV); a signature match is a confirmed finding.
+        from services.clamav_client import scan_bytes
+        antivirus = scan_bytes(file_content)
         
         # 8. حساب درجة الخطورة (معدلة)
         security_score = 100
@@ -1155,6 +1196,25 @@ class FileDeepAnalyzer:
         if file_type.get('actual_type') == 'unknown':missing_checks.append('File format could not be identified')
         if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
         # Byte-pattern heuristics are not a signature engine or a sandbox.
+        if antivirus.get('status') == 'unavailable':missing_checks.append('Antivirus scan unavailable')
+        inspection = metadata.get('inspection') or {}
+        if inspection.get('status') == 'unavailable' and inspection.get('format') != 'image':
+            missing_checks.append('Format inspection unavailable: ' + str(inspection.get('error', 'unknown reason')))
+        if inspection.get('raises_review') and verdict != 'malicious':
+            # Format findings ask for review; they never confirm malware (file-evidence-v5).
+            verdict='suspicious';verdict_icon='⚠️';severity='medium';security_score=min(security_score,55)
+            for item in inspection.get('findings', []):
+                if item.get('level') == 'warn':
+                    recommendations.insert(0, '🔍 ' + item['title'] + ': ' + item['detail'])
+        if antivirus.get('status') == 'found':
+            signature = antivirus.get('signature') or 'unnamed signature'
+            if antivirus.get('kind') == 'malware':
+                verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
+                recommendations.insert(0,f'🚨 Antivirus (ClamAV) detected known malware: {signature}. Do not open this file.')
+            elif verdict != 'malicious':
+                # Heuristics.* and PUA.* describe risky features, not known malware.
+                verdict='suspicious';verdict_icon='⚠️';severity='medium';security_score=min(security_score,55)
+                recommendations.insert(0,f'⚠️ Antivirus (ClamAV) flags a risky feature: {signature}.')
         if hash_reputation.get('is_malicious') is True:
             verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
         if eicar:
@@ -1169,7 +1229,7 @@ class FileDeepAnalyzer:
             "filename": original_filename,
             "coverage_status": "partial" if missing_checks else "completed",
             "missing_checks": missing_checks,
-            "scope": "Static metadata, byte patterns and hash reputation; no execution, sandbox or antivirus guarantee.",
+            "scope": "Static metadata, byte patterns, hash reputation and an antivirus engine when available; no execution or sandbox, and no guarantee of safety.",
             "file_size_bytes": file_size,
             "file_size_mb": round(file_size / 1024 / 1024, 2),
             "file_type": file_type,
@@ -1179,6 +1239,7 @@ class FileDeepAnalyzer:
             "iocs": iocs,
             "yara": yara_result,
             "hash_reputation": hash_reputation,
+            "antivirus": antivirus,
             "warnings": warnings,
             "security_score": security_score,
             "verdict": verdict,

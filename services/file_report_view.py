@@ -8,6 +8,7 @@ from datetime import datetime
 
 from services.url_assessment import mapping
 from services.url_report_view import tally
+from services.file_deep_analyzer import PATTERN_SCOPE
 
 VERDICTS = {
     'malicious': ('danger', 'DANGEROUS', 'Don’t open this file'),
@@ -55,10 +56,22 @@ def plain_file_report(report):
     suspicious = [s for s in meta.get('suspicious') or [] if isinstance(s, str)]
     remote = any('External Office relationship:' in s for s in suspicious)
     encrypted = meta.get('encrypted') is True or bool(meta.get('encrypted_members'))
-    links = len(iocs.get('urls') or []) if isinstance(iocs.get('urls'), list) else 0
+    found_links = iocs.get('url') if isinstance(iocs.get('url'), list) else iocs.get('urls')
+    links = len(found_links) if isinstance(found_links, list) else 0
     darkweb = bool(iocs.get('onion_addresses') or iocs.get('bitcoin_addresses'))
     metadata_failed = bool(meta.get('error') or meta.get('metadata_error'))
     missing = [m for m in report.get('missing_checks') or [] if isinstance(m, str)]
+    antivirus = mapping(report.get('antivirus'))
+    av_status = antivirus.get('status')
+    av_signature = antivirus.get('signature') if isinstance(antivirus.get('signature'), str) else ''
+    av_signature = av_signature[:80] or 'a known signature'
+    av_malware = av_status == 'found' and antivirus.get('kind') == 'malware' and not eicar
+    av_heuristic = av_status == 'found' and antivirus.get('kind') == 'heuristic' and not eicar
+    inspection = mapping(meta.get('inspection'))
+    inspected = inspection.get('format') if inspection.get('status') == 'assessed' else None
+    # Name what the inspector recognised: an app is a ZIP and a web page is text underneath.
+    if inspected in ('apk', 'html', 'svg', 'email') and kind.get('is_spoofed') is not True:
+        actual = {'apk': 'apk', 'html': 'html', 'svg': 'svg', 'email': 'eml'}[inspected]
 
     reasons = []
     def add(kind_, title, detail):
@@ -68,6 +81,10 @@ def plain_file_report(report):
         add('info', 'The EICAR test file', 'It is harmless by design. Security tools report it as malware on purpose, so people can check that they work.')
     if matched:
         add('bad', 'Known malware', 'MalwareBazaar, a public malware library, has this exact file' + (f', named {signature}.' if signature else '.'))
+    if av_malware:
+        add('bad', 'Antivirus found malware', f'ClamAV, an antivirus engine, recognises it as {av_signature}.')
+    elif av_heuristic:
+        add('warn', 'Antivirus warning', f'ClamAV flags a risky feature in it ({av_signature}). This is a warning sign, not proof of malware.')
     if disguise:
         hidden = 'right-to-left' in disguise
         add('bad', 'The name hides a program' if not hidden else 'The name is reversed on purpose',
@@ -89,9 +106,14 @@ def plain_file_report(report):
         add('warn', 'Suspicious patterns inside', f'We found {len(rules)} pattern' + ('s' if len(rules) != 1 else '') + ' often seen in malicious files.')
     if darkweb and not benign:
         add('warn', 'Dark-web or crypto addresses inside', 'The file contains .onion or Bitcoin addresses, which are common in ransomware notes.')
+    for item in inspection.get('findings') or []:
+        if isinstance(item, dict) and item.get('level') in ('warn', 'info') and isinstance(item.get('title'), str):
+            add(item['level'], item['title'], str(item.get('detail', '')))
     if encrypted:
         add('info', 'Password-protected contents', 'We couldn’t look inside the locked parts. Scammers lock files to hide malware from scanners.')
-    if verdict == 'not_found' and not reasons:
+    if verdict == 'not_found' and not any(r['tone'] in ('bad', 'warn', 'na') for r in reasons):
+        if av_status == 'clean':
+            add('ok', 'Antivirus found nothing', 'ClamAV, an antivirus engine updated every day, found no known malware in it.')
         if provider.get('status') == 'not_found':
             add('ok', 'Not in the malware library', 'MalwareBazaar doesn’t know this exact file as malware.')
         if not metadata_failed and not any(meta.get(key) is True for key, _ in HIDDEN_CODE):
@@ -111,7 +133,7 @@ def plain_file_report(report):
         actions = ['Nothing to worry about if you were testing a security tool.',
                    'Didn’t expect this file? Delete it and ask the sender why they sent it.']
     elif tone == 'danger':
-        summary = ('It is a known piece of malware. Opening it could infect your device.' if matched
+        summary = ('It is a known piece of malware. Opening it could infect your device.' if matched or av_malware
                    else 'It is a program disguised as a document, a common way to spread malware.' if disguise
                    else 'We found strong warning signs. Treat it as dangerous.')
         actions = ['Don’t open or run this file. Delete it.',
@@ -136,6 +158,13 @@ def plain_file_report(report):
         summary = 'It isn’t known malware and has no hidden code we could find. We didn’t run it, so this isn’t a guarantee.'
         actions = ['You can open it if you expected it from someone you trust.',
                    'If a document asks you to enable macros or content, don’t.']
+    # Advice that fits the kind of file, whatever the verdict.
+    first = {'apk': 'Install apps only from Google Play, never from a link or a message.',
+             'image': 'Check the QR code’s link with the URL scanner before you open it.' if (inspection.get('facts') or {}).get('qr_links') else None,
+             'email': 'Don’t open attachments or links in this email unless you expected it.',
+             'html': 'Never type a password into a page that came as a file.' if (inspection.get('facts') or {}).get('password_fields') else None}.get(inspected)
+    if first and not eicar:
+        actions = [first] + [a for a in actions if a != first][:2]
 
     def check(name_, state, result):
         return {'name': name_, 'state': state, 'result': result}
@@ -143,6 +172,11 @@ def plain_file_report(report):
     checks = [
         check('Malware library', 'bad', signature or 'Known malware') if matched else
         check('Malware library', 'ok', 'Not listed') if provider.get('status') == 'not_found' else check('Malware library', 'na', 'Not checked'),
+        *([check('Antivirus', 'ok', 'Test file detected') if eicar and av_status == 'found' else
+           check('Antivirus', 'bad', 'Malware found') if av_malware else
+           check('Antivirus', 'warn', 'Warning') if av_heuristic else
+           check('Antivirus', 'ok', 'Clean') if av_status == 'clean' else
+           check('Antivirus', 'na', 'Not checked')] if av_status in ('found', 'clean', 'unavailable') else []),
         check('Real file type', 'bad', 'Program in disguise') if disguise else
         check('Real file type', 'ok', 'Antivirus test file') if eicar else
         check('Real file type', 'warn', 'Doesn’t match name') if kind.get('is_spoofed') is True else
@@ -159,8 +193,14 @@ def plain_file_report(report):
                       check('Archive contents', 'warn', 'Unsafe names') if meta.get('has_path_traversal') is True else
                       check('Archive contents', 'ok', f'{inspected} files checked') if payload.get('status') in ('assessed', 'partial') and isinstance(inspected, int)
                       else check('Archive contents', 'na', 'Not inspected'))
+    row = mapping(inspection.get('row'))
+    if all(isinstance(row.get(k), str) for k in ('name', 'state', 'result')) and row['state'] in ('ok', 'warn', 'info', 'na'):
+        checks.append(check(row['name'], row['state'], row['result']))
+    # Compressed, media and unidentified bytes are not searched for links (file-evidence-v5).
+    links_skipped = meta.get('ioc_scope') == PATTERN_SCOPE
     checks.append(check('Links inside', 'warn', 'Dark-web / crypto') if darkweb else
-                  check('Links inside', 'info', f'{links} link' + ('s' if links != 1 else '')) if links else check('Links inside', 'ok', 'None'))
+                  check('Links inside', 'info', f'{links} link' + ('s' if links != 1 else '')) if links else
+                  check('Links inside', 'na', 'Not checked') if links_skipped else check('Links inside', 'ok', 'None'))
     shown = name or 'this file'
     share = (f'Warning: MyScanner rates the file “{shown}” as dangerous. Don’t open it.' if tone == 'danger'
              else f'MyScanner says “{shown}” is the EICAR antivirus test file. It is harmless.' if eicar

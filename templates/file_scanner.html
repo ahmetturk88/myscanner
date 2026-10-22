@@ -21,14 +21,14 @@
   </header>
 
   <section class="fw-upload-panel" aria-labelledby="upload-title">
-    <div class="fw-panel-heading"><div><span class="fw-eyebrow">01 / START HERE</span><h2 id="upload-title">A closer look at your file.</h2></div><span class="fw-limit">UP TO 10 MiB</span></div>
+    <div class="fw-panel-heading"><div><span class="fw-eyebrow">01 / START HERE</span><h2 id="upload-title">A closer look at your file.</h2></div><span class="fw-limit">ANY TYPE · UP TO 50 MB</span></div>
     <div class="fw-upload-grid">
       <div>
         <div class="fw-dropzone" id="upload-area">
           <svg viewBox="0 0 64 64" aria-hidden="true" class="fw-upload-symbol"><path d="M18 8h20l10 10v38H18Z M38 8v12h10 M32 45V27m-7 7 7-7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
           <h3>Drop a file to explore</h3><p>Or choose it from your device.</p>
           <button class="fw-button fw-button-light" id="choose-file" type="button">Choose a file <span aria-hidden="true">↗</span></button>
-          <input type="file" id="file-input" class="fw-visually-hidden" tabindex="-1" aria-label="Choose a file to inspect" accept=".exe,.dll,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.7z,.js,.py,.ps1,.sh,.bat,.vbs,.scr,.msi">
+          <input type="file" id="file-input" class="fw-visually-hidden" tabindex="-1" aria-label="Choose a file to inspect">
           <span class="fw-drop-note">One file at a time · Analysis starts only when you choose</span>
         </div>
         <div class="fw-selected" id="file-info" hidden>
@@ -44,10 +44,10 @@
         <div class="fw-guide-row"><span>01</span><div><strong>File identity</strong><p>Size, format observations and cryptographic fingerprints.</p></div></div>
         <div class="fw-guide-row"><span>02</span><div><strong>Content clues</strong><p>Metadata, byte patterns and embedded indicators where supported.</p></div></div>
         <div class="fw-guide-row"><span>03</span><div><strong>Known hash matches</strong><p>MalwareBazaar evidence, with unavailable checks clearly separated.</p></div></div>
-        <details class="fw-supported"><summary>Supported file types</summary><p>EXE · DLL · SCR · MSI<br>PDF · DOC · DOCX · XLS · XLSX<br>ZIP · RAR · 7Z<br>JS · PY · PS1 · SH · BAT · VBS</p></details>
+        <details class="fw-supported"><summary>Supported file types</summary><p>Any file up to 50 MB: its real format is read from its bytes, not its name, and every file is checked by the ClamAV antivirus engine. Extra checks for:<br>APK Android apps: risky permissions and signer<br>HTML pages and SVG images: login forms, hidden code, redirects<br>EML saved emails: risky attachments, failed sender checks, links<br>DOC · DOCX · XLS · XLSX · PPT: macros, Excel 4.0 macros, password locks<br>JPG · PNG · GIF · WEBP: QR codes and the link they lead to<br>PDF · ZIP · RAR · 7Z · EXE · DLL · scripts</p></details>
       </aside>
     </div>
-    <p class="fw-upload-disclosure">The selected file is sent to MyScanner for analysis. Hash reputation queries use its fingerprint. Avoid uploading sensitive documents. This is static inspection, not a sandbox or an antivirus guarantee.</p>
+    <p class="fw-upload-disclosure">The selected file is sent to MyScanner for analysis. Hash reputation queries use its fingerprint. Avoid uploading sensitive documents. It is checked with static inspection and the ClamAV antivirus engine on our own server; it is never run, and no scan can guarantee safety.</p>
   </section>
 
   <section class="fw-loading" id="loading-div" aria-labelledby="loading-title" hidden>
@@ -78,6 +78,6 @@
   <div class="fw-feedback" id="file-feedback" role="status" aria-live="polite"></div>
 </div>
 <script src="{{ url_for('static', filename='plain_report.js', v='20261020-1') }}" defer></script>
-<script src="{{ url_for('static', filename='file_workspace.js', v='20261019-1') }}" defer></script>
+<script src="{{ url_for('static', filename='file_workspace.js', v='20261022-2') }}" defer></script>
 {% endblock %}
 

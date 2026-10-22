@@ -4,7 +4,7 @@
   const root = document.getElementById('file-workspace');
   if (!root) return;
   const $ = id => document.getElementById(id);
-  const allowed = new Set('exe dll pdf doc docx xls xlsx zip rar 7z js py ps1 sh bat vbs scr msi'.split(' '));
+  const MAX_BYTES = 50 * 1024 * 1024;  // services/upload_validation.FILE_MAX_SIZE; any type is accepted
   const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const list = value => Array.isArray(value) ? value : [];
   const text = value => value == null ? '' : String(value);
@@ -47,11 +47,10 @@
   function select(file) {
     if (busy || !file) return;
     error('');
-    const ext = text(file.name).split('.').pop().toLowerCase();
+    const ext = text(file.name).includes('.') ? text(file.name).split('.').pop().toLowerCase().slice(0, 6) : 'file';
     let message = '';
     if (!file.size) message = 'This file is empty. Choose a non-empty file.';
-    else if (file.size > 10 * 1024 * 1024) message = 'This file exceeds 10 MiB. Choose a smaller file.';
-    else if (!text(file.name).includes('.') || !allowed.has(ext)) message = 'This file type is not supported. Check the supported file types below.';
+    else if (file.size > MAX_BYTES) message = 'This file is larger than 50 MB. Choose a smaller file.';
     if (message) { error(message); $('file-input').value = ''; return; }
     selected = file;
     lastResult = null; $('result-card').hidden = true;
@@ -154,14 +153,17 @@
     $('score-note').textContent = score.available ? 'Evidence index: ' + score.value + '/100. Coverage deductions: ' + text(object(d.assessment).coverage_penalty ?? 0) + ' points. Not a probability of safety.' : 'Not assigned. Missing evidence is not converted into a perfect score.';
     const identity = $('report-identity'); identity.replaceChildren(node('strong', '', d.filename || selected?.name || 'Unnamed file'), node('span', '', size(finite(d.file_size_bytes) ? d.file_size_bytes : finite(d.file_size) ? d.file_size : selected?.size)), node('span', '', 'Reported: ' + date(d.scanned_at || d.analyzed_at)));
     const grid = $('stats-grid'); grid.replaceChildren();
-    const stats = [[Array.isArray(patterns.matched_rules) ? patterns.matched_rules.length : '—','Local byte patterns'],[Array.isArray(iocs.urls) ? iocs.urls.length : '—','Embedded URLs'],[Array.isArray(iocs.ipv4) ? iocs.ipv4.length : '—','Embedded IPv4 addresses'],[meta.error ? 'Unavailable' : meta.language || (ft.actual_type && ft.actual_type !== 'unknown' ? ft.actual_type : 'Not reported'),'Format / language observation']];
+    const stats = [[Array.isArray(patterns.matched_rules) ? patterns.matched_rules.length : '—','Local byte patterns'],[Array.isArray(iocs.url || iocs.urls) ? (iocs.url || iocs.urls).length : '—','Embedded URLs'],[Array.isArray(iocs.ipv4) ? iocs.ipv4.length : '—','Embedded IPv4 addresses'],[meta.error ? 'Unavailable' : meta.language || (ft.actual_type && ft.actual_type !== 'unknown' ? ft.actual_type : 'Not reported'),'Format / language observation']];
     stats.forEach(([value,label]) => { const card=node('div','fw-stat');card.append(node('strong','fw-stat-value',value),node('span','',label));grid.append(card); });
     const sources = $('provider-summary'); sources.replaceChildren();
     source(sources,'MalwareBazaar', mb.status === 'matched' && mb.is_malicious === true ? 'Matched' : mb.status === 'not_found' ? 'No dataset match' : 'Not verified', mb.status === 'matched' && mb.is_malicious === true ? 'danger' : mb.status === 'not_found' ? 'neutral' : 'unknown', mb.status === 'not_found' ? 'The queried hash was not found in this dataset. This is not a safety verdict.' : mb.status === 'matched' && mb.is_malicious === true ? 'A malicious hash match was reported. See the signature and source details.' : 'A verified hash lookup result was not returned. No negative match is inferred.');
+    const av=object(d.antivirus);
+    if(['found','clean','unavailable'].includes(av.status)) source(sources,'Antivirus (ClamAV)',av.status==='found'?(av.kind==='malware'?'Malware detected':'Warning'):av.status==='clean'?'Nothing detected':'Unavailable',av.status==='found'?(av.kind==='malware'?'danger':'review'):av.status==='clean'?'neutral':'unknown',av.status==='found'?'Signature: '+text(av.signature)+'.':av.status==='clean'?'One antivirus engine with daily signature updates found no known malware. This is not a guarantee.':'The antivirus engine did not return a result for this file.');
     const payload=object(meta.payload_inspection);
-    if(Object.keys(payload).length) source(sources,'Archive member inspection',payload.status==='assessed'?'Returned':payload.status==='partial'?'Limited':'Unavailable',payload.status==='assessed'?'neutral':'unknown',String(payload.inspected_members||0)+' members read within budgets. Static patterns require context; no code execution or antivirus scan.');
+    if(Object.keys(payload).length) source(sources,'Archive member inspection',payload.status==='assessed'?'Returned':payload.status==='partial'?'Limited':'Unavailable',payload.status==='assessed'?'neutral':'unknown',String(payload.inspected_members||0)+' members read within budgets. Static patterns require context; no code is executed.');
     source(sources,'Local metadata',meta.error ? 'Unavailable' : Object.keys(meta).length ? 'Returned' : 'Not reported',meta.error || !Object.keys(meta).length ? 'unknown' : 'neutral','Static metadata only. File-specific parser fields appear in the evidence sections.');
-    source(sources,'Byte pattern inspection',patterns.error || !Array.isArray(patterns.matched_rules) ? 'Not verified' : patterns.matched_rules.length ? 'Patterns reported' : 'No patterns reported',patterns.error || !Array.isArray(patterns.matched_rules) ? 'unknown' : patterns.matched_rules.length ? 'review' : 'neutral','Local byte heuristics; this is not a YARA engine or a sandbox execution result.');
+    if(patterns.status==='not_checked') source(sources,'Byte pattern inspection','Not checked','unknown',text(patterns.scope)||'Not applied to this format.');
+    else source(sources,'Byte pattern inspection',patterns.error || !Array.isArray(patterns.matched_rules) ? 'Not verified' : patterns.matched_rules.length ? 'Patterns reported' : 'No patterns reported',patterns.error || !Array.isArray(patterns.matched_rules) ? 'unknown' : patterns.matched_rules.length ? 'review' : 'neutral','Local byte heuristics; this is not a YARA engine or a sandbox execution result.');
     const next=$('recommendations'); next.replaceChildren(); const ul=node('ul','fw-list');
     list(d.missing_checks).slice(0,20).forEach(item=>ul.append(node('li','',item)));
     const recs=list(d.recommendations); recs.slice(0,12).forEach(item=>ul.append(node('li','',item)));

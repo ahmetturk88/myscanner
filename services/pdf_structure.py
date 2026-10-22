@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 
-MAX_INPUT = 10 * 1024 * 1024
+MAX_INPUT = 50 * 1024 * 1024  # the upload limit (upload_validation.FILE_MAX_SIZE)
 MAX_OUTPUT = 1024 * 1024
 MAX_NODES = 10000
 

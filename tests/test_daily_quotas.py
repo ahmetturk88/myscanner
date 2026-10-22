@@ -150,7 +150,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
             enqueue.assert_not_called();analyzer.assert_not_called();intel.assert_not_called()
     def test_invalid_upload_and_json_do_not_consume_quota(self):
         for path in ['/api/scan-file','/api/file-deep-analysis','/api/async-scan-file']:
-            self.assertEqual(self.client.post(path,data={'file':(BytesIO(b'x'),'bad.xyz')},content_type='multipart/form-data').status_code,400)
+            self.assertEqual(self.client.post(path,data={'file':(BytesIO(b''),'empty.pdf')},content_type='multipart/form-data').status_code,400)
         for payload in [None,[],{}, {'password':123},{'password':''}]:self.assertEqual(self.client.post('/api/check-password',json=payload).status_code,400)
         self.assertEqual(self.balance('file_scan'),5);self.assertEqual(self.balance('password_check'),15)
     def test_accepted_broker_failure_does_not_reset_reservation(self):

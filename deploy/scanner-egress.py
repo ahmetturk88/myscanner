@@ -12,9 +12,12 @@ BLOCKED = ('0.0.0.0/8','10.0.0.0/8','100.64.0.0/10','127.0.0.0/8',
            '198.51.100.0/24','203.0.113.0/24','224.0.0.0/4','240.0.0.0/4')
 
 
+OPTIONAL={('clamav',3310)}
+
+
 def rules(exceptions=(), role="provider"):
     if role not in ('provider','browser','web','worker'):raise ValueError('Unknown scanner role')
-    allowed_ports={'provider':(6379,9222),'browser':(),'web':(5432,6379,8080),'worker':(5432,6379,8080)}[role]
+    allowed_ports={'provider':(6379,9222),'browser':(),'web':(5432,6379,8080),'worker':(5432,6379,8080,3310)}[role]
     # INPUT is untouched: only new outbound connections are restricted.
     result=[['-P','OUTPUT','DROP'], ['-F','OUTPUT'],
             ['-A','OUTPUT','-m','conntrack','--ctstate','ESTABLISHED,RELATED','-j','ACCEPT']]
@@ -56,10 +59,16 @@ def install():
     exceptions=[]
     destinations={'browser':(), 'provider':(('urlvet-cache',6379),('urlvet-browser',9222)),
                   'web':(('postgres',5432),('redis',6379),('urlvet',8080)),
-                  'worker':(('postgres',5432),('redis',6379),('urlvet',8080))}
+                  'worker':(('postgres',5432),('redis',6379),('urlvet',8080),('clamav',3310))}
     if destinations[mode]:
         for host,port in destinations[mode]:
-            addresses={row[4][0] for row in socket.getaddrinfo(host,port,socket.AF_INET,socket.SOCK_STREAM)}
+            try:
+                addresses={row[4][0] for row in socket.getaddrinfo(host,port,socket.AF_INET,socket.SOCK_STREAM)}
+            except socket.gaierror:
+                # The antivirus is optional: without it file reports say the scan was unavailable.
+                if (host,port) not in OPTIONAL:raise
+                print('Optional service '+host+' not found; continuing without it.',flush=True)
+                continue
             if not addresses:raise ValueError('Service resolution failed')
             exceptions.extend((address,port) for address in addresses)
     for rule in rules(exceptions,mode):subprocess.run(['iptables','-w',*rule],check=True)

@@ -13,7 +13,7 @@ import sys
 import tempfile
 import zipfile
 
-MAX_INPUT = 10 * 1024 * 1024
+MAX_INPUT = 50 * 1024 * 1024  # the upload limit (upload_validation.FILE_MAX_SIZE)
 MAX_MEMBER = 1024 * 1024
 MAX_TOTAL = 8 * 1024 * 1024
 MAX_MEMBERS = 100

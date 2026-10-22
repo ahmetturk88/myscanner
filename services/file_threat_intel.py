@@ -6,6 +6,7 @@
 # =================================================================
 
 import logging
+import os
 from typing import Dict, Any
 from datetime import datetime, timezone
 
@@ -258,7 +259,7 @@ class FileThreatIntel:
         # النتيجة النهائية
         # ─────────────────────────────────────────────────────────────
         report = {
-            **{key:local_result[key] for key in ('file_size_mb','file_type','hashes','metadata','exiftool_data','iocs','yara','hash_reputation','warnings','benign_reasons','is_likely_benign','eicar','disguised_name') if key in local_result},
+            **{key:local_result[key] for key in ('file_size_mb','file_type','hashes','metadata','exiftool_data','iocs','yara','hash_reputation','antivirus','warnings','benign_reasons','is_likely_benign','eicar','disguised_name') if key in local_result},
             'malwarebazaar': mb_result,
             # معلومات أساسية
             'filename': filename,
@@ -269,7 +270,7 @@ class FileThreatIntel:
             'verdict': verdict,
             'coverage_status': 'partial' if missing_checks else 'completed',
             'missing_checks': list(dict.fromkeys(missing_checks)),
-            'scope': 'Available static observations and a hash dataset; no guarantee of safety.',
+            'scope': 'Available static observations, a hash dataset and an antivirus engine when available; no guarantee of safety.',
             'verdict_icon': verdict_icon,
             'security_score': security_score,
             
@@ -312,6 +313,8 @@ class FileThreatIntel:
         sources = ['local_deep_analysis']
         if self.mb_client is not None:
             sources.append('malwarebazaar')
+        if os.environ.get('CLAMAV_HOST', '').strip():
+            sources.append('clamav')
         return sources
 
 

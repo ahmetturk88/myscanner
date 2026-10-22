@@ -512,6 +512,121 @@ TR = {
     'You can open it if you expected it from someone you trust.': 'Güvendiğin birinden bekliyorsan açabilirsin.',
     'If a document asks you to enable macros or content, don’t.': 'Bir belge senden makroları ya da içeriği etkinleştirmeni isterse yapma.',
     'Malware library': 'Kötü amaçlı yazılım kütüphanesi',
+    'Antivirus': 'Antivirüs',
+    # Format inspectors (services/format_inspectors.py)
+    'It is an Android app': 'Bu bir Android uygulaması',
+    'Install apps only from Google Play. Scam messages often send app files that steal bank codes.':
+        "Uygulamaları yalnızca Google Play'den yükle. Dolandırıcılık mesajları sıklıkla banka kodlarını çalan uygulama dosyaları gönderir.",
+    'The app asks for risky permissions': 'Uygulama riskli izinler istiyor',
+    'It can {ability}. Banking malware uses this to steal one-time codes.':
+        'Şu yetkiyi istiyor: {ability}. Bankacılık zararlıları bunu tek kullanımlık kodları çalmak için kullanır.',
+    'It can {ability}, and asks for {n} more risky permissions. Banking malware uses these to steal one-time codes.':
+        'Şu yetkiyi istiyor: {ability}; ayrıca {n} riskli izin daha istiyor. Bankacılık zararlıları bunları tek kullanımlık kodları çalmak için kullanır.',
+    'It can {ability}, and asks for 1 more risky permission. Banking malware uses these to steal one-time codes.':
+        'Şu yetkiyi istiyor: {ability}; ayrıca 1 riskli izin daha istiyor. Bankacılık zararlıları bunları tek kullanımlık kodları çalmak için kullanır.',
+    'They start as soon as the document opens, before you click anything.':
+        'Belge açılır açılmaz, sen hiçbir şeye tıklamadan başlıyor.',
+    'read incoming text messages': 'gelen kısa mesajları okuma',
+    'read your text messages': 'kısa mesajlarını okuma',
+    'send text messages': 'kısa mesaj gönderme',
+    'control the screen through accessibility': 'erişilebilirlik üzerinden ekranı kontrol etme',
+    'draw over other apps': 'diğer uygulamaların üzerinde görünme',
+    'install other apps': 'başka uygulamalar yükleme',
+    'become a device administrator': 'cihaz yöneticisi olma',
+    'read your notifications': 'bildirimlerini okuma',
+    'read your call history': 'arama geçmişini okuma',
+    'make phone calls': 'telefon araması yapma',
+    'read your contacts': 'kişilerini okuma',
+    'Signed with a test key': 'Test anahtarıyla imzalanmış',
+    'It was signed with Android’s debug key, which real published apps don’t use.':
+        "Android'in hata ayıklama anahtarıyla imzalanmış; yayınlanmış gerçek uygulamalar bunu kullanmaz.",
+    'App permissions': 'Uygulama izinleri',
+    '{n} risky': '{n} riskli',
+    'None risky': 'Riskli izin yok',
+    'Page content': 'Sayfa içeriği',
+    'Image content': 'Görsel içeriği',
+    'It asks for a password': 'Şifre istiyor',
+    'This file shows a login form that sends what you type to {domain}. Real companies don’t send login pages as files.':
+        'Bu dosya, yazdıklarını {domain} adresine gönderen bir giriş formu gösteriyor. Gerçek şirketler giriş sayfalarını dosya olarak göndermez.',
+    'This file shows a login form. Real companies don’t send login pages as files; this is a common phishing trick.':
+        'Bu dosya bir giriş formu gösteriyor. Gerçek şirketler giriş sayfalarını dosya olarak göndermez; bu yaygın bir oltalama hilesidir.',
+    'The image contains code': 'Görselin içinde kod var',
+    'Normal pictures don’t run code. Scammers hide web pages and scripts inside SVG images.':
+        'Normal resimler kod çalıştırmaz. Dolandırıcılar SVG görsellerin içine web sayfaları ve betikler gizler.',
+    'It hides its code': 'Kodunu gizliyor',
+    'The page scrambles its scripts, a trick used to get past security filters.':
+        'Sayfa betiklerini karıştırıyor; bu, güvenlik filtrelerini atlatmak için kullanılan bir hile.',
+    'It sends you to another site': 'Seni başka bir siteye gönderiyor',
+    'Opening it jumps straight to {domain}.': 'Açıldığında doğrudan {domain} adresine gidiyor.',
+    'It contains links': 'Bağlantılar içeriyor',
+    '1 site is linked: {domain}.': '1 siteye bağlantı var: {domain}.',
+    '{n} sites are linked, for example {domain}.': '{n} siteye bağlantı var, örneğin {domain}.',
+    '1 site is linked: {domain}. Check links with the URL scanner before opening them.':
+        '1 siteye bağlantı var: {domain}. Açmadan önce bağlantıları URL tarayıcısıyla kontrol et.',
+    '{n} sites are linked, for example {domain}. Check links with the URL scanner before opening them.':
+        '{n} siteye bağlantı var, örneğin {domain}. Açmadan önce bağlantıları URL tarayıcısıyla kontrol et.',
+    'Asks for a password': 'Şifre istiyor',
+    'Contains code': 'Kod içeriyor',
+    'Redirects': 'Yönlendiriyor',
+    'Nothing risky': 'Riskli bir şey yok',
+    'Attachments': 'Ekler',
+    'It has a risky attachment': 'Riskli bir eki var',
+    '“{name}” is a type of file scammers use to install malware or show fake login pages.':
+        '“{name}”, dolandırıcıların zararlı yazılım yüklemek veya sahte giriş sayfaları göstermek için kullandığı bir dosya türü.',
+    'The sender couldn’t be verified': 'Gönderen doğrulanamadı',
+    'The email failed its {listed} check, so it may not come from who it claims.':
+        'E-posta {listed} kontrolünden geçemedi; iddia ettiği kişiden gelmiyor olabilir.',
+    'Replies go somewhere else': 'Yanıtlar başka yere gidiyor',
+    'It comes from {domain}, but replies go to {host}.': '{domain} adresinden geliyor ama yanıtlar {host} adresine gidiyor.',
+    'Risky attachment': 'Riskli ek',
+    '{n} safe-looking': '{n} zararsız görünüyor',
+    'Macro behaviour': 'Makro davranışı',
+    'No macros': 'Makro yok',
+    'Locked': 'Kilitli',
+    'Runs on open': 'Açılınca çalışıyor',
+    'Can run programs': 'Program çalıştırabiliyor',
+    'Excel 4.0 macros': 'Excel 4.0 makroları',
+    'Has macros': 'Makro var',
+    'The document is password-locked': 'Belge şifreyle kilitli',
+    'We couldn’t look inside. Scammers lock documents so security tools can’t check them, then send the password in the message.':
+        'İçine bakamadık. Dolandırıcılar belgeleri güvenlik araçları kontrol edemesin diye kilitler, şifreyi de mesajda gönderir.',
+    'It has old Excel 4.0 macros': 'Eski Excel 4.0 makroları var',
+    'This hidden macro type is rarely used today except by malware, because many security tools miss it.':
+        'Bu gizli makro türü bugün zararlı yazılımlar dışında nadiren kullanılır, çünkü birçok güvenlik aracı onu gözden kaçırır.',
+    'The macros run by themselves': 'Makrolar kendiliğinden çalışıyor',
+    'They start as soon as the document opens and can run programs or download files ({listed}).':
+        'Belge açılır açılmaz başlıyor ve program çalıştırabiliyor ya da dosya indirebiliyor ({listed}).',
+    'The macros can run programs': 'Makrolar program çalıştırabiliyor',
+    'They contain commands that run programs or download files ({listed}).':
+        'Program çalıştıran veya dosya indiren komutlar içeriyor ({listed}).',
+    'QR code': 'QR kod',
+    'Contains a link': 'Bağlantı içeriyor',
+    'Contains text': 'Metin içeriyor',
+    'It contains a QR code with a link': 'Bağlantı içeren bir QR kod var',
+    'The code leads to {host}. Check that link with the URL scanner before you open it.':
+        'Kod {host} adresine gidiyor. Açmadan önce bu bağlantıyı URL tarayıcısıyla kontrol et.',
+    'It contains a QR code': 'Bir QR kod içeriyor',
+    'The code holds text, not a website link.': 'Kodda web sitesi bağlantısı değil, metin var.',
+    'Install apps only from Google Play, never from a link or a message.':
+        "Uygulamaları yalnızca Google Play'den yükle; asla bir bağlantıdan ya da mesajdan yükleme.",
+    'Check the QR code’s link with the URL scanner before you open it.':
+        'Açmadan önce QR kodun bağlantısını URL tarayıcısıyla kontrol et.',
+    'Don’t open attachments or links in this email unless you expected it.':
+        'Bu e-postayı beklemiyorsan içindeki ekleri ya da bağlantıları açma.',
+    'Never type a password into a page that came as a file.': 'Dosya olarak gelen bir sayfaya asla şifre yazma.',
+    'Malware found': 'Kötü amaçlı yazılım bulundu',
+    'Warning': 'Uyarı',
+    'Clean': 'Temiz',
+    'Test file detected': 'Test dosyası algılandı',
+    'Antivirus found malware': 'Antivirüs kötü amaçlı yazılım buldu',
+    'ClamAV, an antivirus engine, recognises it as {signature}.':
+        'Bir antivirüs motoru olan ClamAV bu dosyayı {signature} olarak tanıyor.',
+    'Antivirus warning': 'Antivirüs uyarısı',
+    'ClamAV flags a risky feature in it ({signature}). This is a warning sign, not proof of malware.':
+        'ClamAV dosyada riskli bir özellik işaretliyor ({signature}). Bu bir uyarı işaretidir, kötü amaçlı yazılım kanıtı değildir.',
+    'Antivirus found nothing': 'Antivirüs bir şey bulmadı',
+    'ClamAV, an antivirus engine updated every day, found no known malware in it.':
+        'Her gün güncellenen bir antivirüs motoru olan ClamAV, dosyada bilinen bir kötü amaçlı yazılım bulmadı.',
     'Real file type': 'Gerçek dosya türü',
     'Program in disguise': 'Kılık değiştirmiş program',
     'Antivirus test file': 'Antivirüs test dosyası',

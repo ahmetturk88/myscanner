@@ -54,5 +54,16 @@ class ApplicationEgressTests(unittest.TestCase):
             ready.assert_not_called()
         self.assertTrue(any(command[:2]==['iptables','-w'] and '-P' in command for command in commands))
         self.assertTrue(any('--ctorigdstport' in command for command in commands))
+    def test_missing_antivirus_does_not_stop_the_worker_but_other_services_do(self):
+        def resolve(host,port,*args):
+            if host=='clamav':raise egress.socket.gaierror('not found')
+            return [(None,None,None,None,('172.20.0.9',port))]
+        commands=[]
+        with patch.dict('os.environ',{'SCANNER_ROLE':'worker'}),patch.object(egress.subprocess,'run',side_effect=lambda command,**kw:commands.append(command)),patch.object(egress.socket,'getaddrinfo',side_effect=resolve),patch.object(egress.Path,'unlink'),patch.object(egress.Path,'touch',side_effect=SystemExit) as ready:
+            with self.assertRaises(SystemExit):egress.install()
+            ready.assert_called_once()
+        self.assertFalse(any('3310' in command for command in commands))
+        self.assertIn(['-A','OUTPUT','-d','172.20.0.9/32','-p','tcp','--dport','3310','-j','ACCEPT'],egress.rules([('172.20.0.9',3310)],'worker'))
+        with self.assertRaises(ValueError):egress.rules([('172.20.0.9',3310)],'web')
 
 if __name__=='__main__':unittest.main()

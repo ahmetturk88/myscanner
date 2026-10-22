@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bubble } from '@/components/ai';
 import { BrandMark } from '@/components/brand';
 import { Icon } from '@/components/icon';
-import { Ambient, enter, PressableScale, Pulse, Spin } from '@/components/motion';
+import { enter, PressableScale, Pulse, Spin } from '@/components/motion';
+import { NetworkBackground } from '@/components/network-background';
 import { TAB_SPACE, useKeyboardVisible } from '@/components/screen';
 import { Accent } from '@/components/tool-hero';
 import { ErrorText, styles as ui } from '@/components/ui';
@@ -32,7 +33,7 @@ function Orb({ size }: { size: number }) {
     <Pulse size={size} color="rgba(167,139,250,.6)">
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
         <View style={StyleSheet.absoluteFill}>
-          <Spin duration={4000}><LinearGradient colors={['#38bdf8', '#a78bfa', '#5eead4']} style={{ width: size, height: size, borderRadius: size / 2 }} /></Spin>
+          <Spin duration={4000}><LinearGradient colors={['#38bdf8', '#2dd4bf', '#5eead4']} style={{ width: size, height: size, borderRadius: size / 2 }} /></Spin>
         </View>
         <View style={{ width: size - 6, height: size - 6, borderRadius: size, backgroundColor: '#0b1422', alignItems: 'center', justifyContent: 'center' }}>
           <BrandMark size={size * 0.5} />
@@ -78,7 +79,7 @@ export default function Assistant() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Ambient />
+      <NetworkBackground />
       <KeyboardAvoidingView style={{ flex: 1, paddingTop: insets.top }} behavior="padding">
         <View style={s.header}>
           <Orb size={40} />

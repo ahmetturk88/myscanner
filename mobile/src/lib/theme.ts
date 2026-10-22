@@ -17,8 +17,8 @@ export const colors = {
   cyan: '#77dcff',
   cyanSoft: '#77dcff',
   teal: '#5eead4',
-  violet: '#818cf8',
-  purple: '#a78bfa',
+  violet: '#38bdf8',
+  purple: '#2dd4bf',
   green: '#4ade80',
   amber: '#fbbf24',
   red: '#fb7185',
@@ -38,11 +38,11 @@ export const fonts = {
 
 export const gradients = {
   accent: ['#7fe1ff', '#5eead4'] as const,
-  user: ['#2563eb', '#7c3aed'] as const,
+  user: ['#2563eb', '#0891b2'] as const,
   screen: ['#0d1f35', '#080d17', '#070b14'] as const,
   card: ['#121e2d', '#0e1623'] as const,
-  ai: ['#38bdf8', '#a78bfa'] as const,
-  band: ['#0f2034', '#0a1424', '#150f2c'] as const,
+  ai: ['#38bdf8', '#2dd4bf'] as const,
+  band: ['#0f2034', '#0a1424', '#0b1d2b'] as const,
 };
 
 export const radius = { sm: 10, md: 15, lg: 20, xl: 26 };

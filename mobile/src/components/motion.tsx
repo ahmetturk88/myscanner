@@ -127,22 +127,6 @@ export function PressableScale({ children, onPress, style, disabled, scale = 0.9
 const SPRING = { damping: 18, stiffness: 320, mass: 0.6 };
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-/** Two soft colour glows that drift slowly behind a screen. */
-export function Ambient() {
-  const t = useSharedValue(0);
-  useEffect(() => {
-    t.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [t]);
-  const a = useAnimatedStyle(() => ({ transform: [{ translateX: -40 + 80 * t.value }, { translateY: 30 * t.value }, { scale: 1 + 0.15 * t.value }] }));
-  const b = useAnimatedStyle(() => ({ transform: [{ translateX: 50 - 90 * t.value }, { translateY: -40 * t.value }] }));
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Animated.View style={[{ position: 'absolute', top: -140, left: -60 }, a]}><Glow size={420} color="#1f7fb3" opacity={0.32} /></Animated.View>
-      <Animated.View style={[{ position: 'absolute', top: 260, right: -180 }, b]}><Glow size={420} color="#5b3fb0" opacity={0.22} /></Animated.View>
-    </View>
-  );
-}
-
 /** A round radial glow. */
 export function Glow({ size, color, opacity = 0.4 }: { size: number; color: string; opacity?: number }) {
   const id = `glow${color.replace(/[^a-z0-9]/gi, '')}`;

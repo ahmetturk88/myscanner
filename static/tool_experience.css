@@ -1,7 +1,7 @@
 /* Shared motion and chrome for the inspection pages (main.tx-page). */
 .tx-page{position:relative;isolation:isolate}
 .tx-page:before{content:'';position:absolute;z-index:-1;left:0;right:0;top:0;height:760px;pointer-events:none;
-  background:radial-gradient(620px circle at 12% 8%,rgba(29,111,165,.32),transparent 60%),radial-gradient(560px circle at 88% 18%,rgba(76,42,158,.24),transparent 60%),
+  background:radial-gradient(620px circle at 12% 8%,rgba(29,111,165,.32),transparent 60%),radial-gradient(560px circle at 88% 18%,rgba(14,116,144,.24),transparent 60%),
   linear-gradient(rgba(121,199,238,.045) 1px,transparent 1px) 0 0/44px 44px,linear-gradient(90deg,rgba(121,199,238,.045) 1px,transparent 1px) 0 0/44px 44px;
   -webkit-mask-image:linear-gradient(#000 40%,transparent);mask-image:linear-gradient(#000 40%,transparent)}
 
@@ -32,7 +32,7 @@
 .tx-page [class$="-hero"]>*,.tx-page .hx-workspace-head>*{animation:tx-in .8s cubic-bezier(.2,.7,.2,1) both}
 .tx-page [class$="-hero"]>*:nth-child(2),.tx-page .hx-workspace-head>*:nth-child(2){animation-delay:.12s}
 .tx-page [class$="-hero"]>*:nth-child(3){animation-delay:.24s}
-.tx-page [class$="-hero"] h1 em,.tx-page [class$="-hero"] h1 span,.tx-page .hx-workspace-head h1 span{background:linear-gradient(92deg,#77dcff,#5eead4 55%,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tx-page [class$="-hero"] h1 em,.tx-page [class$="-hero"] h1 span,.tx-page .hx-workspace-head h1 span{background:linear-gradient(92deg,#77dcff,#5eead4 55%,#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent}
 .tx-page [class$="-hero"] img,.tx-page [class$="-hero"] svg:not(.pg-ic){animation:tx-float 7s ease-in-out infinite}
 
 /* Inputs and primary actions */

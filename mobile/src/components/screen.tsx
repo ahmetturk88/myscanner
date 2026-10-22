@@ -9,7 +9,8 @@ import Animated, { Extrapolation, FadeIn, interpolate, useAnimatedScrollHandler,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
-import { Ambient, PressableScale } from '@/components/motion';
+import { PressableScale } from '@/components/motion';
+import { NetworkBackground } from '@/components/network-background';
 import { t, upper } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import type { Tool } from '@/lib/tools';
@@ -72,7 +73,7 @@ export function Screen({ title, eyebrow, subtitle, back, right, children, tabs =
   const top = insets.top + 56;
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Ambient />
+      <NetworkBackground />
       <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: top, paddingHorizontal: 18, paddingBottom: (tabs ? TAB_SPACE : 30) + insets.bottom, gap }}
         refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.cyan} colors={[colors.cyan]}

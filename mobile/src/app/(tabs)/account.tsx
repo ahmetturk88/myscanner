@@ -54,7 +54,7 @@ export default function Account() {
       <Animated.View entering={enter(0)} style={s.profile}>
         <View style={{ width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
           <View style={StyleSheet.absoluteFill}>
-            <Spin><LinearGradient colors={['#38bdf8', '#5eead4', '#a78bfa', '#38bdf8']} style={{ width: 92, height: 92, borderRadius: 46 }} /></Spin>
+            <Spin><LinearGradient colors={['#38bdf8', '#5eead4', '#2dd4bf', '#38bdf8']} style={{ width: 92, height: 92, borderRadius: 46 }} /></Spin>
           </View>
           <View style={s.avatar}><Text style={{ color: '#fff', fontSize: 34, fontFamily: fonts.bold }}>{user.username[0].toUpperCase()}</Text></View>
         </View>

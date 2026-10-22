@@ -71,7 +71,7 @@ export default function Home() {
     <Screen tabs eyebrow={greeting()} title={t('Hi, {name}', { name: user?.username ?? '' })} right={avatar} onRefresh={load}
       subtitle={t('What would you like to check today?')}>
       <Animated.View entering={enter(1)}>
-        <LinearGradient colors={['#123049', '#0d1a2b', '#140f2c']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        <LinearGradient colors={['#123049', '#0d1a2b', '#0a1f2c']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={s.hero} onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
           {cardHeight ? <Beam height={cardHeight} /> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

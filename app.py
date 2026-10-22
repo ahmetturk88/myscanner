@@ -94,6 +94,9 @@ from services.trusted_proxy import configure_trusted_proxy, render_edge_candidat
 trusted_proxy = configure_trusted_proxy(app)
 from services.security_headers import init_security_headers
 init_security_headers(app)
+# Website language: pages render in English and are translated after rendering (services/site_i18n.py).
+from services.site_i18n import current_language, localise_response
+app.after_request(localise_response)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Allow a 50 MB scanned file plus bounded multipart overhead (Caddy allows the same).
@@ -488,6 +491,17 @@ def inject_site_url():
     return {'site_url': SITE_URL}
 
 
+@app.context_processor
+def inject_site_language():
+    from urllib.parse import urlencode
+
+    def lang_url(code):
+        args = {key: value for key, value in request.args.items() if key != 'lang'}
+        args['lang'] = code
+        return request.path + '?' + urlencode(args)
+    return {'site_lang': current_language(), 'lang_url': lang_url}
+
+
 @app.route('/robots.txt')
 def robots_txt():
     body = '\n'.join(['User-agent: *', 'Disallow: /admin', 'Disallow: /api/', 'Disallow: /result/', '',
@@ -497,7 +511,8 @@ def robots_txt():
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
-    urls = ''.join(f'<url><loc>{SITE_URL}{url_for(name)}</loc></url>' for name in PUBLIC_PAGES)
+    # Each page in English and in Turkish (?lang=tr); see services/site_i18n.py.
+    urls = ''.join(f'<url><loc>{SITE_URL}{url_for(name)}{suffix}</loc></url>' for name in PUBLIC_PAGES for suffix in ('', '?lang=tr'))
     body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
     return Response(body, mimetype='application/xml')
 

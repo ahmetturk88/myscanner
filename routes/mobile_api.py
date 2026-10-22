@@ -20,7 +20,7 @@ from models import User
 from services import mobile_auth
 
 mobile_bp = Blueprint('mobile', __name__, url_prefix='/api/mobile/v1')
-PUBLIC = {'mobile.login', 'mobile.oauth_start', 'mobile.oauth_exchange', 'mobile.providers'}
+PUBLIC = {'mobile.login', 'mobile.oauth_start', 'mobile.oauth_exchange', 'mobile.providers', 'mobile.app_version'}
 
 # The app's tool names, mapped to the website endpoints that do the work.
 TOOLS = {
@@ -145,6 +145,16 @@ def oauth_exchange():
 def providers():
     from services.oauth_login import enabled_providers
     return jsonify(providers=enabled_providers())
+
+
+@mobile_bp.route('/app/version')
+def app_version():
+    """Whether this build of the app should update (services/app_release.py); asked before sign-in too."""
+    from services.app_release import policy
+    build = request.args.get('build', '')
+    response = jsonify(policy(int(build) if build.isdigit() else None))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @mobile_bp.route('/auth/logout', methods=['POST'])

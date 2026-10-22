@@ -14,10 +14,12 @@ export type Settings = {
   evidenceOpen: boolean;
   /** English and Turkish ship today; Arabic is listed as coming soon. */
   language: Language;
+  /** The newest app build the user chose to update later; its prompt is not shown again. */
+  skippedBuild: number;
 };
 
 const KEY = 'myscanner.settings';
-const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en' };
+const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0 };
 let current: Settings = DEFAULTS;
 /** False until the saved settings have been read (the first screen waits for it). */
 let ready = false;
@@ -34,6 +36,7 @@ export async function loadSettings() {
       haptics: typeof saved.haptics === 'boolean' ? saved.haptics : DEFAULTS.haptics,
       evidenceOpen: typeof saved.evidenceOpen === 'boolean' ? saved.evidenceOpen : DEFAULTS.evidenceOpen,
       language: saved.language === 'tr' ? 'tr' : 'en',
+      skippedBuild: Number.isInteger(saved.skippedBuild) ? saved.skippedBuild : 0,
     };
   } catch {
     current = DEFAULTS;

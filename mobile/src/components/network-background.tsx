@@ -191,9 +191,14 @@ const StaticNetwork = memo(function StaticNetwork({ width, height, net }: { widt
   );
 });
 
+/** The background for a screen inside the navigator: it moves only while the screen is in front. */
 export function NetworkBackground() {
+  return <NetworkLayer focused={useIsFocused()} />;
+}
+
+/** The background itself; outside the navigator (the update screen) pass focused yourself. */
+export function NetworkLayer({ focused }: { focused: boolean }) {
   const { width, height } = useWindowDimensions();
-  const focused = useIsFocused();
   const reduced = useReducedMotion();
   const net = useMemo(() => buildNetwork(width, height), [width, height]);
   const clock = useSharedValue(0);

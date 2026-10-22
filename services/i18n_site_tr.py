@@ -11,7 +11,7 @@ SITE_TR = {
     'MyScanner home': 'MyScanner ana sayfa',
     'SECURITY INTELLIGENCE': 'GÜVENLİK İSTİHBARATI',
     'Home': 'Ana sayfa',
-    'Explore tools': 'Araçları keşfet',
+    'Explore tools': 'Araçlar',
     'About': 'Hakkımızda',
     'Contact': 'İletişim',
     'Sign in': 'Giriş yap',
@@ -61,7 +61,7 @@ SITE_TR = {
     'Your session stays active while you explore. Results reflect available evidence, not a guarantee of safety.':
         'Gezinirken oturumun açık kalır. Sonuçlar mevcut kanıtı gösterir, güvenlik garantisi değildir.',
     'Workspace': 'Çalışma alanı',
-    'Threat intel': 'Tehdit istihbaratı',
+    'Threat intel': 'İstihbarat',
     'Soon': 'Yakında',
     'New scan': 'Yeni tarama',
     'Account menu': 'Hesap menüsü',
@@ -598,3 +598,10 @@ SITE_TR_PATTERNS = [
     (r"^Your scans, today's allowance and every tool in one place\. (\d+) URL scans? saved so far\.$",
      r'Taramaların, bugünkü kullanım hakkın ve tüm araçlar tek yerde. Şu ana kadar \1 URL taraması kaydedildi.'),
 ]
+
+from services.i18n_site_tr_tools import TOOLS_TR  # noqa: E402  (tool pages live in their own file)
+SITE_TR.update(TOOLS_TR)
+from services.i18n_site_tr_scripts import SCRIPTS_TR, SCRIPTS_TR_PATTERNS  # noqa: E402  (text added by page scripts)
+for _key, _value in SCRIPTS_TR.items():
+    SITE_TR.setdefault(_key, _value)
+SITE_TR_PATTERNS += SCRIPTS_TR_PATTERNS

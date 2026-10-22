@@ -5,7 +5,8 @@ import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandMark } from '@/components/brand';
-import { Ambient, enter, Pulse } from '@/components/motion';
+import { enter, Pulse } from '@/components/motion';
+import { NetworkBackground } from '@/components/network-background';
 import { Button, ErrorText, Field } from '@/components/ui';
 import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -38,7 +39,7 @@ export default function Login() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Ambient />
+      <NetworkBackground />
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView contentContainerStyle={{ padding: 20, gap: 22, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">

@@ -1012,6 +1012,24 @@ class FileDeepAnalyzer:
         else:
             metadata['error'] = 'No structural parser selected for the observed format'
 
+        # 3b. Format-specific inspection: apps, web pages, SVG, saved emails, Office macros, QR images.
+        from services.format_inspectors import inspect as inspect_format
+        try:
+            inspection = inspect_format(file_content, original_filename, file_type)
+        except Exception as error:  # a broken inspector must not lose the rest of the report
+            logger.warning('Format inspection failed: %s', type(error).__name__)
+            inspection = None
+        if inspection:
+            metadata['inspection'] = inspection
+            facts = inspection.get('facts') or {}
+            if inspection.get('format') == 'office' and inspection.get('status') == 'assessed':
+                # The macro parser settles what the legacy OLE container check could not.
+                if metadata.get('has_macros') is None or 'Legacy OLE' in str(metadata.get('error', '')):
+                    metadata['has_macros'] = facts.get('has_macros')
+                    metadata.pop('error', None)
+                    metadata['coverage_status'] = 'assessed'
+                    metadata['scope'] = 'Office macros inspected with olevba; nothing was executed.'
+
         # 4. exiftool metadata (اختياري)
         exiftool_data = self.extract_metadata_via_exiftool(file_content, filename) if self.use_exiftool else {}
         
@@ -1179,6 +1197,15 @@ class FileDeepAnalyzer:
         if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
         # Byte-pattern heuristics are not a signature engine or a sandbox.
         if antivirus.get('status') == 'unavailable':missing_checks.append('Antivirus scan unavailable')
+        inspection = metadata.get('inspection') or {}
+        if inspection.get('status') == 'unavailable' and inspection.get('format') != 'image':
+            missing_checks.append('Format inspection unavailable: ' + str(inspection.get('error', 'unknown reason')))
+        if inspection.get('raises_review') and verdict != 'malicious':
+            # Format findings ask for review; they never confirm malware (file-evidence-v5).
+            verdict='suspicious';verdict_icon='⚠️';severity='medium';security_score=min(security_score,55)
+            for item in inspection.get('findings', []):
+                if item.get('level') == 'warn':
+                    recommendations.insert(0, '🔍 ' + item['title'] + ': ' + item['detail'])
         if antivirus.get('status') == 'found':
             signature = antivirus.get('signature') or 'unnamed signature'
             if antivirus.get('kind') == 'malware':

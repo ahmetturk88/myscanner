@@ -67,6 +67,11 @@ def plain_file_report(report):
     av_signature = av_signature[:80] or 'a known signature'
     av_malware = av_status == 'found' and antivirus.get('kind') == 'malware' and not eicar
     av_heuristic = av_status == 'found' and antivirus.get('kind') == 'heuristic' and not eicar
+    inspection = mapping(meta.get('inspection'))
+    inspected = inspection.get('format') if inspection.get('status') == 'assessed' else None
+    # Name what the inspector recognised: an app is a ZIP and a web page is text underneath.
+    if inspected in ('apk', 'html', 'svg', 'email') and kind.get('is_spoofed') is not True:
+        actual = {'apk': 'apk', 'html': 'html', 'svg': 'svg', 'email': 'eml'}[inspected]
 
     reasons = []
     def add(kind_, title, detail):
@@ -101,9 +106,12 @@ def plain_file_report(report):
         add('warn', 'Suspicious patterns inside', f'We found {len(rules)} pattern' + ('s' if len(rules) != 1 else '') + ' often seen in malicious files.')
     if darkweb and not benign:
         add('warn', 'Dark-web or crypto addresses inside', 'The file contains .onion or Bitcoin addresses, which are common in ransomware notes.')
+    for item in inspection.get('findings') or []:
+        if isinstance(item, dict) and item.get('level') in ('warn', 'info') and isinstance(item.get('title'), str):
+            add(item['level'], item['title'], str(item.get('detail', '')))
     if encrypted:
         add('info', 'Password-protected contents', 'We couldn’t look inside the locked parts. Scammers lock files to hide malware from scanners.')
-    if verdict == 'not_found' and not reasons:
+    if verdict == 'not_found' and not any(r['tone'] in ('bad', 'warn', 'na') for r in reasons):
         if av_status == 'clean':
             add('ok', 'Antivirus found nothing', 'ClamAV, an antivirus engine updated every day, found no known malware in it.')
         if provider.get('status') == 'not_found':
@@ -150,6 +158,13 @@ def plain_file_report(report):
         summary = 'It isn’t known malware and has no hidden code we could find. We didn’t run it, so this isn’t a guarantee.'
         actions = ['You can open it if you expected it from someone you trust.',
                    'If a document asks you to enable macros or content, don’t.']
+    # Advice that fits the kind of file, whatever the verdict.
+    first = {'apk': 'Install apps only from Google Play, never from a link or a message.',
+             'image': 'Check the QR code’s link with the URL scanner before you open it.' if (inspection.get('facts') or {}).get('qr_links') else None,
+             'email': 'Don’t open attachments or links in this email unless you expected it.',
+             'html': 'Never type a password into a page that came as a file.' if (inspection.get('facts') or {}).get('password_fields') else None}.get(inspected)
+    if first and not eicar:
+        actions = [first] + [a for a in actions if a != first][:2]
 
     def check(name_, state, result):
         return {'name': name_, 'state': state, 'result': result}
@@ -178,6 +193,9 @@ def plain_file_report(report):
                       check('Archive contents', 'warn', 'Unsafe names') if meta.get('has_path_traversal') is True else
                       check('Archive contents', 'ok', f'{inspected} files checked') if payload.get('status') in ('assessed', 'partial') and isinstance(inspected, int)
                       else check('Archive contents', 'na', 'Not inspected'))
+    row = mapping(inspection.get('row'))
+    if all(isinstance(row.get(k), str) for k in ('name', 'state', 'result')) and row['state'] in ('ok', 'warn', 'info', 'na'):
+        checks.append(check(row['name'], row['state'], row['result']))
     # Compressed, media and unidentified bytes are not searched for links (file-evidence-v5).
     links_skipped = meta.get('ioc_scope') == PATTERN_SCOPE
     checks.append(check('Links inside', 'warn', 'Dark-web / crypto') if darkweb else

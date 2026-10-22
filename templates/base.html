@@ -115,7 +115,7 @@
 
     {% include 'partials/platform_footer.html' %}
     <script src="{{ url_for('static',filename='platform_shell.js',v='20261013-2') }}" defer></script>
-    <script src="{{ url_for('static',filename='net_background.js',v='20261022-2') }}" defer></script>
+    <script src="{{ url_for('static',filename='net_background.js',v='20261022-3') }}" defer></script>
     {% if site_lang is defined and site_lang != 'en' and i18n_version %}<script src="{{ url_for('site_i18n_catalog', lang=site_lang, v=i18n_version) }}" defer></script>
     <script src="{{ url_for('static',filename='site_i18n.js',v='20261022-1') }}" defer></script>{% endif %}
     {% if is_tool %}<script src="{{ url_for('static',filename='tool_experience.js',v='20261013-2') }}" defer></script>{% endif %}

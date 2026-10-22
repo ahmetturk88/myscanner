@@ -19,7 +19,7 @@
     <meta name="twitter:card" content="summary_large_image">
     {% if request is defined and request.endpoint == 'landing' %}
     <script type="application/ld+json">{{ {'@context': 'https://schema.org', '@graph': [
-      {'@type': 'Organization', 'name': 'MyScanner', 'url': site_url + '/', 'logo': site_url + url_for('static', filename='brand/myscanner-mark.png'), 'email': 'info@myscanners.com', 'sameAs': social_links | map(attribute='url') | list},
+      {'@type': 'Organization', 'name': 'MyScanner', 'url': site_url + '/', 'logo': site_url + url_for('static', filename='brand/myscanner-mark.png'), 'email': 'info@myscanners.com', 'sameAs': social_links | selectattr('profile') | map(attribute='url') | list},
       {'@type': 'WebSite', 'name': 'MyScanner', 'url': site_url + '/'}]} | tojson }}</script>
     {% endif %}
     <link rel="preconnect" href="https://fonts.googleapis.com">

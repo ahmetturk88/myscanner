@@ -427,4 +427,5 @@ export const TR: Record<string, string> = {
   "Later": "Sonra",
   "Update": "Güncelle",
   "MyScanner on LinkedIn": "LinkedIn'de MyScanner",
+  "Join the WhatsApp community": "WhatsApp topluluğuna katıl",
 };

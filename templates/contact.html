@@ -58,9 +58,9 @@
         <article class="pg-card glow pg-channel pg-reveal" style="--d:.12s">
           <div class="pg-badge"><span class="pg-ic ic-{{ link.icon }}"></span></div>
           <div class="pg-channel-body">
-            <h3>Follow MyScanner</h3>
+            <h3>{{ link.title }}</h3>
             <a class="pg-value" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }} ↗</a>
-            <p>Scam alerts, security tips and product updates.</p>
+            <p>{{ link.text }}</p>
           </div>
         </article>
         {% endfor %}

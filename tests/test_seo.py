@@ -51,6 +51,8 @@ class SeoTests(unittest.TestCase):
         self.assertIn('https://www.linkedin.com/company/myscanners/', org['sameAs'])
         footer = page.find('footer')
         self.assertTrue(footer.find('a', href='https://www.linkedin.com/company/myscanners/'))
+        self.assertTrue(footer.find('a', href=lambda h: h and h.startswith('https://chat.whatsapp.com/')))
+        self.assertFalse(any('whatsapp' in url for url in org['sameAs']))  # an invite link is not a profile
         self.assertEqual(self.client.get('/static/brand/myscanner-mark.png').status_code, 200)
 
     def test_structured_data_only_on_home(self):

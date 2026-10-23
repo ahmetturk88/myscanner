@@ -4,7 +4,7 @@ if os.getenv('APP_ENV', '').lower() != 'production' and os.getenv('RENDER', '').
     load_dotenv()
 
 from extensions import db, login_manager, bcrypt
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, session, Response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, session, Response, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer
@@ -485,7 +485,7 @@ def login():
     return render_template('login.html')
 
 SITE_URL = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/')
-PUBLIC_PAGES = ('landing', 'about', 'contact', 'privacy', 'terms', 'register', 'login')
+PUBLIC_PAGES = ('landing', 'about', 'scams', 'contact', 'privacy', 'terms', 'register', 'login')
 
 
 @app.context_processor
@@ -527,7 +527,9 @@ def robots_txt():
 @app.route('/sitemap.xml')
 def sitemap_xml():
     # Each page in English and in Turkish (?lang=tr); see services/site_i18n.py.
-    urls = ''.join(f'<url><loc>{SITE_URL}{url_for(name)}{suffix}</loc></url>' for name in PUBLIC_PAGES for suffix in ('', '?lang=tr'))
+    from services.scam_guides import GUIDES
+    pages = [url_for(name) for name in PUBLIC_PAGES] + [url_for('scam_guide', slug=guide['slug']) for guide in GUIDES]
+    urls = ''.join(f'<url><loc>{SITE_URL}{page}{suffix}</loc></url>' for page in pages for suffix in ('', '?lang=tr'))
     body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
     return Response(body, mimetype='application/xml')
 
@@ -1616,6 +1618,24 @@ def about():
 def privacy():
     # The Turkish page is written for KVKK (its own sections), not translated line by line.
     return render_template('privacy_tr.html' if current_language() == 'tr' else 'privacy.html')
+
+@app.route('/scams')
+def scams():
+    from services.scam_guides import GUIDES, UI
+    lang = current_language()
+    return render_template('scams/index.html', guides=GUIDES, ui=UI[lang], lang=lang)
+
+
+@app.route('/scams/<slug>')
+def scam_guide(slug):
+    from services.scam_guides import BY_SLUG, GUIDES, TOOL_NAMES, UI
+    guide = BY_SLUG.get(slug)
+    if guide is None:
+        abort(404)
+    lang = current_language()
+    return render_template('scams/guide.html', guide=guide, g=guide[lang], guides=GUIDES, ui=UI[lang], lang=lang,
+                           tool_name=TOOL_NAMES[lang].get(guide['tool'], ''))
+
 
 @app.route('/terms')
 def terms():

@@ -73,10 +73,13 @@ class PayloadTests(unittest.TestCase):
     def test_real_subprocess_and_score_coverage(self):
         r=zip_observations(zipped([('main.py',b'print(1)')]))
         self.assertEqual(r['payload_inspection']['inspected_members'],1)
-        self.assertEqual(r['coverage_status'],'partial')
-        score=assess_file({'security_score':100,'metadata':r,'coverage_status':'partial',
+        # Fully read members are not a gap: the antivirus engine scans them (file_deep_analyzer
+        # reports a gap only when it is not configured), so this costs no points.
+        self.assertEqual(r['coverage_status'],'assessed')
+        self.assertEqual(r['missing_checks'],[])
+        score=assess_file({'security_score':100,'metadata':r,'coverage_status':'completed',
             'missing_checks':r['missing_checks'],'malwarebazaar':{'status':'not_found'}})
-        self.assertEqual(score['score'],90)
+        self.assertEqual(score['score'],100)
         limited=zip_observations(zipped([('large',b'x'*1_100_000)]))
         score=assess_file({'security_score':100,'metadata':limited,'coverage_status':'partial',
             'missing_checks':limited['missing_checks'],'malwarebazaar':{'status':'not_found'}})

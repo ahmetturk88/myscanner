@@ -28,8 +28,7 @@ function Navigator() {
     DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold, SpaceMono_400Regular, SpaceMono_700Bold,
   });
   const appUpdate = useAppUpdate();
-  // The splash screen also waits (briefly) for the update check, so an old build never flashes the app first.
-  const loaded = ready && settingsReady && (fontsLoaded || !!fontError) && appUpdate.checked;
+  const loaded = ready && settingsReady && (fontsLoaded || !!fontError);
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);

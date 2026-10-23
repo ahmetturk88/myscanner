@@ -1197,6 +1197,10 @@ class FileDeepAnalyzer:
         if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
         # Byte-pattern heuristics are not a signature engine or a sandbox.
         if antivirus.get('status') == 'unavailable':missing_checks.append('Antivirus scan unavailable')
+        elif antivirus.get('status') == 'not_configured' and (metadata.get('is_archive') or metadata.get('is_pdf')):
+            # The structural checks leave archive members and PDF contents to the antivirus engine.
+            missing_checks.append('Archive members were not scanned by an antivirus engine' if metadata.get('is_archive')
+                                  else 'PDF contents were not scanned by an antivirus engine')
         inspection = metadata.get('inspection') or {}
         if inspection.get('status') == 'unavailable' and inspection.get('format') != 'image':
             missing_checks.append('Format inspection unavailable: ' + str(inspection.get('error', 'unknown reason')))

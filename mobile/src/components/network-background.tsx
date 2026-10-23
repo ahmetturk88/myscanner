@@ -6,17 +6,17 @@
  * reaches answers with a soft ring. Now and then a packet is a threat,
  * stopped with a red ring.
  *
- * The grid is drawn once and kept as a texture; packets are plain views moved
- * with transforms on the UI thread from one clock (useFrameCallback, ~30 fps),
- * so nothing is redrawn while they move. The clock starts after the screen
- * transition, stops when the screen is not focused, and the network is still
- * for people who turn on Reduce motion.
+ * The grid is one small repeated image; the traces are drawn once after the
+ * screen transition and kept as a texture; packets are plain views moved with
+ * transforms on the UI thread from one clock (useFrameCallback, ~30 fps), so
+ * nothing is redrawn while they move. The clock stops when the screen is not
+ * focused, and the network is still for people who turn on Reduce motion.
  */
 import { useIsFocused } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { InteractionManager, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { Image, InteractionManager, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { Glow } from '@/components/motion';
@@ -26,6 +26,7 @@ const CELL = 34;
 const CYAN = '#77dcff';
 const TEAL = '#5eead4';
 const RED = '#fb7185';
+const GRID_TILE = require('../../assets/images/grid-tile.png');
 const GLINT = 7;    // seconds between two glints of the same node
 const TAIL = 40;
 const HEAD = 4;
@@ -48,9 +49,6 @@ function buildNetwork(width: number, height: number) {
   const random = seeded(Math.round(width) * 31 + Math.round(height));
   const cols = Math.ceil(width / CELL);
   const rows = Math.ceil(height / CELL);
-  let grid = '';
-  for (let i = 0; i <= rows; i++) grid += `M0 ${i * CELL}H${width}`;
-  for (let j = 0; j <= cols; j++) grid += `M${j * CELL} 0V${height}`;
 
   const routes: Route[] = [];
   while (routes.length < 7) {
@@ -89,7 +87,16 @@ function buildNetwork(width: number, height: number) {
     return { route, threat, travel, period, offset: (i / 5) * period + random() * 1.5,
              color: threat ? RED : i % 2 ? TEAL : CYAN };
   });
-  return { grid, traces, nodes, routes, packets, glints };
+  return { traces, nodes, routes, packets, glints };
+}
+
+type Network = ReturnType<typeof buildNetwork>;
+// Every screen has the same size, so they share one network instead of each building its own.
+const networks = new Map<string, Network>();
+function networkFor(width: number, height: number) {
+  const key = `${Math.round(width)}x${Math.round(height)}`;
+  if (!networks.has(key)) networks.set(key, buildNetwork(width, height));
+  return networks.get(key)!;
 }
 
 function point(route: Route, distance: number): [number, number] {
@@ -178,16 +185,21 @@ function Glint({ g, clock }: { g: { x: number; y: number; offset: number }; cloc
   );
 }
 
-/** Grid, traces and nodes: drawn once and kept as a texture, never redrawn by the animation. */
-const StaticNetwork = memo(function StaticNetwork({ width, height, net }: { width: number; height: number; net: ReturnType<typeof buildNetwork> }) {
+/** The grid: one small tile repeated by the image view, so a new screen costs almost nothing to draw. */
+const Grid = memo(function Grid({ width, height }: { width: number; height: number }) {
+  // An explicit size: an image otherwise takes its own (the tile's) size on some platforms.
+  return <Image source={GRID_TILE} resizeMode="repeat" style={{ position: 'absolute', left: 0, top: 0, width, height }} />;
+});
+
+/** Traces and nodes: drawn once and kept as a texture, never redrawn by the animation. */
+const Traces = memo(function Traces({ width, height, net }: { width: number; height: number; net: Network }) {
   return (
-    <View style={StyleSheet.absoluteFill} renderToHardwareTextureAndroid shouldRasterizeIOS>
+    <Animated.View entering={FadeIn.duration(500)} style={StyleSheet.absoluteFill} renderToHardwareTextureAndroid shouldRasterizeIOS>
       <Svg width={width} height={height}>
-        <Path d={net.grid} stroke={CYAN} strokeOpacity={0.06} strokeWidth={1} />
         <Path d={net.traces} stroke={CYAN} strokeOpacity={0.15} strokeWidth={1.1} fill="none" />
         <Path d={net.nodes} fill={CYAN} fillOpacity={0.5} />
       </Svg>
-    </View>
+    </Animated.View>
   );
 });
 
@@ -200,7 +212,7 @@ export function NetworkBackground() {
 export function NetworkLayer({ focused }: { focused: boolean }) {
   const { width, height } = useWindowDimensions();
   const reduced = useReducedMotion();
-  const net = useMemo(() => buildNetwork(width, height), [width, height]);
+  const net = useMemo(() => networkFor(width, height), [width, height]);
   const clock = useSharedValue(0);
   const lastTick = useSharedValue(0);
   const frame = useFrameCallback((info) => {
@@ -209,7 +221,8 @@ export function NetworkLayer({ focused }: { focused: boolean }) {
     lastTick.value += step;
     if (lastTick.value >= 0.032) { clock.value += lastTick.value; lastTick.value = 0; }
   }, false);
-  // Start only once the screen transition has finished, so the two never compete.
+  // The traces and the motion wait until the screen transition has finished, so the two never compete;
+  // during the slide only the gradient and the grid tile are drawn.
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => setSettled(true));
@@ -222,7 +235,8 @@ export function NetworkLayer({ focused }: { focused: boolean }) {
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient colors={['#04080f', '#071321', '#050a12']} style={StyleSheet.absoluteFill} />
       <View style={{ position: 'absolute', top: -170, left: -110 }}><Glow size={440} color="#1f7fb3" opacity={0.22} /></View>
-      <StaticNetwork width={width} height={height} net={net} />
+      <Grid width={width} height={height} />
+      {settled ? <Traces width={width} height={height} net={net} /> : null}
       {moving ? net.glints.map((g, i) => <Glint key={`g${i}`} g={g} clock={clock} />) : null}
       {moving ? net.packets.map((p, i) => <DataPacket key={i} p={p} clock={clock} />) : null}
     </View>

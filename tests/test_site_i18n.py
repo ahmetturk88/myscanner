@@ -76,6 +76,20 @@ class RealPagesTests(unittest.TestCase):
                 self.assertIn(phrase, response.get_data(as_text=True))
                 self.assertIn('hreflang="tr"', response.get_data(as_text=True))
 
+    def test_turkish_legal_pages_are_the_kvkk_versions(self):
+        import test_task_ownership  # noqa: F401  (sets up the test database)
+        from app import app
+        client = app.test_client()
+        privacy = client.get('/privacy?lang=tr').get_data(as_text=True)
+        self.assertIn('KVKK Aydınlatma Metni', privacy)
+        self.assertIn("KVKK'nın 11. maddesi", privacy)
+        self.assertIn('Veri sorumlusu', privacy)
+        self.assertIn('Kişisel Verileri Koruma Kurulu', privacy)
+        self.assertIn('6502 sayılı', client.get('/terms?lang=tr').get_data(as_text=True))
+        english = client.get('/privacy?lang=en').get_data(as_text=True)
+        self.assertIn('Your data, <em>explained plainly.</em>', english)
+        self.assertIn('/privacy?lang=tr', english)  # points Turkish users to the KVKK notice
+
     def test_browser_catalog_is_served_versioned_and_loaded_only_for_turkish(self):
         import test_task_ownership  # noqa: F401
         from app import app

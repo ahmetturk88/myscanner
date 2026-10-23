@@ -47,7 +47,9 @@ def inspect_pdf(content):
     r.pop('error')
     r.update(is_encrypted=False,has_javascript=False,has_actions=False,has_launch=False,
         has_attachments=False,has_form_fields=False,
-        missing_checks=['PDF content streams, embedded payloads and script behavior were not inspected'])
+        coverage_status='assessed',missing_checks=[])
+    # Content streams are out of scope (see 'scope'), not a check that failed; the antivirus
+    # engine reads them. Listing them as missing made every PDF "Not sure".
     try:
         reader=PdfReader(io.BytesIO(content),strict=True)
         r['is_encrypted']=reader.is_encrypted

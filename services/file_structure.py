@@ -52,7 +52,7 @@ def zip_observations(content, office=False):
                 payload = payload_observations(content)
                 result['payload_inspection'] = payload
                 result['missing_checks'].extend(payload.get('missing_checks', []))
-                result['missing_checks'].append('No member execution, sandbox or antivirus scan was performed')
+                # Members are scanned by the antivirus engine; when it is down, the report says so on its own.
                 result['scope'] = 'Directory and bounded static ZIP payload observations; no member paths extracted or code executed.'
             budget = MAX_XML * 2
             for member in entries[:MAX_ENTRIES]:

@@ -22,7 +22,7 @@
     <h1>Your data, <em>explained plainly.</em></h1>
     <p class="pg-lead" style="font-size:18px">We built MyScanner to show evidence, not to collect it. This page explains what we keep, why, who else is involved and how to get it deleted.</p>
     <div class="legal-meta">
-      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Effective 18 October 2026</span>
+      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Effective 23 October 2026</span>
       <span class="pg-chip"><span class="pg-ic ic-clock"></span>About 8 minutes to read</span>
       <button class="pg-mini" type="button" data-print style="margin:0"><span class="pg-ic ic-file"></span><span>Print or save as PDF</span></button>
     </div>
@@ -115,8 +115,9 @@
           <li><strong>Session cookie:</strong> keeps you signed in. Strictly necessary.</li>
           <li><strong>“Keep me signed in” cookie:</strong> only if you choose it.</li>
           <li><strong>Security token:</strong> protects forms against cross-site request forgery.</li>
+          <li><strong>Language cookie:</strong> remembers the site language you picked (English or Turkish) for a year.</li>
           <li><strong>Browser storage:</strong> the inspection pages remember your last few targets (never passwords, emails or files) on your device only. You can clear them with the “Clear” button.</li>
-          <li><strong>In the Android app:</strong> your sign-in token is kept in the phone's secure storage, and your settings (vibration, evidence view) stay on the phone. Signing out removes the token.</li>
+          <li><strong>In the Android app:</strong> your sign-in token and a copy of your profile (username and email, so the app opens without waiting) are kept in the phone's secure storage, and your settings (vibration, evidence view, language) stay on the phone. Signing out removes the token.</li>
         </ul>
         <p>We use no advertising or analytics cookies, and the app contains no advertising, analytics or tracking SDKs.</p>
       </section>
@@ -145,6 +146,7 @@
           <li>withdraw consent for optional checks at any time.</li>
         </ul>
         <p>You can delete your account and its data yourself at any time from your profile (<a href="/account/delete">Delete account</a>) or in the MyScanner app. For anything else, email <a href="mailto:info@myscanners.com">info@myscanners.com</a> from the address on your account. We answer within 30 days. You may also complain to your data protection authority.</p>
+        <p>For people in Türkiye, the <a href="{{ url_for('privacy', lang='tr') }}">Turkish version of this page</a> is our KVKK information notice (Aydınlatma Metni) and sets out your rights under Article 11 of the KVKK.</p>
       </section>
 
       <section id="security">

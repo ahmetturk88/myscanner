@@ -20,6 +20,8 @@ import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
+const MAX_SIZE = 50 * 1024 * 1024;
+
 const steps = () => [t('Uploading the file securely'), t('Fingerprinting the file'), t('Inspecting its structure'), t('Checking hash reputation')];
 
 /** The drop zone's icon bobs gently until a file is chosen. */
@@ -42,10 +44,13 @@ export default function FileScanner() {
 
   async function pick() {
     setError(null);
-    const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
+    // No copy into the app's cache: copying a large file blocked the app ("not responding")
+    // before its size could even be checked. The upload reads the file from where it is.
+    const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: false, multiple: false });
     if (picked.canceled || !picked.assets?.length) return;
     const asset = picked.assets[0];
-    if (asset.size && asset.size > 50 * 1024 * 1024) { setError(t('This file is larger than 50 MB.')); return; }
+    if (asset.size && asset.size > MAX_SIZE) { setFile(null); setError(t('This file is larger than 50 MB.')); return; }
+    if (asset.size === 0) { setFile(null); setError(t('This file is empty.')); return; }
     setFile(asset); setResult(null);
   }
 

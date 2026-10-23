@@ -66,7 +66,8 @@ async function failure(response: { status: number; json(): Promise<any> }) {
     await saveToken(null);
     onSignedOut?.();
   }
-  const fallback = response.status === 429 ? t("Today's allowance is used up. It resets at 00:00 UTC.")
+  const fallback = response.status === 413 ? t('This file is larger than 50 MB.')
+    : response.status === 429 ? t("Today's allowance is used up. It resets at 00:00 UTC.")
     : response.status >= 500 ? t('MyScanner is unavailable right now. Please try again in a minute.')
     : t('Something went wrong. Please try again.');
   return new ApiError(typeof data.error === 'string' ? data.error : fallback, response.status);
@@ -144,14 +145,26 @@ export function plain(text: string) {
 }
 
 /** Upload one file as multipart form data (the file scanner). */
+/**
+ * A name Android can send. The file name travels in a multipart header, and Android's HTTP
+ * client refuses any character outside ASCII there, so "رياضيات.pdf" failed as if offline.
+ * The server keeps only an ASCII name too (services/upload_validation.py), so nothing is lost.
+ */
+export function uploadName(name: string) {
+  const dot = name.lastIndexOf('.');
+  const extension = dot > 0 ? name.slice(dot + 1).replace(/[^A-Za-z0-9]/g, '').slice(0, 10) : '';
+  const stem = (dot > 0 ? name.slice(0, dot) : name).normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '').trim().slice(0, 120);
+  return (stem || 'file') + (extension ? `.${extension.toLowerCase()}` : '');
+}
+
 export async function upload<T = any>(path: string, file: { uri: string; name: string; mimeType?: string | null }): Promise<T> {
   const form = new FormData();
-  form.append('file', { uri: file.uri, name: file.name, type: file.mimeType || 'application/octet-stream' } as any);
+  form.append('file', { uri: file.uri, name: uploadName(file.name), type: file.mimeType || 'application/octet-stream' } as any);
   let response: Response;
   try {
     response = await fetch(BASE + path, { method: 'POST', headers: headers(false), body: form });
   } catch {
-    throw new ApiError(t('No connection. Check your internet and try again.'), 0);
+    throw new ApiError(t('The file could not be uploaded. Check your internet and try again.'), 0);
   }
   if (!response.ok) throw await failure(response);
   return response.json();

@@ -11,7 +11,7 @@ import { Bar, enter, PressableScale, Spin, useCountUp } from '@/components/motio
 import { Screen } from '@/components/screen';
 import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { t, upper } from '@/lib/i18n';
+import { lang, t, upper } from '@/lib/i18n';
 import { colors, fonts, gradients, tone } from '@/lib/theme';
 
 function Stat({ label, value, color, icon, index }: { label: string; value?: number; color: string; icon: IconName; index: number }) {
@@ -49,7 +49,7 @@ export default function Account() {
   ]), [refresh]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   if (!user) return null;
-  const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}`);
+  const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}${path.includes('?') ? '&' : '?'}lang=${lang()}`);
   const count = (level: string) => scans?.filter((x) => tone(x.verdict) === level).length;
 
   return (

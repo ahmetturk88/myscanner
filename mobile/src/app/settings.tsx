@@ -2,14 +2,13 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { StyleSheet, Switch, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
 
 import { Icon, type IconName } from '@/components/icon';
-import { enter, PressableScale } from '@/components/motion';
+import { PressableScale } from '@/components/motion';
 import { Screen } from '@/components/screen';
 import { SITE } from '@/lib/api';
 import * as Haptics from '@/lib/haptics';
-import { t, upper } from '@/lib/i18n';
+import { lang, t, upper } from '@/lib/i18n';
 import { type Language, updateSettings, useSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
 
@@ -25,12 +24,13 @@ function choose(code: Language) {
   setTimeout(() => router.navigate('/settings'), 0);
 }
 
-function Section({ title, index, children }: { title: string; index: number; children: React.ReactNode }) {
+// No entrance animations here: a short, static list opens fastest while the screen slides in.
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Animated.View entering={enter(index)} style={{ gap: 8 }}>
+    <View style={{ gap: 8 }}>
       <Text style={s.section}>{upper(title)}</Text>
       <View style={s.card}>{children}</View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -49,8 +49,9 @@ function Toggle({ icon, label, hint, value, onChange, last }: { icon: IconName; 
 }
 
 function Link({ icon, label, path, last }: { icon: IconName; label: string; path: string; last?: boolean }) {
+  // Open the page in the app's language (the Turkish privacy page is the KVKK notice).
   return (
-    <PressableScale scale={0.98} onPress={() => WebBrowser.openBrowserAsync(`${SITE}${path}`)} style={[s.row, !last && s.line]}>
+    <PressableScale scale={0.98} onPress={() => WebBrowser.openBrowserAsync(`${SITE}${path}?lang=${lang()}`)} style={[s.row, !last && s.line]}>
       <View style={s.icon}><Icon name={icon} size={17} color={colors.cyan} /></View>
       <Text style={[s.label, { flex: 1 }]}>{label}</Text>
       <Icon name="external" size={15} color={colors.faint} />
@@ -63,7 +64,7 @@ export default function SettingsScreen() {
   const LANGUAGES = languages();
   return (
     <Screen back title={t('Settings')} eyebrow={t('Preferences')} largeTitle={t('Settings')} subtitle={t('Saved on this phone only.')}>
-      <Section title={t('Language')} index={1}>
+      <Section title={t('Language')}>
         {LANGUAGES.map((lang, i) => {
           const selected = settings.language === lang.code;
           return (
@@ -83,22 +84,22 @@ export default function SettingsScreen() {
         {t('Your choice switches the whole app, reports included. Arabic is coming soon. The AI assistant already answers in the language you write in.')}
       </Text>
 
-      <Section title={t('Experience')} index={2}>
+      <Section title={t('Experience')}>
         <Toggle icon="vibrate" label={t('Vibration')} hint={t('A short buzz when a result arrives and on taps.')}
           value={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} />
         <Toggle icon="code" label={t('Show technical evidence')} hint={t('Open the full evidence under every report by default.')}
           value={settings.evidenceOpen} onChange={(v) => updateSettings({ evidenceOpen: v })} last />
       </Section>
 
-      <Section title={t('About')} index={3}>
+      <Section title={t('About')}>
         <Link icon="shield" label={t('Privacy policy')} path="/privacy" />
         <Link icon="doc" label={t('Terms of service')} path="/terms" />
         <Link icon="mail" label={t('Contact and feedback')} path="/contact" last />
       </Section>
-      <Animated.View entering={enter(4)} style={{ alignItems: 'center', gap: 4, marginTop: 4 }}>
+      <View style={{ alignItems: 'center', gap: 4, marginTop: 4 }}>
         <Text style={{ color: colors.soft, fontSize: 13, fontFamily: fonts.semibold }}>MyScanner {Constants.expoConfig?.version ?? ''}</Text>
         <Text style={s.hint}>{t('Made to check before you click.')}</Text>
-      </Animated.View>
+      </View>
     </Screen>
   );
 }

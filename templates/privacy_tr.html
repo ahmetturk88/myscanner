@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Gizlilik Politikası ve KVKK Aydınlatma Metni{% endblock %}
+{% block description %}MyScanner'ın hangi kişisel verileri, hangi amaçla ve hangi hukuki sebeple işlediğini, kimlere aktardığını ve KVKK kapsamındaki haklarınızı açıklar.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+{% endblock %}
+
+{% set sections = [
+  ('summary','Kısaca'),('who','Veri sorumlusu'),('collect','İşlenen kişisel veriler'),('use','Amaçlar ve hukuki sebepler'),
+  ('scans','Taradıklarınıza ne olur'),('third','Aktarım ve hizmet sağlayıcılar'),('cookies','Çerezler ve depolama'),
+  ('retention','Saklama süreleri'),('rights','KVKK kapsamındaki haklarınız'),('apply','Başvuru yöntemi'),('security','Veri güvenliği'),
+  ('children','Çocuklar'),('changes','Değişiklikler'),('contact','İletişim')
+] %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="legal-hero pg-reveal">
+    <span class="pg-eyebrow"><span class="pg-live"></span>Gizlilik Politikası · KVKK Aydınlatma Metni</span>
+    <h1>Verileriniz, <em>açık ve anlaşılır.</em></h1>
+    <p class="pg-lead" style="font-size:18px">MyScanner'ı kanıt göstermek için kurduk, veri toplamak için değil. Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) 10. maddesi uyarınca hangi verileri, neden işlediğimizi, kimlere aktardığımızı ve haklarınızı açıklar.</p>
+    <div class="legal-meta">
+      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Yürürlük: 23 Ekim 2026</span>
+      <span class="pg-chip"><span class="pg-ic ic-clock"></span>Yaklaşık 9 dakikalık okuma</span>
+      <button class="pg-mini" type="button" data-print style="margin:0"><span class="pg-ic ic-file"></span><span>Yazdır veya PDF olarak kaydet</span></button>
+    </div>
+  </header>
+
+  <div class="legal">
+    <nav class="legal-toc" aria-label="Bu sayfada"><b>Bu sayfada</b>{% for id, name in sections %}<a href="#{{ id }}">{{ name }}</a>{% endfor %}</nav>
+
+    <article class="legal-body">
+      <section id="summary">
+        <h2><span>01</span>Kısaca</h2>
+        <div class="legal-glance" style="margin-top:0">
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-shield"></span></div><h3>Satış yok, reklam yok</h3><p>Verilerinizi asla satmayız; reklam ya da takip pikseli kullanmayız.</p></div>
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-lock"></span></div><h3>Raporlar size özel</h3><p>Tarama raporlarınızı yalnızca siz ve platform yöneticileri görebilir.</p></div>
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-eye"></span></div><h3>Kaynaklar belli</h3><p>Bir kontrol dış bir hizmete sorulduğunda rapor hangisi olduğunu söyler.</p></div>
+        </div>
+      </section>
+
+      <section id="who">
+        <h2><span>02</span>Veri sorumlusu</h2>
+        <p>MyScanner; bağlantıları, web sitelerini, dosyaları, e-posta adreslerini, alan adlarını, IP adreslerini ve QR kodlarını incelemeye yarayan bir çevrim içi platform ve Android uygulamasıdır. KVKK kapsamında veri sorumlusu, İstanbul, Türkiye'de faaliyet gösteren <strong>Ahmed Sairafi</strong>'dir (“MyScanner”, “biz”).</p>
+        <p>İletişim: <a href="mailto:info@myscanners.com">info@myscanners.com</a></p>
+      </section>
+
+      <section id="collect">
+        <h2><span>03</span>İşlenen kişisel veriler</h2>
+        <table class="legal-table">
+          <thead><tr><th>Veri kategorisi</th><th>Ayrıntı</th></tr></thead>
+          <tbody>
+            <tr><td>Kimlik ve iletişim (hesap)</td><td>Kullanıcı adı, e-posta adresi ve parolanızın tek yönlü (bcrypt) özeti. Parolanızın kendisini asla saklamayız.</td></tr>
+            <tr><td>Sosyal giriş</td><td>Google veya GitHub ile giriş yaparsanız doğrulanmış e-posta adresiniz ve görünen adınız. Parolanızı ya da diğer verilerinize erişimi almayız.</td></tr>
+            <tr><td>İşlem verileri (taramalar)</td><td>Gönderdiğiniz bağlantılar, alan adları, IP adresleri, e-posta adresleri ve dosyalar ile ürettiğimiz raporlar (URL taramalarında sayfa önizlemesi dahil).</td></tr>
+            <tr><td>Talep ve şikâyet</td><td>İletişim formunda verdiğiniz ad, e-posta, isteğe bağlı şirket ve telefon, konu ve mesaj metni.</td></tr>
+            <tr><td>İşlem güvenliği</td><td>Sunucu ve güvenlik kayıtlarındaki IP adresi, istek zamanı ve temel istek bilgileri; oturum açma hareketleri.</td></tr>
+          </tbody>
+        </table>
+        <p>Özel nitelikli kişisel veri (sağlık, biyometrik vb.) talep etmeyiz. Lütfen tarama veya sorularınızda bu tür verileri paylaşmayın.</p>
+      </section>
+
+      <section id="use">
+        <h2><span>04</span>Amaçlar ve hukuki sebepler</h2>
+        <table class="legal-table">
+          <thead><tr><th>Amaç</th><th>Hukuki sebep (KVKK md. 5/2)</th></tr></thead>
+          <tbody>
+            <tr><td>Talep ettiğiniz incelemeleri yapmak, raporları kaydetmek ve geçmişinizi göstermek</td><td>Sözleşmenin kurulması ve ifası (c)</td></tr>
+            <tr><td>Hesabınızı yönetmek: giriş, e-posta doğrulama, parola sıfırlama, güvenlik bildirimleri</td><td>Sözleşmenin kurulması ve ifası (c)</td></tr>
+            <tr><td>Platformu güvende tutmak: hız sınırları, günlük kullanım hakları, kötüye kullanımın önlenmesi ve incelenmesi</td><td>Meşru menfaat (f); hukuki yükümlülük (ç)</td></tr>
+            <tr><td>İletişim mesajlarına ve güvenlik bildirimlerine yanıt vermek</td><td>Meşru menfaat (f); bir hakkın tesisi, kullanılması veya korunması (e)</td></tr>
+            <tr><td>Siz istediğinizde raporları yapay zekâ ile açıklamak ve güvenlik sorularınızı yanıtlamak</td><td>Sözleşmenin ifası (c)</td></tr>
+            <tr><td>Siz açtığınızda isteğe bağlı kontroller (ör. posta sunucusu kontrolü, parola sızıntı kontrolü)</td><td>Sözleşmenin ifası (c); gerekli olduğu ölçüde açık rıza</td></tr>
+          </tbody>
+        </table>
+        <p>Verileriniz, açık rıza gerektiren durumlar dışında, yukarıdaki hukuki sebeplere dayanılarak, internet sitesi, Android uygulaması ve e-posta yoluyla elektronik ortamda, otomatik yöntemlerle toplanır. Verilerinizi reklam amacıyla kullanmayız ve kimseye satmayız.</p>
+      </section>
+
+      <section id="scans">
+        <h2><span>05</span>Taradıklarınıza ne olur</h2>
+        <ul>
+          <li><strong>Bağlantılar ve web siteleri</strong> sunucularımız tarafından yalıtılmış bir ağdan açılır; sayfa önizlemesi yalıtılmış bir tarayıcıda alınır.</li>
+          <li><strong>Dosyalar</strong> statik olarak incelenir, asla çalıştırılmaz. Yüklenen kopya inceleme biter bitmez silinir; yalnızca rapor ve dosyanın parmak izleri (hash) saklanır.</li>
+          <li><strong>Parolalar</strong> güç açısından analiz edilir; saklanmaz ve raporlara eklenmez. Sızıntı kontrolünü seçerseniz sunucumuzdan yalnızca parolanın SHA-1 özetinin ilk beş karakteri çıkar (k-anonimlik), parolanın kendisi asla.</li>
+          <li><strong>E-posta adresleri</strong> DNS kayıtlarıyla kontrol edilir. Doğrudan posta sunucusu kontrolü yalnızca siz işaretlerseniz yapılır ve karşı posta sunucusu adresi görür.</li>
+          <li><strong>QR kodlar</strong> tarayıcınızda veya uygulamada telefonunuzda çözülür. Kamera yalnızca tarama sırasında kullanılır ve görüntü telefonunuzdan çıkmaz; yalnızca incelemeyi seçerseniz çözülen metin gönderilir.</li>
+        </ul>
+        <p>Lütfen paylaşma yetkiniz olmayan içerikleri (ör. gizli belgeler veya sır içeren bağlantılar) taramayın.</p>
+      </section>
+
+      <section id="third">
+        <h2><span>06</span>Aktarım ve hizmet sağlayıcılar</h2>
+        <p>Bazı kontroller, incelenen öğenin kendisini (ör. bir URL, alan adı, IP adresi veya dosya özeti) dış bir hizmete gönderir. Bu hizmetler hesap bilgilerinizi almaz. Hizmeti sunabilmek için kişisel verileriniz aşağıdaki hizmet sağlayıcılara aktarılabilir:</p>
+        <table class="legal-table">
+          <thead><tr><th>Sağlayıcı</th><th>Amaç</th></tr></thead>
+          <tbody>
+            <tr><td>netcup GmbH (Almanya)</td><td>AB'de sunucu barındırma.</td></tr>
+            <tr><td>Cloudflare</td><td>Alan adı hizmeti, adreslerimize gelen e-postaların yönlendirilmesi ve şifreli veritabanı yedeklerinin saklanması (şifreyi çözecek anahtar yalnızca bizdedir).</td></tr>
+            <tr><td>Resend</td><td>Hesap e-postalarının gönderimi (doğrulama, parola sıfırlama, bildirimler).</td></tr>
+            <tr><td>Google, GitHub</td><td>İsteğe bağlı sosyal giriş.</td></tr>
+            <tr><td>abuse.ch (URLhaus, MalwareBazaar)</td><td>URL ve dosya özetleri için itibar sorguları.</td></tr>
+            <tr><td>Oltalama veritabanları (ör. PhishTank)</td><td>URL'lerin oltalama itibarı.</td></tr>
+            <tr><td>Google (Web Risk)</td><td>Taranan URL'nin Google'ın oltalama, zararlı yazılım ve istenmeyen yazılım listelerinde olup olmadığı. Yalnızca URL gönderilir.</td></tr>
+            <tr><td>AbuseIPDB, ipwho.is</td><td>IP adresi itibarı ve ağ bilgileri.</td></tr>
+            <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Yalnızca özet öneki ile isteğe bağlı parola sızıntı kontrolü.</td></tr>
+            <tr><td>crt.sh, Google Public DNS, kayıt kuruluşları (RDAP/WHOIS)</td><td>Sertifika geçmişi, DNS ve alan adı kayıt bilgileri.</td></tr>
+            <tr><td>Google (Gemini API), Groq</td><td>Yalnızca siz istediğinizde yapay zekâ açıklamaları ve soruların yanıtlanması. Raporun bulgularını (sırlar ve görseller çıkarılmış olarak), sorularınızı ve aynı konuşmadaki önceki mesajları alır; hesap bilgilerinizi almaz. Ücretsiz katmanlarda Google bu içeriği ürünlerini geliştirmek için kullanabilir; bu nedenle sorularınıza kişisel bilgi eklemeyin.</td></tr>
+            <tr><td>Sentry (Functional Software, Inc.)</td><td>Sunucularımızda bir hata oluştuğunda hata türü, mesajı ve kod konumu. İstek içerikleri, çerezler, hesap bilgileri ve saklanan değerler gönderilmez; ancak bir hata mesajı kontrol edilen adresi içerebilir.</td></tr>
+            <tr><td>Google Fonts, cdnjs</td><td>Sayfalarımızı görüntülerken tarayıcınızın yüklediği yazı tipleri ve simgeler.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Yurt dışına aktarım:</strong> Bu sağlayıcıların bir kısmı Türkiye dışında (AB ve ABD dahil) bulunur. Bu nedenle kişisel verileriniz, hizmetin sunulması için gerekli olduğu ölçüde ve KVKK'nın 9. maddesi kapsamında yurt dışına aktarılabilir. Aktarımları, ilgili sağlayıcının sunduğu güvencelere dayanarak ve yalnızca gerektiği kadar veriyle yaparız.</p>
+        <p>Ayrıca kanunen yetkili kamu kurum ve kuruluşlarına, hukuki yükümlülüklerimiz kapsamında ve talep edilmesi hâlinde aktarım yapılabilir.</p>
+      </section>
+
+      <section id="cookies">
+        <h2><span>07</span>Çerezler ve depolama</h2>
+        <ul>
+          <li><strong>Oturum çerezi:</strong> oturumunuzu açık tutar. Zorunludur.</li>
+          <li><strong>“Beni hatırla” çerezi:</strong> yalnızca siz seçerseniz.</li>
+          <li><strong>Güvenlik belirteci:</strong> formları siteler arası istek sahteciliğine karşı korur.</li>
+          <li><strong>Dil çerezi:</strong> seçtiğiniz site dilini (Türkçe/İngilizce) bir yıl boyunca hatırlar.</li>
+          <li><strong>Tarayıcı depolaması:</strong> inceleme sayfaları son birkaç hedefinizi (asla parola, e-posta veya dosya değil) yalnızca cihazınızda hatırlar. “Temizle” düğmesiyle silebilirsiniz.</li>
+          <li><strong>Android uygulamasında:</strong> giriş belirteciniz ve profil özetiniz telefonun güvenli depolamasında, ayarlarınız (titreşim, kanıt görünümü, dil) telefonda tutulur. Çıkış yapmak belirteci siler.</li>
+        </ul>
+        <p>Reklam veya analiz çerezi kullanmayız; uygulamada reklam, analiz veya takip SDK'sı yoktur.</p>
+      </section>
+
+      <section id="retention">
+        <h2><span>08</span>Saklama süreleri</h2>
+        <ul>
+          <li><strong>Hesap ve raporlar:</strong> hesabınız var olduğu sürece. İstediğiniz zaman silebilirsiniz.</li>
+          <li><strong>Sayfa önizlemeleri:</strong> 30 gün sonra otomatik olarak silinir.</li>
+          <li><strong>Yapay zekâ açıklamaları ve soruları:</strong> raporla birlikte en fazla 30 gün (en fazla son 50 kayıt) saklanır, sonra silinir. Site genelindeki yapay zekâ asistanıyla yapılan konuşmalar sunucularımızda saklanmaz; tarayıcınız sekmeyi kapatana veya yeni konuşma başlatana kadar tutar.</li>
+          <li><strong>Yüklenen dosyalar:</strong> kendi sunucumuzda, orada çalışan ClamAV antivirüs motoru dahil incelenir (dosya dış bir antivirüs hizmetine gönderilmez) ve inceleme biter bitmez silinir.</li>
+          <li><strong>Sunucu kayıtları:</strong> güvenlik amacıyla sınırlı bir süre tutulur ve otomatik olarak döndürülür.</li>
+          <li><strong>Yedekler:</strong> günlük veritabanı yedekleri sunucumuzda 14 gün, depolama sağlayıcımızda şifreli kopya olarak 30 gün tutulur. Sildiğiniz veriler yedekler yenilendikçe kaybolur.</li>
+          <li><strong>İletişim mesajları:</strong> talebiniz sonuçlanana kadar gereken süre boyunca.</li>
+        </ul>
+        <p>Süresi dolan veriler silinir, yok edilir veya anonim hâle getirilir.</p>
+      </section>
+
+      <section id="rights">
+        <h2><span>09</span>KVKK kapsamındaki haklarınız</h2>
+        <p>KVKK'nın 11. maddesi uyarınca bize başvurarak:</p>
+        <ul>
+          <li>kişisel verilerinizin işlenip işlenmediğini öğrenme,</li>
+          <li>işlenmişse buna ilişkin bilgi talep etme,</li>
+          <li>işlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme,</li>
+          <li>yurt içinde veya yurt dışında aktarıldığı üçüncü kişileri bilme,</li>
+          <li>eksik veya yanlış işlenmişse düzeltilmesini isteme,</li>
+          <li>KVKK'nın 7. maddesindeki şartlar çerçevesinde silinmesini veya yok edilmesini isteme,</li>
+          <li>düzeltme, silme veya yok etme işlemlerinin verilerin aktarıldığı üçüncü kişilere bildirilmesini isteme,</li>
+          <li>münhasıran otomatik sistemlerle analiz edilmesi sonucunda aleyhinize bir sonucun ortaya çıkmasına itiraz etme,</li>
+          <li>kanuna aykırı işleme nedeniyle zarara uğramanız hâlinde zararın giderilmesini talep etme</li>
+        </ul>
+        <p>haklarına sahipsiniz. Açık rızaya dayanan işlemler için rızanızı istediğiniz zaman geri alabilirsiniz.</p>
+        <p>Hesabınızı ve verilerinizi istediğiniz zaman profilinizden (<a href="/account/delete">Hesabı sil</a>) veya MyScanner uygulamasından kendiniz silebilirsiniz.</p>
+      </section>
+
+      <section id="apply">
+        <h2><span>10</span>Başvuru yöntemi</h2>
+        <p>Haklarınıza ilişkin taleplerinizi, Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ'e uygun olarak, hesabınızda kayıtlı e-posta adresinden <a href="mailto:info@myscanners.com">info@myscanners.com</a> adresine gönderebilirsiniz. Başvurunuzda adınızı, soyadınızı, iletişim bilginizi ve talebinizi açıkça belirtin.</p>
+        <p>Başvurunuzu en geç <strong>30 gün</strong> içinde ücretsiz olarak sonuçlandırırız; işlemin ayrıca bir maliyet gerektirmesi hâlinde Kişisel Verileri Koruma Kurulunca belirlenen tarifedeki ücret alınabilir. Başvurunuzun reddedilmesi, cevabı yetersiz bulmanız veya süresinde cevap verilmemesi hâlinde Kişisel Verileri Koruma Kuruluna şikâyette bulunabilirsiniz.</p>
+      </section>
+
+      <section id="security">
+        <h2><span>11</span>Veri güvenliği</h2>
+        <p>Parolalar bcrypt ile özetlenir; bağlantılar HTTPS kullanır; tarayıcılar iç sistemlere erişemeyen yalıtılmış bir ağda çalışır; raporlar ve önizlemeler yalnızca sahibine sunulur; giriş ve parola sıfırlama istekleri hız sınırlıdır ve parolanız değiştiğinde size e-posta ile bildirim gönderilir. Hiçbir sistem kusursuz değildir: bir güvenlik açığı bulursanız lütfen <a href="{{ url_for('contact', topic='Security Report') }}">bildirin</a>.</p>
+      </section>
+
+      <section id="children">
+        <h2><span>12</span>Çocuklar</h2>
+        <p>MyScanner 16 yaşından küçükler için tasarlanmamıştır ve bilerek onların verilerini toplamayız. Bir çocuğun hesap oluşturduğunu düşünüyorsanız bize ulaşın, hesabı sileriz.</p>
+      </section>
+
+      <section id="changes">
+        <h2><span>13</span>Değişiklikler</h2>
+        <p>Uygulamalarımız değiştiğinde bu sayfayı güncelleriz ve yukarıdaki yürürlük tarihini değiştiririz. Önemli değişiklikleri oturum açmış kullanıcılara e-posta veya platform üzerinden bildiririz. Türkçe ve İngilizce metinler arasında fark olması hâlinde Türkiye'deki kullanıcılar için bu Türkçe metin esas alınır.</p>
+      </section>
+
+      <section id="contact">
+        <h2><span>14</span>İletişim</h2>
+        <p>Verilerinizle ilgili soru ve talepler: <a href="mailto:info@myscanners.com">info@myscanners.com</a> · <a href="{{ url_for('contact') }}">iletişim formu</a>. Ayrıca <a href="{{ url_for('terms') }}">Kullanım Koşulları</a>'na bakın.</p>
+      </section>
+    </article>
+  </div>
+</div>
+{% endblock %}

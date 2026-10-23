@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Kullanım Koşulları{% endblock %}
+{% block description %}MyScanner'ı kullanırken geçerli olan kurallar: yalnızca yetkili olduğunuz hedefleri inceleyin ve sonuçları garanti değil, kanıt olarak değerlendirin.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+{% endblock %}
+
+{% set sections = [
+  ('summary','Kısaca'),('agreement','Sözleşme'),('service','Hizmet'),('accounts','Hesabınız'),
+  ('use','Kabul edilebilir kullanım'),('results','Sonuçlar ne anlama gelir'),('content','İçeriğiniz'),('limits','Kullanım hakları ve erişilebilirlik'),
+  ('liability','Sorumluluk'),('termination','Askıya alma ve kapatma'),('law','Uygulanacak hukuk'),('changes','Değişiklikler'),('contact','İletişim')
+] %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="legal-hero pg-reveal">
+    <span class="pg-eyebrow"><span class="pg-live"></span>Kullanım Koşulları</span>
+    <h1>Bir güvenlik aracı için <em>adil kurallar.</em></h1>
+    <p class="pg-lead" style="font-size:18px">MyScanner güçlü bir araçtır; bu yüzden birkaç net kuralı var: yalnızca yetkili olduğunuz şeyleri inceleyin ve sonuçları garanti değil, kanıt olarak değerlendirin.</p>
+    <div class="legal-meta">
+      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Yürürlük: 23 Ekim 2026</span>
+      <span class="pg-chip"><span class="pg-ic ic-clock"></span>Yaklaşık 6 dakikalık okuma</span>
+      <button class="pg-mini" type="button" data-print style="margin:0"><span class="pg-ic ic-file"></span><span>Yazdır veya PDF olarak kaydet</span></button>
+    </div>
+  </header>
+
+  <div class="legal">
+    <nav class="legal-toc" aria-label="Bu sayfada"><b>Bu sayfada</b>{% for id, name in sections %}<a href="#{{ id }}">{{ name }}</a>{% endfor %}</nav>
+
+    <article class="legal-body">
+      <section id="summary">
+        <h2><span>01</span>Kısaca</h2>
+        <div class="legal-glance" style="margin-top:0">
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-target"></span></div><h3>Yalnızca yetkili hedefler</h3><p>Sahibi olduğunuz veya test etme izniniz olan şeyleri inceleyin. MyScanner'ı asla kimseye saldırmak için kullanmayın.</p></div>
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-alert"></span></div><h3>Kanıt, garanti değil</h3><p>Temiz bir rapor bir şeyin güvenli olduğunu kanıtlamaz. Kendi değerlendirmenizi yapın.</p></div>
+          <div class="pg-card"><div class="pg-badge"><span class="pg-ic ic-zap"></span></div><h3>Adil kullanım</h3><p>Günlük kullanım hakları platformu herkes için hızlı tutar. Bunları aşmaya çalışmayın.</p></div>
+        </div>
+      </section>
+
+      <section id="agreement">
+        <h2><span>02</span>Sözleşme</h2>
+        <p>Bu koşullar, İstanbul, Türkiye'de Ahmed Sairafi tarafından işletilen MyScanner'ı (“hizmet”) kullanımınız için geçerlidir. Hesap oluşturarak veya hizmeti kullanarak bu koşulları ve <a href="{{ url_for('privacy') }}">Gizlilik Politikası ve KVKK Aydınlatma Metni</a>'ni kabul etmiş olursunuz. MyScanner'ı bir kurum adına kullanıyorsanız, bu koşulları o kurum adına kabul etmeye yetkili olduğunuzu onaylarsınız.</p>
+      </section>
+
+      <section id="service">
+        <h2><span>03</span>Hizmet</h2>
+        <p>MyScanner; bağlantıları, web sitelerini, dosyaları, e-posta adreslerini, alan adlarını, IP adreslerini, TLS sertifikalarını, alt alan adlarını, parolaları ve QR kodları inceleyen ve bulunan kanıtları açıklayan araçlar sunar. Hizmet aktif olarak geliştirilmektedir: özellikler değişebilir, eklenebilir veya kaldırılabilir; bazı araçlar “Yakında” olarak işaretlidir.</p>
+      </section>
+
+      <section id="accounts">
+        <h2><span>04</span>Hesabınız</h2>
+        <ul>
+          <li>En az 16 yaşında olmalısınız.</li>
+          <li>Doğru bilgi verin ve giriş bilgilerinizi gizli tutun. Hesabınızdaki işlemlerden siz sorumlusunuz.</li>
+          <li>Yetkisiz erişimden şüphelenirseniz derhal <a href="mailto:info@myscanners.com">info@myscanners.com</a> adresinden bize bildirin.</li>
+        </ul>
+      </section>
+
+      <section id="use">
+        <h2><span>05</span>Kabul edilebilir kullanım</h2>
+        <p>MyScanner'ı şu amaçlarla kullanamazsınız:</p>
+        <ul>
+          <li>sahibi olmadığınız veya test etmeye yetkili olmadığınız sistemleri, ağları ya da hesapları taramak, yoklamak veya test etmek;</li>
+          <li>MyScanner'ın kendisi dahil herhangi bir sisteme saldırmak, aşırı yük bindirmek veya çalışmasını bozmak;</li>
+          <li>platform üzerinden özel, iç ağ veya bulut meta veri adreslerine erişmeye ya da korumalarını aşmaya çalışmak;</li>
+          <li>paylaşma hakkınız olmayan içerikleri yüklemek veya hizmeti hukuka aykırı herhangi bir amaçla kullanmak;</li>
+          <li>başkalarını taciz etmek, başkalarının kişisel verilerini toplamak veya size ait olmayan parolaları kontrol etmek;</li>
+          <li>istekleri otomatikleştirmek, hesap paylaşmak veya başka yollarla günlük kullanım haklarını aşmak;</li>
+          <li>hizmeti kanunun izin verdiği ölçünün ötesinde kopyalamak, yeniden satmak veya tersine mühendislik yapmak.</li>
+        </ul>
+        <p>Güvenlik araştırmacıları: lütfen güvenlik açıklarını <a href="{{ url_for('contact', topic='Security Report') }}">güvenlik bildirim formu</a> ile bildirin ve diğer kullanıcıların verilerine erişmeyin.</p>
+      </section>
+
+      <section id="results">
+        <h2><span>06</span>Sonuçlar ne anlama gelir</h2>
+        <p>Raporlar, kontrollerimizin ve dış kaynakların tarama anında gözlemlediklerini açıklar. Kontroller başarısız, eksik veya hatalı olabilir; kaynaklar güncel olmayabilir. “Bulgu yok” veya “Emin değiliz” olarak işaretlenen bir sonuç güvenli olduğunun kanıtı <strong>değildir</strong>; bir uyarı da kötü niyetin kanıtı değildir. Bir rapora dayanarak verdiğiniz kararlardan siz sorumlusunuz.</p>
+      </section>
+
+      <section id="content">
+        <h2><span>07</span>İçeriğiniz</h2>
+        <p>Gönderdiğiniz her şeyin tüm hakları sizde kalır. Bunları yalnızca hizmeti sunmak amacıyla, <a href="{{ url_for('privacy') }}">Gizlilik Politikası</a>'nda açıklandığı şekilde (orada adı geçen itibar hizmetlerine bir URL veya dosya özeti gibi belirli öğelerin gönderilmesi dahil) işlememize izin verirsiniz.</p>
+      </section>
+
+      <section id="limits">
+        <h2><span>08</span>Kullanım hakları ve erişilebilirlik</h2>
+        <p>Her aracın 00:00 UTC'de (Türkiye saatiyle 03:00) yenilenen günlük bir kullanım hakkı vardır; güncel hakkınız profilinizde gösterilir. MyScanner'ı erişilebilir tutmayı hedefleriz ancak kesintisiz hizmet taahhüt etmeyiz; platformu korumak için kullanım haklarını değiştirebiliriz.</p>
+      </section>
+
+      <section id="liability">
+        <h2><span>09</span>Sorumluluk</h2>
+        <p>Hizmet, kanunun izin verdiği ölçüde, hiçbir garanti verilmeksizin “olduğu gibi” ve “mevcut olduğu şekilde” sunulur. Dolaylı veya sonuçsal zararlardan ya da bir rapora güvenilmesinden doğan zararlardan sorumlu değiliz. Bu koşullardaki hiçbir hüküm, kanunen sınırlandırılamayan sorumluluğu sınırlamaz.</p>
+      </section>
+
+      <section id="termination">
+        <h2><span>10</span>Askıya alma ve kapatma</h2>
+        <p>Bu koşulları ihlal eden veya başkalarını riske atan hesapları askıya alabilir veya kapatabiliriz. MyScanner'ı kullanmayı istediğiniz zaman bırakabilir, hesabınızı profilinizden veya uygulamadan ya da <a href="mailto:info@myscanners.com">info@myscanners.com</a> adresine e-posta göndererek silebilirsiniz.</p>
+      </section>
+
+      <section id="law">
+        <h2><span>11</span>Uygulanacak hukuk</h2>
+        <p>Bu koşullar Türkiye Cumhuriyeti kanunlarına tabidir. Uyuşmazlıklarda İstanbul mahkemeleri ve icra daireleri yetkilidir; tüketici olarak 6502 sayılı Tüketicinin Korunması Hakkında Kanun'dan doğan, tüketici hakem heyetlerine ve tüketici mahkemelerine başvurma hakkınız saklıdır.</p>
+      </section>
+
+      <section id="changes">
+        <h2><span>12</span>Değişiklikler</h2>
+        <p>Bu koşulları güncelleyebiliriz. Yukarıdaki yürürlük tarihini değiştirir, önemli değişiklikleri oturum açmış kullanıcılara bildiririz. Bir değişiklikten sonra MyScanner'ı kullanmaya devam etmeniz güncel koşulları kabul ettiğiniz anlamına gelir. Türkçe ve İngilizce metinler arasında fark olması hâlinde Türkiye'deki kullanıcılar için bu Türkçe metin esas alınır.</p>
+      </section>
+
+      <section id="contact">
+        <h2><span>13</span>İletişim</h2>
+        <p><a href="mailto:info@myscanners.com">info@myscanners.com</a> · <a href="{{ url_for('contact') }}">iletişim formu</a></p>
+      </section>
+    </article>
+  </div>
+</div>
+{% endblock %}

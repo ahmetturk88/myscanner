@@ -17,6 +17,22 @@ def pdf(action=None,encrypted=False):
 
 
 class PDFTests(unittest.TestCase):
+    def test_a_clean_pdf_is_a_clear_result_not_not_sure(self):
+        # Reported: a bank statement PDF came back "Not sure" because a scope note counted as a missing check.
+        r=inspect_pdf(pdf())
+        self.assertEqual((r['coverage_status'],r['missing_checks']),('assessed',[]))
+        a=FileDeepAnalyzer()
+        with patch.object(a,'check_hash_reputation',return_value={'status':'not_found','risk_score':0,'is_malicious':False}), \
+             patch('services.clamav_client.scan_bytes',return_value={'status':'clean','engine':'ClamAV'}), \
+             patch('services.pdf_structure.pdf_observations',side_effect=inspect_pdf):
+            report=a.comprehensive_analysis(pdf(),'Hesap_Hareketleri.pdf')
+        self.assertEqual((report['verdict'],report['coverage_status']),('not_found','completed'),report['missing_checks'])
+        with patch.object(a,'check_hash_reputation',return_value={'status':'not_found','risk_score':0,'is_malicious':False}), \
+             patch('services.clamav_client.scan_bytes',return_value={'status':'not_configured'}), \
+             patch('services.pdf_structure.pdf_observations',side_effect=inspect_pdf):
+            report=a.comprehensive_analysis(pdf(),'statement.pdf')
+        self.assertIn('PDF contents were not scanned by an antivirus engine',report['missing_checks'])
+
     def test_report_text_is_not_action_or_c2(self):
         from reportlab.pdfgen import canvas
         out=io.BytesIO();c=canvas.Canvas(out,pageCompression=1)

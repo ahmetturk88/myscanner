@@ -1614,11 +1614,12 @@ def about():
 
 @app.route('/privacy')
 def privacy():
-    return render_template('privacy.html')
+    # The Turkish page is written for KVKK (its own sections), not translated line by line.
+    return render_template('privacy_tr.html' if current_language() == 'tr' else 'privacy.html')
 
 @app.route('/terms')
 def terms():
-    return render_template('terms.html')
+    return render_template('terms_tr.html' if current_language() == 'tr' else 'terms.html')
 
 # ================================================================
 # Contact Form Handler - Professional Version

@@ -66,3 +66,16 @@ class ScriptTests(unittest.TestCase):
             refused = self.run_script(folder, '--min', '13')
             self.assertNotEqual(refused.returncode, 0)
             self.assertIn('above the latest', refused.stderr)
+
+    def test_on_the_vps_the_script_writes_the_env_file_compose_reads(self):
+        # The stack runs with --env-file .env.vps.rehearsal; writing .env there changed nothing.
+        with tempfile.TemporaryDirectory() as folder:
+            for name in ('.env', '.env.vps.rehearsal'):
+                with open(os.path.join(folder, name), 'w') as handle:
+                    handle.write('SECRET_FILE=/run/secrets/x\n')
+            result = self.run_script(folder, '--latest', '12', '--min', '12')
+            self.assertIn('.env.vps.rehearsal', result.stdout)
+            with open(os.path.join(folder, '.env.vps.rehearsal')) as handle:
+                self.assertEqual(handle.read(), 'SECRET_FILE=/run/secrets/x\nMOBILE_LATEST_BUILD=12\nMOBILE_MIN_BUILD=12\n')
+            with open(os.path.join(folder, '.env')) as handle:
+                self.assertNotIn('MOBILE', handle.read())

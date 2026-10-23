@@ -6,14 +6,19 @@ Run on the server from the repository root, once the new build is live on Google
     python3 scripts/app_release.py --latest 12          # builds below 12 see "new version" (can skip)
     python3 scripts/app_release.py --latest 12 --min 12 # builds below 12 must update to continue
 
-The values go into .env, which docker compose reads; then recreate the web service:
+The values go into the env file docker compose reads on the server (.env.vps.rehearsal,
+passed with --env-file; .env elsewhere); then recreate the web service:
     dc up -d web
 """
 import argparse
 import os
 import re
 
-ENV = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env')
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+# The VPS stack is started with --env-file .env.vps.rehearsal (scripts/vps_autostart.sh); writing
+# .env there changes nothing, because compose never reads it.
+ENV = next((os.path.join(ROOT, name) for name in ('.env.vps.rehearsal', '.env') if os.path.exists(os.path.join(ROOT, name))),
+           os.path.join(ROOT, '.env'))
 KEYS = {'latest': 'MOBILE_LATEST_BUILD', 'min': 'MOBILE_MIN_BUILD'}
 
 
@@ -35,7 +40,10 @@ def main():
     parser.add_argument('--latest', type=int, help='newest versionCode live on Google Play')
     parser.add_argument('--min', type=int, help='oldest versionCode still allowed; older apps must update')
     args = parser.parse_args()
-    text = read()
+    try:
+        text = read()
+    except PermissionError:
+        parser.error(f'cannot read {os.path.basename(ENV)}; run it with sudo')
     changes = {KEYS[name]: value for name, value in (('latest', args.latest), ('min', args.min)) if value is not None}
     if any(value < 0 for value in changes.values()):
         parser.error('builds are positive numbers')
@@ -48,9 +56,12 @@ def main():
         text = re.sub(rf'^{key}=.*$', line, text, flags=re.M) if re.search(rf'^{key}=', text, re.M) \
             else (text if not text or text.endswith('\n') else text + '\n') + line + '\n'
     if changes:
-        with open(ENV, 'w') as handle:
-            handle.write(text)
-    print(f'Latest build: {latest or "off"}   Minimum build: {minimum or "off"}')
+        try:
+            with open(ENV, 'w') as handle:
+                handle.write(text)
+        except PermissionError:
+            parser.error(f'cannot write {os.path.basename(ENV)}; run it with sudo')
+    print(f'Latest build: {latest or "off"}   Minimum build: {minimum or "off"}   ({os.path.basename(ENV)})')
     if changes:
         print('Saved. Now run: dc up -d web')
 

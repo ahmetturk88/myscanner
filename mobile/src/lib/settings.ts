@@ -18,10 +18,14 @@ export type Settings = {
   skippedBuild: number;
   /** The oldest build the server last said it supports, so start-up needn't wait for it. */
   minBuild: number;
+  /** The moving background; switched off by itself when the phone can't keep it smooth. */
+  backgroundMotion: boolean;
+  /** Whether that smoothness check has already run on this phone. */
+  motionChecked: boolean;
 };
 
 const KEY = 'myscanner.settings';
-const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0, minBuild: 0 };
+const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0, minBuild: 0, backgroundMotion: true, motionChecked: false };
 let current: Settings = DEFAULTS;
 /** False until the saved settings have been read (the first screen waits for it). */
 let ready = false;
@@ -40,6 +44,8 @@ export async function loadSettings() {
       language: saved.language === 'tr' ? 'tr' : 'en',
       skippedBuild: Number.isInteger(saved.skippedBuild) ? saved.skippedBuild : 0,
       minBuild: Number.isInteger(saved.minBuild) ? saved.minBuild : 0,
+      backgroundMotion: typeof saved.backgroundMotion === 'boolean' ? saved.backgroundMotion : DEFAULTS.backgroundMotion,
+      motionChecked: saved.motionChecked === true,
     };
   } catch {
     current = DEFAULTS;

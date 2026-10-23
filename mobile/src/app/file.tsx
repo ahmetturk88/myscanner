@@ -58,7 +58,8 @@ export default function FileScanner() {
     if (!file) return;
     setBusy(true); setError(null); setResult(null); setProgress(t('Uploading'));
     try {
-      const queued: any = await upload('/tools/file', { uri: file.uri, name: file.name, mimeType: file.mimeType });
+      const queued: any = await upload('/tools/file', { uri: file.uri, name: file.name, mimeType: file.mimeType },
+        (fraction) => { if (alive.current) setProgress(t('Uploading {percent}%', { percent: Math.round(fraction * 100) })); });
       let data = await waitForTask(queued.task_id, setProgress, () => alive.current);
       data = reportOf(data);
       setResult(data);

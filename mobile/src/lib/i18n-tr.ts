@@ -430,4 +430,7 @@ export const TR: Record<string, string> = {
   "Join the WhatsApp community": "WhatsApp topluluğuna katıl",
   "This file is empty.": "Bu dosya boş.",
   "The file could not be uploaded. Check your internet and try again.": "Dosya yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.",
+  "Uploading {percent}%": "Yükleniyor %{percent}",
+  "Animated background": "Hareketli arka plan",
+  "Turns off by itself on phones where it is not smooth.": "Akıcı çalışmadığı telefonlarda kendiliğinden kapanır.",
 };

@@ -18,8 +18,10 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { Image, InteractionManager, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { Glow } from '@/components/motion';
+import { updateSettings, useSettings } from '@/lib/settings';
 
 
 const CELL = 34;
@@ -27,7 +29,19 @@ const CYAN = '#77dcff';
 const TEAL = '#5eead4';
 const RED = '#fb7185';
 const GRID_TILE = require('../../assets/images/grid-tile.png');
-const GLINT = 7;    // seconds between two glints of the same node
+const GLINT = 7;
+// Frame pacing check: after WARMUP seconds of motion, measure SAMPLE seconds; slower than
+// SLOW seconds a frame on average (under ~40 fps) means the phone struggles, so the motion
+// is turned off for good (Settings › Animated background turns it back on).
+const WARMUP = 2, SAMPLE = 3, SLOW = 1 / 40;
+
+function slowPhone() {
+  updateSettings({ backgroundMotion: false, motionChecked: true });
+}
+
+function smoothPhone() {
+  updateSettings({ motionChecked: true });
+}    // seconds between two glints of the same node
 const TAIL = 40;
 const HEAD = 4;
 const ARRIVE = 1.6; // seconds the arrival ring plays
@@ -213,13 +227,24 @@ export function NetworkLayer({ focused }: { focused: boolean }) {
   const { width, height } = useWindowDimensions();
   const reduced = useReducedMotion();
   const net = useMemo(() => networkFor(width, height), [width, height]);
+  const { backgroundMotion, motionChecked } = useSettings();
   const clock = useSharedValue(0);
   const lastTick = useSharedValue(0);
+  const watched = useSharedValue(motionChecked ? -1 : 0);  // seconds measured so far; -1 once decided
+  const frames = useSharedValue(0);
   const frame = useFrameCallback((info) => {
     // About 30 updates a second is smooth for slow-moving packets and halves the work.
     const step = (info.timeSincePreviousFrame ?? 16) / 1000;
     lastTick.value += step;
     if (lastTick.value >= 0.032) { clock.value += lastTick.value; lastTick.value = 0; }
+    if (watched.value < 0) return;
+    watched.value += step;
+    if (watched.value > WARMUP) frames.value += 1;
+    if (watched.value >= WARMUP + SAMPLE) {
+      const average = SAMPLE / Math.max(1, frames.value);
+      watched.value = -1;
+      scheduleOnRN(average > SLOW ? slowPhone : smoothPhone);
+    }
   }, false);
   // The traces and the motion wait until the screen transition has finished, so the two never compete;
   // during the slide only the gradient and the grid tile are drawn.
@@ -228,7 +253,7 @@ export function NetworkLayer({ focused }: { focused: boolean }) {
     const task = InteractionManager.runAfterInteractions(() => setSettled(true));
     return () => task.cancel();
   }, []);
-  const moving = focused && !reduced && settled;
+  const moving = focused && !reduced && settled && backgroundMotion;
   useEffect(() => { frame.setActive(moving); }, [frame, moving]);
 
   return (

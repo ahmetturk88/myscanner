@@ -144,11 +144,9 @@ export function plain(text: string) {
     .trim();
 }
 
-/** Upload one file as multipart form data (the file scanner). */
 /**
- * A name Android can send. The file name travels in a multipart header, and Android's HTTP
- * client refuses any character outside ASCII there, so "رياضيات.pdf" failed as if offline.
- * The server keeps only an ASCII name too (services/upload_validation.py), so nothing is lost.
+ * A plain ASCII file name for the multipart header. The server keeps only an ASCII name
+ * anyway (services/upload_validation.py), and some HTTP clients reject anything else there.
  */
 export function uploadName(name: string) {
   const dot = name.lastIndexOf('.');
@@ -157,17 +155,34 @@ export function uploadName(name: string) {
   return (stem || 'file') + (extension ? `.${extension.toLowerCase()}` : '');
 }
 
-export async function upload<T = any>(path: string, file: { uri: string; name: string; mimeType?: string | null }): Promise<T> {
+/**
+ * Upload one file as multipart form data (the file scanner), with progress from 0 to 1.
+ *
+ * This uses XMLHttpRequest, not fetch: in this Expo SDK the global fetch is expo/fetch, which
+ * cannot send React Native's { uri } file parts, so every upload failed before leaving the
+ * phone. XMLHttpRequest is React Native's own networking; it streams the file from its uri
+ * (content:// or file://) without loading it into memory.
+ */
+export function upload<T = any>(path: string, file: { uri: string; name: string; mimeType?: string | null },
+  onProgress?: (fraction: number) => void): Promise<T> {
   const form = new FormData();
   form.append('file', { uri: file.uri, name: uploadName(file.name), type: file.mimeType || 'application/octet-stream' } as any);
-  let response: Response;
-  try {
-    response = await fetch(BASE + path, { method: 'POST', headers: headers(false), body: form });
-  } catch {
-    throw new ApiError(t('The file could not be uploaded. Check your internet and try again.'), 0);
-  }
-  if (!response.ok) throw await failure(response);
-  return response.json();
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', BASE + path);
+    for (const [key, value] of Object.entries(headers(false))) xhr.setRequestHeader(key, value);
+    xhr.timeout = 180_000;
+    if (onProgress) xhr.upload.onprogress = (event) => { if (event.lengthComputable && event.total) onProgress(event.loaded / event.total); };
+    const offline = () => reject(new ApiError(t('The file could not be uploaded. Check your internet and try again.'), 0));
+    xhr.onerror = offline;
+    xhr.ontimeout = offline;
+    xhr.onload = async () => {
+      const parsed = () => { try { return JSON.parse(xhr.responseText); } catch { return {}; } };
+      if (xhr.status >= 200 && xhr.status < 300) resolve(parsed());
+      else reject(await failure({ status: xhr.status, json: async () => parsed() }));
+    };
+    xhr.send(form);
+  });
 }
 
 /** Poll a background task until it finishes; returns its result. */

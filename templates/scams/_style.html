@@ -1,0 +1,25 @@
+<style>
+  .scam-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:40px}
+  .scam-card{display:flex;flex-direction:column;gap:12px;text-decoration:none;color:inherit}
+  .scam-card:hover{border-color:rgba(119,220,255,.45);transform:translateY(-3px)}
+  .scam-card h3{font-size:20px}
+  .scam-card p{margin:0;color:var(--muted,#a5b6cd);line-height:1.6}
+  .scam-card .scam-more{margin-top:auto;color:var(--cyan,#77dcff);font-weight:700;font-size:14.5px}
+  .scam-message{position:relative;margin:8px 0 6px;padding:18px 20px;border-radius:18px 18px 18px 6px;background:#13243a;border:1px solid rgba(145,188,220,.22);font-size:15.5px;line-height:1.6;max-width:640px;color:#e3f1ff}
+  .scam-message::before{content:"";position:absolute;left:-1px;bottom:-1px;width:14px;height:14px;background:#13243a;border-left:1px solid rgba(145,188,220,.22);border-bottom:1px solid rgba(145,188,220,.22);clip-path:polygon(0 0,0 100%,100% 100%)}
+  .scam-note{font-size:12.5px;color:var(--faint,#7f93ad);margin:6px 0 0}
+  .scam-list{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px}
+  .scam-list li{display:flex;gap:12px;align-items:flex-start;line-height:1.6}
+  .scam-list .pg-ic{width:20px;height:20px;margin-top:3px}
+  .scam-list.warn .pg-ic{color:#fbbf24}
+  .scam-list.ok .pg-ic{color:#5eead4}
+  .scam-list.steps{counter-reset:step}
+  .scam-list.steps li::before{counter-increment:step;content:counter(step);flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--mono);color:#05202d;background:linear-gradient(100deg,#7fe1ff,#5eead4);margin-top:1px}
+  .scam-cta{margin-top:10px;display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between}
+  .scam-cta p{margin:6px 0 0}
+  .scam-others{display:grid;gap:10px;margin-top:14px}
+  .scam-others a{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid rgba(145,188,220,.16);text-decoration:none;color:#e3f1ff}
+  .scam-others a:hover{border-color:rgba(119,220,255,.4)}
+  .scam-more-list{display:none}
+  @media (max-width:760px){.scam-grid{grid-template-columns:1fr}.scam-toc{display:none}.scam-more-list{display:block}}
+</style>

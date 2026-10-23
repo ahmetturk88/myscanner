@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ g.title }}{% endblock %}
+{% block description %}{{ g.description }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+{% include "scams/_style.html" %}
+<script type="application/ld+json">{{ {'@context': 'https://schema.org', '@type': 'Article', 'headline': g.title, 'description': g.description,
+  'inLanguage': lang, 'url': site_url + url_for('scam_guide', slug=guide.slug) + ('?lang=tr' if lang == 'tr' else ''),
+  'publisher': {'@type': 'Organization', 'name': 'MyScanner', 'url': site_url + '/', 'logo': site_url + url_for('static', filename='brand/myscanner-mark.png')}} | tojson }}</script>
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="legal-hero pg-reveal">
+    <a class="pg-eyebrow" href="{{ url_for('scams') }}" style="text-decoration:none"><span class="pg-ic ic-{{ guide.icon }}" style="width:16px;height:16px"></span>{{ ui.index_eyebrow }}</a>
+    <h1>{{ g.title }}</h1>
+    <p class="pg-lead" style="font-size:18px">{{ g.summary }}</p>
+  </header>
+
+  <div class="legal">
+    <nav class="legal-toc scam-toc" aria-label="{{ ui.others }}"><b>{{ ui.others }}</b>
+      {% for other in guides %}<a href="{{ url_for('scam_guide', slug=other.slug) }}"{% if other.slug == guide.slug %} aria-current="page"{% endif %}>{{ other[lang].title }}</a>{% endfor %}
+    </nav>
+
+    <article class="legal-body">
+      <section>
+        <h2><span>01</span>{{ ui.example }}</h2>
+        <div class="scam-message">{{ g.example }}</div>
+        <p class="scam-note">{{ ui.note }}</p>
+      </section>
+
+      <section>
+        <h2><span>02</span>{{ ui.signs }}</h2>
+        <ul class="scam-list warn">{% for item in g.signs %}<li><span class="pg-ic ic-alert"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+      </section>
+
+      <section>
+        <h2><span>03</span>{{ ui.todo }}</h2>
+        <ul class="scam-list ok">{% for item in g.todo %}<li><span class="pg-ic ic-check"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+      </section>
+
+      <section>
+        <h2><span>04</span>{{ ui.clicked }}</h2>
+        <ol class="scam-list steps">{% for item in ui.clicked_steps %}<li><span>{{ item }}</span></li>{% endfor %}</ol>
+      </section>
+
+      {% if guide.tool %}
+      <section>
+        <div class="pg-card glow scam-cta">
+          <div><h3>{{ ui.check }}</h3><p>{{ ui.check_lead }}</p></div>
+          <a class="pg-btn primary" href="{{ url_for(guide.tool) }}">{{ tool_name }} →</a>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="scam-more-list">
+        <h2>{{ ui.others }}</h2>
+        <div class="scam-others">{% for other in guides if other.slug != guide.slug %}<a href="{{ url_for('scam_guide', slug=other.slug) }}"><span class="pg-ic ic-{{ other.icon }}"></span>{{ other[lang].title }}</a>{% endfor %}</div>
+      </section>
+      <p><a href="{{ url_for('scams') }}">← {{ ui.back }}</a></p>
+    </article>
+  </div>
+</div>
+{% endblock %}

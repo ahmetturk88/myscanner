@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ ui.index_title }}{% endblock %}
+{% block description %}{{ ui.index_description }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+{% include "scams/_style.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="legal-hero pg-reveal">
+    <span class="pg-eyebrow"><span class="pg-live"></span>{{ ui.index_eyebrow }}</span>
+    <h1>{{ ui.index_heading | safe }}</h1>
+    <p class="pg-lead" style="font-size:18px">{{ ui.index_lead }}</p>
+  </header>
+
+  <div class="scam-grid">
+    {% for guide in guides %}{% set g = guide[lang] %}
+    <a class="pg-card scam-card pg-reveal" style="--d:{{ loop.index0 * 0.05 }}s" href="{{ url_for('scam_guide', slug=guide.slug) }}">
+      <div class="pg-badge"><span class="pg-ic ic-{{ guide.icon }}"></span></div>
+      <h3>{{ g.title }}</h3>
+      <p>{{ g.summary }}</p>
+      <span class="scam-more">{{ ui.read }} →</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

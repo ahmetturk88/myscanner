@@ -343,6 +343,7 @@ SITE_TR = {
     'Best for detailed questions and attachments.': 'Ayrıntılı sorular ve ekler için en iyisi.',
     'Copy address': 'Adresi kopyala',
     'Follow MyScanner': 'MyScanner\'ı takip et',
+    'Scam guides': 'Dolandırıcılık rehberi',
     'Join the community': 'Topluluğa katıl',
     'Announcements, early features and a place to share feedback.': 'Duyurular, yeni özellikler ilk elden ve geri bildirim paylaşabileceğin bir yer.',
     'WhatsApp community': 'WhatsApp topluluğu',

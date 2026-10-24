@@ -1194,7 +1194,7 @@ class FileDeepAnalyzer:
         if metadata.get('error') or metadata.get('metadata_error'):missing_checks.append('File metadata parser unavailable or failed')
         missing_checks.extend(metadata.get('missing_checks', []))
         if file_type.get('actual_type') == 'unknown':missing_checks.append('File format could not be identified')
-        if exiftool_data.get('error'):missing_checks.append('Optional exiftool metadata unavailable')
+        # exiftool only adds descriptive metadata; its absence is not a missing safety check.
         # Byte-pattern heuristics are not a signature engine or a sandbox.
         if antivirus.get('status') == 'unavailable':missing_checks.append('Antivirus scan unavailable')
         elif antivirus.get('status') == 'not_configured' and (metadata.get('is_archive') or metadata.get('is_pdf')):

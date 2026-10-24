@@ -486,7 +486,7 @@ def login():
     return render_template('login.html')
 
 SITE_URL = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/')
-PUBLIC_PAGES = ('landing', 'about', 'scams', 'contact', 'privacy', 'terms', 'register', 'login')
+PUBLIC_PAGES = ('landing', 'about', 'scams', 'pro', 'contact', 'privacy', 'terms', 'register', 'login')
 
 
 @app.context_processor
@@ -1652,6 +1652,36 @@ def scam_guide(slug):
     lang = current_language()
     return render_template('scams/guide.html', guide=guide, g=guide[lang], guides=GUIDES, ui=UI[lang], lang=lang,
                            tool_name=TOOL_NAMES[lang].get(guide['tool'], ''))
+
+
+@app.route('/pro', methods=['GET', 'POST'])
+def pro():
+    from services import pro_page
+    lang = current_language()
+    text = pro_page.CONTENT[lang]
+    if request.method == 'GET':
+        if 'pro_source' not in session:
+            session['pro_source'] = pro_page.visit_source(request.args, request.referrer, request.host.split(':')[0])
+            if not pro_page.is_bot(request.headers.get('User-Agent')):
+                pro_page.record_visit(session['pro_source'], lang)
+        return render_template('pro.html', t=text, lang=lang, outcome=None)
+    if request.form.get('website'):  # honeypot: people never see this field
+        return render_template('pro.html', t=text, lang=lang, outcome='added')
+    email = pro_page.normalize_email(request.form.get('email'))
+    if email is None:
+        return render_template('pro.html', t=text, lang=lang, outcome='invalid'), 400
+    outcome = pro_page.sign_up(email, session.get('pro_source', 'direct'), lang,
+                               current_user.id if current_user.is_authenticated else None)
+    return render_template('pro.html', t=text, lang=lang, outcome=outcome)
+
+
+@app.route('/admin/pro-interest')
+@login_required
+def admin_pro_interest():
+    if not current_user.is_admin:
+        abort(404)
+    from services import pro_page
+    return render_template('admin_pro_interest.html', stats=pro_page.stats(min(max(request.args.get('days', 30, type=int) or 30, 1), 365)))
 
 
 @app.route('/terms')

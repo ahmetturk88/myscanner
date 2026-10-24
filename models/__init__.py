@@ -6,8 +6,9 @@ from .auth_rate_limit import AuthRateLimit
 from .verified_target import VerifiedTarget
 from .ai_context import AIContext
 from .api_token import ApiToken
+from .pro_interest import ProInterest
 from models.vulnerability import VulnerabilityScan, Vulnerability, ScanConfig
 __all__ = [
-    'User', 'Scan', 'LogEntry', 'AsyncScanTask', 'AuthRateLimit', 'VerifiedTarget', 'AIContext', 'ApiToken',
+    'User', 'Scan', 'LogEntry', 'AsyncScanTask', 'AuthRateLimit', 'VerifiedTarget', 'AIContext', 'ApiToken', 'ProInterest',
     'IoCEntry', 'IoCSource', 'IoCMatch', 'TIPFeedLog'
 ]

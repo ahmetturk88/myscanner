@@ -17,3 +17,7 @@ logs/
 
 /.deploy/
 /.env.vps.*
+
+# The plan is committed only encrypted (docs/plan/plan.tar.gpg)
+/docs/plan/ROADMAP.md
+/docs/plan/*.pdf

@@ -32,7 +32,7 @@ class AllowanceTests(unittest.TestCase):
 
     def test_today_uses_stored_balance_clamped_to_limit(self):
         rows = self.rows(self.user(url_analyzer_remaining=2, email_check_remaining=999, file_scan_remaining=-4))
-        self.assertEqual((rows['url_analyzer']['remaining'], rows['url_analyzer']['limit']), (2, 3))
+        self.assertEqual((rows['url_analyzer']['remaining'], rows['url_analyzer']['limit']), (2, 10))
         self.assertEqual(rows['email_check']['remaining'], 15)
         self.assertEqual((rows['file_scan']['remaining'], rows['file_scan']['percent']), (0, 0))
         self.assertNotIn('sandbox_analysis', rows)
@@ -40,7 +40,7 @@ class AllowanceTests(unittest.TestCase):
     def test_a_previous_day_shows_full_limits_without_writing(self):
         user = self.user(scans_reset_date=NOW.replace(tzinfo=None) - timedelta(days=1))
         rows = self.rows(user)
-        self.assertEqual(rows['url_analyzer']['remaining'], 3)
+        self.assertEqual(rows['url_analyzer']['remaining'], 10)
         self.assertEqual(user.url_analyzer_remaining, 0)
 
     def test_admin_is_unlimited(self):

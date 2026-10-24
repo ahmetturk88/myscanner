@@ -25,10 +25,14 @@ x-app: &app
     # In-app update prompts for the Android app (services/app_release.py); 0 turns them off.
     MOBILE_LATEST_BUILD: ${MOBILE_LATEST_BUILD:-0}
     MOBILE_MIN_BUILD: ${MOBILE_MIN_BUILD:-0}
+    # Comma-separated data sources to stop contacting (services/source_switches.py), e.g. urlhaus,abuseipdb.
+    MYSCANNER_DISABLED_SOURCES: ${MYSCANNER_DISABLED_SOURCES:-}
+    # Local DB-IP Lite files for the IP check; fill with scripts/update_dbip.py.
+    DBIP_DIRECTORY: /app/geoip
   extra_hosts: [host.docker.internal:host-gateway]
   networks: [data, outbound]
   secrets: [db_app_password, redis_password, session_key]
-  volumes: [uploads:/app/temp_uploads, logs:/app/logs, reports:/app/reports, cache:/app/cache, file-cache:/app/file_cache]
+  volumes: [uploads:/app/temp_uploads, logs:/app/logs, reports:/app/reports, cache:/app/cache, file-cache:/app/file_cache, ./geoip:/app/geoip:ro]
 services:
   postgres:
     image: postgres:18-alpine

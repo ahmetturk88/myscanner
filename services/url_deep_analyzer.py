@@ -515,6 +515,10 @@ class URLDeepAnalyzer:
             "details": ""
         }
 
+        from services.source_switches import source_enabled
+        if not source_enabled('urlhaus'):
+            result["details"] = "URLhaus lookup turned off"
+            return result
         try:
             resp = self.session.post(
                 'https://urlhaus-api.abuse.ch/v1/url/',

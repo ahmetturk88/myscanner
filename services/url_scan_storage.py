@@ -68,13 +68,17 @@ def save_url_scan(scan_id, user_id, url, local, deep):
 
 
 def fail_url_scan(scan_id, user_id, url):
+    """Mark the job failed once and return the user's allowance for it."""
     with db.engine.begin() as connection:
-        result = connection.execute(update(Scan).where(
+        failed = connection.execute(update(Scan).where(
             Scan.id == scan_id, Scan.user_id == user_id, Scan.url == url,
             Scan.status.in_(('queued', 'running')), Scan.result == JOB_MARKER,
         ).values(status='error', verdict='unknown', result=FAILURE,
-                 raw_report=json.dumps({'status': 'failed', 'error': FAILURE})))
-        return result.rowcount == 1
+                 raw_report=json.dumps({'status': 'failed', 'error': FAILURE}))).rowcount == 1
+    if failed:
+        from services.daily_quota import refund_after_failure
+        refund_after_failure(user_id, 'url_analyzer')
+    return failed
 
 
 def expire_url_scans(now=None):

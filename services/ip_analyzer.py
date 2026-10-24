@@ -50,28 +50,21 @@ class IPAnalyzer:
         return 'source_response_invalid'
 
     def _get_ip_info(self, ip):
+        """Approximate location from the local DB-IP Lite files; the IP never leaves the server."""
+        from services import ip_location
+        from services.source_switches import source_enabled
+        unavailable = {'coverage': {'metadata': 'unavailable'}, 'metadata_source': ip_location.SOURCE}
+        if not source_enabled('dbip'):
+            return {**unavailable, 'metadata_reason': 'disabled_by_operator'}
         try:
-            data = self._json('https://ipwho.is/' + ip)
-            if data.get('success') is not True or str(ipaddress.ip_address(data.get('ip'))) != ip:
-                raise ValueError()
-            connection = data.get('connection', {})
-            zone = data.get('timezone', {})
-            if not isinstance(connection, dict) or not isinstance(zone, dict):
-                raise ValueError()
-            result = {'coverage': {'metadata': 'assessed'}, 'metadata_source': 'ipwho.is'}
-            for key, source in {'country':'country','country_code':'country_code','city':'city','region':'region','continent':'continent'}.items():
-                result[key] = self._text(data.get(source))
-            for key in ('isp', 'org', 'domain'):
-                result['network_domain' if key == 'domain' else key] = self._text(connection.get(key))
-            result['asn'] = connection.get('asn') if type(connection.get('asn')) is int and connection['asn'] > 0 else None
-            result['timezone'] = self._text(zone.get('id'))
-            for key, source, bound in [('lat','latitude',90),('lon','longitude',180)]:
-                value = data.get(source)
-                result[key] = value if type(value) in (int, float) and math.isfinite(value) and -bound <= value <= bound else None
-            result['metadata_note'] = 'Approximate network location; not a person, device or verified owner location.'
-            return result
-        except Exception as error:
-            return {'coverage': {'metadata': 'unavailable'}, 'metadata_source': 'ipwho.is', 'metadata_reason': self._reason(error)}
+            fields = ip_location.lookup(ip)
+        except Exception:
+            return {**unavailable, 'metadata_reason': 'source_response_invalid'}
+        if fields is None:
+            return {**unavailable, 'metadata_reason': 'database_not_installed'}
+        return {'coverage': {'metadata': 'assessed'}, 'metadata_source': ip_location.SOURCE,
+                'metadata_attribution': ip_location.ATTRIBUTION, **fields,
+                'metadata_note': 'Approximate network location; not a person, device or verified owner location.'}
 
     def _check_abuseipdb(self, ip, key):
         try:

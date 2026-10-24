@@ -27,7 +27,7 @@ class User(db.Model, UserMixin):
     # ===== حدود الفحوصات اليومية =====
     site_scan_remaining        = db.Column(db.Integer, default=10)
     file_scan_remaining        = db.Column(db.Integer, default=5)
-    url_analyzer_remaining     = db.Column(db.Integer, default=3)
+    url_analyzer_remaining     = db.Column(db.Integer, default=10)
     email_check_remaining      = db.Column(db.Integer, default=15)
     ip_check_remaining         = db.Column(db.Integer, default=15)
     domain_lookup_remaining    = db.Column(db.Integer, default=15)

@@ -15,6 +15,9 @@ from models import User, AsyncScanTask
 from services.daily_quota import (consume_quota, remaining_quota, reset_expired_quotas,
     DailyQuotaExceeded, DailyQuotaUnavailable, QuotaUserMissing, SERVICES)
 import test_task_ownership
+from services.quota_policy import DAILY_LIMITS
+
+URL_LIMIT=DAILY_LIMITS['user']['url_analyzer']
 
 class AtomicDailyQuotaTests(unittest.TestCase):
     def setUp(self):
@@ -39,14 +42,14 @@ class AtomicDailyQuotaTests(unittest.TestCase):
         self.assertEqual(sum(accepted),3);self.assertEqual(self.balance(),0)
     def test_concurrent_first_requests_reset_only_once(self):
         db.session.get(User,self.uid).scans_reset_date=self.now-timedelta(days=1);db.session.get(User,self.uid).url_analyzer_remaining=0;db.session.commit()
-        barrier=Barrier(8)
+        barrier=Barrier(URL_LIMIT+4)
         def worker(_):
             with self.app.app_context():
                 barrier.wait()
                 try:consume_quota(self.uid,'url_analyzer',now=self.now);return True
                 except DailyQuotaExceeded:return False
-        with ThreadPoolExecutor(max_workers=8) as pool:accepted=list(pool.map(worker,range(8)))
-        self.assertEqual(sum(accepted),3);self.assertEqual(self.balance(),0)
+        with ThreadPoolExecutor(max_workers=URL_LIMIT+4) as pool:accepted=list(pool.map(worker,range(URL_LIMIT+4)))
+        self.assertEqual(sum(accepted),URL_LIMIT);self.assertEqual(self.balance(),0)
     def test_bulk_cost_is_all_or_nothing(self):
         with self.assertRaises(DailyQuotaExceeded):consume_quota(self.uid,'url_analyzer',4,now=self.now)
         self.assertEqual(self.balance(),3);self.assertEqual(consume_quota(self.uid,'url_analyzer',2,now=self.now),1)
@@ -58,14 +61,14 @@ class AtomicDailyQuotaTests(unittest.TestCase):
         user=db.session.get(User,self.uid);user.scans_reset_date=datetime(2026,10,5,23,59);user.email_check_remaining=0;user.file_scan_remaining=0;db.session.commit()
         now=datetime(2026,10,6,3,0,tzinfo=timezone(timedelta(hours=3)))
         consume_quota(self.uid,'url_analyzer',now=now)
-        self.assertEqual(self.balance(),2);self.assertEqual(self.balance('email_check'),15);self.assertEqual(self.balance('file_scan'),5)
+        self.assertEqual(self.balance(),URL_LIMIT-1);self.assertEqual(self.balance('email_check'),15);self.assertEqual(self.balance('file_scan'),5)
         self.assertEqual(reset_expired_quotas(now=now),0)
     def test_reading_remaining_rolls_over_without_scheduler(self):
         db.session.get(User,self.uid).scans_reset_date=self.now-timedelta(days=2);db.session.commit()
         self.assertEqual(remaining_quota(self.uid,'email_check',now=self.now),15)
         consume_quota(self.uid,'email_check',now=self.now);self.assertEqual(remaining_quota(self.uid,'email_check',now=self.now),14)
     def test_legacy_excess_negative_and_null_balance_are_bounded(self):
-        for stored,expected in [(20,2),(-5,None),(None,2)]:
+        for stored,expected in [(URL_LIMIT+17,URL_LIMIT-1),(-5,None),(None,URL_LIMIT-1)]:
             user=db.session.get(User,self.uid);user.url_analyzer_remaining=stored;db.session.commit()
             if expected is None:
                 with self.assertRaises(DailyQuotaExceeded):consume_quota(self.uid,'url_analyzer',now=self.now)
@@ -77,7 +80,7 @@ class AtomicDailyQuotaTests(unittest.TestCase):
         self.assertEqual(self.balance(),3)
     def test_unknown_roles_use_basic_limits_and_admin_flags_apply_on_reset(self):
         user=db.session.get(User,self.uid);user.role='typo';user.scans_reset_date=self.now-timedelta(days=1);db.session.commit()
-        self.assertEqual(consume_quota(self.uid,'url_analyzer',now=self.now),2)
+        self.assertEqual(consume_quota(self.uid,'url_analyzer',now=self.now),URL_LIMIT-1)
         db.session.expire_all();user=db.session.get(User,self.uid);user.is_admin=True;user.scans_reset_date=self.now-timedelta(days=1);db.session.commit()
         self.assertIsNone(consume_quota(self.uid,'url_analyzer',now=self.now))
     def test_admin_has_no_daily_limit_even_when_existing_balance_is_zero(self):
@@ -120,6 +123,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
     def balance(self,service):
         db.session.expire_all();return getattr(db.session.get(User,self.owner),service+'_remaining')
     def test_url_batch_charges_each_url_before_dispatch_and_cannot_bypass(self):
+        db.session.get(User,self.owner).url_analyzer_remaining=3;db.session.commit()
         with patch.object(self.production,'enqueue_owned_task',return_value='task') as enqueue:
             r=self.client.post('/api/batch-scan',json={'urls':['https://example.invalid/a','https://example.invalid/b']});self.assertEqual(r.status_code,200);self.assertEqual(self.balance('url_analyzer'),1)
             r=self.client.post('/api/batch-scan',json={'urls':['https://example.invalid/a','https://example.invalid/b']});self.assertEqual(r.status_code,429);self.assertEqual(self.balance('url_analyzer'),1);self.assertEqual(enqueue.call_count,1)
@@ -140,7 +144,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
             for path,field in [('/api/batch-scan','urls'),('/api/bulk-email-check','emails')]:
                 for value in [None,'text',[],[None],[''],['x']*21]:self.assertEqual(self.client.post(path,json={field:value}).status_code,400)
             enqueue.assert_not_called();checker.assert_not_called()
-        self.assertEqual(self.balance('url_analyzer'),3);self.assertEqual(self.balance('email_check'),15)
+        self.assertEqual(self.balance('url_analyzer'),URL_LIMIT);self.assertEqual(self.balance('email_check'),15)
     def test_async_site_and_all_file_routes_enforce_shared_allowances(self):
         user=db.session.get(User,self.owner);user.site_scan_remaining=0;user.file_scan_remaining=0;db.session.commit()
         with patch.object(self.production,'enqueue_owned_task') as enqueue,patch.object(self.production,'FileDeepAnalyzer') as analyzer,patch.object(self.production,'get_file_threat_intel') as intel:
@@ -153,10 +157,10 @@ class DailyQuotaEndpointTests(unittest.TestCase):
             self.assertEqual(self.client.post(path,data={'file':(BytesIO(b''),'empty.pdf')},content_type='multipart/form-data').status_code,400)
         for payload in [None,[],{}, {'password':123},{'password':''}]:self.assertEqual(self.client.post('/api/check-password',json=payload).status_code,400)
         self.assertEqual(self.balance('file_scan'),5);self.assertEqual(self.balance('password_check'),15)
-    def test_accepted_broker_failure_does_not_reset_reservation(self):
+    def test_broker_failure_after_reservation_refunds_it(self):
         with patch.object(self.production,'enqueue_owned_task',side_effect=RuntimeError('broker unavailable')):
             r=self.client.post('/api/async-scan-file',data={'file':(BytesIO(b'x'),'a.pdf')},content_type='multipart/form-data');self.assertEqual(r.status_code,503)
-        self.assertEqual(self.balance('file_scan'),4)
+        self.assertEqual(self.balance('file_scan'),5)
     def test_storage_failure_returns_generic_503_before_analyzer(self):
         with patch('services.permissions.consume_quota',side_effect=DailyQuotaUnavailable('secret')),patch.object(self.production,'PasswordAnalyzer') as analyzer:
             r=self.client.post('/api/check-password',json={'password':'example'});self.assertEqual(r.status_code,503);self.assertNotIn('secret',r.json['error']);analyzer.assert_not_called()
@@ -176,7 +180,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
                 self.assertEqual(self.client.get('/api/url-analysis/'+str(sid)).status_code,200)
                 self.assertEqual(self.client.get('/report/pdf/'+str(sid)).status_code,200)
             analyzer.assert_not_called();self.assertEqual(pdf.call_count,2)
-        self.assertEqual(self.balance('url_analyzer'),3)
+        self.assertEqual(self.balance('url_analyzer'),URL_LIMIT)
     def test_missing_saved_report_requires_explicit_new_scan(self):
         from models import Scan
         self.app.add_url_rule('/api/url-analysis/<int:scan_id>','api_url_analysis',self.production.api_url_analysis)
@@ -186,7 +190,7 @@ class DailyQuotaEndpointTests(unittest.TestCase):
             self.assertEqual(self.client.get('/api/url-analysis/'+str(sid)).status_code,409)
             self.assertEqual(self.client.get('/report/pdf/'+str(sid)).status_code,409)
             analyzer.assert_not_called()
-        self.assertEqual(self.balance('url_analyzer'),3)
+        self.assertEqual(self.balance('url_analyzer'),URL_LIMIT)
     def test_sandbox_hash_uses_file_allowance_after_hex_validation(self):
         from routes import sandbox_routes
         self.app.add_url_rule('/api/sandbox/hash-lookup','sandbox_hash',sandbox_routes.api_sandbox_hash_lookup,methods=['POST'])
@@ -203,4 +207,4 @@ class DailyQuotaEndpointTests(unittest.TestCase):
         with self.client.session_transaction() as session:session.clear()
         with patch.object(self.production,'enqueue_owned_task') as enqueue:
             self.assertEqual(self.client.post('/api/batch-scan',json={'urls':['https://example.invalid']}).status_code,401);enqueue.assert_not_called()
-        self.assertEqual(self.balance('url_analyzer'),3)
+        self.assertEqual(self.balance('url_analyzer'),URL_LIMIT)

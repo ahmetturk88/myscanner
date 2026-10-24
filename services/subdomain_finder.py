@@ -89,6 +89,10 @@ class SubdomainFinder:
     def certificate_names(self, domain, deadline):
         source = {'name':'Certificate Transparency (crt.sh)', 'status':'unavailable', 'candidate_count':0}
         names = set()
+        from services.source_switches import source_enabled
+        if not source_enabled('crtsh'):
+            source['reason'] = 'Certificate index lookup is turned off'
+            return names, source
         try:
             with PublicHTTPSession(response_limit=2*1024*1024, deadline=deadline) as session:
                 response = session.get('https://crt.sh/', params={'q':'%.'+domain, 'output':'json'}, timeout=(2, 4), allow_redirects=False)

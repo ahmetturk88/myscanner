@@ -3,7 +3,7 @@ DAILY_LIMITS = {
     'user': {
         'site_scan': 10,
         'file_scan': 5,
-        'url_analyzer': 3,
+        'url_analyzer': 10,
         'email_check': 15,
         'ip_check': 15,
         'domain_lookup': 15,

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ t.title }}{% endblock %}
+{% block description %}{{ t.description }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+{% include "scams/_style.html" %}
+<style>
+  .pro-plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:18px}
+  .pro-plan{display:flex;flex-direction:column;gap:10px}
+  .pro-plan.featured{border-color:rgba(119,220,255,.5);box-shadow:0 0 0 1px rgba(119,220,255,.18),0 24px 60px -30px rgba(119,220,255,.45)}
+  .pg-card.pro-plan .pro-price{font-size:40px;line-height:1.1;font-weight:800;letter-spacing:-.02em;color:#e3f1ff}
+  .pg-card.pro-plan .pro-price small{font-size:15px;font-weight:600;color:var(--muted,#a5b6cd);margin-left:6px}
+  .pro-note{font-size:13px;color:var(--faint,#7f93ad);margin:0}
+  .pro-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:14px}
+  .pro-form .pg-field{flex:1 1 260px;margin:0}
+  .pro-outcome{margin:12px 0 0;padding:12px 14px;border-radius:12px;border:1px solid rgba(94,234,212,.35);background:rgba(94,234,212,.08)}
+  .pro-outcome.error{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.08)}
+  @media (max-width:760px){.pro-plans{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="legal-hero pg-reveal">
+    <span class="pg-eyebrow"><span class="pg-live"></span>{{ t.eyebrow }}</span>
+    <h1>{{ t.heading | safe }}</h1>
+    <p class="pg-lead" style="font-size:18px">{{ t.lead }}</p>
+    <div class="legal-meta"><a class="pg-btn primary" href="#notify">{{ t.form_title }} →</a></div>
+  </header>
+
+  <div class="legal" style="grid-template-columns:1fr">
+    <article class="legal-body" style="max-width:860px;margin:0 auto">
+      <section>
+        <h2><span>01</span>{{ t.how_title }}</h2>
+        <ol class="scam-list steps">{% for item in t.how %}<li><span>{{ item }}</span></li>{% endfor %}</ol>
+      </section>
+
+      <section>
+        <h2><span>02</span>{{ t.plans_title }}</h2>
+        <div class="pro-plans">
+          <div class="pg-card pro-plan">
+            <h3>{{ t.free_name }}</h3>
+            <div class="pro-price">{{ t.free_price }}</div>
+            <ul class="scam-list ok">{% for item in t.free %}<li><span class="pg-ic ic-check"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+          </div>
+          <div class="pg-card pro-plan featured">
+            <h3>{{ t.pro_name }}</h3>
+            <div class="pro-price">{{ t.pro_price }}<small>{{ t.pro_period }}</small></div>
+            <p class="pro-note">{{ t.pro_note }}</p>
+            <ul class="scam-list ok">{% for item in t.pro %}<li><span class="pg-ic ic-check"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2><span>03</span>{{ t.honest_title }}</h2>
+        <ul class="scam-list ok">{% for item in t.honest %}<li><span class="pg-ic ic-shield"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+      </section>
+
+      <section id="notify">
+        <div class="pg-card glow">
+          <h3>{{ t.form_title }}</h3>
+          <p style="margin:6px 0 0">{{ t.form_lead }}</p>
+          {% if outcome in ('added', 'already') %}
+          <p class="pro-outcome" role="status">{{ t.thanks }}</p>
+          {% else %}
+          <form class="pro-form" method="post" action="{{ url_for('pro') }}#notify">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden"><label for="website">Leave this field empty</label><input type="text" name="website" id="website" tabindex="-1" autocomplete="off"></div>
+            <div class="pg-field"><label for="pro-email">{{ t.email_label }}</label><input class="pg-input" type="email" name="email" id="pro-email" autocomplete="email" maxlength="254" required placeholder="you@example.com" value="{{ current_user.email if current_user.is_authenticated else '' }}"></div>
+            <button class="pg-btn primary" type="submit">{{ t.submit }}</button>
+          </form>
+          {% if outcome == 'invalid' %}<p class="pro-outcome error" role="alert">{{ t.invalid }}</p>{% endif %}
+          {% endif %}
+        </div>
+      </section>
+
+      <p><a href="{{ url_for('dashboard') }}">{{ t.try_free }} →</a></p>
+    </article>
+  </div>
+</div>
+{% endblock %}

@@ -41,6 +41,9 @@ def google_reason(response):
 def check_web_risk(url, session, key=None):
     """{'status': matched|not_found|not_configured|unavailable, 'threat_types': [...], 'reason': ...}"""
     key = key if key is not None else web_risk_key()
+    from services.source_switches import source_enabled
+    if not source_enabled('web_risk'):
+        return {'status': 'not_configured', 'threat_types': [], 'reason': 'disabled_by_operator'}
     if not key:
         return {'status': 'not_configured', 'threat_types': [], 'reason': 'api_key_not_configured'}
     params = [('threatTypes', t) for t in THREAT_TYPES] + [('uri', url), ('key', key)]

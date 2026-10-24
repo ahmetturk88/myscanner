@@ -2,6 +2,9 @@
 import os
 
 def abuseipdb_key():
+    from services.source_switches import source_enabled
+    if not source_enabled('abuseipdb'):
+        return None
     path = os.environ.get('ABUSEIPDB_API_KEY_FILE')
     if path:
         try:

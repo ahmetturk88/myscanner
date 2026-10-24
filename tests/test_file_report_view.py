@@ -104,6 +104,11 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(len(plain['url']['host']), 120)
         self.assertEqual(checks(plain)['Malware library'], ('bad', 'Known malware'))
 
+    def test_antivirus_that_is_off_is_shown_as_not_checked(self):
+        plain = plain_file_report({'verdict': 'unknown', 'filename': 'a.pdf', 'antivirus': {'status': 'not_configured'},
+                                   'missing_checks': ['PDF contents were not scanned by an antivirus engine']})
+        self.assertIn({'name': 'Antivirus', 'state': 'na', 'result': 'Not checked'}, plain['checks'])
+
     def test_size_text(self):
         self.assertEqual(size_text(512), '512 bytes')
         self.assertEqual(size_text(2048), '2.0 KB')

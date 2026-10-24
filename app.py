@@ -54,6 +54,7 @@ from celery_app import celery, make_celery
 import uuid
 from tasks import scan_file_task, scan_site_task, batch_scan_task, scan_url_task, bulk_email_task
 from services.permissions import check_permission, reserve_request_quota
+from services.daily_quota import refund_after_failure
 from models.async_scan_task import AsyncScanTask
 from services.safe_http import PublicHTTPSession, UnsafeTargetError
 from services.task_dispatch import enqueue_owned_task
@@ -388,7 +389,7 @@ def register():
         # تعيين الحدود الافتراضية للمستخدم الجديد
         user.site_scan_remaining = 10
         user.file_scan_remaining = 5
-        user.url_analyzer_remaining = 3
+        user.url_analyzer_remaining = 10
         user.email_check_remaining = 15
         user.ip_check_remaining = 15
         user.domain_lookup_remaining = 15
@@ -485,7 +486,7 @@ def login():
     return render_template('login.html')
 
 SITE_URL = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/')
-PUBLIC_PAGES = ('landing', 'about', 'scams', 'contact', 'privacy', 'terms', 'register', 'login')
+PUBLIC_PAGES = ('landing', 'about', 'scams', 'pro', 'contact', 'privacy', 'terms', 'register', 'login')
 
 
 @app.context_processor
@@ -857,6 +858,7 @@ def api_bulk_email_check():
     try:
         task_id = enqueue_owned_task(bulk_email_task, ([email.strip() for email in emails], current_user.id), current_user.id)
     except Exception:
+        refund_after_failure(current_user.id, 'email_check', len(emails))
         app.logger.exception('Failed to enqueue bulk email check')
         return jsonify(error='Unable to queue the email checks. Please try again later.'), 503
     return jsonify(task_id=task_id, total=len(emails), status='started',
@@ -894,7 +896,10 @@ def _queue_file_job(kind):
         return failure
     from services.evidence_jobs import queue_evidence_job
     log_activity(current_user.username, 'file_scan', f'File scan queued: {filename}')
-    return queue_evidence_job(kind, {'path': temp_path, 'filename': filename})
+    response = queue_evidence_job(kind, {'path': temp_path, 'filename': filename})
+    if isinstance(response, tuple) and response[1] >= 500:
+        refund_after_failure(current_user.id, 'file_scan')
+    return response
 
 
 # ================================================================
@@ -920,6 +925,7 @@ def async_scan_file():
         )
     except Exception:
         remove_temporary_upload(temp_path)
+        refund_after_failure(current_user.id, 'file_scan')
         app.logger.exception('Failed to enqueue file scan')
         return jsonify({'error': 'Unable to queue file scan. Please try again later.'}), 503
 
@@ -1042,9 +1048,15 @@ def async_scan_site():
     db.session.commit()
     
     # بدء المهمة في الخلفية
-    task_id = enqueue_owned_task(
-        scan_site_task, (domain, current_user.id, new_scan.id), current_user.id
-    )
+    try:
+        task_id = enqueue_owned_task(
+            scan_site_task, (domain, current_user.id, new_scan.id), current_user.id
+        )
+    except Exception:
+        app.logger.exception('Failed to enqueue site scan')
+        from services.site_scan_storage import fail_site_scan
+        fail_site_scan(new_scan.id, current_user.id, domain)  # also refunds the allowance
+        return jsonify(error='Unable to queue the site scan. Please try again later.'), 503
     
     app.logger.info(f'[SUCCESS] Async scan started for {domain} | Task ID: {task_id}')
     
@@ -1080,7 +1092,12 @@ def batch_scan():
     if failure is not None:
         return failure
 
-    task_id = enqueue_owned_task(batch_scan_task, (urls, current_user.id), current_user.id)
+    try:
+        task_id = enqueue_owned_task(batch_scan_task, (urls, current_user.id), current_user.id)
+    except Exception:
+        refund_after_failure(current_user.id, 'url_analyzer', len(urls))
+        app.logger.exception('Failed to enqueue batch scan')
+        return jsonify(error='Unable to queue the scans. Please try again later.'), 503
     
     return jsonify({
         "task_id": task_id,
@@ -1635,6 +1652,36 @@ def scam_guide(slug):
     lang = current_language()
     return render_template('scams/guide.html', guide=guide, g=guide[lang], guides=GUIDES, ui=UI[lang], lang=lang,
                            tool_name=TOOL_NAMES[lang].get(guide['tool'], ''))
+
+
+@app.route('/pro', methods=['GET', 'POST'])
+def pro():
+    from services import pro_page
+    lang = current_language()
+    text = pro_page.CONTENT[lang]
+    if request.method == 'GET':
+        if 'pro_source' not in session:
+            session['pro_source'] = pro_page.visit_source(request.args, request.referrer, request.host.split(':')[0])
+            if not pro_page.is_bot(request.headers.get('User-Agent')):
+                pro_page.record_visit(session['pro_source'], lang)
+        return render_template('pro.html', t=text, lang=lang, outcome=None)
+    if request.form.get('website'):  # honeypot: people never see this field
+        return render_template('pro.html', t=text, lang=lang, outcome='added')
+    email = pro_page.normalize_email(request.form.get('email'))
+    if email is None:
+        return render_template('pro.html', t=text, lang=lang, outcome='invalid'), 400
+    outcome = pro_page.sign_up(email, session.get('pro_source', 'direct'), lang,
+                               current_user.id if current_user.is_authenticated else None)
+    return render_template('pro.html', t=text, lang=lang, outcome=outcome)
+
+
+@app.route('/admin/pro-interest')
+@login_required
+def admin_pro_interest():
+    if not current_user.is_admin:
+        abort(404)
+    from services import pro_page
+    return render_template('admin_pro_interest.html', stats=pro_page.stats(min(max(request.args.get('days', 30, type=int) or 30, 1), 365)))
 
 
 @app.route('/terms')

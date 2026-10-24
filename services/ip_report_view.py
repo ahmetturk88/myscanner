@@ -98,7 +98,8 @@ def plain_ip_report(result):
     if owner:
         checks.append(check('Network owner', 'info', owner))
     if country:
-        checks.append(check('Approximate location', 'info', country))
+        # DB-IP Lite is CC BY 4.0: credit it wherever its location is shown.
+        checks.append(check('Approximate location', 'info', country + (' (DB-IP)' if result.get('metadata_source') == 'DB-IP Lite' else '')))
     share = (f'Warning: MyScanner shows that the IP address {ip} is often reported for abuse.' if tone == 'danger'
              else f'Careful: MyScanner found warning signs for the IP address {ip}.' if tone == 'caution'
              else f'MyScanner found no abuse reports against the IP address {ip}.' if tone == 'safe'

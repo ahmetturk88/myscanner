@@ -176,7 +176,7 @@ def plain_file_report(report):
            check('Antivirus', 'bad', 'Malware found') if av_malware else
            check('Antivirus', 'warn', 'Warning') if av_heuristic else
            check('Antivirus', 'ok', 'Clean') if av_status == 'clean' else
-           check('Antivirus', 'na', 'Not checked')] if av_status in ('found', 'clean', 'unavailable') else []),
+           check('Antivirus', 'na', 'Not checked')] if av_status in ('found', 'clean', 'unavailable', 'not_configured') else []),
         check('Real file type', 'bad', 'Program in disguise') if disguise else
         check('Real file type', 'ok', 'Antivirus test file') if eicar else
         check('Real file type', 'warn', 'Doesn’t match name') if kind.get('is_spoofed') is True else

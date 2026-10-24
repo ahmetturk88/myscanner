@@ -546,6 +546,10 @@ class URLDeepAnalyzer:
             "details": ""
         }
 
+        from services.source_switches import source_enabled
+        if not source_enabled('urlhaus'):
+            result['coverage_reason'] = 'disabled_by_operator'
+            return result
         key = os.environ.get('URLHAUS_AUTH_KEY', '').strip()
         key_file = os.environ.get('URLHAUS_AUTH_KEY_FILE', '')
         if key_file:

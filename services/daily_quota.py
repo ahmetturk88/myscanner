@@ -1,4 +1,5 @@
 """Atomic UTC daily reservations using the existing User columns (SQLite/Postgres)."""
+import logging
 from datetime import datetime, timezone
 from sqlalchemy import case, or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
@@ -120,3 +121,11 @@ def refund_quota(user_id, service, cost=1, now=None):
                                .values({field: case((field + cost > limit, limit), else_=field + cost)}))
     except SQLAlchemyError as error:
         raise DailyQuotaUnavailable('Daily quota storage unavailable.') from error
+
+
+def refund_after_failure(user_id, service, cost=1):
+    """Refund work that failed on our side; a refund problem never masks the failure."""
+    try:
+        refund_quota(user_id, service, cost)
+    except Exception:
+        logging.getLogger(__name__).exception('Quota refund failed for %s', service)

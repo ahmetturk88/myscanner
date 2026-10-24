@@ -114,7 +114,8 @@ class VerdictTests(unittest.TestCase):
         down = self.scan({'status': 'unavailable'})
         self.assertIn('Antivirus scan unavailable', down['missing_checks'])
         self.assertEqual(down['verdict'], 'unknown')
-        self.assertIsNone(self.row(self.scan({'status': 'not_configured'})))
+        # When ClamAV is off, the report says so instead of leaving the row out.
+        self.assertEqual(self.row(self.scan({'status': 'not_configured'}))['result'], 'Not checked')
 
 
 if __name__ == '__main__':

@@ -51,9 +51,13 @@ def save_site_scan(scan_id, user_id, domain, result):
 def fail_site_scan(scan_id, user_id, domain):
     """Record a bounded generic failure without overwriting terminal/cancelled rows."""
     with db.engine.begin() as connection:
-        outcome = connection.execute(update(Scan).where(
+        failed = connection.execute(update(Scan).where(
             Scan.id == scan_id, Scan.user_id == user_id,
             Scan.url == 'https://' + domain, Scan.status.in_(ACTIVE_STATES),
         ).values(status='error', verdict='unknown', result='Site analysis failed. Please retry.',
-                 raw_report=json.dumps({'status': 'failed', 'error': 'Site analysis failed. Please retry.'})))
-        return outcome.rowcount == 1
+                 raw_report=json.dumps({'status': 'failed', 'error': 'Site analysis failed. Please retry.'}))).rowcount == 1
+    if failed:
+        # The failure is ours, so the user keeps the allowance.
+        from services.daily_quota import refund_after_failure
+        refund_after_failure(user_id, 'site_scan')
+    return failed

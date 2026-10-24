@@ -134,7 +134,9 @@ class UpdateScriptTests(unittest.TestCase):
     def test_installs_a_valid_file_and_rejects_others(self):
         good = b'data' + update_dbip.MARKER + b'metadata'
         def opener(month_ok, payload):
-            def urlopen(url, timeout):
+            def urlopen(request, timeout):
+                url = request.full_url
+                assert request.get_header('User-agent', '').startswith('MyScanner')
                 if month_ok not in url:
                     raise update_dbip.urllib.error.HTTPError(url, 404, 'missing', {}, None)
                 return io.BytesIO(gzip.compress(payload))

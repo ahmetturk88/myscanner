@@ -20,8 +20,19 @@ import hashlib
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger('services')
+
+
+def feed_enabled(url):
+    """Operator switch for feeds whose terms are tracked (services/source_switches.py)."""
+    from services.source_switches import source_enabled
+    host = urlparse(url or '').hostname or ''
+    for suffix, name in (('abuse.ch', 'abuse_ch_feeds'), ('phishtank.com', 'phishtank'), ('openphish.com', 'openphish')):
+        if host == suffix or host.endswith('.' + suffix):
+            return source_enabled(name)
+    return True
 
 
 def _now():
@@ -175,6 +186,8 @@ class TIPCollector:
         source = IoCSource.query.get(source_id)
         if not source:
             return {'error': f'Source {source_id} not found'}
+        if not feed_enabled(source.url):
+            return {'skipped': 'disabled_by_operator', 'source': source.name}
 
         # إنشاء سجل عملية الجلب
         feed_log = TIPFeedLog(source_id=source_id, status='running')
@@ -563,7 +576,7 @@ class TIPCollector:
 
         sources = IoCSource.query.filter_by(is_active=True).all()
         for source in sources:
-            if source.is_due:
+            if source.is_due and feed_enabled(source.url):
                 result = self.fetch_source(source.id)
                 if 'error' in result:
                     stats['errors'] += 1

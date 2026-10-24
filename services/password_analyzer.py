@@ -163,6 +163,9 @@ class PasswordAnalyzer:
 
     def check_pwned(self, password: str) -> Dict[str, Any]:
         """Send only a five-character hash prefix; never turn failure into a negative match."""
+        from services.source_switches import source_enabled
+        if not source_enabled('pwnedpasswords'):
+            return self.breach_result('unavailable')
         response = None
         try:
             digest = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()

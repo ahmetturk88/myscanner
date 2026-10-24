@@ -21,3 +21,7 @@ logs/
 # The plan is committed only encrypted (docs/plan/plan.tar.gpg)
 /docs/plan/ROADMAP.md
 /docs/plan/*.pdf
+
+# DB-IP Lite databases, downloaded on the server by scripts/update_dbip.py
+/geoip/*.mmdb
+/geoip/.dbip-*

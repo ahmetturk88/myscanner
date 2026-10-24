@@ -60,7 +60,7 @@ class ProPageTests(unittest.TestCase):
     def test_waitlist_signs_up_once_and_rejects_bad_email(self):
         self.client.get('/pro?utm_source=whatsapp', headers={'User-Agent': 'Mozilla/5.0'})
         self.assertIn('We’ll email you once', self.post(' Person@Example.com ').get_data(as_text=True))
-        self.assertIn('already on the list', self.post('person@example.com').get_data(as_text=True))
+        self.assertIn('We’ll email you once', self.post('person@example.com').get_data(as_text=True))  # same reply: the list isn't revealed
         self.assertEqual(self.rows(kind='signup'), [('signup', 'whatsapp', 'en', 'person@example.com')])
         self.assertEqual(self.post('not-an-email').status_code, 400)
         self.post('bot@example.com', website='spam')

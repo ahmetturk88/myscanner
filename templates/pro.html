@@ -66,7 +66,7 @@
           <h3>{{ t.form_title }}</h3>
           <p style="margin:6px 0 0">{{ t.form_lead }}</p>
           {% if outcome in ('added', 'already') %}
-          <p class="pro-outcome" role="status">{{ t.thanks if outcome == 'added' else t.already }}</p>
+          <p class="pro-outcome" role="status">{{ t.thanks }}</p>
           {% else %}
           <form class="pro-form" method="post" action="{{ url_for('pro') }}#notify">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

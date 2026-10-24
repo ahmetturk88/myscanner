@@ -22,6 +22,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 URL = 'https://download.db-ip.com/free/dbip-{kind}-lite-{month}.mmdb.gz'
 KINDS = ('city', 'asn')
 MAX_SIZE = 512 * 1024 * 1024
+AGENT = 'MyScanner-dbip-update/1.0 (+https://myscanners.com)'
 # Every MaxMind DB file ends its data section with this marker before the metadata.
 MARKER = b'\xab\xcd\xefMaxMind.com'
 
@@ -36,7 +37,9 @@ def download(kind, directory, today):
     for month in months(today):
         url = URL.format(kind=kind, month=month)
         try:
-            with urllib.request.urlopen(url, timeout=60) as response:
+            # The download site refuses Python's default User-Agent (HTTP 403).
+            request = urllib.request.Request(url, headers={'User-Agent': AGENT})
+            with urllib.request.urlopen(request, timeout=60) as response:
                 data = gzip.decompress(response.read(MAX_SIZE + 1))
         except urllib.error.HTTPError as error:
             if error.code == 404:

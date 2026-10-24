@@ -12,6 +12,10 @@ class ProviderDeploymentTests(unittest.TestCase):
     def test_image_normalizes_windows_entrypoint_line_endings(self):
         source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
         self.assertIn("sed -i 's/\\r$//' /app/entrypoint.sh",source)
+    def test_private_instance_raises_the_per_address_rate_limit(self):
+        source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
+        self.assertIn("RateLimiter(20, time.Minute)/middleware.RateLimiter(300, time.Minute)",source)
+        self.assertIn("grep -q 'middleware.RateLimiter(300, time.Minute)'",source)
     def test_secrets_are_read_from_files_without_echo(self):
         entry=(ROOT/'deploy/urlvet-entrypoint.sh').read_text()
         self.assertIn('/run/secrets/urlvet_cache_password',entry)

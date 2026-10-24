@@ -99,8 +99,12 @@ def url_scan(base, token, domain, recorder, deadline):
         except Exception:
             continue
         current = (state or {}).get('status')
-        if current in ('completed', 'error', 'failed'):
-            recorder.add('url scan: full report', time.monotonic() - start, None if current == 'completed' else f'scan {current}')
+        if isinstance(current, str) and current not in ('queued', 'running'):
+            # 'partial' is a finished report with a check missing: counted, not failed.
+            seconds = time.monotonic() - start
+            recorder.add('url scan: full report', seconds, f'scan {current}' if current in ('error', 'failed') else None)
+            if current not in ('completed', 'error', 'failed'):
+                recorder.add(f'  of which {current}', seconds)
             return
     recorder.add('url scan: full report', time.monotonic() - start, 'not finished in time')
 

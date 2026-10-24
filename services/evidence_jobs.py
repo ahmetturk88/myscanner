@@ -25,6 +25,9 @@ INVALID = {
     'file_deep': 'The file could not be analyzed.',
 }
 FILE_JOBS = ('file_scan', 'file_deep')
+# The daily allowance each job kind was charged against.
+QUOTA_SERVICE = {'site': 'site_scan', 'subdomain_discovery': 'subdomain_finder',
+                 'subdomain_inspection': 'subdomain_finder', 'file_scan': 'file_scan', 'file_deep': 'file_scan'}
 
 
 def _user_message(text, fallback):
@@ -91,6 +94,13 @@ RUNNERS = {'site': _site, 'subdomain_discovery': _subdomain_discovery,
            'subdomain_inspection': _subdomain_inspection, 'file_scan': _file_scan, 'file_deep': _file_deep}
 
 
+def _refund(kind, user_id):
+    # Only failures on our side are refunded; invalid or blocked targets are not.
+    if kind in QUOTA_SERVICE:
+        from services.daily_quota import refund_after_failure
+        refund_after_failure(user_id, QUOTA_SERVICE[kind])
+
+
 def run_evidence_job(kind, params, user_id):
     """Worker side. Returns {'status': 'completed', 'result': ...} or a failure."""
     try:
@@ -98,6 +108,7 @@ def run_evidence_job(kind, params, user_id):
             return {'status': 'failed', 'user_error': 'Unsupported analysis request.'}
         return {'status': 'completed', 'result': RUNNERS[kind](params, user_id)}
     except TargetResolutionError:
+        _refund(kind, user_id)
         return {'status': 'failed', 'user_error': DNS_UNAVAILABLE}
     except UnsafeTargetError:
         return {'status': 'failed', 'user_error': POLICY_BLOCKED}
@@ -108,6 +119,7 @@ def run_evidence_job(kind, params, user_id):
         from services.error_reporting import report_exception
         report_exception(error)
         current_app.logger.exception('Evidence job failed: %s', kind)
+        _refund(kind, user_id)
         return {'status': 'failed', 'user_error': UNAVAILABLE.get(kind, 'Analysis failed. Please retry.')}
     finally:
         if kind in FILE_JOBS and isinstance(params, dict) and params.get('path'):
@@ -115,7 +127,11 @@ def run_evidence_job(kind, params, user_id):
 
 
 def queue_evidence_job(kind, params):
-    """Web side, after validation and quota: publish an owner-bound job (202)."""
+    """Web side, after validation and quota: publish an owner-bound job (202).
+
+    A 503 here means nothing was queued; the caller that reserved the quota
+    refunds it (check_permission does so for any 5xx response).
+    """
     from celery_app import celery, require_broker
     from services.task_dispatch import enqueue_owned_task
     from tasks import evidence_job_task

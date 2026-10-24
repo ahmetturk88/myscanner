@@ -6,7 +6,14 @@ from sqlalchemy import inspect
 from extensions import db
 from services.quota_policy import DAILY_LIMITS, SERVICE_COST
 from services.daily_quota import (SERVICES, DailyQuotaExceeded, DailyQuotaUnavailable,
-    QuotaUserMissing, consume_quota, remaining_quota, reset_expired_quotas)
+    QuotaUserMissing, consume_quota, refund_after_failure, remaining_quota, reset_expired_quotas)
+
+
+def _status(response):
+    """Status code of any value a Flask view may return."""
+    if isinstance(response, tuple):
+        return next((part for part in response[1:] if isinstance(part, int)), getattr(response[0], 'status_code', 200))
+    return getattr(response, 'status_code', 200)
 
 
 def _refresh_cached_user():
@@ -51,7 +58,17 @@ def check_permission(service_name, cost=1):
                 if not isinstance(data, dict) or field and (not isinstance(data.get(field), str) or not data[field].strip() or len(data[field]) > (1024 if field == 'password' else 2048)):
                     return jsonify(error='Provide a valid scan request.'), 400
             failure = reserve_request_quota(service_name, cost)
-            return failure if failure is not None else view(*args, **kwargs)
+            if failure is not None:
+                return failure
+            user_id = current_user.id
+            try:
+                response = view(*args, **kwargs)
+            except Exception:
+                refund_after_failure(user_id, service_name, cost)
+                raise
+            if _status(response) >= 500:
+                refund_after_failure(user_id, service_name, cost)
+            return response
         return checked
     return decorator
 

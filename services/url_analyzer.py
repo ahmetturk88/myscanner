@@ -29,6 +29,17 @@ logger = logging.getLogger(__name__)
 MOBILE_USER_AGENT = ('Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) '
                      'Chrome/130.0.0.0 Mobile Safari/537.36')
 
+def decode_page(response):
+    """Page text. Without a charset header requests assumes ISO-8859-1, which turns
+    UTF-8 pages (nearly all of them) into mojibake such as "ðŸŽ‰" for 🎉."""
+    if 'charset=' in (response.headers.get('Content-Type') or '').lower():
+        return response.text
+    try:
+        return response.content.decode('utf-8')
+    except UnicodeDecodeError:
+        return response.text
+
+
 # Total network budget per analysis phase (seconds). A slow target can make
 # checks unavailable, but cannot hold a scan worker indefinitely.
 QUICK_BUDGET = 60
@@ -664,7 +675,7 @@ class URLDeepAnalyzer:
         if html is None:
             try:
                 response = self.session.get(url, timeout=self.timeout)
-                html = response.text
+                html = decode_page(response)
                 status = response.status_code
             except UnsafeTargetError:
                 raise

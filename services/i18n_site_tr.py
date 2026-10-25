@@ -625,3 +625,7 @@ from services.i18n_site_tr_scripts import SCRIPTS_TR, SCRIPTS_TR_PATTERNS  # noq
 for _key, _value in SCRIPTS_TR.items():
     SITE_TR.setdefault(_key, _value)
 SITE_TR_PATTERNS += SCRIPTS_TR_PATTERNS
+from services.i18n_site_tr_reports import REPORTS_TR, REPORTS_TR_PATTERNS  # noqa: E402  (technical report sections)
+for _key, _value in REPORTS_TR.items():
+    SITE_TR.setdefault(_key, _value)
+SITE_TR_PATTERNS += REPORTS_TR_PATTERNS

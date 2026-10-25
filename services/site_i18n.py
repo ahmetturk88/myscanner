@@ -59,13 +59,23 @@ _TITLE_LIKE = ('<meta ',)
 _MONTH_WORD = re.compile(r'\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b')
 
 
+_LEAD = re.compile(r'^([^\w(]+)(?=\w)', re.U)
+
+
 def _lookup(text, catalog, lang):
     key = _SPACE.sub(' ', html.unescape(text)).strip()
     if not key:
         return None
     found = catalog.get(key)
-    if found is not None or not key[:1].isalnum():
+    if found is not None:
         return found
+    if not key[:1].isalnum():
+        # "✓ Valid", "⚠️ Detected", "🌐 DNS Records": keep the symbol, translate the words.
+        lead = _LEAD.match(key)
+        if lead:
+            rest = _lookup(key[lead.end():], catalog, lang)
+            return None if rest is None else lead.group(1) + rest
+        return None
     patterns, months = _patterns(lang)
     for pattern, replacement in patterns:
         if pattern.match(key):

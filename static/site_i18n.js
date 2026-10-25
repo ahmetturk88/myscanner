@@ -19,7 +19,13 @@
     const key = text.replace(/\s+/g, ' ').trim();
     if (!key) return null;
     if (Object.prototype.hasOwnProperty.call(words, key)) return words[key];
-    if (!/^[\p{L}\p{N}]/u.test(key)) return null;
+    if (!/^[\p{L}\p{N}]/u.test(key)) {
+      // "✓ Valid", "⚠️ Detected", "🌐 DNS Records": keep the symbol, translate the words.
+      const lead = key.match(/^[^\p{L}\p{N}(]+(?=[\p{L}\p{N}])/u);
+      if (!lead) return null;
+      const rest = lookup(key.slice(lead[0].length));
+      return rest === null ? null : lead[0] + rest;
+    }
     for (const [pattern, target] of patterns) {
       if (pattern.test(key)) {
         const out = key.replace(pattern, target);
@@ -41,7 +47,10 @@
     if (found === null || skipped(node.parentElement)) return;
     const value = node.nodeValue;
     const lead = value.match(/^\s*/)[0], trail = value.match(/\s*$/)[0];
-    node.nodeValue = lead + found + trail;
+    const next = lead + found + trail;
+    // Writing an unchanged value still fires the observer below: an entry that
+    // translates to itself ("Port") would loop forever and freeze the page.
+    if (next !== value) node.nodeValue = next;
   }
 
   function translateAttributes(element) {
@@ -50,7 +59,7 @@
       const value = element.getAttribute(name);
       if (!value) continue;
       const found = lookup(value);
-      if (found !== null) element.setAttribute(name, found);
+      if (found !== null && found !== value) element.setAttribute(name, found);
     }
   }
 

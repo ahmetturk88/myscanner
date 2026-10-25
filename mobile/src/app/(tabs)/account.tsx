@@ -26,7 +26,7 @@ function Stat({ label, value, color, icon, index }: { label: string; value?: num
 }
 
 const LINKEDIN = 'https://www.linkedin.com/company/myscanners/';
-const WHATSAPP = 'https://chat.whatsapp.com/CMW7MsX7WZD0G24oXpHWN2';
+const WHATSAPP = 'https://whatsapp.com/channel/0029Vb9Mor5GOj9eRROdFO0x';
 
 function Row({ icon, label, onPress, danger, last }: { icon: IconName; label: string; onPress: () => void; danger?: boolean; last?: boolean }) {
   return (
@@ -106,7 +106,7 @@ export default function Account() {
         <Row icon="mail" label={t('Contact and feedback')} onPress={() => open('/contact')} />
         {/* These open the LinkedIn and WhatsApp apps when they are installed. */}
         <Row icon="linkedin" label={t('MyScanner on LinkedIn')} onPress={() => Linking.openURL(LINKEDIN).catch(() => {})} />
-        <Row icon="whatsapp" label={t('Join the WhatsApp community')} onPress={() => Linking.openURL(WHATSAPP).catch(() => {})} last />
+        <Row icon="whatsapp" label={t('Follow us on WhatsApp')} onPress={() => Linking.openURL(WHATSAPP).catch(() => {})} last />
       </Animated.View>
       <Animated.View entering={enter(7)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>
         <Row icon="logout" label={t('Sign out')} onPress={signOut} />

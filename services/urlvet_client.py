@@ -226,6 +226,9 @@ class URLVetClient:
                 'keywords_found': url_keywords.get('found') or []
             },
 
+            # Traffic rank (0 = not in the ranking, i.e. very little traffic)
+            'rank': features.get('rank') if isinstance(features.get('rank'), int) and not isinstance(features.get('rank'), bool) else None,
+
             # TLD
             'tld_info': {
                 'tld': tld_features.get('tld', ''),

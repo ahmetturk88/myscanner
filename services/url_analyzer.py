@@ -660,10 +660,12 @@ class URLDeepAnalyzer:
     @dns_partial
     def analyze_page_content(self, url: str, html: str = None) -> Dict[str, Any]:
         """تحليل محتوى الصفحة"""
+        status = None
         if html is None:
             try:
                 response = self.session.get(url, timeout=self.timeout)
                 html = response.text
+                status = response.status_code
             except UnsafeTargetError:
                 raise
             except Exception as e:
@@ -684,7 +686,10 @@ class URLDeepAnalyzer:
             "suspicious_keywords_found": [],
             "has_login_form": False,
             "has_password_field": False,
-            "content_risk_score": 0
+            "content_risk_score": 0,
+            "status_code": status,
+            "visible_text_length": 0,
+            "scam_signals": [],
         }
 
         if soup.title:
@@ -699,6 +704,12 @@ class URLDeepAnalyzer:
             result["meta_keywords"] = meta_keywords['content'][:200]
 
         text_content = soup.get_text()
+        # Visible words only: a cloaked "404" page can still carry large scripts.
+        bare = BeautifulSoup(html, 'html.parser')
+        for hidden in bare(['script', 'style', 'noscript', 'template']):
+            hidden.decompose()
+        visible = ' '.join(bare.get_text(' ').split())
+        result["visible_text_length"] = len(visible)
         result["text_content"] = text_content[:2000]
 
         text_lower = text_content.lower()
@@ -740,6 +751,10 @@ class URLDeepAnalyzer:
         for script in soup.find_all('script', src=True):
             if len(result["scripts"]) < 20:
                 result["scripts"].append(script['src'])
+
+        from services.scam_content import scam_signals
+        fields = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input')]
+        result["scam_signals"] = scam_signals(' '.join(filter(None, [result["title"], result["meta_description"], visible])), fields)
 
         # حساب درجة الخطورة للمحتوى
         risk_score = 0

@@ -98,7 +98,7 @@ class AssessmentTests(unittest.TestCase):
         stored={'policy_version':'url-evidence-v4','verdict':'malicious','score':10,'coverage':'completed'}
         r=saved_assessment({'aggregate_assessment':stored},local,deep)
         self.assertEqual((r['verdict'],r['score'],r['policy_version']),('malicious',10,'url-evidence-v4'))
-        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v10')
+        self.assertEqual(r['current_policy']['policy_version'],'url-evidence-v11')
         self.assertEqual(r['current_policy']['verdict'],assess_url(local,deep)['verdict'])
         current=saved_assessment({'aggregate_assessment':assess_url(local,deep)},local,deep)
         self.assertNotIn('current_policy',current)
@@ -107,7 +107,7 @@ class AssessmentTests(unittest.TestCase):
     def test_plain_http_is_a_finding_not_a_threat(self):
         local,deep=reports();local.update(verdict='malicious',structure={'is_https':False,'contains_ip':False},ssl={'valid':False,'error':'Not using HTTPS'})
         r=assess_url(local,deep)
-        self.assertEqual(r['policy_version'],'url-evidence-v10');self.assertNotIn(r['verdict'],('malicious','high_risk'))
+        self.assertEqual(r['policy_version'],'url-evidence-v11');self.assertNotIn(r['verdict'],('malicious','high_risk'))
         self.assertIn('no_https',[x['code'] for x in r['reasons']])
     def test_provider_verdict_without_a_visible_signal_is_only_noted(self):
         # v10: an honest small site (an elevator-inspection firm, our own site) was

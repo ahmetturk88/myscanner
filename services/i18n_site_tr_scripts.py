@@ -25,6 +25,8 @@ SCRIPTS_TR = {
     'Unknown': 'Bilinmiyor',
     'Yes': 'Evet',
     'Copy': 'Kopyala',
+    'Copied': 'Kopyalandı',
+    'Copy answer': 'Yanıtı kopyala',
     'Hide': 'Gizle',
     'Source': 'Kaynak',
     'Sources': 'Kaynaklar',

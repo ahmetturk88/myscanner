@@ -331,3 +331,16 @@ class EndpointTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class VerdictReminderTests(unittest.TestCase):
+    def test_every_chat_question_carries_the_verdict_on_screen(self):
+        import json
+        from services import ai_assistant
+        evidence = ai_assistant.sanitize_evidence({'plain': {'label': 'HIGH RISK', 'tone': 'danger', 'headline': 'Don’t trust this link'}, 'verdict': 'high_risk'})
+        with patch.object(ai_assistant, 'stream', side_effect=lambda system, turns, tokens: turns) as call:
+            turns = ai_assistant.chat_stream('url', evidence, [], 'Is it safe?')
+        self.assertTrue(turns[-1]['text'].startswith('[MyScanner verdict on the user\'s screen: HIGH RISK — Don’t trust this link]'))
+        self.assertTrue(turns[-1]['text'].endswith('Is it safe?'))
+        self.assertIn('Never give a verdict, rating or risk level of your own', ai_assistant.SYSTEM_PROMPT)
+        self.assertEqual(ai_assistant._verdict_reminder('not json'), '')

@@ -135,6 +135,30 @@
     }
   }
 
+  /** A "Copy" button placed right after an answer. */
+  function copyButton(text) {
+    const button = el('button', 'ai-copy', 'Copy');
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Copy answer');
+    button.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(text); } catch (e) { return; }
+      button.textContent = 'Copied';
+      setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+    });
+    return button;
+  }
+
+  function explanationText(data) {
+    const parts = [data.headline, data.summary].filter(Boolean);
+    for (const [key, title] of SECTIONS) {
+      const items = Array.isArray(data[key]) ? data[key] : [];
+      if (!items.length) continue;
+      parts.push('', title.toUpperCase());
+      for (const item of items) parts.push('• ' + (item && typeof item === 'object' ? item.point + (item.evidence ? ' (' + item.evidence + ')' : '') : String(item)));
+    }
+    return parts.join('\n');
+  }
+
   function typing() {
     const dots = el('span', 'ai-typing');
     dots.setAttribute('aria-label', 'Writing');
@@ -161,6 +185,7 @@
         log.scrollTop = log.scrollHeight;
       });
       bubble.textContent = final.answer;
+      bubble.after(copyButton(final.answer));
       return final.answer;
     } catch (error) {
       bubble.remove();
@@ -237,6 +262,7 @@
           renderExplanation(output, parseExplanation(text));
         });
         renderExplanation(output, final.explanation);
+        output.append(copyButton(explanationText(final.explanation)));
         chat.hidden = false;
         busy(false, final.cached ? 'Saved explanation, not counted again.' : '');
       } catch (error) {
@@ -365,7 +391,10 @@
     function draw() {
       log.replaceChildren();
       if (!history.length) log.append(intro());
-      for (const item of history) addMessage(log, item.role, item.text);
+      for (const item of history) {
+        const bubble = addMessage(log, item.role, item.text);
+        if (item.role === 'assistant') bubble.after(copyButton(item.text));
+      }
     }
 
     function busy(on, message) {

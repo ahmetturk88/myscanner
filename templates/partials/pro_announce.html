@@ -1,0 +1,24 @@
+{# Pro announcement: shown once after a short delay, never on /pro, sign-in flows or pages the mobile app opens. #}
+{% set promo_hidden = ('/pro', '/login', '/register', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/delete-account', '/admin') %}
+{% if request is defined and not request.path.startswith(promo_hidden) %}
+<dialog class="pro-pop" id="pro-pop" aria-labelledby="pro-pop-title" aria-describedby="pro-pop-text">
+ <div class="pro-pop-card">
+  <button class="pro-pop-x" type="button" data-pro-dismiss aria-label="Close">✕</button>
+  <span class="pro-pop-eyebrow"><span class="pro-pop-dot"></span>New · MyScanner Pro</span>
+  <h2 id="pro-pop-title">Check it <em>before you pay.</em></h2>
+  <p id="pro-pop-text">A cargo fee, a bank alert, a refund message? Send us the message or a screenshot. We check every link, IBAN and QR code inside and show you the evidence.</p>
+  <ul class="pro-pop-points">
+   <li><span class="pg-ic ic-check"></span>Links, IBANs and QR codes checked</li>
+   <li><span class="pg-ic ic-check"></span>Steps to verify it yourself</li>
+   <li><span class="pg-ic ic-check"></span>What to do if you already paid</li>
+  </ul>
+  <p class="pro-pop-price">{% if site_lang is defined and site_lang == 'tr' %}₺199{% else %}$4.99{% endif %} <small>a month · planned price · no payment now</small></p>
+  <div class="pro-pop-actions">
+   <a class="pro-pop-go" href="{{ url_for('pro', utm_source='site_popup') }}" data-pro-go>See what Pro adds →</a>
+   <button class="pro-pop-later" type="button" data-pro-dismiss>Not now</button>
+  </div>
+ </div>
+</dialog>
+<link rel="stylesheet" href="{{ url_for('static', filename='pro_announce.css', v='20261025-1') }}">
+<script src="{{ url_for('static', filename='pro_announce.js', v='20261025-1') }}" defer></script>
+{% endif %}

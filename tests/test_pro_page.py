@@ -75,6 +75,20 @@ class ProPageTests(unittest.TestCase):
         self.assertEqual(stats['sources'], [('linkedin', {'visit': 1, 'signup': 1})])
         self.assertNotEqual(self.client.get('/admin/pro-interest').status_code, 200)
 
+    def test_announcement_on_site_pages_but_never_where_the_app_opens_or_on_pro(self):
+        for path in ('/', '/about', '/scams'):
+            page = self.client.get(path + '?lang=en').get_data(as_text=True)
+            self.assertIn('id="pro-pop"', page, path)
+            self.assertIn('utm_source=site_popup', page)
+        self.assertIn('₺199', self.client.get('/scams?lang=tr').get_data(as_text=True))
+        # The app opens these in its browser; a price that leads outside Google Play must not show there.
+        for path in ('/privacy', '/terms', '/contact', '/register', '/forgot-password', '/pro', '/login'):
+            self.assertNotIn('id="pro-pop"', self.client.get(path).get_data(as_text=True), path)
+
+    def test_top_menu_links_to_pro(self):
+        page = BeautifulSoup(self.client.get('/about?lang=en').data, 'html.parser')
+        self.assertTrue(page.select_one('.shell-nav-links a[href="/pro"]'))
+
     def test_in_sitemap_and_footer(self):
         self.assertIn('/pro?lang=tr', self.client.get('/sitemap.xml').get_data(as_text=True))
         self.assertIn('href="/pro"', self.client.get('/about').get_data(as_text=True))

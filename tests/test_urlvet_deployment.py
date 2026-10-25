@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class ProviderDeploymentTests(unittest.TestCase):
     def test_image_copies_only_binary_assets_and_entrypoint(self):
         source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
-        copies=[line for line in source.splitlines() if line.startswith('COPY ')]
+        copies=[line for line in source.splitlines() if line.startswith('COPY ') and 'urlvet-mobile.patch' not in line]
         self.assertEqual(len(copies),3)
         self.assertTrue(all('.env' not in line and 'COPY . .' not in line for line in copies))
         self.assertIn('657a8dafeb9c9109a339087ea07cf922aaddc52a',source)
@@ -12,6 +12,10 @@ class ProviderDeploymentTests(unittest.TestCase):
     def test_image_normalizes_windows_entrypoint_line_endings(self):
         source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
         self.assertIn("sed -i 's/\\r$//' /app/entrypoint.sh",source)
+    def test_scanner_browser_presents_as_a_phone(self):
+        source=(ROOT/'deploy/urlvet.Dockerfile').read_text();patch=(ROOT/'deploy/urlvet-mobile.patch').read_text()
+        self.assertIn('RUN git apply /tmp/urlvet-mobile.patch',source)
+        self.assertIn('Android 14',patch);self.assertIn('AddScriptToEvaluateOnNewDocument',patch);self.assertIn('SetDeviceMetricsOverride(412, 915',patch)
     def test_private_instance_raises_the_per_address_rate_limit(self):
         source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
         self.assertIn("RateLimiter(20, time.Minute)/middleware.RateLimiter(300, time.Minute)",source)
@@ -35,5 +39,5 @@ class ProviderDeploymentTests(unittest.TestCase):
         self.assertNotIn(':latest',source)
     def test_build_context_excludes_host_files(self):
         source=(ROOT/'deploy/.dockerignore').read_text().splitlines()
-        self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh','!egress.Dockerfile','!scanner-egress.py','!egress-check.py'])
+        self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh','!urlvet-mobile.patch','!egress.Dockerfile','!scanner-egress.py','!egress-check.py'])
 if __name__=='__main__':unittest.main()

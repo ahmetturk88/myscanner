@@ -25,6 +25,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# A current Android Chrome on a common Samsung phone; the url.vet browser uses the same one.
+MOBILE_USER_AGENT = ('Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) '
+                     'Chrome/130.0.0.0 Mobile Safari/537.36')
+
 # Total network budget per analysis phase (seconds). A slow target can make
 # checks unavailable, but cannot hold a scan worker indefinitely.
 QUICK_BUDGET = 60
@@ -98,8 +102,11 @@ class URLDeepAnalyzer:
             cache_ttl: مدة صلاحية الـ cache بالثواني (افتراضي 24 ساعة)
         """
         self.session = PublicHTTPSession()
+        # Read pages as the Android phone links are usually sent to: scam kits show
+        # desktop and bot-looking visitors a fake 404 instead of the scam (cloaking).
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': MOBILE_USER_AGENT,
+            'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
         })
         self.timeout = 15
         self.cache_dir = cache_dir

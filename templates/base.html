@@ -114,6 +114,7 @@
     <main id="platform-main" tabindex="-1"{% if is_tool %} class="tx-page"{% endif %}>{% if is_tool %}{% include 'partials/tool_rail.html' %}{% endif %}{% block content %}{% endblock %}</main>
 
     {% include 'partials/platform_footer.html' %}
+    {% include 'partials/pro_announce.html' %}
     <script src="{{ url_for('static',filename='platform_shell.js',v='20261013-2') }}" defer></script>
     <script src="{{ url_for('static',filename='net_background.js',v='20261022-4') }}" defer></script>
     {% if site_lang is defined and site_lang != 'en' and i18n_version %}<script src="{{ url_for('site_i18n_catalog', lang=site_lang, v=i18n_version) }}" defer></script>

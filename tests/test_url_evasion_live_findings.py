@@ -194,3 +194,43 @@ class FourthRunFindingTests(unittest.TestCase):
     def test_redirect_cases_use_a_service_that_follows_outside_redirects(self):
         from scripts import accuracy_check
         self.assertFalse([url for _, url, _ in accuracy_check.EVASION_CASES if 'httpbingo.org/redirect-to' in url])
+
+
+class BlindRunFindingTests(unittest.TestCase):
+    """--live 15 --blind (URLhaus and Web Risk off): links that came out "not sure"."""
+
+    def test_a_switched_off_source_is_not_a_gap(self):
+        local, deep = evidence('https://www.bbc.com/', age=10000, rank=100)
+        deep['osint'] = {'urlhaus_status': 'unavailable', 'urlhaus_reason': 'disabled_by_operator'}
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'harmless')
+        self.assertFalse([m for m in result['missing_checks'] if m.startswith('URLhaus')])
+
+    def test_program_named_in_the_address_counts_when_the_file_was_not_fetched(self):
+        # twejamaica.org/PPsEJEgc/SS.ps1: the server didn't answer our page fetch.
+        local, deep = evidence('https://twejamaica.org/PPsEJEgc/SS.ps1', age=60, rank=0,
+                               page={'error': 'Could not fetch page content'})
+        result = assess_url(local, deep)
+        self.assertIn('risky_download', [r['code'] for r in result['reasons']])
+        self.assertIn(result['verdict'], ('suspicious', 'high_risk'))
+        local, deep = evidence('https://cdn.example-shop.com/static/app.js', age=60, rank=0)
+        self.assertNotIn('risky_download', [r['code'] for r in assess_url(local, deep)['reasons']])
+
+    def test_free_host_page_hiding_from_the_scanner(self):
+        hidden = {'title': '', 'content_risk_score': 0, 'status_code': 404, 'visible_text_length': 9, 'scam_signals': []}
+        local, deep = evidence('https://lingering-cloud-8a93.zinhoooo.workers.dev/cbbcpznzn', age=6000, rank=900, page=hidden)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')
+
+    def test_sign_in_page_on_a_cloud_workstation_preview(self):
+        login = {'title': 'Sign in', 'content_risk_score': 45, 'status_code': 200, 'visible_text_length': 400, 'scam_signals': [],
+                 'has_password_field': True, 'has_login_form': True}
+        local, deep = evidence('https://9000-firebase-anf-1781589572311.cluster-r7kbx.cloudworkstations.dev/login', age=900, rank=0, page=login)
+        self.assertIn(assess_url(local, deep)['verdict'], ('suspicious', 'high_risk'))
+
+    def test_page_on_a_rented_servers_default_name(self):
+        local, deep = evidence('https://vmi3646823.contaboserver.net/we/paw/na/details.php/', age=6000, rank=0)
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'suspicious')
+        self.assertIn('server_hostname', [r['code'] for r in result['reasons']])
+        local, deep = evidence('https://vmi3646823.contaboserver.net/', age=6000, rank=0)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')

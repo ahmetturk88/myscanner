@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
-from services.url_tricks import address_signals, other_site
+from services.url_tricks import address_signals, other_site, program_in_address
 
 POLICY_VERSION = 'url-evidence-v12'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
@@ -56,6 +56,7 @@ WEAK_ADDRESS = {
     'lookalike_name': (8, 'The site name is one letter away from a well-known brand.'),
     'brand_in_name': (6, 'The address uses a well-known brand’s name, but the site doesn’t belong to that brand.'),
     'free_hosting': (2, 'The page is on a free hosting service where anyone can publish a page.'),
+    'server_hostname': (6, 'The link uses a rented server’s default name instead of a website name.'),
     'credential_bait': (6, 'The page’s name on a free hosting service is about signing in, verifying or paying, the way phishing pages are named.'),
 }
 ESTABLISHED_DAYS = 5 * 365
@@ -99,6 +100,9 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
     age=age_days(local,deep,provider)
     rank=provider.get('rank') if isinstance(provider.get('rank'),int) and not isinstance(provider.get('rank'),bool) else None
     established=(age is not None and age>=ESTABLISHED_DAYS) or (rank is not None and 0<rank<=TOP_RANK)
+    address=local.get('url') if isinstance(local.get('url'),str) else deep.get('url')
+    if any(item['code'] in ('free_hosting','server_hostname') for item in address_signals(address)):
+        established=False  # the hosting platform's age and fame are not the page's
     weak=set()
     if mapping(provider.get('tld_info')).get('is_risky') is True:
         weak.add('risky_tld');signal('identity','risky_tld',4,'The address ends in a domain type that is cheap and often used for scam sites.')
@@ -317,7 +321,9 @@ def _assess(local, deep):
         confirmed=True;signal('reputation','urlhaus_match',20,'URLhaus reports a malware URL match.')
     # Legacy reports did not preserve URLhaus availability: never infer success
     # from their default false/zero values.
-    if osint.get('urlhaus_status') not in ('matched','not_found'):
+    if osint.get('urlhaus_reason')=='disabled_by_operator':
+        pass  # switched off on purpose (MYSCANNER_DISABLED_SOURCES): not a gap in this scan
+    elif osint.get('urlhaus_status') not in ('matched','not_found'):
         reason={'not_configured':'authentication is not configured','authentication_rejected':'authentication was rejected','rate_limited':'provider rate limit reached','configuration_error':'credential configuration could not be read','connection_or_response_error':'connection or response failed','http_error':'provider returned an HTTP error'}.get(osint.get('urlhaus_reason'),'check unavailable or not recorded')
         missing.append('URLhaus: '+reason)
     elif osint.get('urlhaus_status')=='not_found':assessed('reputation')
@@ -343,7 +349,7 @@ def _assess(local, deep):
             deceptive=True;signal('identity',trick['code'],20,DECEPTION[trick['code']]);details.append(trick)
     url_text=local.get('url') if isinstance(local.get('url'),str) else deep.get('url')
     found=address_signals(url_text)
-    if any(item['code']=='free_hosting' for item in found):established=False  # the platform's age is not the page's
+    if any(item['code'] in ('free_hosting','server_hostname') for item in found):established=False  # the platform's age is not the page's
     for item in found:
         code=item['code']
         if item.get('tld_swap') and established:  # an old defensive registration, not a fresh fake
@@ -356,6 +362,15 @@ def _assess(local, deep):
             weak.add(code);signal('identity',code,*WEAK_ADDRESS[code]);details.append(item)
     page=mapping(deep.get('page_content'))
     asks_login=page.get('has_password_field') is True or page.get('has_login_form') is True
+    if 'risky_download' not in reasons and program_in_address(url_text):
+        # The address itself names an app or program, even when the file couldn't be fetched (…/SS.ps1).
+        signal('content','risky_download',8,DOWNLOAD_SIGNALS['risky_download'])
+    if 'risky_download' in reasons:weak.add('risky_download')
+    try:
+        parts=urlparse(url_text if isinstance(url_text,str) else '')
+        deep_link=parts.path not in ('','/') or bool(parts.query)
+    except ValueError:
+        deep_link=False
     if established:
         # v12: app stores, shops and news sites show other companies' brands all
         # the time; on an established site that is not impersonation.
@@ -386,6 +401,9 @@ def _assess(local, deep):
         if strong_scam and weak:escalated='high_risk'
         elif 'brand_in_name' in weak and ('collects_details' in weak or asks_login or 'free_hosting' in weak):escalated='high_risk'
         elif 'credential_bait' in weak:escalated='high_risk'
+        elif {'free_hosting','server_hostname'}&weak and asks_login:escalated='high_risk' if 'brand_in_name' in weak else 'suspicious'
+        elif 'free_hosting' in weak and 'content_hidden' in weak:escalated='suspicious'  # a free-host page hiding from scanners
+        elif 'server_hostname' in weak and deep_link:escalated='suspicious'
         elif {'risky_download','download_flagged'}&weak and len(weak)>=2:escalated='high_risk' if len(weak)>=3 else 'suspicious'
         elif len(weak)>=4 and CORE&weak:escalated='high_risk'
         elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'

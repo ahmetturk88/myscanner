@@ -29,6 +29,10 @@ UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for
 # and url.vet's own rating counts but is not core (it is built on age and traffic).
 CORE = {'risky_tld', 'domain_randomness', 'content_hidden', 'brand_in_name', 'lookalike_name', 'ip_url', 'device_cloaking',
         'redirect_loop', 'risky_download', 'download_flagged'}
+HOST_BLOCKED = {
+    'phishing': 'Cloudflare, which serves this site, shows its own warning that the site was reported for phishing.',
+    'malware': 'Cloudflare, which serves this site, shows its own warning that the site was reported for spreading malware.',
+}
 # v12: what a link downloads instead of a page.
 DOWNLOAD_SIGNALS = {
     'download_malware': 'The link downloads a file in which the antivirus scan found malware.',
@@ -288,6 +292,10 @@ def _assess(local, deep):
             if points:signal('content','content_indicators',points,'The page asks for a password or login; forms alone do not prove a threat.')
         elif risk>0:signal('content','content_indicators',round(risk*.25,1),'Page content contains risk heuristics; forms or keywords alone do not prove a threat.')
     else:missing.append('Deep page content was not assessed')
+    host_warning=mapping(content.get('host_warning'))
+    if host_warning.get('host')=='cloudflare' and host_warning.get('kind') in ('phishing','malware'):
+        # The site's own host blocked it after reports: as strong as a threat list.
+        confirmed=True;signal('reputation','host_blocked_'+host_warning['kind'],20,HOST_BLOCKED[host_warning['kind']])
     page_av=mapping(content.get('antivirus'))
     if page_av.get('status')=='found' and page_av.get('kind')=='malware':  # heuristics flag ordinary pages too
         confirmed=True;signal('reputation','page_malware',20,'The antivirus scan found malware in the page itself.')

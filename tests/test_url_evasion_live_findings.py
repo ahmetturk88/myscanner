@@ -234,3 +234,40 @@ class BlindRunFindingTests(unittest.TestCase):
         self.assertIn('server_hostname', [r['code'] for r in result['reasons']])
         local, deep = evidence('https://vmi3646823.contaboserver.net/', age=6000, rank=0)
         self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')
+
+
+class ManualTestFindingTests(unittest.TestCase):
+    """From a manual check of sp30ct10-varkako-biz-kuremi.pages.dev: Cloudflare had blocked it, we said "be careful"."""
+
+    BLOCK_PAGE = ('<html><head><title>Suspected Malware | Cloudflare</title></head><body><h1>Warning</h1>'
+                  '<h2>Suspected Malware</h2><p>This website has been reported for potentially distributing malware.</p>'
+                  '<a>Learn More</a><a>Ignore &amp; Proceed</a><p>Cloudflare Ray ID: a50b928249b5d2e4</p></body></html>')
+
+    def test_cloudflare_block_page_is_recognised(self):
+        from services.url_analyzer import URLDeepAnalyzer
+        analyzer = URLDeepAnalyzer()
+        content = analyzer.analyze_page_content('http://sp30ct10-varkako-biz-kuremi.pages.dev/', html=self.BLOCK_PAGE)
+        self.assertEqual(content['host_warning'], {'host': 'cloudflare', 'kind': 'malware'})
+        phishing = self.BLOCK_PAGE.replace('Malware', 'Phishing').replace('distributing malware', 'phishing')
+        self.assertEqual(analyzer.analyze_page_content('https://x.pages.dev/', html=phishing)['host_warning']['kind'], 'phishing')
+        ordinary = '<title>Shop</title><p>Performance and security by Cloudflare. We remove suspected malware from uploads.</p>'
+        self.assertNotIn('host_warning', analyzer.analyze_page_content('https://shop.example.com/', html=ordinary))
+
+    def test_blocked_by_its_host_is_dangerous_in_both_languages(self):
+        from services.report_i18n import translate_plain
+        from services.url_report_view import plain_report
+        page = {'title': 'Suspected Malware | Cloudflare', 'content_risk_score': 0, 'status_code': 403, 'visible_text_length': 300,
+                'scam_signals': [], 'host_warning': {'host': 'cloudflare', 'kind': 'malware'}}
+        local, deep = evidence('http://sp30ct10-varkako-biz-kuremi.pages.dev/', age=3000, rank=0, page=page)
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'malicious')
+        plain = plain_report(result, local, deep, local['url'])
+        self.assertEqual(plain['reasons'][0]['title'], 'Its own host blocked it as malware')
+        self.assertIn(('Threat lists', 'bad'), [(c['name'], c['state']) for c in plain['checks']])
+        self.assertEqual(translate_plain(plain, 'tr')['reasons'][0]['title'], 'Kendi barındırıcısı onu kötü amaçlı yazılım diye engelledi')
+
+    def test_ai_is_told_the_colour_of_the_verdict(self):
+        import json
+        from services.ai_assistant import _verdict_reminder
+        evidence_json = json.dumps({'final_verdict': {'label': 'BE CAREFUL', 'tone': 'caution', 'headline': 'Be careful with this link'}})
+        self.assertIn('BE CAREFUL (shown in yellow)', _verdict_reminder(evidence_json))

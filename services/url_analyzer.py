@@ -854,6 +854,13 @@ class URLDeepAnalyzer:
             if len(result["scripts"]) < 20:
                 result["scripts"].append(script['src'])
 
+        # A host's own block page (Cloudflare "Suspected Phishing / Malware", url-evidence-v12).
+        lowered = html.lower() if isinstance(html, str) else ''
+        if 'cloudflare' in lowered:
+            match = re.search(r'suspected (phishing|malware)', result["title"] + ' ' + lowered[:20000], re.I)
+            if match and ('reported for' in lowered or 'ignore & proceed' in lowered or 'ignore &amp; proceed' in lowered):
+                result["host_warning"] = {'host': 'cloudflare', 'kind': match.group(1).lower()}
+
         from services.scam_content import scam_signals
         fields = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input')]
         result["scam_signals"] = scam_signals(' '.join(filter(None, [result["title"], result["meta_description"], visible])), fields)

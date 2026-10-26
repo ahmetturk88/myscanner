@@ -13,7 +13,7 @@ import socket
 import ssl
 import dns.resolver
 import requests
-from services.url_tricks import other_site
+from services.url_tricks import looks_like_short_link, other_site
 from services.safe_http import PublicHTTPSession, ResponseTooLarge, UnsafeTargetError, TargetResolutionError, normalize_url, validate_public_url, public_connection
 import hashlib
 import json
@@ -896,7 +896,7 @@ class URLDeepAnalyzer:
         }
 
         parsed = urlparse(url)
-        if parsed.netloc in self.SHORTENED_DOMAINS:
+        if parsed.netloc in self.SHORTENED_DOMAINS or looks_like_short_link(url):
             result["is_shortened"] = True
             result["behavior_risk_score"] += 15
 
@@ -906,7 +906,7 @@ class URLDeepAnalyzer:
                 result["redirect_chain"].append({"url": r.url[:200], "status_code": r.status_code})
             # Page redirects that a browser follows but an HTTP client does not.
             for _ in range(PAGE_REDIRECT_HOPS):
-                target = page_redirect(response)
+                target = None if getattr(response, 'unfollowed_redirect', None) else page_redirect(response)
                 if not target:
                     break
                 result["redirect_chain"].append({"url": response.url[:200], "status_code": response.status_code, "kind": target[1]})
@@ -915,6 +915,11 @@ class URLDeepAnalyzer:
                     result["redirect_chain"].append({"url": r.url[:200], "status_code": r.status_code})
             result["status_code"] = response.status_code
             result["final_url"] = response.url
+            unfollowed = getattr(response, 'unfollowed_redirect', None)
+            if unfollowed:
+                # Another port or an app link: never visited, but its reputation is still checked.
+                result["redirect_chain"].append({"url": response.url[:200], "status_code": response.status_code})
+                result["final_url"], result["unvisited_destination"] = unfollowed, True
             result["redirect_count"] = len(result["redirect_chain"])
             if result["redirect_count"] > 3:
                 result["behavior_risk_score"] += 20
@@ -946,7 +951,7 @@ class URLDeepAnalyzer:
             response = self.session.get(url, timeout=self.timeout, allow_redirects=True, stream=True,
                                         headers={'User-Agent': DESKTOP_USER_AGENT, 'Accept-Language': 'en-US,en;q=0.9'})
             try:
-                return response.url
+                return getattr(response, 'unfollowed_redirect', None) or response.url
             finally:
                 response.close()
         except ResponseTooLarge as e:
@@ -954,13 +959,17 @@ class URLDeepAnalyzer:
         except Exception:
             return None
 
-    def destination_evidence(self, url):
-        """Reputation, age and certificate of the site a redirect really ends on."""
+    def destination_evidence(self, url, visited=True):
+        """Reputation, age and certificate of the site a redirect really ends on.
+
+        A destination we don't visit (another port) gets reputation and age only."""
         host = urlparse(url).hostname
         evidence = {"url": url, "structure": self.analyze_url_structure(url), "phishing": self.check_phishing_indicators(url)}
-        for key, check in (("whois", lambda: self.analyze_whois(host)), ("osint", lambda: self.check_osint_sources(url)),
-                           ("ssl", lambda: self.check_ssl_certificate(host) if url.startswith('https://') else {"valid": False, "error": "Not using HTTPS"}),
-                           ("urlvet", lambda: self.analyze_with_urlvet(url))):
+        checks = [("whois", lambda: self.analyze_whois(host)), ("osint", lambda: self.check_osint_sources(url))]
+        if visited:
+            checks += [("ssl", lambda: self.check_ssl_certificate(host) if url.startswith('https://') else {"valid": False, "error": "Not using HTTPS"}),
+                       ("urlvet", lambda: self.analyze_with_urlvet(url))]
+        for key, check in checks:
             try:
                 evidence[key] = check()
             except UnsafeTargetError:
@@ -1060,7 +1069,7 @@ class URLDeepAnalyzer:
             "ssl": self.check_ssl_certificate(domain) if parsed.scheme == 'https' else {"valid": False, "error": "Not using HTTPS"},
             "dns": self.check_dns_records(domain),
             "security_headers": self.check_security_headers(url),
-            "is_shortened": parsed.netloc in self.SHORTENED_DOMAINS
+            "is_shortened": parsed.netloc in self.SHORTENED_DOMAINS or looks_like_short_link(url)
         }
 
         # حساب درجة الأمان الكلية
@@ -1190,15 +1199,16 @@ class URLDeepAnalyzer:
         result["behavior"] = self.analyze_behavior(url)
 
         # 2. تحليل المحتوى (إذا طلب)
-        if fetch_content and result["behavior"].get("final_url"):
+        if fetch_content and result["behavior"].get("final_url") and not result["behavior"].get("unvisited_destination"):
             result["page_content"] = self.analyze_page_content(result["behavior"]["final_url"])
         else:
             result["page_content"] = {"content_risk_score": 0}
 
         # 2b. A redirect to another site: check that site too (url-evidence-v12).
         final = result["behavior"].get("final_url")
-        if isinstance(final, str) and other_site(url, final):
-            result["destination"] = self.destination_evidence(final)
+        if isinstance(final, str) and final.startswith(('http://', 'https://')) and (
+                other_site(url, final) or result["behavior"].get("unvisited_destination")):
+            result["destination"] = self.destination_evidence(final, visited=not result["behavior"].get("unvisited_destination"))
 
         # 3. تحليل WHOIS
         result["whois"] = self.analyze_whois(result["domain"])

@@ -289,6 +289,8 @@ REPORTS_TR = {
     'The antivirus scan flagged risky features in the file this link downloads.': 'Antivirüs taraması, bu bağlantının indirdiği dosyada riskli özellikler buldu.',
     'The link downloads an app or program, which could take over the device it is installed on.': 'Bağlantı bir uygulama ya da program indiriyor; bu, yüklendiği cihazı ele geçirebilir.',
     'The antivirus scan found malware in the page itself.': 'Antivirüs taraması sayfanın kendisinde kötü amaçlı yazılım buldu.',
+    'The page’s name on a free hosting service is about signing in, verifying or paying, the way phishing pages are named.': 'Sayfanın ücretsiz barındırma hizmetindeki adı giriş yapma, doğrulama ya da ödemeyle ilgili; oltalama sayfaları böyle adlandırılır.',
+    'The link redirects to a server on an unusual port, the way malware downloads are often delivered.': 'Bağlantı alışılmadık bir porttaki sunucuya yönlendiriyor; kötü amaçlı yazılım indirmeleri sıklıkla böyle yapılır.',
     # --- AI assistant
     'AI ASSISTANT': 'YAPAY ZEKÂ ASİSTANI',
     'MyScanner AI assistant': 'MyScanner yapay zekâ asistanı',

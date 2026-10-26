@@ -291,6 +291,7 @@ REPORTS_TR = {
     'The antivirus scan found malware in the page itself.': 'Antivirüs taraması sayfanın kendisinde kötü amaçlı yazılım buldu.',
     'The page’s name on a free hosting service is about signing in, verifying or paying, the way phishing pages are named.': 'Sayfanın ücretsiz barındırma hizmetindeki adı giriş yapma, doğrulama ya da ödemeyle ilgili; oltalama sayfaları böyle adlandırılır.',
     'The link redirects to a server on an unusual port, the way malware downloads are often delivered.': 'Bağlantı alışılmadık bir porttaki sunucuya yönlendiriyor; kötü amaçlı yazılım indirmeleri sıklıkla böyle yapılır.',
+    'An address the link passes through on the way is listed by URLhaus as malware.': 'Bağlantının yolda geçtiği bir adres URLhaus tarafından kötü amaçlı yazılım olarak listeleniyor.',
     # --- AI assistant
     'AI ASSISTANT': 'YAPAY ZEKÂ ASİSTANI',
     'MyScanner AI assistant': 'MyScanner yapay zekâ asistanı',

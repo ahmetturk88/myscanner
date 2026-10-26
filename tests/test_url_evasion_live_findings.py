@@ -134,3 +134,37 @@ class SecondRunReportTests(unittest.TestCase):
                 self.assertEqual(translated['reasons'][0]['detail'], turkish)
             for reason, original in zip(translated['reasons'], plain['reasons']):
                 self.assertNotEqual(reason['title'], original['title'], original['title'])
+
+
+class ThirdRunFindingTests(unittest.TestCase):
+    def test_listed_address_in_the_middle_of_a_redirect_chain(self):
+        # httpbingo → github.com/…/raw/… (listed by URLhaus) → raw.githubusercontent.com/… (not listed).
+        local, deep = evidence('https://httpbingo.org/redirect-to?url=x', final='https://raw.githubusercontent.com/a/b/main/x.zip')
+        deep['chain_reputation'] = [{'url': 'https://github.com/a/b/raw/refs/heads/main/x.zip', 'status': 'matched', 'matched': True}]
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'malicious')
+        from services.url_report_view import plain_report
+        plain = plain_report(result, local, deep, local['url'])
+        self.assertEqual(plain['reasons'][0]['title'], 'It passes through a malware address')
+        self.assertIn(('Threat lists', 'bad'), [(c['name'], c['state']) for c in plain['checks']])
+
+    def test_every_hop_is_looked_up(self):
+        from unittest.mock import patch
+        from services.url_analyzer import URLDeepAnalyzer
+        analyzer = URLDeepAnalyzer()
+        behavior = {'original_url': 'https://a.example/', 'final_url': 'https://c.example/end', 'error': None,
+                    'redirect_chain': [{'url': 'https://a.example/'}, {'url': 'https://b.example/listed'}, {'url': 'https://c.example/end'}]}
+        looked = []
+        def urlhaus(url):
+            looked.append(url)
+            return {'coverage_status': 'matched' if 'listed' in url else 'not_found', 'is_malicious': 'listed' in url}
+        empty = lambda *a, **k: {}
+        with patch.object(analyzer, 'analyze_behavior', return_value=behavior), patch.object(analyzer, 'check_urlhaus', side_effect=urlhaus), \
+                patch.object(analyzer, 'analyze_page_content', side_effect=empty), patch.object(analyzer, 'destination_evidence', side_effect=empty), \
+                patch.object(analyzer, 'analyze_whois', side_effect=empty), patch.object(analyzer, 'check_osint_sources', side_effect=empty), \
+                patch.object(analyzer, 'check_ssl_certificate', side_effect=empty), patch.object(analyzer, 'check_dns_records', side_effect=empty), \
+                patch.object(analyzer, 'check_security_headers', side_effect=empty), patch.object(analyzer, 'analyze_with_urlvet', side_effect=empty), \
+                patch('services.url_analyzer.validate_public_url', side_effect=lambda u: type('T', (), {'url': u})()):
+            deep = analyzer.comprehensive_deep_analysis('https://a.example/')
+        self.assertEqual(looked, ['https://b.example/listed'])
+        self.assertEqual(deep['chain_reputation'], [{'url': 'https://b.example/listed', 'status': 'matched', 'matched': True}])

@@ -309,6 +309,9 @@ def _assess(local, deep):
         ends=[host(behavior.get(k)) for k in ('original_url','final_url')]
         if risk is not None and all(ends) and ends[0]==ends[1]:
             missing.append(SHORT_UNRESOLVED)
+    for hop in deep.get('chain_reputation') or []:
+        if isinstance(hop,dict) and hop.get('matched') is True:
+            confirmed=True;signal('reputation','chain_listed',20,'An address the link passes through on the way is listed by URLhaus as malware.')
     osint=mapping(deep.get('osint'))
     if usable(osint) and osint.get('urlhaus') is True:
         confirmed=True;signal('reputation','urlhaus_match',20,'URLhaus reports a malware URL match.')

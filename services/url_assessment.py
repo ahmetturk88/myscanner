@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
-from services.url_tricks import address_signals, other_site, program_in_address
+from services.url_tricks import IMPERSONATED, address_signals, other_site, program_in_address
 
 POLICY_VERSION = 'url-evidence-v12'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
@@ -351,7 +351,7 @@ def _assess(local, deep):
     provider_flag=any(v in ('malicious','suspicious','high_risk') for v in provider_verdicts)
     weak,strong_scam,established=throwaway_signals(local,deep,seen_provider,provider_flag,reasons,signal)
     # v12: tricks removed from the pasted address, and what the address itself shows.
-    deceptive=False;details=[]
+    deceptive=False;details=[];impersonated=False
     for trick in local.get('address_tricks') or []:
         if isinstance(trick,dict) and trick.get('code') in DECEPTION:
             deceptive=True;signal('identity',trick['code'],20,DECEPTION[trick['code']]);details.append(trick)
@@ -368,6 +368,9 @@ def _assess(local, deep):
             deceptive=True;signal('identity',code,20,DECEPTION[code]);details.append(item)
         elif code in WEAK_ADDRESS and not established:  # e.g. apple.stackexchange.com
             weak.add(code);signal('identity',code,*WEAK_ADDRESS[code]);details.append(item)
+        elif code=='brand_in_name' and item.get('brand') in IMPERSONATED and item.get('subdomain') is True:
+            # An old site with a bank's or cargo company's name in front (dhl.smarthub.vuelogix.ai).
+            impersonated=True;signal('identity',code,*WEAK_ADDRESS[code]);details.append(item)
     page=mapping(deep.get('page_content'))
     asks_login=page.get('has_password_field') is True or page.get('has_login_form') is True
     if 'risky_download' not in reasons and program_in_address(url_text):
@@ -405,6 +408,10 @@ def _assess(local, deep):
     # signs including one that throwaway scam sites typically show, raise it.
     escalated=None
     if not confirmed and deceptive:escalated='high_risk'
+    elif not confirmed and impersonated and (TRANSPORT_WARNINGS&set(reasons) or asks_login or 'collects_details' in weak
+                                             or mapping(mapping(deep.get('page_content')).get('download')).get('program') is True):
+        escalated='high_risk'  # a bank's or cargo name on someone else's site, plus a broken certificate, a form or an app
+    elif not confirmed and impersonated:escalated='suspicious'
     elif not confirmed and not established:
         if strong_scam and weak:escalated='high_risk'
         elif 'brand_in_name' in weak and ('collects_details' in weak or asks_login or 'free_hosting' in weak):escalated='high_risk'

@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import * as Haptics from '@/lib/haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
@@ -108,6 +109,35 @@ export function DirectedText({ text, style }: { text: string; style: any }) {
   );
 }
 
+/** A small "Copy" action under an AI answer; confirms with a tick and a haptic. */
+export function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await Clipboard.setStringAsync(text).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={t('Copy answer')} onPress={copy} hitSlop={8}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 2 }}>
+      <Icon name={copied ? 'check' : 'copy'} size={14} color={copied ? colors.green : colors.faint} />
+      <Text style={{ color: copied ? colors.green : colors.faint, fontSize: 12.5, fontFamily: fonts.medium }}>{copied ? t('Copied') : t('Copy')}</Text>
+    </Pressable>
+  );
+}
+
+/** The explanation as plain text, for copying or sharing. */
+function explanationText(data: Explanation) {
+  const parts = [data.headline, data.summary].filter(Boolean);
+  for (const [key, title] of sections()) {
+    const items = data[key] as any[];
+    if (!items.length) continue;
+    parts.push('', upper(title), ...items.map((item) => `• ${typeof item === 'string' ? item : item.point}${typeof item === 'object' && item.evidence ? ` (${item.evidence})` : ''}`));
+  }
+  return parts.join('\n');
+}
+
 export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: string }) {
   const mine = role === 'user';
   const body = text ? <DirectedText text={text} style={{ color: colors.text, fontSize: 15, lineHeight: 24, fontFamily: fonts.regular }} /> : <TypingDots />;
@@ -120,9 +150,12 @@ export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: strin
     );
   }
   return (
-    <View style={{ alignSelf: 'flex-start', maxWidth: '90%', backgroundColor: colors.surface2, borderRadius: 20, borderBottomLeftRadius: 6,
-      borderWidth: 1, borderColor: colors.line, paddingVertical: 11, paddingHorizontal: 15 }}>
-      {body}
+    <View style={{ alignSelf: 'flex-start', maxWidth: '90%', gap: 2 }}>
+      <View style={{ backgroundColor: colors.surface2, borderRadius: 20, borderBottomLeftRadius: 6,
+        borderWidth: 1, borderColor: colors.line, paddingVertical: 11, paddingHorizontal: 15 }}>
+        {body}
+      </View>
+      {text ? <CopyButton text={text} /> : null}
     </View>
   );
 }
@@ -181,6 +214,7 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
           <Button label={t('Explain with AI')} icon="spark" onPress={explain} />
         </>
       ) : explanation ? <ExplanationView data={explanation} /> : <TypingDots />}
+      {explanation && !explaining ? <CopyButton text={explanationText(explanation)} /> : null}
       {chat.map((m, i) => <Bubble key={i} role={m.role} text={m.text} />)}
       {explanation && !explaining ? (
         <View style={[ui.inputWrap, { paddingRight: 6 }]}>

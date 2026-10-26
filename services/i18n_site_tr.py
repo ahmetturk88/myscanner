@@ -357,10 +357,10 @@ SITE_TR = {
     'Not now': 'Şimdi değil',
     'Close': 'Kapat',
     'MyScanner Pro': 'MyScanner Pro',
-    'Join the community': 'Topluluğa katıl',
-    'Announcements, early features and a place to share feedback.': 'Duyurular, yeni özellikler ilk elden ve geri bildirim paylaşabileceğin bir yer.',
-    'WhatsApp community': 'WhatsApp topluluğu',
-    'WhatsApp community ↗': 'WhatsApp topluluğu ↗',
+    'Follow the channel': 'Kanalı takip et',
+    'Scam alerts, safety tips and MyScanner news on WhatsApp.': 'Dolandırıcılık uyarıları, güvenlik ipuçları ve MyScanner haberleri WhatsApp’ta.',
+    'WhatsApp channel': 'WhatsApp kanalı',
+    'WhatsApp channel ↗': 'WhatsApp kanalı ↗',
     'Scam alerts, security tips and product updates.': 'Dolandırıcılık uyarıları, güvenlik ipuçları ve ürün güncellemeleri.',
     'Phone': 'Telefon',
     'Mon–Fri 9:00–18:00 · Sat 10:00–16:00 (GMT+3)': 'Pzt–Cum 9:00–18:00 · Cmt 10:00–16:00 (GMT+3)',
@@ -625,3 +625,7 @@ from services.i18n_site_tr_scripts import SCRIPTS_TR, SCRIPTS_TR_PATTERNS  # noq
 for _key, _value in SCRIPTS_TR.items():
     SITE_TR.setdefault(_key, _value)
 SITE_TR_PATTERNS += SCRIPTS_TR_PATTERNS
+from services.i18n_site_tr_reports import REPORTS_TR, REPORTS_TR_PATTERNS  # noqa: E402  (technical report sections)
+for _key, _value in REPORTS_TR.items():
+    SITE_TR.setdefault(_key, _value)
+SITE_TR_PATTERNS += REPORTS_TR_PATTERNS

@@ -25,6 +25,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# A current Android Chrome on a common Samsung phone; the url.vet browser uses the same one.
+MOBILE_USER_AGENT = ('Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) '
+                     'Chrome/130.0.0.0 Mobile Safari/537.36')
+
+def decode_page(response):
+    """Page text. Without a charset header requests assumes ISO-8859-1, which turns
+    UTF-8 pages (nearly all of them) into mojibake such as "ðŸŽ‰" for 🎉."""
+    if 'charset=' in (response.headers.get('Content-Type') or '').lower():
+        return response.text
+    try:
+        return response.content.decode('utf-8')
+    except UnicodeDecodeError:
+        return response.text
+
+
 # Total network budget per analysis phase (seconds). A slow target can make
 # checks unavailable, but cannot hold a scan worker indefinitely.
 QUICK_BUDGET = 60
@@ -98,8 +113,11 @@ class URLDeepAnalyzer:
             cache_ttl: مدة صلاحية الـ cache بالثواني (افتراضي 24 ساعة)
         """
         self.session = PublicHTTPSession()
+        # Read pages as the Android phone links are usually sent to: scam kits show
+        # desktop and bot-looking visitors a fake 404 instead of the scam (cloaking).
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': MOBILE_USER_AGENT,
+            'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
         })
         self.timeout = 15
         self.cache_dir = cache_dir
@@ -653,10 +671,12 @@ class URLDeepAnalyzer:
     @dns_partial
     def analyze_page_content(self, url: str, html: str = None) -> Dict[str, Any]:
         """تحليل محتوى الصفحة"""
+        status = None
         if html is None:
             try:
                 response = self.session.get(url, timeout=self.timeout)
-                html = response.text
+                html = decode_page(response)
+                status = response.status_code
             except UnsafeTargetError:
                 raise
             except Exception as e:
@@ -677,7 +697,10 @@ class URLDeepAnalyzer:
             "suspicious_keywords_found": [],
             "has_login_form": False,
             "has_password_field": False,
-            "content_risk_score": 0
+            "content_risk_score": 0,
+            "status_code": status,
+            "visible_text_length": 0,
+            "scam_signals": [],
         }
 
         if soup.title:
@@ -692,6 +715,12 @@ class URLDeepAnalyzer:
             result["meta_keywords"] = meta_keywords['content'][:200]
 
         text_content = soup.get_text()
+        # Visible words only: a cloaked "404" page can still carry large scripts.
+        bare = BeautifulSoup(html, 'html.parser')
+        for hidden in bare(['script', 'style', 'noscript', 'template']):
+            hidden.decompose()
+        visible = ' '.join(bare.get_text(' ').split())
+        result["visible_text_length"] = len(visible)
         result["text_content"] = text_content[:2000]
 
         text_lower = text_content.lower()
@@ -733,6 +762,10 @@ class URLDeepAnalyzer:
         for script in soup.find_all('script', src=True):
             if len(result["scripts"]) < 20:
                 result["scripts"].append(script['src'])
+
+        from services.scam_content import scam_signals
+        fields = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input')]
+        result["scam_signals"] = scam_signals(' '.join(filter(None, [result["title"], result["meta_description"], visible])), fields)
 
         # حساب درجة الخطورة للمحتوى
         risk_score = 0

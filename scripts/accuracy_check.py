@@ -7,6 +7,9 @@ Run it inside the worker container, which has the scanner's network access:
     dc exec worker python scripts/accuracy_check.py
     dc exec worker python scripts/accuracy_check.py --live 5     # also 5 current URLhaus + 5 OpenPhish URLs
     dc exec worker python scripts/accuracy_check.py --only clean # one group: clean, flag or threat
+    dc exec worker python scripts/accuracy_check.py --live 15 --blind
+        # threat lists (URLhaus, Web Risk) turned off: does the rest of the scan still catch them?
+    dc exec worker python scripts/accuracy_check.py --url https://example.com/ --expect clean
 """
 import argparse
 import concurrent.futures
@@ -47,10 +50,15 @@ THREAT = ('malicious', 'high_risk')
 FLAGGED = ('malicious', 'high_risk', 'suspicious')
 
 
+BLIND = False  # --blind: a threat counts as caught when it is flagged at all
+
+
 def grade(expect, verdict):
     """PASS, WARN (partial or a coverage gap) or FAIL for one verdict."""
     if verdict in (None, 'error'):
         return 'FAIL'
+    if BLIND and expect == 'threat':
+        return 'PASS' if verdict in FLAGGED else 'WARN' if verdict == 'unknown' else 'FAIL'
     if expect == 'clean':
         return 'PASS' if verdict == 'harmless' else 'WARN' if verdict == 'unknown' else 'FAIL'
     if expect == 'flag':
@@ -141,7 +149,15 @@ def main(argv=None):
     parser.add_argument('--live', type=int, default=0, metavar='N', help='add N current URLhaus and N OpenPhish URLs')
     parser.add_argument('--only', choices=('clean', 'flag', 'threat'), help='run one group')
     parser.add_argument('--workers', type=int, default=3, help='scans in parallel (default 3)')
+    parser.add_argument('--blind', action='store_true',
+                        help='turn off the URLhaus and Web Risk threat lists to measure detection of new, unlisted scams')
+    parser.add_argument('--url', action='append', default=[], help='scan this URL instead of the built-in cases (repeatable)')
+    parser.add_argument('--expect', choices=('clean', 'flag', 'threat'), default='flag', help='expected answer for --url (default flag)')
     args = parser.parse_args(argv)
+    if args.blind:
+        global BLIND
+        BLIND = True
+        os.environ['MYSCANNER_DISABLED_SOURCES'] = ','.join(filter(None, [os.environ.get('MYSCANNER_DISABLED_SOURCES', ''), 'urlhaus', 'web_risk']))
     logging.disable(logging.ERROR)  # analyzer error logs would interleave with the table
     try:
         return benchmark(args)
@@ -150,10 +166,14 @@ def main(argv=None):
 
 
 def benchmark(args):
-    cases = [c for c in CASES if not args.only or c[0] == args.only]
+    if args.url:
+        cases = [(args.expect, url, 'given on the command line') for url in args.url]
+    else:
+        cases = [c for c in CASES if not args.only or c[0] == args.only]
     if args.live:
         cases += [c for c in live_cases(args.live) if not args.only or c[0] == args.only]
-    print(f'Scanning {len(cases)} URLs, {args.workers} at a time. This takes a few minutes.\n')
+    print(f'Scanning {len(cases)} URLs, {args.workers} at a time. This takes a few minutes.'
+          + (' Blind mode: URLhaus and Web Risk are off.' if BLIND else '') + '\n')
 
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:

@@ -1,0 +1,73 @@
+diff --git a/server/internal/service/checks/content.go b/server/internal/service/checks/content.go
+index 7a35400..8cfc087 100644
+--- a/server/internal/service/checks/content.go
++++ b/server/internal/service/checks/content.go
+@@ -68,10 +68,11 @@ func GetPageFormInfo(pageURL string) (*PageFormResult, error) {
+ 		logger.Error("failed to create request", "host", hostOnly(pageURL), "err", err)
+ 		return nil, err
+ 	}
+-	// Use a common browser User-Agent to avoid blocks
+-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
++	// MyScanner: read the page as the Android phone links are usually sent to;
++	// scam kits show a fake 404 to desktop visitors (cloaking).
++	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+ 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
++	req.Header.Set("Accept-Language", "tr-TR,tr;q=0.9,en;q=0.8")
+ 
+ 	client := newSafeHTTPClient(10 * time.Second)
+ 
+diff --git a/server/internal/service/screenshot/screenshot.go b/server/internal/service/screenshot/screenshot.go
+index 9219e1c..e0d7ac1 100644
+--- a/server/internal/service/screenshot/screenshot.go
++++ b/server/internal/service/screenshot/screenshot.go
+@@ -4,6 +4,8 @@ import (
+ 	"context"
+ 	"errors"
+ 	"fmt"
++	"github.com/chromedp/cdproto/emulation"
++	"github.com/chromedp/cdproto/page"
+ 	"net/url"
+ 	"os"
+ 	"path/filepath"
+@@ -65,6 +67,9 @@ func NewService(chromeURL string) (*Service, error) {
+ 	return service, nil
+ }
+ 
++// mobileUserAgent is a current Android Chrome on a common Samsung phone (MyScanner).
++const mobileUserAgent = "Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
++
+ // GetService returns the default service instance (singleton)
+ func GetService() (*Service, error) {
+ 	var err error
+@@ -269,12 +274,25 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
+ 
+ 	// Configure viewport and anti-bot measures
+ 	err = chromedp.Run(ctx,
+-		// Set desktop viewport for consistent screenshots
+-		chromedp.EmulateViewport(1366, 768),
+-		// Anti-bot hardening
++		// MyScanner: open links as the Android phone they are usually sent to. Scam
++		// kits show a fake 404 to desktop and "HeadlessChrome" visitors (cloaking).
++		emulation.SetUserAgentOverride(mobileUserAgent).
++			WithAcceptLanguage("tr-TR,tr,en").
++			WithPlatform("Linux armv8l").
++			WithUserAgentMetadata(&emulation.UserAgentMetadata{
++				Brands:          []*emulation.UserAgentBrandVersion{{Brand: "Chromium", Version: "130"}, {Brand: "Google Chrome", Version: "130"}, {Brand: "Not?A_Brand", Version: "99"}},
++				Platform:        "Android",
++				PlatformVersion: "14.0.0",
++				Architecture:    "",
++				Model:           "SM-A546B",
++				Mobile:          true,
++			}),
++		emulation.SetDeviceMetricsOverride(412, 915, 2.625, true),
++		emulation.SetTouchEmulationEnabled(true).WithMaxTouchPoints(5),
++		// Hide the automation flag on every page the link loads, not only the blank start page.
+ 		chromedp.ActionFunc(func(ctx context.Context) error {
+-			// Remove webdriver flag
+-			return chromedp.Evaluate(`Object.defineProperty(navigator, 'webdriver', {get: () => undefined})`, nil).Do(ctx)
++			_, err := page.AddScriptToEvaluateOnNewDocument(`Object.defineProperty(navigator, 'webdriver', {get: () => undefined})`).Do(ctx)
++			return err
+ 		}),
+ 		// Navigate to URL
+ 		chromedp.Navigate(validatedURL),

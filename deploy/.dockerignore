@@ -1,6 +1,7 @@
 **
 !urlvet.Dockerfile
 !urlvet-entrypoint.sh
+!urlvet-mobile.patch
 !egress.Dockerfile
 !scanner-egress.py
 !egress-check.py

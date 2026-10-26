@@ -21,7 +21,8 @@ MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software'}
 SCAM = {'verified_phishing', 'web_risk_social_engineering'}
 LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch'}
-ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness'}
+ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld'}
+PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden'}
 # code: (tone, title, detail). Tones: bad, warn, info.
 REASONS = {
     'urlhaus_match': ('bad', 'Reported for spreading malware', 'URLhaus, a public list run by abuse.ch, lists this link as a malware source.'),
@@ -43,6 +44,10 @@ REASONS = {
     'hidden_iframe': ('warn', 'Hidden content on the page', 'The page loads hidden content, a technique used to track or attack visitors.'),
     'redirect_behavior': ('warn', 'It sends you through several addresses', 'The link redirects several times before reaching the final page.'),
     'content_indicators': ('warn', 'The page shows warning signs', 'The page has a form or wording that scam pages often use.'),
+    'scam_content': ('bad', 'It promises free money or prizes', 'The page offers cash or gifts “for everyone”, or shows fake comments from happy winners. This is how prize scams work.'),
+    'content_hidden': ('warn', 'The page hid itself from our check', 'It showed our scanner an error or an empty page, but may show something else on your phone. Scam pages do this to avoid security checks.'),
+    'risky_tld': ('warn', 'A domain ending often used by scams', 'The address ends in a cheap domain type that scam sites use a lot.'),
+    'new_domain': ('warn', 'A very new site', 'The site was registered less than a year ago. Scam sites are usually new.'),
     'headers_weak': ('info', 'Some recommended protections are missing', 'Common on ordinary sites too; not a sign of a scam by itself.'),
     'unverified_report': ('info', 'An unconfirmed scam report', 'Someone reported this link as phishing; reviewers haven’t confirmed it yet.'),
 }
@@ -135,6 +140,10 @@ def plain_report(assessment, local, deep, url):
             title, detail = f'The name looks like {copied}', f'The address is very close to {copied} but isn’t it. Check the spelling carefully.'
         elif code == 'shortener' and unresolved:
             continue  # explained by the "couldn’t see where it leads" reason below
+        elif code == 'new_domain' and age is not None:
+            detail = f'The site was registered {age_text(age)} ago. Scam sites are usually new.'
+        elif code == 'domain_history' and 'new_domain' in found:
+            continue
         elif code == 'domain_history' and age is not None and age < 365:
             title, detail = 'A very new site', f'The site was registered {age_text(age)} ago. Scam sites are usually new.'
         reasons.append({'tone': kind, 'title': title, 'detail': detail})
@@ -223,7 +232,9 @@ def plain_report(assessment, local, deep, url):
         check('Suspicious address', 'ok', 'None') if assessed('identity') else check('Suspicious address', 'na', 'Not checked'),
         check('Site age', 'warn' if age < 90 else 'ok', age_text(age)) if age is not None else
         check('Site age', 'warn', 'Risk signs') if 'domain_history' in codes else check('Site age', 'na', 'Not available'),
-        check('Page content', 'warn', 'Asks for password' if login else 'Warning signs') if codes & {'content_indicators', 'hidden_iframe'} else
+        check('Page content', 'bad', 'Scam signs') if 'scam_content' in codes else
+        check('Page content', 'warn', 'Hidden from us') if 'content_hidden' in codes else
+        check('Page content', 'warn', 'Asks for password' if login else 'Warning signs') if codes & PAGE_WARNINGS else
         check('Page content', 'ok', 'Nothing unusual') if assessed('content') else check('Page content', 'na', not_opened),
         check('Redirects', 'warn', 'Several') if 'redirect_behavior' in codes else
         check('Redirects', 'ok', 'Normal') if assessed('behavior') else check('Redirects', 'na', not_opened),

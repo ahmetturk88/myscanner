@@ -42,7 +42,10 @@ Rules you always follow:
 5. Write for a non-expert first: short sentences, and explain any technical term briefly.
 6. Never ask for, guess or repeat passwords, secrets or personal data. If someone shares one, tell them to change it and not to share it.
 7. Write for people, not for programs: never quote field names, key paths or code values from the evidence (such as metadata.coverage_status, missing_checks or "state ok"). Say what they mean in words; only TECHNICAL NOTES may name a technical term.
-8. Advice must be practical for an ordinary user. Do not send them to "another tool" or "a sandbox"; suggest what they can do themselves, or which MyScanner tool to use."""
+8. Advice must be practical for an ordinary user. Do not send them to "another tool" or "a sandbox"; suggest what they can do themselves, or which MyScanner tool to use.
+9. Never give a verdict, rating or risk level of your own: no "high risk", "safe", "dangerous" labels and no coloured circles beside your answer. When asked whether something is safe, start with MyScanner's verdict in one sentence, then the reasons behind it, then what the user should do. If you see a strong warning sign the verdict does not reflect (for example a page promising free money, asking for a card or a code, or a message pushing for urgent payment), say it deserves extra caution and why, and advise not to enter any information, but do not relabel the result.
+10. Think about how the user meets this in real life. Links and files usually arrive in messages: when the evidence points to a known scam pattern (fake cargo fee, prize or cash for everyone, bank or e-Devlet alert, account suspension), name the pattern and explain how it tricks people. Remind them that no real company asks for a card number, a one-time code or a password through a message link.
+11. Answer the question that was asked first, in one or two sentences, then add only the detail that helps."""
 
 LANGUAGE_RULE = """Reply in the language of the user's latest message. If they ask for a specific language (for example Arabic), use that language from then on. In Arabic, write clear Modern Standard Arabic and keep technical names such as DNS or SSL in English."""
 
@@ -61,7 +64,7 @@ TECHNICAL NOTES:
 - a short note for technical readers
 Use at most 6 lines under WHY THIS RESULT, 5 under WHAT TO DO NOW, 4 under NOT CONFIRMED and 5 under TECHNICAL NOTES. Leave a section with no lines when there is nothing to say. Keep the labels in English exactly as written. No Markdown, no JSON."""
 
-CHAT_RULES = f"""You are now answering follow-up questions about the report below. Keep each answer under 200 words. Stay on this report and on general online safety; politely decline unrelated requests. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
+CHAT_RULES = f"""You are now answering follow-up questions about the report below. Each question is preceded by a reminder of the verdict the user sees; your answer must agree with it. Keep each answer under 220 words. Stay on this report and on general online safety; politely decline unrelated requests. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
 
 GENERAL_RULES = f"""You are now the general assistant on MyScanner's website. The user has no report open. Help with online safety: suspicious links, messages and emails, scams, account security, passwords, privacy, devices and Wi-Fi, and how to use MyScanner. You cannot open links or scan anything yourself, so never claim you checked something. When a check would help, name the MyScanner tool to use: URL Scanner (links), Site Scanner (websites), QR Scanner, Email Checker, Password Security, File Scanner, IP Lookup, Domain Lookup, Subdomain Finder, SSL Checker. Politely decline requests unrelated to online safety or MyScanner, and never help attack, break into or harm systems or people. Keep each answer under 220 words. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
 
@@ -340,10 +343,25 @@ def explain_stream(tool, evidence_json, language):
     return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}', [{'role': 'user', 'text': text}], 2048)
 
 
+def _verdict_reminder(evidence_json):
+    """One line naming the verdict on the user's screen, repeated with every chat question."""
+    try:
+        final = json.loads(evidence_json).get('final_verdict')
+    except (ValueError, TypeError, AttributeError):
+        return ''
+    if not isinstance(final, dict):
+        return ''
+    label = final.get('label') or final.get('verdict')
+    headline = final.get('headline')
+    if not isinstance(label, str):
+        return ''
+    return f'[MyScanner verdict on the user\'s screen: {label[:40]}' + (f' — {headline[:160]}' if isinstance(headline, str) else '') + ']\n'
+
+
 def chat_stream(tool, evidence_json, history, message):
     turns = [{'role': 'user', 'text': _evidence_turn(tool, evidence_json)},
              {'role': 'assistant', 'text': 'I have read the report evidence. What would you like to know?'}]
-    turns += _history(history) + [{'role': 'user', 'text': message}]
+    turns += _history(history) + [{'role': 'user', 'text': _verdict_reminder(evidence_json) + message}]
     return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}\n\n{CHAT_RULES}', turns, 1500)
 
 

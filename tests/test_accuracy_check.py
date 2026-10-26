@@ -73,3 +73,14 @@ class RunTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BlindGradeTests(unittest.TestCase):
+    def test_blind_mode_counts_any_flag_as_caught(self):
+        try:
+            accuracy_check.BLIND = True
+            self.assertEqual(accuracy_check.grade('threat', 'suspicious'), 'PASS')
+            self.assertEqual(accuracy_check.grade('threat', 'harmless'), 'FAIL')
+        finally:
+            accuracy_check.BLIND = False
+        self.assertEqual(accuracy_check.grade('threat', 'suspicious'), 'WARN')

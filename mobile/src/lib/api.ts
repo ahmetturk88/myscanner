@@ -88,45 +88,83 @@ export async function request<T = any>(path: string, options: { method?: string;
   return response.json();
 }
 
+/** No byte from the server for this long means the answer stalled (network change, slow provider). */
+const STREAM_IDLE_MS = 30_000;
+/** A whole answer never takes longer than this; the user gets a retry instead of endless dots. */
+const STREAM_TOTAL_MS = 120_000;
+/** Redraw the growing answer at most this often; per-word redraws of a long chat jam slow phones. */
+const STREAM_PAINT_MS = 90;
+
 /**
  * POST and read a streamed AI answer (server-sent events).
  * onText receives the whole answer so far; resolves with the final event.
  */
 export async function stream(path: string, body: unknown, onText: (text: string) => void): Promise<any> {
-  let response;
-  try {
-    response = await streamingFetch(BASE + path, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
-  } catch {
-    throw new ApiError(t('No connection. Check your internet and try again.'), 0);
-  }
-  if (!response.ok) throw await failure(response);
-  const type = response.headers.get('Content-Type') || '';
-  if (!type.includes('text/event-stream') || !response.body) return response.json();
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
+  const controller = new AbortController();
+  let timedOut = false;
+  const abort = () => { timedOut = true; controller.abort(); };
+  let idle = setTimeout(abort, STREAM_IDLE_MS);
+  const total = setTimeout(abort, STREAM_TOTAL_MS);
+  const slow = () => new ApiError(t('The answer is taking too long. Please try again.'), 0);
+  let painted = 0;
+  let pending: ReturnType<typeof setTimeout> | null = null;
   let text = '';
-  let final: any = null;
-  for (;;) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-    let cut: number;
-    while ((cut = buffer.indexOf('\n\n')) >= 0) {
-      const block = buffer.slice(0, cut);
-      buffer = buffer.slice(cut + 2);
-      for (const line of block.split('\n')) {
-        if (!line.startsWith('data:')) continue;
-        let event: any;
-        try { event = JSON.parse(line.slice(5)); } catch { continue; }
-        if (typeof event.delta === 'string') { text += event.delta; onText(text); }
-        else if (typeof event.error === 'string') throw new ApiError(event.error, 503);
-        else if (event.done) final = event;
-      }
+  const paint = (force = false) => {
+    if (pending) { clearTimeout(pending); pending = null; }
+    const wait = STREAM_PAINT_MS - (Date.now() - painted);
+    if (force || wait <= 0) { painted = Date.now(); onText(text); }
+    else pending = setTimeout(() => paint(true), wait);
+  };
+  let reader: any = null;
+  try {
+    let response;
+    try {
+      response = await streamingFetch(BASE + path, { method: 'POST', headers: headers(), body: JSON.stringify(body), signal: controller.signal });
+    } catch {
+      throw timedOut ? slow() : new ApiError(t('No connection. Check your internet and try again.'), 0);
     }
-    if (done) break;
+    if (!response.ok) throw await failure(response);
+    const type = response.headers.get('Content-Type') || '';
+    if (!type.includes('text/event-stream') || !response.body) return await response.json();
+    reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let final: any = null;
+    for (;;) {
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch {
+        throw timedOut ? slow() : new ApiError(t('The answer was interrupted. Please try again.'), 0);
+      }
+      const { value, done } = chunk;
+      clearTimeout(idle);
+      idle = setTimeout(abort, STREAM_IDLE_MS);
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      let cut: number;
+      while ((cut = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, cut);
+        buffer = buffer.slice(cut + 2);
+        for (const line of block.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          let event: any;
+          try { event = JSON.parse(line.slice(5)); } catch { continue; }
+          if (typeof event.delta === 'string') { text += event.delta; paint(); }
+          else if (typeof event.error === 'string') throw new ApiError(event.error, 503);
+          else if (event.done) final = event;
+        }
+      }
+      if (done) break;
+    }
+    if (text) paint(true);
+    if (!final) throw new ApiError(t('The answer was interrupted. Please try again.'), 0);
+    return final;
+  } finally {
+    clearTimeout(idle);
+    clearTimeout(total);
+    if (pending) clearTimeout(pending);
+    if (reader) reader.cancel().catch(() => {});
   }
-  if (!final) throw new ApiError(t('The answer was interrupted. Please try again.'), 0);
-  return final;
 }
 
 /** An image the app downloads with the sign-in token (the page screenshot of a URL report). */

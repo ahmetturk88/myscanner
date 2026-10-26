@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
 
-POLICY_VERSION = 'url-evidence-v10'
+POLICY_VERSION = 'url-evidence-v11'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 # v10: url.vet's own overall verdict is a threshold over signals we already read
 # one by one (and includes a traffic-rank heuristic that flags small, honest
@@ -23,6 +23,12 @@ TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
 CORROBORATING = {'typosquatting','homoglyph','punycode','brand_mismatch','hidden_iframe','ip_url','domain_randomness','domain_history'}
 NOT_VISITED = 'The page was not visited because the address uses a port other than 80 or 443; only its reputation was checked.'
 UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for this URL; reviewers have not confirmed it.'
+# v11: signals that are weak alone but together describe a throwaway scam site.
+# Escalation needs at least one of CORE; age and traffic alone never flag a site,
+# and url.vet's own rating counts but is not core (it is built on age and traffic).
+CORE = {'risky_tld', 'domain_randomness', 'content_hidden'}
+ESTABLISHED_DAYS = 5 * 365
+TOP_RANK = 50000
 
 
 def number(value):
@@ -50,12 +56,55 @@ def upgraded_to_https(behavior):
             and bool(host(final)) and host(final)==host(behavior.get('original_url')))
 
 
+def age_days(local, deep, provider):
+    for value in (mapping(deep.get('whois')).get('age_days'), mapping(local.get('whois')).get('age_days'),
+                  mapping(provider.get('domain_info')).get('age_days')):
+        if isinstance(value,int) and not isinstance(value,bool) and value>0:return value
+    return None
+
+
+def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
+    """v11 signals for new, unlisted scams. Returns (weak codes, strong scam lure, established)."""
+    age=age_days(local,deep,provider)
+    rank=provider.get('rank') if isinstance(provider.get('rank'),int) and not isinstance(provider.get('rank'),bool) else None
+    established=(age is not None and age>=ESTABLISHED_DAYS) or (rank is not None and 0<rank<=TOP_RANK)
+    weak=set()
+    if mapping(provider.get('tld_info')).get('is_risky') is True:
+        weak.add('risky_tld');signal('identity','risky_tld',4,'The address ends in a domain type that is cheap and often used for scam sites.')
+    if rank==0:weak.add('unranked')
+    if age is not None and age<365:
+        weak.add('new_domain');signal('identity','new_domain',4,'The site was registered less than a year ago.')
+    if 'domain_randomness' in reasons:weak.add('domain_randomness')
+    if provider_flag:weak.add('provider_flag')
+    page=mapping(deep.get('page_content'))
+    behavior=mapping(deep.get('behavior'))
+    final=behavior.get('final_url') if isinstance(behavior.get('final_url'),str) else ''
+    try:
+        parts=urlparse(final or (deep.get('url') if isinstance(deep.get('url'),str) else ''))
+        deep_link=parts.path not in ('','/') or bool(parts.query)
+    except ValueError:
+        deep_link=False
+    status=page.get('status_code')
+    text=page.get('visible_text_length')
+    if usable(page) and deep_link and not established and (
+            status in (403,404,410) or (isinstance(text,int) and not isinstance(text,bool) and text<80 and not page.get('forms'))):
+        weak.add('content_hidden')
+        signal('content','content_hidden',10,'The page showed our scanner an error or an empty page. Scam pages do this to hide from security checks.')
+    scam=set(page.get('scam_signals') or []) if isinstance(page.get('scam_signals'),list) else set()
+    strong=bool(scam&{'prize_offer','fake_comments'})
+    if strong:
+        signal('content','scam_content',20,'The page promises free money or prizes, or shows fake comments, the way scam pages do.')
+    elif 'collects_phone_or_card' in scam:
+        weak.add('collects_details')
+    return weak,strong,established
+
+
 def assess_url(local, deep):
     local=local if isinstance(local,dict) else {}
     deep=deep if isinstance(deep,dict) else {}
     upgraded=upgraded_to_https(mapping(deep.get('behavior')))
     components={key:{'weight':weight,'status':'unavailable','deduction':0,'reasons':[]} for key,weight in WEIGHTS.items()}
-    reasons={}; missing=[]; confirmed=False; review=False; reported=False; provider_verdicts=[]
+    reasons={}; missing=[]; confirmed=False; review=False; reported=False; provider_verdicts=[]; seen_provider={}
     def assessed(key):components[key]['status']='assessed'
     def signal(key,code,points,message):
         assessed(key)
@@ -107,6 +156,7 @@ def assess_url(local, deep):
         else:
             sources.append('url.vet')
             provider_verdicts.append(provider.get('verdict'))
+            seen_provider=provider
             features=mapping(provider.get('url_features'))
             for field,code,points,message in [('uses_ip','ip_url',8,'The URL uses an IP address instead of a domain.'),('contains_punycode','punycode',3,'Internationalized domain spelling requires review.'),('has_homoglyph','homoglyph',8,'The domain contains look-alike characters.'),('has_keywords','url_phishing_patterns',5,'URL naming patterns resemble phishing heuristics; this is not confirmation.')]:
                 if features.get(field) is True:signal('identity',code,points,message)
@@ -191,6 +241,7 @@ def assess_url(local, deep):
     # Only a verified phishing entry or a URLhaus match confirms one; any other
     # provider threat verdict asks for review.
     provider_flag=any(v in ('malicious','suspicious','high_risk') for v in provider_verdicts)
+    weak,strong_scam,established=throwaway_signals(local,deep,seen_provider,provider_flag,reasons,signal)
     for item in reasons.values():components[item['category']]['reasons'].append(item['code'])
     for key,component in components.items():
         component['deduction']=min(component['weight'],round(sum(v['deduction'] for v in reasons.values() if v['category']==key),1))
@@ -209,6 +260,19 @@ def assess_url(local, deep):
     else:verdict='harmless'
     if verdict in ('harmless','unknown') and TRANSPORT_WARNINGS & set(reasons):verdict='suspicious'
     if reported and verdict in ('harmless','unknown') and CORROBORATING & set(reasons):verdict='suspicious'
+    # v11: one verdict from all evidence. A scam lure on the page, or several weak
+    # signs including one that throwaway scam sites typically show, raise it.
+    escalated=None
+    if not confirmed and not established:
+        if strong_scam and weak:escalated='high_risk'
+        elif len(weak)>=4 and CORE&weak:escalated='high_risk'
+        elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'
+    rank_order=['harmless','unknown','suspicious','high_risk','malicious']
+    if escalated and rank_order.index(escalated)>rank_order.index(verdict):
+        verdict=escalated
+        score=min(score if score is not None else 100,35 if verdict=='high_risk' else 60)
+    if verdict in ('suspicious','high_risk') and 'provider_flag' in weak:
+        provider_note=False  # url.vet's rating counted as one of the signs
     # Coverage deductions are separate from threat evidence. Missing categories
     # use their full weight; missing checks within an assessed category cost 5
     # each, deduplicated across quick/deep sources and capped by that category.

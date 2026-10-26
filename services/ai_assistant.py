@@ -344,6 +344,9 @@ def explain_stream(tool, evidence_json, language):
     return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}', [{'role': 'user', 'text': text}], 2048)
 
 
+TONE_COLOURS = {'danger': 'shown in red', 'caution': 'shown in yellow', 'unknown': 'shown in grey', 'safe': 'shown in green', 'info': 'shown in blue'}
+
+
 def _verdict_reminder(evidence_json):
     """One line naming the verdict on the user's screen, repeated with every chat question."""
     try:
@@ -356,7 +359,10 @@ def _verdict_reminder(evidence_json):
     headline = final.get('headline')
     if not isinstance(label, str):
         return ''
-    return f'[MyScanner verdict on the user\'s screen: {label[:40]}' + (f' — {headline[:160]}' if isinstance(headline, str) else '') + ']\n'
+    # The colour too: the assistant once called a yellow "BE CAREFUL" a red mark.
+    colour = TONE_COLOURS.get(final.get('tone'))
+    return (f'[MyScanner verdict on the user\'s screen: {label[:40]}' + (f' ({colour})' if colour else '')
+            + (f' — {headline[:160]}' if isinstance(headline, str) else '') + ']\n')
 
 
 def chat_stream(tool, evidence_json, history, message):

@@ -293,6 +293,8 @@ REPORTS_TR = {
     'The link redirects to a server on an unusual port, the way malware downloads are often delivered.': 'Bağlantı alışılmadık bir porttaki sunucuya yönlendiriyor; kötü amaçlı yazılım indirmeleri sıklıkla böyle yapılır.',
     'An address the link passes through on the way is listed by URLhaus as malware.': 'Bağlantının yolda geçtiği bir adres URLhaus tarafından kötü amaçlı yazılım olarak listeleniyor.',
     'The link uses a rented server’s default name instead of a website name.': 'Bağlantı bir site adı yerine kiralık bir sunucunun varsayılan adını kullanıyor.',
+    'Cloudflare, which serves this site, shows its own warning that the site was reported for phishing.': 'Bu siteyi sunan Cloudflare, sitenin oltalama için bildirildiğine dair kendi uyarısını gösteriyor.',
+    'Cloudflare, which serves this site, shows its own warning that the site was reported for spreading malware.': 'Bu siteyi sunan Cloudflare, sitenin kötü amaçlı yazılım yaydığı için bildirildiğine dair kendi uyarısını gösteriyor.',
     # --- AI assistant
     'AI ASSISTANT': 'YAPAY ZEKÂ ASİSTANI',
     'MyScanner AI assistant': 'MyScanner yapay zekâ asistanı',

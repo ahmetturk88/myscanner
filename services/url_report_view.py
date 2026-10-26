@@ -238,7 +238,16 @@ def plain_report(assessment, local, deep, url):
 
     codes = set(found)
     if tone == 'danger':
-        if codes & MALWARE:
+        if codes & {'host_blocked_malware', 'host_blocked_phishing'}:
+            summary = 'The company that hosts this site has blocked it after reports of ' + (
+                'malware.' if 'host_blocked_malware' in codes else 'phishing.') + ' Don’t open it.'
+            actions = ['Don’t open the link or enter any information on it.',
+                       'Already entered a password? Change it on the real site and turn on two-step login.']
+        elif codes & {'download_malware', 'page_malware'} and not codes & (MALWARE - {'download_malware', 'page_malware'}):
+            summary = 'Our antivirus found malware in it. Opening it could harm your device.'
+            actions = ['Don’t open the link, and don’t run anything it downloaded.',
+                       'Already opened a file from it? Disconnect from the internet and run a virus scan.']
+        elif codes & MALWARE:
             summary = 'It is on a list of links that spread malware. Opening it could harm your device.'
             actions = ['Don’t open the link, and don’t run anything it downloaded.',
                        'Already opened a file from it? Disconnect from the internet and run a virus scan.']

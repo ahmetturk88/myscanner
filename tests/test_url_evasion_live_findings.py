@@ -271,3 +271,24 @@ class ManualTestFindingTests(unittest.TestCase):
         from services.ai_assistant import _verdict_reminder
         evidence_json = json.dumps({'final_verdict': {'label': 'BE CAREFUL', 'tone': 'caution', 'headline': 'Be careful with this link'}})
         self.assertIn('BE CAREFUL (shown in yellow)', _verdict_reminder(evidence_json))
+
+
+class ManualTestSummaryTests(unittest.TestCase):
+    def test_summary_names_the_real_source(self):
+        from services.report_i18n import translate_plain
+        from services.url_report_view import plain_report
+        page = {'title': 'Suspected Malware | Cloudflare', 'content_risk_score': 0, 'status_code': 403, 'visible_text_length': 300,
+                'scam_signals': [], 'host_warning': {'host': 'cloudflare', 'kind': 'malware'}}
+        local, deep = evidence('http://sp30ct10-varkako-biz-kuremi.pages.dev/', age=3000, rank=0, page=page)
+        plain = plain_report(assess_url(local, deep), local, deep, local['url'])
+        self.assertEqual(plain['summary'], 'The company that hosts this site has blocked it after reports of malware. Don’t open it.')
+        self.assertEqual(translate_plain(plain, 'tr')['summary'], 'Bu siteyi barındıran şirket, kötü amaçlı yazılım bildirimleri üzerine onu engelledi. Açma.')
+        eicar = {'title': '', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 68, 'scam_signals': [],
+                 'antivirus': {'status': 'found', 'signature': 'Eicar-Signature', 'kind': 'malware'}}
+        local, deep = evidence('https://secure.eicar.org/eicar.com.txt', page=eicar)
+        self.assertEqual(plain_report(assess_url(local, deep), local, deep, local['url'])['summary'],
+                         'Our antivirus found malware in it. Opening it could harm your device.')
+
+    def test_ai_is_told_not_to_name_evidence_categories(self):
+        from services.ai_assistant import SYSTEM_PROMPT
+        self.assertIn('never label a point with an evidence category name', SYSTEM_PROMPT)

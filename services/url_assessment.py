@@ -222,8 +222,9 @@ def _assess(local, deep):
         # Never render upstream error text, which may contain private data.
         whois_only=(usable(provider) and isinstance(errors,list) and bool(errors)
                     and all(isinstance(error,str) and error.startswith('whois_lookup:') for error in errors))
-        if whois_only:
+        if whois_only and age_days(local,deep,{}) is None:  # our own WHOIS lookup can stand in (v12)
             missing.append('URLVet domain registration (WHOIS) check unavailable')
+        if whois_only:
             provider.pop('domain_info',None)
         if not usable(provider) or ((errors or provider.get('incomplete') is True) and not whois_only):
             missing.append(label+' URLVet assessment unavailable or incomplete')
@@ -341,6 +342,10 @@ def _assess(local, deep):
             weak.add(code);signal('identity',code,*WEAK_ADDRESS[code]);details.append(item)
     page=mapping(deep.get('page_content'))
     asks_login=page.get('has_password_field') is True or page.get('has_login_form') is True
+    if established:
+        # v12: app stores, shops and news sites show other companies' brands all
+        # the time; on an established site that is not impersonation.
+        reasons.pop('brand_mismatch',None)
     for item in reasons.values():components[item['category']]['reasons'].append(item['code'])
     for key,component in components.items():
         component['deduction']=min(component['weight'],round(sum(v['deduction'] for v in reasons.values() if v['category']==key),1))
@@ -366,9 +371,10 @@ def _assess(local, deep):
     elif not confirmed and not established:
         if strong_scam and weak:escalated='high_risk'
         elif 'brand_in_name' in weak and ('collects_details' in weak or asks_login or 'free_hosting' in weak):escalated='high_risk'
-        elif {'risky_download','download_flagged'}&weak:escalated='high_risk' if len(weak)>=3 else 'suspicious'
+        elif {'risky_download','download_flagged'}&weak and len(weak)>=2:escalated='high_risk' if len(weak)>=3 else 'suspicious'
         elif len(weak)>=4 and CORE&weak:escalated='high_risk'
         elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'
+    if not confirmed and not escalated and 'redirect_loop' in weak:escalated='suspicious'  # a browser never reaches a page
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):
         verdict=escalated

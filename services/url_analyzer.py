@@ -13,7 +13,7 @@ import socket
 import ssl
 import dns.resolver
 import requests
-from services.url_tricks import looks_like_short_link, other_site
+from services.url_tricks import PROGRAM_EXTENSIONS, looks_like_short_link, other_site
 from services.safe_http import PublicHTTPSession, ResponseTooLarge, UnsafeTargetError, TargetResolutionError, normalize_url, validate_public_url, public_connection
 import hashlib
 import json
@@ -40,9 +40,6 @@ SCRIPT_REDIRECT = re.compile(r'(?:window\.|document\.|top\.|self\.)?location(?:\
                              r'|location\.(?:replace|assign)\(\s*["\'](https?://[^"\']+)["\']', re.I)
 
 
-# Files a link can make a phone or computer install or run (url-evidence-v12).
-PROGRAM_EXTENSIONS = {'apk', 'xapk', 'apks', 'exe', 'msi', 'scr', 'bat', 'cmd', 'com', 'pif', 'js', 'jse', 'vbs', 'vbe',
-                      'wsf', 'hta', 'ps1', 'jar', 'dmg', 'pkg', 'lnk', 'dll', 'appx', 'msix', 'appxbundle', 'ipa'}
 PROGRAM_TYPES = {'application/vnd.android.package-archive', 'application/x-msdownload', 'application/x-msdos-program',
                  'application/x-ms-installer', 'application/x-msi', 'application/java-archive', 'application/x-apple-diskimage',
                  'application/hta', 'application/x-sh', 'application/x-executable'}

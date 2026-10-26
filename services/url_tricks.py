@@ -27,6 +27,15 @@ MULTI_SUFFIXES = {
     'co.kr', 'com.br', 'com.cn', 'com.sa', 'com.eg', 'co.in', 'com.mx', 'co.za', 'com.sg', 'com.my',
     'com.ar', 'com.co', 'com.pk', 'com.ng', 'com.ua', 'com.cy', 'com.az', 'co.il', 'com.hk', 'com.tw',
 }
+# Default names of rented servers (vmi123.contaboserver.net): a site under one has no name of its own.
+SERVER_HOSTS = {'contaboserver.net', 'your-server.de', 'vultrusercontent.com', 'hostwindsdns.com', 'linodeusercontent.com',
+                'ip.linodeusercontent.com', 'hosted-by-vultr.com', 'kimsufi.com', 'ovh.net', 'vps.ovh.net', 'secureserver.net',
+                'hetzner.cloud', 'digitaloceanspaces.com'}
+# Files a link can make a phone or computer install or run (url-evidence-v12). "com" and "js"
+# are left out when read from the address alone: they are also ordinary names and web scripts.
+PROGRAM_EXTENSIONS = {'apk', 'xapk', 'apks', 'exe', 'msi', 'scr', 'bat', 'cmd', 'com', 'pif', 'js', 'jse', 'vbs', 'vbe',
+                      'wsf', 'hta', 'ps1', 'jar', 'dmg', 'pkg', 'lnk', 'dll', 'appx', 'msix', 'appxbundle', 'ipa'}
+ADDRESS_PROGRAM_EXTENSIONS = PROGRAM_EXTENSIONS - {'com', 'js'}
 # Under a two-letter country ending these are part of the ending, not the site's name.
 COUNTRY_SECOND_LEVELS = {'com', 'net', 'org', 'co', 'gov', 'edu', 'ac', 'or', 'ne', 'gen', 'nom', 'biz', 'info', 'gob', 'mil', 'web'}
 SHARED_HOSTING = {
@@ -38,7 +47,9 @@ SHARED_HOSTING = {
     'tilda.ws', 'mystrikingly.com', 'jimdosite.com', 'site123.me', 'carrd.co', 'notion.site', 'yolasite.com',
     'trycloudflare.com', 'loca.lt', 'serveo.net', 'cloudfront.net', 'amazonaws.com', 'b-cdn.net',
     'ipfs.io', 'dweb.link', 'web.core.windows.net', 'blob.core.windows.net', 'storage.googleapis.com',
-}
+    'cloudworkstations.dev', 'idx.dev', 'firebasestorage.app', 'ondigitalocean.app', 'up.railway.app', 'deno.dev',
+    'pythonanywhere.com', 'zapier.app', 'softr.app', 'glide.page', 'bubbleapps.io', 'webnode.page', 'mobirisesite.com',
+} | SERVER_HOSTS
 
 # Brands that scam links in Turkey imitate most, with the domains each one owns.
 BRANDS = {
@@ -333,11 +344,25 @@ def address_signals(url):
         brands = {b for b in brand_tokens(plain('.'.join(subdomain + [name]))) if not owns(b, registrable)}
         if brands:
             signals.append({'code': 'brand_in_name', 'strong': False, 'brand': sorted(brands, key=len, reverse=True)[0]})
-    if shared:
+    if shared and registrable.split('.', 1)[1] in SERVER_HOSTS:
+        signals.append({'code': 'server_hostname', 'strong': False})
+    elif shared:
         signals.append({'code': 'free_hosting', 'strong': False})
+    if shared:
         if CREDENTIAL_WORDS.search(name):
             signals.append({'code': 'credential_bait', 'strong': False})
     return signals
+
+
+def program_in_address(url):
+    """The file type at the end of the address when it is an app or program (…/SS.ps1, …/guardian.hta)."""
+    try:
+        path = urlsplit(url).path if isinstance(url, str) else ''
+    except ValueError:
+        return ''
+    name = path.rsplit('/', 1)[-1]
+    extension = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    return extension if extension in ADDRESS_PROGRAM_EXTENSIONS else ''
 
 
 def looks_like_short_link(url):

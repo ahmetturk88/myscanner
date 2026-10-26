@@ -22,7 +22,7 @@ MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'd
 SCAM = {'verified_phishing', 'web_risk_social_engineering'}
 LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
-ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait'}
+ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait', 'server_hostname'}
 TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'brand_in_subdomain'}
 PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download'}
 # code: (tone, title, detail). Tones: bad, warn, info.
@@ -63,6 +63,7 @@ REASONS = {
     'page_malware': ('bad', 'The page contains malware', 'Our antivirus scan found malware in this page.'),
     'download_flagged': ('warn', 'The download looks risky', 'Our antivirus flagged risky features in the file this link downloads.'),
     'risky_download': ('warn', 'It downloads an app or program', 'Fake apps sent by message can take over your phone. Install apps only from Google Play or the official site.'),
+    'server_hostname': ('warn', 'No website name of its own', 'The link uses a rented server’s default name instead of a website name. Real companies use their own name.'),
     'credential_bait': ('warn', 'A sign-in page on a free host', 'Its name on a free hosting service is about signing in, verifying or paying. Real companies don’t put these pages on free hosts.'),
     'odd_port_destination': ('warn', 'It sends you to an unusual server', 'The link redirects to a server on an unusual port, the way malware downloads are often delivered. We didn’t open it.'),
     'destination': ('warn', 'It sends you to a different site', 'The link opens a different site from the one in the link, and that site shows warning signs.'),

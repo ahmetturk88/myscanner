@@ -182,6 +182,8 @@ TR = {
     'Downloads a program': 'Program indiriyor',
     'It sends you to a different site': 'Seni farklı bir siteye gönderiyor',
     'A sign-in page on a free host': 'Ücretsiz barındırmada bir giriş sayfası',
+    'No website name of its own': 'Kendine ait bir site adı yok',
+    'The link uses a rented server’s default name instead of a website name. Real companies use their own name.': 'Bağlantı bir site adı yerine kiralık bir sunucunun varsayılan adını kullanıyor. Gerçek şirketler kendi adlarını kullanır.',
     'Its name on a free hosting service is about signing in, verifying or paying. Real companies don’t put these pages on free hosts.': 'Ücretsiz bir barındırma hizmetindeki adı giriş yapma, doğrulama ya da ödemeyle ilgili. Gerçek şirketler bu sayfaları ücretsiz barındırmaya koymaz.',
     'It sends you to an unusual server': 'Seni alışılmadık bir sunucuya gönderiyor',
     'The link redirects to a server on an unusual port, the way malware downloads are often delivered. We didn’t open it.': 'Bağlantı alışılmadık bir porttaki sunucuya yönlendiriyor; kötü amaçlı yazılım indirmeleri sıklıkla böyle yapılır. Açmadık.',

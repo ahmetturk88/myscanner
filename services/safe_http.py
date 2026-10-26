@@ -4,7 +4,7 @@ import ipaddress
 import re
 import socket
 import time
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -247,3 +247,24 @@ class PublicHTTPSession(requests.Session):
 
     def request(self, method, url, **kwargs):
         return super().request(method, normalize_url(url), **kwargs)
+
+    def get_redirect_target(self, resp):
+        """Stop, without failing, at a redirect to another port or to a non-web scheme.
+
+        The scanner never connects there; the address is kept on the response as
+        `unfollowed_redirect` so it can still be checked by reputation (url-evidence-v12).
+        A redirect to a private address is still followed into the usual rejection.
+        """
+        target = super().get_redirect_target(resp)
+        if not target:
+            return target
+        full = urljoin(resp.url, target)
+        try:
+            parts = urlsplit(full)
+            unfollowable = parts.scheme.lower() not in ('http', 'https') or parts.port not in (None, 80, 443)
+        except ValueError:
+            unfollowable = True
+        if unfollowable:
+            resp.unfollowed_redirect = full[:2048]
+            return None
+        return target

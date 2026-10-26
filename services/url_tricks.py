@@ -99,7 +99,36 @@ BRANDS = {
     'linkedin': {'linkedin.com', 'lnkd.in'},
     'twitter': {'twitter.com', 'x.com', 't.co'},
     'telegram': {'telegram.org', 't.me', 'telegram.me'},
+    'xfinity': {'xfinity.com', 'comcast.net', 'comcast.com'},
+    'comcast': {'comcast.com', 'comcast.net', 'xfinity.com'},
+    'verizon': {'verizon.com', 'verizonwireless.com'},
+    'chase': {'chase.com', 'jpmorganchase.com'},
+    'wellsfargo': {'wellsfargo.com'},
+    'bankofamerica': {'bankofamerica.com', 'bofa.com'},
+    'usps': {'usps.com'},
+    'royalmail': {'royalmail.com'},
+    'roblox': {'roblox.com', 'rbxcdn.com'},
+    'coinbase': {'coinbase.com'},
+    'metamask': {'metamask.io'},
+    'adobe': {'adobe.com', 'adobelogin.com'},
+    'docusign': {'docusign.com', 'docusign.net'},
+    'dropbox': {'dropbox.com', 'dropboxusercontent.com'},
+    'onedrive': {'onedrive.com', 'onedrive.live.com', 'live.com', 'microsoft.com'},
+    'wetransfer': {'wetransfer.com', 'we.tl'},
+    'yahoo': {'yahoo.com', 'yahoo.co.jp', 'yimg.com'},
+    'santander': {'santander.com', 'santander.co.uk', 'santander.com.br'},
+    'revolut': {'revolut.com'},
+    'samsung': {'samsung.com'},
 }
+# Brands with a site under many country endings (amazon.de, paypal.fr); for the
+# others, the brand's exact name on another ending is a swapped-ending fake (roblox.rw).
+MULTI_COUNTRY = {'amazon', 'google', 'apple', 'microsoft', 'paypal', 'netflix', 'dhl', 'ups', 'fedex', 'vodafone',
+                 'facebook', 'instagram', 'spotify', 'linkedin', 'yahoo', 'adobe', 'samsung', 'santander', 'twitter'}
+RISKY_ENDINGS = {'xyz', 'top', 'buzz', 'club', 'icu', 'shop', 'online', 'site', 'live', 'click', 'link', 'rest', 'fit', 'cfd',
+                 'sbs', 'bond', 'lol', 'mom', 'tk', 'ml', 'ga', 'cf', 'gq', 'work', 'support', 'help', 'info', 'vip', 'cyou'}
+# Words that name a phishing page on a free host ("xfinityhelplogin.weebly.com").
+CREDENTIAL_WORDS = re.compile(r'log-?in|sign-?in|verif|secur|account|update|support|help|wallet|recover|unlock|confirm|billing'
+                              r'|payment|refund|odeme|giris|dogrula|hesap|sifre|iade|onay', re.I)
 OFFICIAL = {domain for domains in BRANDS.values() for domain in domains}
 DISPLAY = {'garanti': 'Garanti BBVA', 'garantibbva': 'Garanti BBVA', 'isbank': 'İş Bankası', 'isbankasi': 'İş Bankası',
            'ziraat': 'Ziraat Bankası', 'ziraatbank': 'Ziraat Bankası', 'yapikredi': 'Yapı Kredi', 'vakifbank': 'VakıfBank',
@@ -251,8 +280,11 @@ def brand_tokens(text):
 
 
 def owns(brand, registrable):
-    """True when the domain belongs to the brand: one it lists, or brand.<any country ending>."""
-    return registrable in BRANDS[brand] or registrable.split('.')[0] == brand
+    """True when the domain belongs to the brand: one it lists, or brand.<country> for a brand with many country sites."""
+    if registrable in BRANDS[brand]:
+        return True
+    name, _, ending = registrable.partition('.')
+    return name == brand and brand in MULTI_COUNTRY and ending.rsplit('.', 1)[-1] not in RISKY_ENDINGS
 
 
 def address_signals(url):
@@ -276,6 +308,9 @@ def address_signals(url):
             signals.append({'code': 'homograph_name', 'strong': True, 'looks_like': '.'.join(plain(l) for l in labels)[:80]})
             break
     name = unicode_label(registrable.split('.')[0])
+    if not signals and not shared and name in BRANDS and not owns(name, registrable):
+        # The brand's exact name on an ending it doesn't use (roblox.rw, garanti.xyz).
+        signals.append({'code': 'lookalike_name', 'strong': True, 'brand': name, 'tld_swap': True})
     if not signals and not any(owns(b, registrable) for b in BRANDS):
         raw, look = name.replace('-', ''), skeleton(name)
         for official in sorted(OFFICIAL_NAMES - LOOKALIKE_EXCLUDE):
@@ -296,4 +331,20 @@ def address_signals(url):
             signals.append({'code': 'brand_in_name', 'strong': False, 'brand': sorted(brands, key=len, reverse=True)[0]})
     if shared:
         signals.append({'code': 'free_hosting', 'strong': False})
+        if CREDENTIAL_WORDS.search(name):
+            signals.append({'code': 'credential_bait', 'strong': False})
     return signals
+
+
+def looks_like_short_link(url):
+    """A short-link service we don't list: a very short name and one short mixed code (s4w.in/jZlxQ)."""
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or '').lower()
+    except ValueError:
+        return False
+    subdomain, registrable, shared = split_host(host)
+    code = parts.path.strip('/')
+    return (not shared and not subdomain and registrable not in OFFICIAL and len(registrable.split('.')[0]) <= 4
+            and re.fullmatch(r'[A-Za-z0-9_-]{4,12}', code or '') is not None and not parts.query
+            and (bool(re.search(r'[A-Z]', code)) and bool(re.search(r'[a-z]', code)) or bool(re.search(r'\d', code)) and bool(re.search(r'[A-Za-z]', code))))

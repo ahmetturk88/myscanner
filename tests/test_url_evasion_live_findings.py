@@ -48,3 +48,89 @@ class LiveFindingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SecondRunFindingTests(unittest.TestCase):
+    """--live 3 --only threat: OpenPhish entries missed with Web Risk off, and URLhaus links on other ports."""
+
+    def test_brand_name_on_a_swapped_ending(self):
+        from services.url_tricks import address_signals
+        local, deep = evidence('https://www.roblox.rw/games/88738945340571/Would-You-Rather', age=40, rank=0)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'high_risk')
+        local, deep = evidence('https://migros.ch/', age=9000, rank=3000)   # an old site of the same name elsewhere
+        self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')
+        self.assertEqual(address_signals('https://www.amazon.de/'), [])
+        self.assertEqual(address_signals('https://www.paypal.fr/'), [])
+
+    def test_sign_in_page_named_on_a_free_host(self):
+        local, deep = evidence('http://xfinityhelplogin.weebly.com/', age=9000, rank=500)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'high_risk')
+        local, deep = evidence('https://help-center-docs.github.io/', age=9000, rank=500)   # no brand, still a free-host sign-in name
+        self.assertEqual(assess_url(local, deep)['verdict'], 'high_risk')
+        local, deep = evidence('https://myname.github.io/blog', age=9000, rank=500)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')
+
+    def test_unknown_short_link_service_that_did_not_redirect_is_not_called_safe(self):
+        from services.url_tricks import looks_like_short_link
+        self.assertTrue(looks_like_short_link('https://s4w.in/jZlxQ'))
+        for url in ('https://n11.com/kampanya', 'https://www.example.com/jZlxQ', 'https://t.me/abc12', 'https://bit.ly/'):
+            self.assertFalse(looks_like_short_link(url), url)
+        local, deep = evidence('https://s4w.in/jZlxQ', age=3000, rank=0, behavior={'is_shortened': True})
+        self.assertEqual(assess_url(local, deep)['verdict'], 'unknown')
+
+    def test_redirect_to_another_port_stops_without_failing(self):
+        import requests
+        from services.safe_http import PublicHTTPSession
+        response = requests.Response()
+        response.status_code, response.url = 302, 'https://httpbingo.org/redirect-to'
+        response.headers['Location'] = 'http://115.57.254.113:53294/i'
+        self.assertIsNone(PublicHTTPSession().get_redirect_target(response))
+        self.assertEqual(response.unfollowed_redirect, 'http://115.57.254.113:53294/i')
+        response.headers['Location'] = 'market://details?id=x'
+        self.assertIsNone(PublicHTTPSession().get_redirect_target(response))
+        response.headers['Location'] = '/next'
+        self.assertEqual(PublicHTTPSession().get_redirect_target(response), '/next')
+
+    def test_listed_address_behind_a_redirect_to_another_port(self):
+        from unittest.mock import patch
+        from services.url_analyzer import URLDeepAnalyzer
+        from test_url_redirect_destination import Page
+        analyzer = URLDeepAnalyzer()
+        stop = Page('https://httpbingo.org/redirect-to?url=x', '', status=302)
+        stop.unfollowed_redirect = 'http://115.57.254.113:53294/i'
+        with patch.object(analyzer.session, 'get', return_value=stop):
+            behavior = analyzer.analyze_behavior('https://httpbingo.org/redirect-to?url=x')
+        self.assertEqual((behavior['final_url'], behavior['unvisited_destination']), ('http://115.57.254.113:53294/i', True))
+        self.assertEqual(behavior['desktop_final_url'], 'http://115.57.254.113:53294/i')
+        listed = {'url': 'http://115.57.254.113:53294/i', 'structure': {'is_https': False, 'contains_ip': True},
+                  'phishing': {'risk_score': 0}, 'osint': {'urlhaus': True, 'urlhaus_status': 'matched'}, 'whois': {}}
+        local, deep = evidence('https://httpbingo.org/redirect-to?url=x', final=listed['url'], destination=listed,
+                               behavior={'unvisited_destination': True})
+        self.assertEqual(assess_url(local, deep)['verdict'], 'malicious')
+        unlisted = dict(listed, osint={'urlhaus_status': 'not_found'})
+        local, deep = evidence('https://httpbingo.org/redirect-to?url=x', final=listed['url'], destination=unlisted,
+                               behavior={'unvisited_destination': True})
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'suspicious')
+        self.assertIn('odd_port_destination', [r['code'] for r in result['reasons']])
+
+
+class SecondRunReportTests(unittest.TestCase):
+    def test_new_reasons_read_well_in_both_languages(self):
+        from services.report_i18n import translate_plain
+        from services.url_report_view import plain_report
+        cases = {
+            'https://www.roblox.rw/games/1': ('It uses the Roblox name with a different ending. It is not an official Roblox site.',
+                                              'Roblox adını farklı bir uzantıyla kullanıyor. Bu resmi bir Roblox sitesi değil.'),
+            'http://xfinityhelplogin.weebly.com/': (None, None),
+        }
+        for url, (english, turkish) in cases.items():
+            local, deep = evidence(url, age=40, rank=0)
+            result = assess_url(local, deep)
+            plain = plain_report(result, local, deep, url)
+            translated = translate_plain(plain, 'tr')
+            if english:
+                self.assertEqual(plain['reasons'][0]['detail'], english)
+                self.assertEqual(translated['reasons'][0]['detail'], turkish)
+            for reason, original in zip(translated['reasons'], plain['reasons']):
+                self.assertNotEqual(reason['title'], original['title'], original['title'])

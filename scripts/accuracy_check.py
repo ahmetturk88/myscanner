@@ -78,7 +78,8 @@ def evasion_cases():
     from urllib.parse import quote
     from services.url_analyzer import URLDeepAnalyzer
     cases = list(EVASION_CASES)
-    listed = [url for expect, url, note in live_cases(4) if note.startswith('URLhaus: listed now') and standard_port(url)]
+    # Any port: the scanner stops at a redirect to another port and checks that address by reputation.
+    listed = [url for expect, url, note in live_cases(2) if note.startswith('URLhaus: listed now')]
     if listed:
         cases.append(('threat', 'https://httpbingo.org/redirect-to?url=' + quote(listed[0], safe=''), 'Redirect to a URLhaus-listed URL'))
     else:

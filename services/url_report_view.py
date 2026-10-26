@@ -22,7 +22,7 @@ MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'd
 SCAM = {'verified_phishing', 'web_risk_social_engineering'}
 LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
-ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting'}
+ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait'}
 TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'brand_in_subdomain'}
 PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download'}
 # code: (tone, title, detail). Tones: bad, warn, info.
@@ -62,6 +62,8 @@ REASONS = {
     'page_malware': ('bad', 'The page contains malware', 'Our antivirus scan found malware in this page.'),
     'download_flagged': ('warn', 'The download looks risky', 'Our antivirus flagged risky features in the file this link downloads.'),
     'risky_download': ('warn', 'It downloads an app or program', 'Fake apps sent by message can take over your phone. Install apps only from Google Play or the official site.'),
+    'credential_bait': ('warn', 'A sign-in page on a free host', 'Its name on a free hosting service is about signing in, verifying or paying. Real companies don’t put these pages on free hosts.'),
+    'odd_port_destination': ('warn', 'It sends you to an unusual server', 'The link redirects to a server on an unusual port, the way malware downloads are often delivered. We didn’t open it.'),
     'destination': ('warn', 'It sends you to a different site', 'The link opens a different site from the one in the link, and that site shows warning signs.'),
     'device_cloaking': ('bad', 'It hides from security checks', 'The link sends phones and computers to different sites. Scam links do this so checks see a harmless page.'),
     'redirect_loop': ('warn', 'It redirects too many times', 'The link keeps sending you on without reaching a page, a trick used to wear out security checks.'),
@@ -171,6 +173,9 @@ def plain_report(assessment, local, deep, url):
             detail = f'“{text("shown")}” is a disguised way of writing the IP address {text("real")}. Real companies never write links like this.'
         elif code == 'homograph_name' and text('looks_like'):
             detail = f'It is made to look like {text("looks_like")}, but some letters come from another alphabet. It is a different site.'
+        elif code == 'lookalike_name' and text('brand') and trick.get('tld_swap') is True and found[code].get('deduction', 0) >= 20:
+            kind, title = 'bad', f'It imitates {display(text("brand"))}'
+            detail = f'It uses the {display(text("brand"))} name with a different ending. It is not an official {display(text("brand"))} site.'
         elif code == 'lookalike_name' and text('brand'):
             kind = 'bad' if trick.get('strong') is True else 'warn'
             title = f'It imitates {display(text("brand"))}' if kind == 'bad' else f'The name is close to {display(text("brand"))}'

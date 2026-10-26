@@ -56,6 +56,7 @@ WEAK_ADDRESS = {
     'lookalike_name': (8, 'The site name is one letter away from a well-known brand.'),
     'brand_in_name': (6, 'The address uses a well-known brand’s name, but the site doesn’t belong to that brand.'),
     'free_hosting': (2, 'The page is on a free hosting service where anyone can publish a page.'),
+    'credential_bait': (6, 'The page’s name on a free hosting service is about signing in, verifying or paying, the way phishing pages are named.'),
 }
 ESTABLISHED_DAYS = 5 * 365
 TOP_RANK = 50000
@@ -112,6 +113,12 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
     if (isinstance(mobile_end,str) and isinstance(desktop_end,str) and other_site(mobile_end,desktop_end)
             and not {host(mobile_end),host(desktop_end)}&APP_STORES):
         weak.add('device_cloaking');signal('behavior','device_cloaking',*REDIRECT_SIGNALS['device_cloaking'])
+    if behavior_data.get('unvisited_destination') is True and isinstance(mobile_end,str):
+        try:
+            odd=urlparse(mobile_end).port not in (None,80,443)
+        except ValueError:
+            odd=True
+        if odd:signal('behavior','odd_port_destination',10,'The link redirects to a server on an unusual port, the way malware downloads are often delivered.')
     if behavior_data.get('too_many_redirects') is True:
         weak.add('redirect_loop');signal('behavior','redirect_loop',*REDIRECT_SIGNALS['redirect_loop'])
     if provider_flag:weak.add('provider_flag')
@@ -336,6 +343,8 @@ def _assess(local, deep):
     if any(item['code']=='free_hosting' for item in found):established=False  # the platform's age is not the page's
     for item in found:
         code=item['code']
+        if item.get('tld_swap') and established:  # an old defensive registration, not a fresh fake
+            item=dict(item,strong=False)
         if item['strong']:
             deceptive=True;signal('identity',code,20,DECEPTION[code]);details.append(item)
         elif code in WEAK_ADDRESS and not established:  # e.g. apple.stackexchange.com
@@ -371,10 +380,12 @@ def _assess(local, deep):
     elif not confirmed and not established:
         if strong_scam and weak:escalated='high_risk'
         elif 'brand_in_name' in weak and ('collects_details' in weak or asks_login or 'free_hosting' in weak):escalated='high_risk'
+        elif 'credential_bait' in weak:escalated='high_risk'
         elif {'risky_download','download_flagged'}&weak and len(weak)>=2:escalated='high_risk' if len(weak)>=3 else 'suspicious'
         elif len(weak)>=4 and CORE&weak:escalated='high_risk'
         elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'
     if not confirmed and not escalated and 'redirect_loop' in weak:escalated='suspicious'  # a browser never reaches a page
+    if not confirmed and not escalated and 'odd_port_destination' in reasons:escalated='suspicious'
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):
         verdict=escalated

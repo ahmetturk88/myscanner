@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 import re
 
 from services.url_assessment import NOT_VISITED, SHORT_UNRESOLVED, mapping
+from services.url_tricks import display
 
 VERDICTS = {
     'malicious': ('danger', 'DANGEROUS', 'Don’t open this link'),
@@ -17,12 +18,13 @@ VERDICTS = {
     'unknown': ('unknown', 'NOT SURE', 'We couldn’t fully check this link'),
     'harmless': ('safe', 'LOOKS SAFE', 'No warning signs found'),
 }
-MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software'}
+MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'download_malware', 'page_malware'}
 SCAM = {'verified_phishing', 'web_risk_social_engineering'}
 LISTED = MALWARE | SCAM
-LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch'}
-ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld'}
-PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden'}
+LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
+ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting'}
+TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'brand_in_subdomain'}
+PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download'}
 # code: (tone, title, detail). Tones: bad, warn, info.
 REASONS = {
     'urlhaus_match': ('bad', 'Reported for spreading malware', 'URLhaus, a public list run by abuse.ch, lists this link as a malware source.'),
@@ -48,6 +50,21 @@ REASONS = {
     'content_hidden': ('warn', 'The page hid itself from our check', 'It showed our scanner an error or an empty page, but may show something else on your phone. Scam pages do this to avoid security checks.'),
     'risky_tld': ('warn', 'A domain ending often used by scams', 'The address ends in a cheap domain type that scam sites use a lot.'),
     'new_domain': ('warn', 'A very new site', 'The site was registered less than a year ago. Scam sites are usually new.'),
+    'userinfo_trick': ('bad', 'The link hides where it really goes', 'Browsers ignore everything before “@” in a link, so the name you see is not the site that opens.'),
+    'encoded_ip': ('bad', 'It hides a numeric address', 'The site name is a disguised IP address. Real companies never write links like this.'),
+    'encoded_host': ('bad', 'The site name is written in code', 'Letters in the site name are %-encoded to hide what it really is.'),
+    'homograph_name': ('bad', 'Fake letters in the site name', 'The name uses letters from another alphabet that look like normal ones, to imitate another site.'),
+    'lookalike_name': ('warn', 'The name is close to a well-known brand', 'The site name is one letter away from a well-known name. Check the spelling carefully.'),
+    'brand_in_subdomain': ('bad', 'A fake address in front of the real one', 'The link starts with a well-known site’s address to look official, but opens a different site.'),
+    'brand_in_name': ('warn', 'It uses a brand name it doesn’t own', 'The address contains a well-known brand’s name, but the site doesn’t belong to that brand.'),
+    'free_hosting': ('info', 'On a free hosting service', 'Anyone can publish a page there, so the platform’s name says nothing about who made it.'),
+    'download_malware': ('bad', 'It downloads a virus', 'The link downloads a file, and our antivirus scan found malware in it.'),
+    'page_malware': ('bad', 'The page contains malware', 'Our antivirus scan found malware in this page.'),
+    'download_flagged': ('warn', 'The download looks risky', 'Our antivirus flagged risky features in the file this link downloads.'),
+    'risky_download': ('warn', 'It downloads an app or program', 'Fake apps sent by message can take over your phone. Install apps only from Google Play or the official site.'),
+    'destination': ('warn', 'It sends you to a different site', 'The link opens a different site from the one in the link, and that site shows warning signs.'),
+    'device_cloaking': ('bad', 'It hides from security checks', 'The link sends phones and computers to different sites. Scam links do this so checks see a harmless page.'),
+    'redirect_loop': ('warn', 'It redirects too many times', 'The link keeps sending you on without reaching a page, a trick used to wear out security checks.'),
     'headers_weak': ('info', 'Some recommended protections are missing', 'Common on ordinary sites too; not a sign of a scam by itself.'),
     'unverified_report': ('info', 'An unconfirmed scam report', 'Someone reported this link as phishing; reviewers haven’t confirmed it yet.'),
 }
@@ -126,11 +143,44 @@ def plain_report(assessment, local, deep, url):
     missing = [m for m in assessment.get('missing_checks') or [] if isinstance(m, str)]
     unresolved = SHORT_UNRESOLVED in missing
     copied = imitated(local, deep)
+    tricks = {d.get('code'): d for d in assessment.get('address_details') or [] if isinstance(d, dict)}
+    real_host = url_parts(url)['host']
 
     reasons = []
     rank = {'bad': 0, 'warn': 1, 'info': 2}
     for code, item in sorted(found.items(), key=lambda pair: (rank[REASONS[pair[0]][0]], -(pair[1].get('deduction') or 0))):
         kind, title, detail = REASONS[code]
+        trick = tricks.get(code) or {}
+        text = lambda key: trick.get(key) if isinstance(trick.get(key), str) and 0 < len(trick.get(key)) <= 80 else ''
+        file = mapping(mapping(mapping(deep.get('page_content')).get('download')))
+        name = file.get('filename') if isinstance(file.get('filename'), str) and 0 < len(file.get('filename')) <= 100 else ''
+        signature = mapping(file.get('antivirus')).get('signature')
+        if code == 'download_malware' and name and isinstance(signature, str) and 0 < len(signature) <= 120:
+            detail = f'The link downloads “{name}”, and our antivirus found {signature} in it.'
+        elif code == 'risky_download' and name:
+            detail = f'The link downloads “{name}”. Fake apps sent by message can take over your phone. Install apps only from Google Play or the official site.'
+        page_signature = mapping(mapping(deep.get('page_content')).get('antivirus')).get('signature')
+        if code == 'page_malware' and isinstance(page_signature, str) and 0 < len(page_signature) <= 120:
+            detail = f'Our antivirus found {page_signature} in this page.'
+        destination = mapping(assessment.get('destination'))
+        if code == 'destination' and isinstance(destination.get('url'), str) and url_parts(destination['url'])['host']:
+            detail = f'The link opens {url_parts(destination["url"])["host"]}, a different site from the one in the link, and that site shows warning signs.'
+        if code == 'userinfo_trick' and text('shown') and real_host:
+            detail = f'The link shows “{text("shown")}”, but it really opens {real_host}. Browsers ignore everything before “@”.'
+        elif code == 'encoded_ip' and text('shown') and text('real'):
+            detail = f'“{text("shown")}” is a disguised way of writing the IP address {text("real")}. Real companies never write links like this.'
+        elif code == 'homograph_name' and text('looks_like'):
+            detail = f'It is made to look like {text("looks_like")}, but some letters come from another alphabet. It is a different site.'
+        elif code == 'lookalike_name' and text('brand'):
+            kind = 'bad' if trick.get('strong') is True else 'warn'
+            title = f'It imitates {display(text("brand"))}' if kind == 'bad' else f'The name is close to {display(text("brand"))}'
+            detail = (f'The site name copies {display(text("brand"))} with swapped letters or numbers. It is not the real site.' if kind == 'bad'
+                      else f'The site name is one letter away from {display(text("brand"))}. Check the spelling carefully.')
+        elif code == 'brand_in_subdomain' and text('brand') and text('real'):
+            detail = f'The link starts with {text("brand")} to look official, but the site it opens is {text("real")}.'
+        elif code == 'brand_in_name' and text('brand'):
+            title = f'It uses the {display(text("brand"))} name'
+            detail = f'The address contains “{display(text("brand"))}”, but it isn’t an official {display(text("brand"))} site.'
         if code == 'brand_mismatch' and brand:
             title, detail = f'It pretends to be {brand}', f'The page shows the {brand} brand, but the address doesn’t belong to {brand}.'
         elif code == 'content_indicators' and (login or payment):
@@ -225,17 +275,24 @@ def plain_report(assessment, local, deep, url):
         check('Secure connection', 'bad', 'Invalid certificate') if 'tls_invalid' in codes else
         check('Secure connection', 'warn', 'No HTTPS') if 'no_https' in codes else
         check('Secure connection', 'ok', 'Valid HTTPS') if assessed('transport') else check('Secure connection', 'na', 'Not checked'),
+        check('Look-alike or fake brand', 'bad', 'Fake address') if codes & TRICKS - {'userinfo_trick', 'encoded_ip', 'encoded_host'} or mapping(tricks.get('lookalike_name')).get('strong') is True else
         check('Look-alike or fake brand', 'warn', brand if 'brand_mismatch' in codes and brand else copied if 'typosquatting' in codes and copied else 'Possible') if codes & LOOK_ALIKE else
         check('Look-alike or fake brand', 'ok', 'None') if assessed('identity') else check('Look-alike or fake brand', 'na', 'Not checked'),
+        check('Suspicious address', 'bad', 'Hidden destination') if codes & {'userinfo_trick', 'encoded_ip', 'encoded_host'} else
         check('Suspicious address', 'warn', 'Short link' if codes & ADDRESS == {'shortener'} else 'Found') if codes & ADDRESS - {'shortener'} or unresolved else
         check('Suspicious address', 'info', 'Short link') if 'shortener' in codes else
         check('Suspicious address', 'ok', 'None') if assessed('identity') else check('Suspicious address', 'na', 'Not checked'),
         check('Site age', 'warn' if age < 90 else 'ok', age_text(age)) if age is not None else
         check('Site age', 'warn', 'Risk signs') if 'domain_history' in codes else check('Site age', 'na', 'Not available'),
+        check('Page content', 'bad', 'Virus found') if codes & {'download_malware', 'page_malware'} else
+        check('Page content', 'warn', 'Downloads a program') if 'risky_download' in codes else
         check('Page content', 'bad', 'Scam signs') if 'scam_content' in codes else
         check('Page content', 'warn', 'Hidden from us') if 'content_hidden' in codes else
         check('Page content', 'warn', 'Asks for password' if login else 'Warning signs') if codes & PAGE_WARNINGS else
         check('Page content', 'ok', 'Nothing unusual') if assessed('content') else check('Page content', 'na', not_opened),
+        check('Redirects', 'bad', 'Hides from checks') if 'device_cloaking' in codes else
+        check('Redirects', 'warn', 'To another site') if 'destination' in codes else
+        check('Redirects', 'warn', 'Too many') if 'redirect_loop' in codes else
         check('Redirects', 'warn', 'Several') if 'redirect_behavior' in codes else
         check('Redirects', 'ok', 'Normal') if assessed('behavior') else check('Redirects', 'na', not_opened),
     ]

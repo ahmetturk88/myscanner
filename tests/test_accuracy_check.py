@@ -84,3 +84,19 @@ class BlindGradeTests(unittest.TestCase):
         finally:
             accuracy_check.BLIND = False
         self.assertEqual(accuracy_check.grade('threat', 'suspicious'), 'WARN')
+
+
+class EvasionCaseTests(unittest.TestCase):
+    def test_every_address_trick_case_is_caught_from_the_address_alone(self):
+        EVASION_CASES = accuracy_check.EVASION_CASES
+        from services.url_tricks import address_signals, unmask
+        for expect, url, note in EVASION_CASES:
+            if expect != 'threat' or 'eicar' in url:
+                continue
+            clean, tricks = unmask(url)
+            strong = tricks or [s for s in address_signals(clean) if s['strong']]
+            self.assertTrue(strong, f'{url}: {note}')
+        for expect, url, note in EVASION_CASES:
+            if expect == 'clean':
+                clean, tricks = unmask(url)
+                self.assertEqual((tricks, [s for s in address_signals(clean) if s['strong']]), ([], []), url)

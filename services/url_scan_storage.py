@@ -12,7 +12,8 @@ JOB_LIFETIME = timedelta(minutes=45)
 FAILURE = 'URL analysis could not finish. Please start a new scan.'
 
 
-def enqueue_url_scan(task, url, user_id):
+def enqueue_url_scan(task, url, user_id, tricks=None):
+    """`tricks`: what services.url_tricks.unmask removed from the pasted address."""
     task_id = str(uuid.uuid4())
     scan = Scan(url=url, user_id=user_id, status='queued', verdict='pending',
                 result=JOB_MARKER, raw_report=json.dumps({'task_id': task_id}))
@@ -21,7 +22,7 @@ def enqueue_url_scan(task, url, user_id):
     db.session.commit()  # Both durable records exist before any worker can receive the message.
     scan_id = scan.id
     try:
-        task.apply_async(args=(url, user_id, scan_id, task_id), task_id=task_id,
+        task.apply_async(args=(url, user_id, scan_id, task_id), kwargs={'tricks': tricks} if tricks else None, task_id=task_id,
                          expires=int(JOB_LIFETIME.total_seconds()))
     except Exception:
         # Keep ownership even if an ambiguous broker error happened after delivery.

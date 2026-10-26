@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import requests
 from urllib3.response import HTTPResponse
-from services.safe_http import (PublicHTTPSession, UnsafeTargetError,
+from services.safe_http import (PublicHTTPSession, ResponseTooLarge, UnsafeTargetError,
     normalize_url, validate_public_url, public_connection)
 
 
@@ -154,9 +154,10 @@ class TransportTests(unittest.TestCase):
         raw = response(body=b'x' * (5 * 1024 * 1024 + 1))
         self.mock_pool('https', [raw])
         with patch('services.safe_http.socket.getaddrinfo', return_value=records('8.8.8.8')):
-            with self.assertRaises(UnsafeTargetError):
+            with self.assertRaises(ResponseTooLarge) as caught:
                 self.session.get('https://example.com')
         self.assertTrue(raw.closed)
+        self.assertNotIsInstance(caught.exception, UnsafeTargetError)  # a big download is not an unsafe target
 
 
 class AnalyzerIntegrationTests(unittest.TestCase):

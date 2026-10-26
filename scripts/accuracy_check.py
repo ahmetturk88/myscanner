@@ -10,6 +10,10 @@ Run it inside the worker container, which has the scanner's network access:
     dc exec worker python scripts/accuracy_check.py --live 15 --blind
         # threat lists (URLhaus, Web Risk) turned off: does the rest of the scan still catch them?
     dc exec worker python scripts/accuracy_check.py --url https://example.com/ --expect clean
+    dc exec worker python scripts/accuracy_check.py --evasion
+        # tricks that hide a link's real destination (an @ sign, coded IPs and names,
+        # look-alike letters, decoy addresses, redirects, downloads), and real sites
+        # that must not be flagged by them
 """
 import argparse
 import concurrent.futures
@@ -46,6 +50,48 @@ CASES = [
     ('threat', 'http://malware.wicar.org/data/eicar.com', 'WICAR malware test file'),
 ]
 
+# --evasion: each technique once, plus real sites that look like the tricks but are fine.
+EVASION_CASES = [
+    ('threat', 'https://www.google.com@example.com/', 'Name before @ hides the real site (example.com)'),
+    ('threat', 'http://3627732462/', 'IP address written as one number'),
+    ('threat', 'http://0xd8.0x3a.0xd4.0x4e/', 'IP address written in hex'),
+    ('threat', 'http://0330.072.0324.0116/', 'IP address written in octal'),
+    ('threat', 'https://%65xample.com/', 'Site name written in %-code'),
+    ('threat', 'https://xn--pple-43d.com/', 'Cyrillic letter in "apple" (homograph)'),
+    ('threat', 'https://paypal.com.example.com/', 'Real brand address used as a decoy subdomain'),
+    ('threat', 'https://garanti.com.tr.example.net/', 'Turkish bank address used as a decoy subdomain'),
+    ('threat', 'https://paypa1.com/', 'Digit swapped into a brand name'),
+    ('threat', 'https://secure.eicar.org/eicar.com', 'EICAR antivirus test file (download)'),
+    ('threat', 'https://secure.eicar.org/eicar.com.txt', 'EICAR antivirus test file (text page)'),
+    ('flag', 'https://httpbingo.org/redirect/12', 'More redirects than a browser follows'),
+    ('clean', 'https://apple.stackexchange.com/', 'Brand name on an established site it belongs with'),
+    ('clean', 'https://medium.com/@google', '@ in the path, not before the site name'),
+    ('clean', 'https://httpbingo.org/redirect-to?url=https%3A%2F%2Fwww.wikipedia.org%2F', 'Redirect to a normal site'),
+    ('clean', 'https://play.google.com/store/apps/details?id=com.whatsapp', 'App store page'),
+    ('clean', 'https://github.com/git-for-windows/git/releases/download/v2.47.0.windows.1/Git-2.47.0-64-bit.exe',
+     'Program download from an established site'),
+]
+
+
+def evasion_cases():
+    """EVASION_CASES plus redirects built now: an open redirect to a listed malware URL, and a short link."""
+    from urllib.parse import quote
+    from services.url_analyzer import URLDeepAnalyzer
+    cases = list(EVASION_CASES)
+    listed = [url for expect, url, note in live_cases(1) if note.startswith('URLhaus: listed now') and standard_port(url)]
+    if listed:
+        cases.append(('threat', 'https://httpbingo.org/redirect-to?url=' + quote(listed[0], safe=''), 'Redirect to a URLhaus-listed URL'))
+    else:
+        print('! No URLhaus URL for the redirect case')
+    try:
+        short = URLDeepAnalyzer().session.get('https://is.gd/create.php', params={'format': 'simple', 'url': 'https://www.wikipedia.org/'}, timeout=15).text.strip()
+        if short.startswith('https://is.gd/'):
+            cases.append(('clean', short, 'Short link to a normal site'))
+    except Exception as error:
+        print(f'! Short link could not be created: {type(error).__name__}')
+    return cases
+
+
 THREAT = ('malicious', 'high_risk')
 FLAGGED = ('malicious', 'high_risk', 'suspicious')
 
@@ -69,6 +115,8 @@ def grade(expect, verdict):
 def scan(url):
     from services.url_analyzer import URLDeepAnalyzer
     from services.url_assessment import assess_url
+    from services.url_tricks import unmask
+    url, tricks = unmask(url)  # the same clean-up a real scan request gets
     analyzer = URLDeepAnalyzer()
     started = time.monotonic()
     try:
@@ -78,6 +126,8 @@ def scan(url):
         else:
             local = analyzer.comprehensive_analysis(url)
             deep = analyzer.comprehensive_deep_analysis(url)
+        if tricks:
+            local['address_tricks'] = tricks
         result = assess_url(local, deep)
         result['seconds'] = round(time.monotonic() - started)
         result['provider_verdict'] = (local.get('urlvet') or {}).get('verdict')
@@ -152,6 +202,7 @@ def main(argv=None):
     parser.add_argument('--blind', action='store_true',
                         help='turn off the URLhaus and Web Risk threat lists to measure detection of new, unlisted scams')
     parser.add_argument('--url', action='append', default=[], help='scan this URL instead of the built-in cases (repeatable)')
+    parser.add_argument('--evasion', action='store_true', help='run the evasion-technique cases instead of the built-in ones')
     parser.add_argument('--expect', choices=('clean', 'flag', 'threat'), default='flag', help='expected answer for --url (default flag)')
     args = parser.parse_args(argv)
     if args.blind:
@@ -168,6 +219,8 @@ def main(argv=None):
 def benchmark(args):
     if args.url:
         cases = [(args.expect, url, 'given on the command line') for url in args.url]
+    elif args.evasion:
+        cases = [c for c in evasion_cases() if not args.only or c[0] == args.only]
     else:
         cases = [c for c in CASES if not args.only or c[0] == args.only]
     if args.live:

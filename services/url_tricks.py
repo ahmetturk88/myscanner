@@ -143,6 +143,12 @@ RISKY_ENDINGS = {'xyz', 'top', 'buzz', 'club', 'icu', 'shop', 'online', 'site', 
 CREDENTIAL_WORDS = re.compile(r'log-?in|sign-?in|verif|secur|account|update|support|help|wallet|recover|unlock|confirm|billing'
                               r'|payment|refund|odeme|giris|dogrula|hesap|sifre|iade|onay', re.I)
 OFFICIAL = {domain for domains in BRANDS.values() for domain in domains}
+# Banks, cargo, payments and government: the brands scam messages imitate most. Their name in a
+# subdomain of someone else's site (dhl.smarthub.example.ai) counts even when that site is old.
+IMPERSONATED = {'garanti', 'garantibbva', 'akbank', 'isbank', 'isbankasi', 'ziraat', 'ziraatbank', 'yapikredi', 'halkbank',
+                'vakifbank', 'denizbank', 'qnb', 'finansbank', 'enpara', 'papara', 'ininal', 'edevlet', 'turkiyegov', 'ptt',
+                'pttkargo', 'yurtici', 'yurticikargo', 'araskargo', 'mngkargo', 'suratkargo', 'paypal', 'dhl', 'ups', 'fedex',
+                'usps', 'royalmail', 'chase', 'wellsfargo', 'bankofamerica', 'santander', 'revolut', 'coinbase', 'binance'}
 DISPLAY = {'garanti': 'Garanti BBVA', 'garantibbva': 'Garanti BBVA', 'isbank': 'İş Bankası', 'isbankasi': 'İş Bankası',
            'ziraat': 'Ziraat Bankası', 'ziraatbank': 'Ziraat Bankası', 'yapikredi': 'Yapı Kredi', 'vakifbank': 'VakıfBank',
            'qnb': 'QNB', 'turktelekom': 'Türk Telekom', 'edevlet': 'e-Devlet', 'turkiyegov': 'e-Devlet', 'ptt': 'PTT',
@@ -343,7 +349,9 @@ def address_signals(url):
     if not any(s['code'] == 'brand_in_subdomain' for s in signals):
         brands = {b for b in brand_tokens(plain('.'.join(subdomain + [name]))) if not owns(b, registrable)}
         if brands:
-            signals.append({'code': 'brand_in_name', 'strong': False, 'brand': sorted(brands, key=len, reverse=True)[0]})
+            brand = sorted(brands, key=len, reverse=True)[0]
+            in_front = brand in brand_tokens(plain('.'.join(subdomain))) if subdomain and not shared else False
+            signals.append({'code': 'brand_in_name', 'strong': False, 'brand': brand, 'subdomain': in_front})
     if shared and registrable.split('.', 1)[1] in SERVER_HOSTS:
         signals.append({'code': 'server_hostname', 'strong': False})
     elif shared:

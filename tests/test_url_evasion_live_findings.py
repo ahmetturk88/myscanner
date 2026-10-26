@@ -292,3 +292,31 @@ class ManualTestSummaryTests(unittest.TestCase):
     def test_ai_is_told_not_to_name_evidence_categories(self):
         from services.ai_assistant import SYSTEM_PROMPT
         self.assertIn('never label a point with an evidence category name', SYSTEM_PROMPT)
+
+
+class ImpersonatedBrandTests(unittest.TestCase):
+    """Manual check: www.dhl.smarthub.vuelogix.ai (invalid certificate) said "no fake brand" because vuelogix.ai is 8 years old."""
+
+    def test_cargo_name_on_an_old_site_with_a_broken_certificate(self):
+        from services.url_report_view import plain_report
+        local, deep = evidence('https://www.dhl.smarthub.vuelogix.ai/', age=8 * 365, rank=0)
+        for data in (local, deep):
+            data['ssl'] = {'valid': False}
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'high_risk')
+        plain = plain_report(result, local, deep, local['url'])
+        self.assertIn('It uses the DHL name', [r['title'] for r in plain['reasons']])
+        self.assertIn(('Look-alike or fake brand', 'warn'), [(c['name'], c['state']) for c in plain['checks']])
+
+    def test_cargo_name_on_an_old_site_alone_needs_care(self):
+        local, deep = evidence('https://dhl.partner-portal.example-logistics.com/', age=8 * 365, rank=900)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')
+
+    def test_other_brands_on_old_sites_stay_clean(self):
+        local, deep = evidence('https://apple.stackexchange.com/', age=6000, rank=300)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')
+        self.assertEqual(assess_url(local, deep)['reasons'], [])
+
+    def test_a_brands_own_subsidiary_on_an_old_domain_stays_clean(self):
+        local, deep = evidence('https://www.garantiemeklilik.com.tr/', age=6000, rank=20000)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')

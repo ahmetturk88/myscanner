@@ -284,6 +284,15 @@ REPORTS_TR = {
     'Ask the AI assistant about this report': 'Bu raporu yapay zekâ asistanına sor',
     'Close the AI assistant': 'Yapay zekâ asistanını kapat',
     'Explain this report': 'Bu raporu açıkla',
+    'Understand this report': 'Bu raporu anla',
+    'A plain-language explanation of the evidence above. Ask follow-up questions in any language. Each new answer uses 1 of your 10 daily AI requests; reopening a saved explanation is free.':
+        'Yukarıdaki kanıtların sade bir açıklaması. Devam sorularını istediğin dilde sorabilirsin. Her yeni yanıt günlük 10 yapay zekâ hakkından 1 tanesini kullanır; kayıtlı bir açıklamayı yeniden açmak ücretsizdir.',
+    "AI can make mistakes. The verdict comes from MyScanner's checks, not from the AI. Do not type passwords or personal information. Report evidence is sent to our AI provider to generate answers.":
+        "Yapay zekâ hata yapabilir. Sonuç yapay zekâdan değil, MyScanner'ın kontrollerinden gelir. Şifre ya da kişisel bilgi yazma. Yanıt üretmek için rapor kanıtları yapay zekâ sağlayıcımıza gönderilir.",
+    'Sign in to chat': 'Sohbet için giriş yap',
+    'AI can make mistakes and cannot scan anything by itself. Never share passwords or personal data. Each answer uses 1 of your 10 daily AI requests.':
+        'Yapay zekâ hata yapabilir ve kendi başına hiçbir şeyi tarayamaz. Şifreni ya da kişisel bilgilerini asla paylaşma. Her yanıt günlük 10 yapay zekâ hakkından 1 tanesini kullanır.',
+    "Ask MyScanner's AI about links, messages, scams and account security.": "MyScanner'ın yapay zekâsına bağlantıları, mesajları, dolandırıcılıkları ve hesap güvenliğini sor.",
     'New conversation': 'Yeni sohbet',
     'Start a new conversation': 'Yeni bir sohbet başlat',
     'Saved explanation, not counted again.': 'Kayıtlı açıklama, tekrar sayılmadı.',
@@ -388,6 +397,8 @@ REPORTS_TR.update({
 })
 
 REPORTS_TR_PATTERNS = [
+    (r'^Hi (.+), how can I help you stay safe today\?$', r'Merhaba \1, bugün güvende kalman için nasıl yardımcı olabilirim?'),
+    (r'^Hi (.+) 👋$', r'Merhaba \1 👋'),
     ('^(\\d+) findings?$', '\\1 bulgu'),
     ('^Risk −(\\S+) · Coverage −(\\S+)$', 'Risk −\\1 · Kapsam −\\2'),
     (r'^(\d+(?:\.\d+)?) pts$', r'\1 puan'),

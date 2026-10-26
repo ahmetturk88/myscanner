@@ -24,6 +24,15 @@ class ReportSectionTests(unittest.TestCase):
         self.assertEqual(tr('282 days'), '282 gün')
         self.assertEqual(tr('5 of 5 evidence categories assessed'), '5 kanıt kategorisinden 5 tanesi değerlendirildi')
 
+    def test_ai_panel_text_is_translated(self):
+        import re
+        source = open('static/ai_assistant.js', encoding='utf-8').read()
+        for name in ('Understand this report', 'Sign in to chat'):
+            self.assertIsNotNone(tr(name), name)
+        for text in re.findall(r"'ai-(?:sub|note)', '((?:[^'\\]|\\.)+)'", source):
+            self.assertIsNotNone(tr(text.replace("\\'", "'")), text)
+        self.assertEqual(tr('Hi Ahmed, how can I help you stay safe today?'), 'Merhaba Ahmed, bugün güvende kalman için nasıl yardımcı olabilirim?')
+
     def test_every_verdict_reason_is_translated(self):
         import re
         source = open('services/url_assessment.py', encoding='utf-8').read()

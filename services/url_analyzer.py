@@ -903,22 +903,22 @@ class URLDeepAnalyzer:
         try:
             response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
             for r in response.history:
-                result["redirect_chain"].append({"url": r.url[:200], "status_code": r.status_code})
+                result["redirect_chain"].append({"url": r.url[:2048], "status_code": r.status_code})
             # Page redirects that a browser follows but an HTTP client does not.
             for _ in range(PAGE_REDIRECT_HOPS):
                 target = None if getattr(response, 'unfollowed_redirect', None) else page_redirect(response)
                 if not target:
                     break
-                result["redirect_chain"].append({"url": response.url[:200], "status_code": response.status_code, "kind": target[1]})
+                result["redirect_chain"].append({"url": response.url[:2048], "status_code": response.status_code, "kind": target[1]})
                 response = self.session.get(target[0], timeout=self.timeout, allow_redirects=True)
                 for r in response.history:
-                    result["redirect_chain"].append({"url": r.url[:200], "status_code": r.status_code})
+                    result["redirect_chain"].append({"url": r.url[:2048], "status_code": r.status_code})
             result["status_code"] = response.status_code
             result["final_url"] = response.url
             unfollowed = getattr(response, 'unfollowed_redirect', None)
             if unfollowed:
                 # Another port or an app link: never visited, but its reputation is still checked.
-                result["redirect_chain"].append({"url": response.url[:200], "status_code": response.status_code})
+                result["redirect_chain"].append({"url": response.url[:2048], "status_code": response.status_code})
                 result["final_url"], result["unvisited_destination"] = unfollowed, True
             result["redirect_count"] = len(result["redirect_chain"])
             if result["redirect_count"] > 3:
@@ -1203,6 +1203,15 @@ class URLDeepAnalyzer:
             result["page_content"] = self.analyze_page_content(result["behavior"]["final_url"])
         else:
             result["page_content"] = {"content_risk_score": 0}
+
+        # 2a. Every address the link passes through on the way, against URLhaus (v12):
+        # a listed address in the middle of a chain is as bad as at either end.
+        hops = [h.get("url") for h in result["behavior"].get("redirect_chain") or [] if isinstance(h, dict)]
+        hops = [h for h in dict.fromkeys(hops) if isinstance(h, str) and h not in (url, result["behavior"].get("final_url"))][:5]
+        result["chain_reputation"] = []
+        for hop in hops:
+            listed = self.check_urlhaus(hop)
+            result["chain_reputation"].append({"url": hop, "status": listed.get("coverage_status"), "matched": listed.get("is_malicious") is True})
 
         # 2b. A redirect to another site: check that site too (url-evidence-v12).
         final = result["behavior"].get("final_url")

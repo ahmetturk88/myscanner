@@ -166,6 +166,8 @@ TR = {
     'Anyone can publish a page there, so the platform’s name says nothing about who made it.': 'Orada herkes sayfa yayınlayabilir; yani platformun adı, sayfayı kimin yaptığını göstermez.',
     'Fake address': 'Sahte adres',
     'It downloads a virus': 'Virüs indiriyor',
+    'It passes through a malware address': 'Kötü amaçlı yazılım adresinden geçiyor',
+    'On its way, the link goes through an address that URLhaus, a public list run by abuse.ch, lists as a malware source.': 'Bağlantı yolda, abuse.ch tarafından yürütülen herkese açık URLhaus listesinin kötü amaçlı yazılım kaynağı olarak gösterdiği bir adresten geçiyor.',
     'The page contains malware': 'Sayfada kötü amaçlı yazılım var',
     'Our antivirus scan found malware in this page.': 'Antivirüs taramamız bu sayfada kötü amaçlı yazılım buldu.',
     'Our antivirus found {signature} in this page.': 'Antivirüsümüz bu sayfada {signature} buldu.',

@@ -168,3 +168,29 @@ class ThirdRunFindingTests(unittest.TestCase):
             deep = analyzer.comprehensive_deep_analysis('https://a.example/')
         self.assertEqual(looked, ['https://b.example/listed'])
         self.assertEqual(deep['chain_reputation'], [{'url': 'https://b.example/listed', 'status': 'matched', 'matched': True}])
+
+
+class FourthRunFindingTests(unittest.TestCase):
+    def test_country_two_part_endings(self):
+        from services.url_tricks import split_host
+        self.assertEqual(split_host('robloxc.com.es')[1], 'robloxc.com.es')
+        self.assertEqual(split_host('shop.example.org.pl'), (['shop'], 'example.org.pl', False))
+        self.assertEqual(split_host('a.b.co')[1], 'b.co')   # .co alone is a normal ending
+
+    def test_short_link_to_a_one_letter_off_brand(self):
+        # s4w.in/jZlxQ → robloxc.com.es/users/…/profile (OpenPhish).
+        fake = dict(scam_destination('https://robloxc.com.es/users/1901060764/profile'),
+                    urlvet=dict(PROVIDER, rank=0), whois={'error': 'unavailable'})
+        local, deep = evidence('https://s4w.in/jZlxQ', final=fake['url'], destination=fake, age=3000, rank=0,
+                               behavior={'is_shortened': True})
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'high_risk')
+        self.assertEqual(result['destination']['url'], 'https://robloxc.com.es/users/1901060764/profile')
+
+    def test_one_letter_off_on_an_old_site_stays_a_note(self):
+        local, deep = evidence('https://hepsiburda.com/', age=4000, rank=20000)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')
+
+    def test_redirect_cases_use_a_service_that_follows_outside_redirects(self):
+        from scripts import accuracy_check
+        self.assertFalse([url for _, url, _ in accuracy_check.EVASION_CASES if 'httpbingo.org/redirect-to' in url])

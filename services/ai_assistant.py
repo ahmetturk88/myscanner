@@ -22,7 +22,8 @@ TOOLS = {
     'ip': 'IP lookup', 'domain': 'Domain lookup', 'ssl': 'SSL/TLS checker',
     'subdomain': 'Subdomain finder', 'qr': 'QR code scanner', 'password': 'Password security checker',
 }
-LANGUAGES = {'en': 'Write the explanation in clear English.'}
+LANGUAGES = {'en': 'Write the explanation in clear English.',
+             'tr': 'Write the explanation in clear, natural Turkish (use "sen", as the Turkish site does). Keep the section labels in English exactly as written.'}
 EVIDENCE_LIMIT = 16000  # about 4k tokens; 30k characters hit the free tiers' per-minute limits
 CHAT_MESSAGE_LIMIT = 1000
 CHAT_HISTORY_TURNS = 10

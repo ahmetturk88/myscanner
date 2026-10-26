@@ -259,6 +259,14 @@ class EndpointTests(unittest.TestCase):
         for other in ('fr', 'ar'):
             self.assertEqual(self.post(f'/api/ai/contexts/{context}/explain', {'language': other}).status_code, 400)
 
+    def test_turkish_explanation_is_asked_in_turkish_and_cached_apart(self):
+        # The app and the Turkish site ask for 'tr'; this used to be refused with 400.
+        self.sign_in(self.owner);context = self.create()
+        with patch('services.ai_assistant.requests.post', return_value=gemini_stream(*chunks(GOOD))) as post:
+            events(self.post(f'/api/ai/contexts/{context}/explain', {'language': 'tr'}))
+        self.assertIn('Turkish', json.dumps(post.call_args.kwargs['json']))
+        self.assertEqual(list(self.client.get(f'/api/ai/contexts/{context}').json['explanations']), ['tr'])
+
     def test_failures_refund_the_allowance(self):
         self.sign_in(self.owner);context = self.create()
         cases = ((gemini_stream(status=503), 'not used'), (gemini_stream('HEADLINE: x', 'y', fail_after=1), 'interrupted'),

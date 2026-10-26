@@ -257,7 +257,7 @@
         const id = await ensureContext();
         output.replaceChildren(typing());
         output.hidden = false;
-        const final = await stream(`/api/ai/contexts/${encodeURIComponent(id)}/explain`, {language: 'en'}, (text) => {
+        const final = await stream(`/api/ai/contexts/${encodeURIComponent(id)}/explain`, {language: document.documentElement.lang === 'tr' ? 'tr' : 'en'}, (text) => {
           status.textContent = '';
           renderExplanation(output, parseExplanation(text));
         });

@@ -12,7 +12,7 @@ from services.upload_validation import FILE_MAX_SIZE, remove_temporary_upload
 
 # Network phases are budgeted (services.url_analyzer); this is the hard stop.
 @celery.task(bind=True, name='scan_url_task', soft_time_limit=300, time_limit=330)
-def scan_url_task(self, url, user_id, scan_id, task_id):
+def scan_url_task(self, url, user_id, scan_id, task_id, tricks=None):
     from app import app
     from services.url_scan_storage import claim_url_scan, save_url_scan, fail_url_scan
     claimed = False
@@ -39,6 +39,8 @@ def scan_url_task(self, url, user_id, scan_id, task_id):
             from services.url_screenshot import capture_screenshot
             capture_screenshot(url, scan_id)
         stage = 'save_report'
+        if tricks and isinstance(local, dict):
+            local['address_tricks'] = tricks
         with app.app_context():
             return save_url_scan(scan_id, user_id, url, local, deep)
     except Exception as error:

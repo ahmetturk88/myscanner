@@ -16,8 +16,10 @@ MAX_URL_LENGTH = 500
 def queue_url_scan(url):
     if not isinstance(url, str) or not url.strip() or len(url.strip()) > MAX_URL_LENGTH:
         return jsonify(error='Provide an HTTP or HTTPS URL of at most 500 characters'), 400
+    from services.url_tricks import unmask
+    url, tricks = unmask(url.strip())
     try:
-        url = accept_scan_url(url.strip())
+        url = accept_scan_url(url)
     except UnsafeTargetError:
         return jsonify(error='Provide a public HTTP or HTTPS address without credentials'), 400
     from celery_app import celery, require_broker
@@ -31,7 +33,7 @@ def queue_url_scan(url):
     from services.url_scan_storage import enqueue_url_scan
     from tasks import scan_url_task
     try:
-        scan_id = enqueue_url_scan(scan_url_task, url, current_user.id)
+        scan_id = enqueue_url_scan(scan_url_task, url, current_user.id, tricks)
     except Exception:
         db.session.rollback()
         current_app.logger.error('URL scan could not be queued')

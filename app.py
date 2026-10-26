@@ -710,9 +710,11 @@ def dashboard():
             return redirect(url_for('dashboard'))
         
         from services.safe_http import accept_scan_url
+        from services.url_tricks import unmask
         try:
             if len(url) > 500:
                 raise ValueError('URL too long')
+            url, tricks = unmask(url)
             url = accept_scan_url(url)
         except (ValueError, UnsafeTargetError):
             flash('Please provide a valid HTTP or HTTPS URL.', 'warning')
@@ -735,7 +737,7 @@ def dashboard():
 
         from services.url_scan_storage import enqueue_url_scan
         try:
-            scan_id = enqueue_url_scan(scan_url_task, url, current_user.id)
+            scan_id = enqueue_url_scan(scan_url_task, url, current_user.id, tricks)
         except Exception:
             db.session.rollback()
             app.logger.error('URL scan could not be queued')

@@ -18,6 +18,10 @@ class TargetResolutionError(UnsafeTargetError):
     """DNS resolution failed; no connection was attempted."""
 
 
+class ResponseTooLarge(requests.exceptions.RequestException):
+    """The target answered with more than the size limit; `response` still carries its URL and headers."""
+
+
 class ScanBudgetExceeded(requests.exceptions.Timeout):
     """The scan's total time budget ran out; the affected check is unavailable."""
 
@@ -218,7 +222,8 @@ class PublicHTTPAdapter(HTTPAdapter):
                 if self.deadline is not None and time.monotonic() >= self.deadline:
                     raise ScanBudgetExceeded('The response exceeded the scan time budget')
                 if len(content) > self.response_limit:
-                    raise UnsafeTargetError('The target response exceeds the scan size limit')
+                    # Not an unsafe target: a big download is a normal answer (url-evidence-v12).
+                    raise ResponseTooLarge('The target response exceeds the scan size limit', response=response)
             response._content = bytes(content)
             response._content_consumed = True
             return response

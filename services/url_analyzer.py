@@ -5,6 +5,7 @@
 # =================================================================
 
 import copy
+import ipaddress
 import re
 import time
 from services.url_scan_coverage import apply_url_coverage, apply_phishing_evidence, urlvet_available
@@ -12,7 +13,8 @@ import socket
 import ssl
 import dns.resolver
 import requests
-from services.safe_http import PublicHTTPSession, UnsafeTargetError, TargetResolutionError, normalize_url, validate_public_url, public_connection
+from services.url_tricks import other_site
+from services.safe_http import PublicHTTPSession, ResponseTooLarge, UnsafeTargetError, TargetResolutionError, normalize_url, validate_public_url, public_connection
 import hashlib
 import json
 import os
@@ -28,6 +30,66 @@ logger = logging.getLogger(__name__)
 # A current Android Chrome on a common Samsung phone; the url.vet browser uses the same one.
 MOBILE_USER_AGENT = ('Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) '
                      'Chrome/130.0.0.0 Mobile Safari/537.36')
+# A second visit as a Windows computer shows links that send phones and computers to different places.
+DESKTOP_USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/130.0.0.0 Safari/537.36')
+PAGE_REDIRECT_HOPS = 3
+MAX_REDIRECTS = 10
+META_REFRESH = re.compile(r'<meta[^>]+http-equiv=["\']?refresh["\']?[^>]*content=["\']\s*(\d+)\s*[;,]\s*url\s*=\s*["\']?([^"\'>\s]+)', re.I)
+SCRIPT_REDIRECT = re.compile(r'(?:window\.|document\.|top\.|self\.)?location(?:\.href)?\s*=\s*["\'](https?://[^"\']+)["\']'
+                             r'|location\.(?:replace|assign)\(\s*["\'](https?://[^"\']+)["\']', re.I)
+
+
+# Files a link can make a phone or computer install or run (url-evidence-v12).
+PROGRAM_EXTENSIONS = {'apk', 'xapk', 'apks', 'exe', 'msi', 'scr', 'bat', 'cmd', 'com', 'pif', 'js', 'jse', 'vbs', 'vbe',
+                      'wsf', 'hta', 'ps1', 'jar', 'dmg', 'pkg', 'lnk', 'dll', 'appx', 'msix', 'appxbundle', 'ipa'}
+PROGRAM_TYPES = {'application/vnd.android.package-archive', 'application/x-msdownload', 'application/x-msdos-program',
+                 'application/x-ms-installer', 'application/x-msi', 'application/java-archive', 'application/x-apple-diskimage',
+                 'application/hta', 'application/x-sh', 'application/x-executable'}
+PAGE_TYPES = ('text/', 'application/xhtml', 'application/json', 'application/xml', 'application/javascript',
+              'application/ld+json', 'image/', 'video/', 'audio/', 'font/')
+
+
+def download_info(response, scan=True):
+    """What a link downloads instead of showing a page, or None for an ordinary page."""
+    kind = (response.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+    disposition = response.headers.get('Content-Disposition') or ''
+    match = re.search(r'filename\*?=(?:UTF-8\'\')?["\']?([^"\';]+)', disposition, re.I)
+    name = (match.group(1) if match else urlparse(response.url).path.rsplit('/', 1)[-1]).strip()[:100]
+    extension = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    program = extension in PROGRAM_EXTENSIONS or kind in PROGRAM_TYPES
+    if not program and 'attachment' not in disposition.lower() and (not kind or kind.startswith(PAGE_TYPES)):
+        return None
+    info = {'content_type': kind[:80], 'filename': name, 'extension': extension[:10], 'program': program}
+    if scan:
+        from services.clamav_client import scan_bytes
+        content = response.content or b''
+        info['size'] = len(content)
+        info['sha256'] = hashlib.sha256(content).hexdigest()
+        info['antivirus'] = scan_bytes(content)
+    else:
+        info['too_large'] = True
+    return info
+
+
+def page_redirect(response):
+    """(target, 'meta'|'script') when a short page sends the browser on, else None."""
+    try:
+        kind = (response.headers.get('Content-Type') or '').lower()
+        if 'html' not in kind or len(response.content) > 200_000:
+            return None
+        html = decode_page(response)
+    except Exception:
+        return None
+    match = META_REFRESH.search(html)
+    if match and int(match.group(1)) <= 10:
+        return urljoin(response.url, match.group(2)), 'meta'
+    visible = re.sub(r'<script.*?</script>|<style.*?</style>|<[^>]+>', ' ', html, flags=re.S | re.I)
+    if len(' '.join(visible.split())) < 500:
+        match = SCRIPT_REDIRECT.search(html)
+        if match:
+            return match.group(1) or match.group(2), 'script'
+    return None
 
 def decode_page(response):
     """Page text. Without a charset header requests assumes ISO-8859-1, which turns
@@ -46,6 +108,15 @@ QUICK_BUDGET = 60
 DEEP_BUDGET = 90
 WHOIS_TIMEOUT = 10
 
+
+
+def is_ip_host(host):
+    """True for an IPv4 or IPv6 address used in place of a site name."""
+    try:
+        ipaddress.ip_address(host or '')
+        return True
+    except ValueError:
+        return False
 
 
 def dns_partial(function):
@@ -83,7 +154,9 @@ class URLDeepAnalyzer:
         'bit.ly', 'tinyurl.com', 'short.link', 'goo.gl', 'ow.ly', 'is.gd',
         'buff.ly', 'adf.ly', 'shorte.st', 'bc.vc', 't.co', 'lnkd.in',
         'db.tt', 'qr.ae', 'cur.lv', 'bitly.com', 'tiny.cc', 'tr.im',
-        'v.gd', 'da.gd', 'clck.ru', 'cutt.ly', 'rebrand.ly', 'shorturl.at'
+        'v.gd', 'da.gd', 'clck.ru', 'cutt.ly', 'rebrand.ly', 'shorturl.at',
+        's.id', 'rb.gy', 't.ly', 'bit.do', 'tiny.one', 'cutt.us', 'surl.li', 'kutt.it', 'u.to', 'gg.gg',
+        'x.gd', 'urlz.fr', 'shorturl.asia', 'bl.ink', 'short.gy', 'lnk.ink', 'qrco.de', 'tinu.be', 'is.gd'
     }
 
     # أنماط التصيد (Phishing Patterns)
@@ -119,6 +192,7 @@ class URLDeepAnalyzer:
             'User-Agent': MOBILE_USER_AGENT,
             'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
         })
+        self.session.max_redirects = MAX_REDIRECTS
         self.timeout = 15
         self.cache_dir = cache_dir
         self.cache_ttl = cache_ttl
@@ -226,7 +300,7 @@ class URLDeepAnalyzer:
             "has_fragment": bool(parsed.fragment),
             "length": len(url),
             "is_https": parsed.scheme == 'https',
-            "contains_ip": bool(re.match(r'\d+\.\d+\.\d+\.\d+', parsed.netloc)),
+            "contains_ip": is_ip_host(parsed.hostname),
             "subdomain_count": parsed.netloc.count('.') - 1 if parsed.netloc else 0,
             "suspicious_chars": []
         }
@@ -427,7 +501,12 @@ class URLDeepAnalyzer:
     def check_security_headers(self, url: str) -> Dict[str, Any]:
         """فحص رؤوس الأمان"""
         try:
-            response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+            try:
+                response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+            except ResponseTooLarge as e:  # a big download still has headers
+                if e.response is None:
+                    raise
+                response = e.response
             headers = response.headers
 
             security_headers = {
@@ -672,13 +751,26 @@ class URLDeepAnalyzer:
     def analyze_page_content(self, url: str, html: str = None) -> Dict[str, Any]:
         """تحليل محتوى الصفحة"""
         status = None
+        page_antivirus = None
         if html is None:
             try:
                 response = self.session.get(url, timeout=self.timeout)
+                download = download_info(response)
+                if download:
+                    return {"title": "", "content_risk_score": 0, "status_code": response.status_code,
+                            "visible_text_length": None, "scam_signals": [], "forms": [], "download": download}
                 html = decode_page(response)
                 status = response.status_code
+                from services.clamav_client import scan_bytes
+                page_antivirus = scan_bytes(response.content or b'')
             except UnsafeTargetError:
                 raise
+            except ResponseTooLarge as e:
+                download = download_info(e.response, scan=False) if e.response is not None else None
+                if download:
+                    return {"title": "", "content_risk_score": 0, "status_code": e.response.status_code,
+                            "visible_text_length": None, "scam_signals": [], "forms": [], "download": download}
+                return {"error": "Could not fetch page content: the page is too large"}
             except Exception as e:
                 logger.error(f"Page content fetch error: {str(e)}")
                 return {"error": f"Could not fetch page content: {str(e)}"}
@@ -702,6 +794,8 @@ class URLDeepAnalyzer:
             "visible_text_length": 0,
             "scam_signals": [],
         }
+        if page_antivirus is not None:
+            result["antivirus"] = page_antivirus
 
         if soup.title:
             result["title"] = soup.title.get_text()[:200]
@@ -788,7 +882,8 @@ class URLDeepAnalyzer:
 
     @dns_partial
     def analyze_behavior(self, url: str) -> Dict[str, Any]:
-        """تحليل سلوك الرابط (redirects, shorteners, status)"""
+        """Where the link really leads: HTTP redirects, page redirects (meta refresh or a
+        script that sets location), and whether a computer is sent somewhere else (url-evidence-v12)."""
         result = {
             "original_url": url,
             "final_url": url,
@@ -807,32 +902,72 @@ class URLDeepAnalyzer:
 
         try:
             response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+            for r in response.history:
+                result["redirect_chain"].append({"url": r.url[:200], "status_code": r.status_code})
+            # Page redirects that a browser follows but an HTTP client does not.
+            for _ in range(PAGE_REDIRECT_HOPS):
+                target = page_redirect(response)
+                if not target:
+                    break
+                result["redirect_chain"].append({"url": response.url[:200], "status_code": response.status_code, "kind": target[1]})
+                response = self.session.get(target[0], timeout=self.timeout, allow_redirects=True)
+                for r in response.history:
+                    result["redirect_chain"].append({"url": r.url[:200], "status_code": r.status_code})
             result["status_code"] = response.status_code
             result["final_url"] = response.url
-
-            if response.history:
-                result["redirect_count"] = len(response.history)
-                for r in response.history:
-                    result["redirect_chain"].append({
-                        "url": r.url[:200],
-                        "status_code": r.status_code
-                    })
-
-                if result["redirect_count"] > 3:
-                    result["behavior_risk_score"] += 20
-                elif result["redirect_count"] > 1:
-                    result["behavior_risk_score"] += 10
+            result["redirect_count"] = len(result["redirect_chain"])
+            if result["redirect_count"] > 3:
+                result["behavior_risk_score"] += 20
+            elif result["redirect_count"] > 1:
+                result["behavior_risk_score"] += 10
 
             final_domain = urlparse(result["final_url"]).netloc
             if final_domain in self.PHISHING_DOMAINS:
                 result["behavior_risk_score"] += 40
         except UnsafeTargetError:
             raise
+        except ResponseTooLarge as e:  # a big download: it still tells us where the link ends
+            if e.response is not None:
+                result["final_url"], result["status_code"] = e.response.url, e.response.status_code
+                result["redirect_count"] = len(result["redirect_chain"])
+        except requests.exceptions.TooManyRedirects:
+            result["too_many_redirects"] = True
+            result["error"] = "Too many redirects"
         except Exception as e:
             logger.error(f"Behavior analysis error: {str(e)}")
             result["error"] = str(e)
-
+        if result["error"] is None:
+            result["desktop_final_url"] = self.desktop_destination(url)
         return result
+
+    def desktop_destination(self, url):
+        """Where the same link sends a desktop browser, or None when that visit failed."""
+        try:
+            response = self.session.get(url, timeout=self.timeout, allow_redirects=True, stream=True,
+                                        headers={'User-Agent': DESKTOP_USER_AGENT, 'Accept-Language': 'en-US,en;q=0.9'})
+            try:
+                return response.url
+            finally:
+                response.close()
+        except ResponseTooLarge as e:
+            return e.response.url if e.response is not None else None
+        except Exception:
+            return None
+
+    def destination_evidence(self, url):
+        """Reputation, age and certificate of the site a redirect really ends on."""
+        host = urlparse(url).hostname
+        evidence = {"url": url, "structure": self.analyze_url_structure(url), "phishing": self.check_phishing_indicators(url)}
+        for key, check in (("whois", lambda: self.analyze_whois(host)), ("osint", lambda: self.check_osint_sources(url)),
+                           ("ssl", lambda: self.check_ssl_certificate(host) if url.startswith('https://') else {"valid": False, "error": "Not using HTTPS"}),
+                           ("urlvet", lambda: self.analyze_with_urlvet(url))):
+            try:
+                evidence[key] = check()
+            except UnsafeTargetError:
+                raise
+            except Exception:
+                evidence[key] = {"error": "unavailable"}
+        return evidence
 
     # ================================================================
     # 11. url.vet - مصدر خارجي متقدم
@@ -1059,6 +1194,11 @@ class URLDeepAnalyzer:
             result["page_content"] = self.analyze_page_content(result["behavior"]["final_url"])
         else:
             result["page_content"] = {"content_risk_score": 0}
+
+        # 2b. A redirect to another site: check that site too (url-evidence-v12).
+        final = result["behavior"].get("final_url")
+        if isinstance(final, str) and other_site(url, final):
+            result["destination"] = self.destination_evidence(final)
 
         # 3. تحليل WHOIS
         result["whois"] = self.analyze_whois(result["domain"])

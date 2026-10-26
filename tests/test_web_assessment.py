@@ -229,7 +229,8 @@ class ResponseBudgetTests(unittest.TestCase):
         with PublicHTTPSession(response_limit=1024) as session:
             pool=Mock();pool.urlopen.return_value=raw
             with patch.object(session.get_adapter('https://').poolmanager,'connection_from_host',return_value=pool),patch('services.safe_http.socket.getaddrinfo',return_value=addresses('8.8.8.8')):
-                with self.assertRaises(UnsafeTargetError):session.get('https://example.com')
+                from services.safe_http import ResponseTooLarge
+                with self.assertRaises(ResponseTooLarge):session.get('https://example.com')
         self.assertTrue(raw.closed)
 
     def test_response_budget_closes_transport_without_disabling_tls(self):

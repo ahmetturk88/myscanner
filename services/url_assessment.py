@@ -5,8 +5,9 @@ from urllib.parse import urlparse
 
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
+from services.url_tricks import address_signals, other_site
 
-POLICY_VERSION = 'url-evidence-v11'
+POLICY_VERSION = 'url-evidence-v12'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 # v10: url.vet's own overall verdict is a threshold over signals we already read
 # one by one (and includes a traffic-rank heuristic that flags small, honest
@@ -26,7 +27,36 @@ UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for
 # v11: signals that are weak alone but together describe a throwaway scam site.
 # Escalation needs at least one of CORE; age and traffic alone never flag a site,
 # and url.vet's own rating counts but is not core (it is built on age and traffic).
-CORE = {'risky_tld', 'domain_randomness', 'content_hidden'}
+CORE = {'risky_tld', 'domain_randomness', 'content_hidden', 'brand_in_name', 'lookalike_name', 'ip_url', 'device_cloaking',
+        'redirect_loop', 'risky_download', 'download_flagged'}
+# v12: what a link downloads instead of a page.
+DOWNLOAD_SIGNALS = {
+    'download_malware': 'The link downloads a file in which the antivirus scan found malware.',
+    'download_flagged': 'The antivirus scan flagged risky features in the file this link downloads.',
+    'risky_download': 'The link downloads an app or program, which could take over the device it is installed on.',
+}
+# v12: tricks in the address itself. Each one exists only to fool the reader, so
+# any of them makes the link high risk, even on an old domain.
+DECEPTION = {
+    'userinfo_trick': 'The link shows one site name but really opens another: browsers ignore everything before “@”.',
+    'encoded_ip': 'The link hides an IP address by writing it as a number or in code.',
+    'encoded_host': 'The site name in the link is written in code (%-encoding) to hide what it really is.',
+    'homograph_name': 'The site name uses letters from another alphabet that look like normal ones.',
+    'lookalike_name': 'The site name copies a well-known name with swapped letters or numbers.',
+    'brand_in_subdomain': 'The link puts a well-known site’s address in front of a different site to fool you.',
+}
+# v12: where a redirect really leads.
+APP_STORES = {'play.google.com', 'apps.apple.com', 'itunes.apple.com', 'appgallery.huawei.com'}
+REDIRECT_SIGNALS = {
+    'device_cloaking': (10, 'The link sends phones and computers to different sites, a trick scam links use to hide from checks.'),
+    'redirect_loop': (8, 'The link redirects too many times for a browser to reach a page.'),
+}
+DESTINATION_NOTE = 'The link leads to a different site, and that site shows the signs listed here.'
+WEAK_ADDRESS = {
+    'lookalike_name': (8, 'The site name is one letter away from a well-known brand.'),
+    'brand_in_name': (6, 'The address uses a well-known brand’s name, but the site doesn’t belong to that brand.'),
+    'free_hosting': (2, 'The page is on a free hosting service where anyone can publish a page.'),
+}
 ESTABLISHED_DAYS = 5 * 365
 TOP_RANK = 50000
 
@@ -75,6 +105,15 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
     if age is not None and age<365:
         weak.add('new_domain');signal('identity','new_domain',4,'The site was registered less than a year ago.')
     if 'domain_randomness' in reasons:weak.add('domain_randomness')
+    if 'ip_url' in reasons:weak.add('ip_url')
+    weak.update({'risky_download','download_flagged'}&set(reasons))
+    behavior_data=mapping(deep.get('behavior'))
+    mobile_end,desktop_end=behavior_data.get('final_url'),behavior_data.get('desktop_final_url')
+    if (isinstance(mobile_end,str) and isinstance(desktop_end,str) and other_site(mobile_end,desktop_end)
+            and not {host(mobile_end),host(desktop_end)}&APP_STORES):
+        weak.add('device_cloaking');signal('behavior','device_cloaking',*REDIRECT_SIGNALS['device_cloaking'])
+    if behavior_data.get('too_many_redirects') is True:
+        weak.add('redirect_loop');signal('behavior','redirect_loop',*REDIRECT_SIGNALS['redirect_loop'])
     if provider_flag:weak.add('provider_flag')
     page=mapping(deep.get('page_content'))
     behavior=mapping(deep.get('behavior'))
@@ -99,7 +138,42 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
     return weak,strong,established
 
 
+def destination_pair(deep):
+    """(local, deep) evidence for the other site a redirect ends on, or None."""
+    destination=mapping(deep.get('destination'))
+    url=destination.get('url')
+    if not isinstance(url,str) or not url:
+        return None
+    pick=lambda key:mapping(destination.get(key))
+    local={'url':url,'urlvet':pick('urlvet'),'structure':pick('structure'),'ssl':pick('ssl'),'phishing':pick('phishing')}
+    end={'url':url,'page_content':mapping(deep.get('page_content')),'osint':pick('osint'),'whois':pick('whois'),
+         'behavior':{'original_url':url,'final_url':url,'behavior_risk_score':0,'error':None}}
+    return local,end
+
+
 def assess_url(local, deep):
+    """The verdict for a link; a redirect to another site is judged as that site too, and the worse one wins (v12)."""
+    result=_assess(local,deep)
+    pair=destination_pair(deep if isinstance(deep,dict) else {})
+    if pair is None:
+        return result
+    ending=_assess(*pair)
+    order=['harmless','unknown','suspicious','high_risk','malicious']
+    result['destination']={'url':pair[0]['url'],'verdict':ending['verdict']}
+    if ending['verdict'] in ('suspicious','high_risk','malicious') and order.index(ending['verdict'])>order.index(result['verdict']):
+        result['verdict']=ending['verdict']
+        result['threat_override']=result['threat_override'] or ending['threat_override']
+        for key in ('score','evidence_score'):
+            if isinstance(ending.get(key),(int,float)):result[key]=min(result[key] if isinstance(result.get(key),(int,float)) else 100,ending[key])
+        seen={r['code'] for r in result['reasons']}
+        result['reasons']+=[r for r in ending['reasons'] if r['code'] not in seen]
+        result['reasons'].append({'category':'behavior','code':'destination','deduction':0,'message':DESTINATION_NOTE})
+        result['address_details']+=[d for d in ending.get('address_details') or [] if d.get('code') not in {x.get('code') for x in result['address_details']}]
+        result['provider_note']=None
+    return result
+
+
+def _assess(local, deep):
     local=local if isinstance(local,dict) else {}
     deep=deep if isinstance(deep,dict) else {}
     upgraded=upgraded_to_https(mapping(deep.get('behavior')))
@@ -202,6 +276,15 @@ def assess_url(local, deep):
             if points:signal('content','content_indicators',points,'The page asks for a password or login; forms alone do not prove a threat.')
         elif risk>0:signal('content','content_indicators',round(risk*.25,1),'Page content contains risk heuristics; forms or keywords alone do not prove a threat.')
     else:missing.append('Deep page content was not assessed')
+    page_av=mapping(content.get('antivirus'))
+    if page_av.get('status')=='found' and page_av.get('kind')=='malware':  # heuristics flag ordinary pages too
+        confirmed=True;signal('reputation','page_malware',20,'The antivirus scan found malware in the page itself.')
+    download=mapping(content.get('download'))
+    antivirus=mapping(download.get('antivirus'))
+    if antivirus.get('status')=='found' and antivirus.get('kind')=='malware':
+        confirmed=True;signal('reputation','download_malware',20,DOWNLOAD_SIGNALS['download_malware'])
+    elif antivirus.get('status')=='found':signal('content','download_flagged',10,DOWNLOAD_SIGNALS['download_flagged'])
+    if download.get('program') is True:signal('content','risky_download',8,DOWNLOAD_SIGNALS['risky_download'])
     behavior=mapping(deep.get('behavior'))
     risk=number(behavior.get('behavior_risk_score')) if usable(behavior) else None
     if risk is not None:
@@ -242,6 +325,22 @@ def assess_url(local, deep):
     # provider threat verdict asks for review.
     provider_flag=any(v in ('malicious','suspicious','high_risk') for v in provider_verdicts)
     weak,strong_scam,established=throwaway_signals(local,deep,seen_provider,provider_flag,reasons,signal)
+    # v12: tricks removed from the pasted address, and what the address itself shows.
+    deceptive=False;details=[]
+    for trick in local.get('address_tricks') or []:
+        if isinstance(trick,dict) and trick.get('code') in DECEPTION:
+            deceptive=True;signal('identity',trick['code'],20,DECEPTION[trick['code']]);details.append(trick)
+    url_text=local.get('url') if isinstance(local.get('url'),str) else deep.get('url')
+    found=address_signals(url_text)
+    if any(item['code']=='free_hosting' for item in found):established=False  # the platform's age is not the page's
+    for item in found:
+        code=item['code']
+        if item['strong']:
+            deceptive=True;signal('identity',code,20,DECEPTION[code]);details.append(item)
+        elif code in WEAK_ADDRESS and not established:  # e.g. apple.stackexchange.com
+            weak.add(code);signal('identity',code,*WEAK_ADDRESS[code]);details.append(item)
+    page=mapping(deep.get('page_content'))
+    asks_login=page.get('has_password_field') is True or page.get('has_login_form') is True
     for item in reasons.values():components[item['category']]['reasons'].append(item['code'])
     for key,component in components.items():
         component['deduction']=min(component['weight'],round(sum(v['deduction'] for v in reasons.values() if v['category']==key),1))
@@ -263,8 +362,11 @@ def assess_url(local, deep):
     # v11: one verdict from all evidence. A scam lure on the page, or several weak
     # signs including one that throwaway scam sites typically show, raise it.
     escalated=None
-    if not confirmed and not established:
+    if not confirmed and deceptive:escalated='high_risk'
+    elif not confirmed and not established:
         if strong_scam and weak:escalated='high_risk'
+        elif 'brand_in_name' in weak and ('collects_details' in weak or asks_login or 'free_hosting' in weak):escalated='high_risk'
+        elif {'risky_download','download_flagged'}&weak:escalated='high_risk' if len(weak)>=3 else 'suspicious'
         elif len(weak)>=4 and CORE&weak:escalated='high_risk'
         elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
@@ -301,6 +403,7 @@ def assess_url(local, deep):
             'sources':list(dict.fromkeys(sources)),
             'threat_override':bool(confirmed),
             'provider_note':PROVIDER_NOTE if provider_note else None,
+            'address_details':details,
             'warning':'Heuristic evidence index, not a probability or a guarantee of safety.'}
 
 

@@ -27,6 +27,8 @@ MULTI_SUFFIXES = {
     'co.kr', 'com.br', 'com.cn', 'com.sa', 'com.eg', 'co.in', 'com.mx', 'co.za', 'com.sg', 'com.my',
     'com.ar', 'com.co', 'com.pk', 'com.ng', 'com.ua', 'com.cy', 'com.az', 'co.il', 'com.hk', 'com.tw',
 }
+# Under a two-letter country ending these are part of the ending, not the site's name.
+COUNTRY_SECOND_LEVELS = {'com', 'net', 'org', 'co', 'gov', 'edu', 'ac', 'or', 'ne', 'gen', 'nom', 'biz', 'info', 'gob', 'mil', 'web'}
 SHARED_HOSTING = {
     'github.io', 'gitlab.io', 'blogspot.com', 'web.app', 'firebaseapp.com', 'pages.dev', 'workers.dev',
     'netlify.app', 'vercel.app', 'herokuapp.com', 'glitch.me', 'weebly.com', 'wixsite.com', 'wordpress.com',
@@ -233,7 +235,9 @@ def split_host(host):
         suffix = '.'.join(labels[-size:])
         if suffix in SHARED_HOSTING and len(labels) > size:
             return labels[:-size - 1], '.'.join(labels[-size - 1:]), True
-    keep = 3 if '.'.join(labels[-2:]) in MULTI_SUFFIXES and len(labels) >= 3 else 2
+    two_part = '.'.join(labels[-2:]) in MULTI_SUFFIXES or (
+        len(labels[-1]) == 2 and labels[-2] in COUNTRY_SECOND_LEVELS)   # com.es, co.id, org.pl
+    keep = 3 if two_part and len(labels) >= 3 else 2
     return labels[:-keep], '.'.join(labels[-keep:]), False
 
 

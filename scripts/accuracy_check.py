@@ -66,7 +66,7 @@ EVASION_CASES = [
     ('flag', 'https://httpbingo.org/redirect/12', 'More redirects than a browser follows'),
     ('clean', 'https://apple.stackexchange.com/', 'Brand name on an established site it belongs with'),
     ('clean', 'https://medium.com/@google', '@ in the path, not before the site name'),
-    ('clean', 'https://httpbingo.org/redirect-to?url=https%3A%2F%2Fwww.wikipedia.org%2F', 'Redirect to a normal site'),
+    ('clean', 'https://httpbin.org/redirect-to?url=https%3A%2F%2Fwww.wikipedia.org%2F', 'Redirect to a normal site'),
     ('clean', 'https://play.google.com/store/apps/details?id=com.whatsapp', 'App store page'),
     ('clean', 'https://github.com/git-for-windows/git/releases/download/v2.47.0.windows.1/Git-2.47.0-64-bit.exe',
      'Program download from an established site'),
@@ -81,7 +81,8 @@ def evasion_cases():
     # Any port: the scanner stops at a redirect to another port and checks that address by reputation.
     listed = [url for expect, url, note in live_cases(2) if note.startswith('URLhaus: listed now')]
     if listed:
-        cases.append(('threat', 'https://httpbingo.org/redirect-to?url=' + quote(listed[0], safe=''), 'Redirect to a URLhaus-listed URL'))
+        # httpbingo.org refuses redirects to other sites (403); httpbin.org follows them.
+        cases.append(('threat', 'https://httpbin.org/redirect-to?url=' + quote(listed[0], safe=''), 'Redirect to a URLhaus-listed URL'))
     else:
         print('! No URLhaus URL for the redirect case')
     try:

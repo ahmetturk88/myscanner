@@ -348,6 +348,8 @@ def _assess(local, deep):
         code=item['code']
         if item.get('tld_swap') and established:  # an old defensive registration, not a fresh fake
             item=dict(item,strong=False)
+        if code=='lookalike_name' and not item['strong'] and not established:
+            item=dict(item,strong=True)  # one letter off a brand on a new site: robloxc.com.es
         if item['strong']:
             deceptive=True;signal('identity',code,20,DECEPTION[code]);details.append(item)
         elif code in WEAK_ADDRESS and not established:  # e.g. apple.stackexchange.com

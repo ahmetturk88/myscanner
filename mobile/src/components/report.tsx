@@ -22,6 +22,8 @@ export type Plain = {
   actions?: string[];
   checks?: { name: string; state: string; result: string }[];
   tally?: string; share_text?: string; why_title?: string; checked?: string;
+  /** Why a link report has no page preview; shown in place of the screenshot. */
+  no_preview?: string;
 };
 
 type HeroTone = 'danger' | 'caution' | 'unknown' | 'safe' | 'info';
@@ -218,11 +220,27 @@ function Checks({ plain, start }: { plain: Plain; start: number }) {
   );
 }
 
-/** The page as our isolated browser saw it; hidden when there is no screenshot. */
-function Preview({ source, start }: { source: { uri: string; headers?: Record<string, string> }; start: number }) {
+/** In place of the screenshot: why there is none (a bad certificate, a download, the site down…). */
+function NoPreview({ text, start }: { text: string; start: number }) {
+  return (
+    <Animated.View entering={enter(start)} style={s.card}>
+      <SectionTitle>{t('Page preview')}</SectionTitle>
+      <View style={s.noPreview}>
+        <Icon name="noImage" size={24} color={colors.muted} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={{ color: colors.text, fontSize: 15, fontFamily: fonts.bold }}>{t('No preview')}</Text>
+          <Text style={s.small}>{text}</Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+/** The page as our isolated browser saw it; a short explanation when the image can't be shown. */
+function Preview({ source, start, why }: { source: { uri: string; headers?: Record<string, string> }; start: number; why: string }) {
   const [failed, setFailed] = useState(false);
   const [ratio, setRatio] = useState(16 / 10);
-  if (failed) return null;
+  if (failed) return why ? <NoPreview text={why} start={start} /> : null;
   return (
     <Animated.View entering={enter(start)} style={s.card}>
       <SectionTitle>{t('Page preview')}</SectionTitle>
@@ -290,7 +308,8 @@ export function PlainReport({ plain, again, plainShare, screenshot, haptic, chec
         </Animated.View>
       ) : null}
       <Checks plain={plain} start={after + 2} />
-      {screenshot ? <Preview source={screenshot} start={after + 3} /> : null}
+      {screenshot ? <Preview source={screenshot} start={after + 3} why={str(plain.no_preview)} />
+        : str(plain.no_preview) ? <NoPreview text={str(plain.no_preview)} start={after + 3} /> : null}
       {children}
       <Text style={[s.small, { textAlign: 'center' }]}>{t('A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.')}</Text>
     </View>
@@ -311,4 +330,6 @@ const s = StyleSheet.create({
   check: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(145,188,220,.1)' },
   shareRound: { width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#132437', borderWidth: 1, borderColor: '#2c485f' },
   small: { color: colors.faint, fontSize: 12.5, lineHeight: 19, fontFamily: fonts.regular },
+  noPreview: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 16, borderRadius: 14, borderWidth: 1,
+    borderStyle: 'dashed', borderColor: colors.line, backgroundColor: colors.input },
 });

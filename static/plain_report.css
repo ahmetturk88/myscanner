@@ -44,3 +44,5 @@
 .rp-feedback{font-size:13.5px;color:#9edaf5;margin:6px 0;min-height:0}
 .rp.qr-plain{margin:8px 0 26px}
 .rp.rp-spaced{margin:24px 0}.rp.rp-dialog{grid-template-columns:1fr;margin-bottom:22px}.rp.rp-dialog .rp-pair{grid-template-columns:1fr}
+
+.rp .rp-nopreview{display:flex;gap:14px;align-items:flex-start;padding:18px;border:1px dashed #2a3d57;border-radius:12px;background:rgba(15,27,44,.55);color:#8ea2bc}.rp .rp-nopreview svg{flex:none;color:#6f86a3;margin-top:2px}.rp .rp-nopreview strong{display:block;color:#d7e3f2;font-size:15px;margin-bottom:4px}.rp .rp-nopreview span{display:block;font-size:13.5px;line-height:1.55}

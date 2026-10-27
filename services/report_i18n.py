@@ -12,7 +12,7 @@ import re
 from services.i18n_tr import TR
 
 CATALOGS = {'tr': TR}
-TEXT_FIELDS = ('label', 'headline', 'summary', 'why_title', 'checked', 'share_text', 'not_visited')
+TEXT_FIELDS = ('label', 'headline', 'summary', 'why_title', 'checked', 'share_text', 'not_visited', 'no_preview')
 TALLY_SEPARATOR = ' · '
 
 # Placeholders that hold scanned data (addresses, names, versions): kept as they are.

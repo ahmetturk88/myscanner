@@ -34,6 +34,14 @@ assert.equal(elements['plain-report'].hidden,false);assert.equal(elements['rp-to
 ctx.renderPlain({tone:'nonsense',actions:[],reasons:[],checks:[]},{screenshot_url:'/api/scan_screenshot/7'});
 assert.equal(elements['plain-report'].dataset.tone,'unknown');assert(elements['plain-report'].innerHTML.includes('src="/api/scan_screenshot/7"'));
 assert(elements['plain-report'].innerHTML.includes('Check another link'));
+// No screenshot: a card says why instead of an empty gap; the reason is server text and is escaped.
+ctx.renderPlain({tone:'caution',actions:[],reasons:[],checks:[],no_preview:'Our browser didn’t open the page <b>x</b>'},{});
+const noShot=elements['plain-report'].innerHTML;
+assert(noShot.includes('rp-nopreview'));assert(noShot.includes('No preview'));assert(noShot.includes('&lt;b&gt;x'));assert(!noShot.includes('<b>x'));
+ctx.renderPlain({tone:'safe',actions:[],reasons:[],checks:[]},{});
+assert(!elements['plain-report'].innerHTML.includes('rp-preview'));
+ctx.renderPlain({tone:'safe',actions:[],reasons:[],checks:[],no_preview:'Why'},{screenshot_url:'/api/scan_screenshot/9'});
+assert(elements['plain-report'].innerHTML.includes('src="/api/scan_screenshot/9"'));assert(!elements['plain-report'].innerHTML.includes('rp-nopreview'));
 vm.runInContext('plainReport={share_text:"Warning: hxxp://a[.]b"}',ctx);
 ctx.navigator.share=async data=>{shared=data;};
 ctx.shareReport().then(()=>{assert.equal(shared.text,'Warning: hxxp://a[.]b');
@@ -50,3 +58,4 @@ ctx.PlainReport.render(sharedBox,{tone:'danger',share_text:'x'},{plainShare:true
 // No share text (password checks): no share button at all, only the "again" link.
 ctx.PlainReport.render(sharedBox,{tone:'caution'},{again:{href:'/password-check',label:'Check another password'}});
 assert(!sharedBox.innerHTML.includes('data-rp-share'));assert(sharedBox.innerHTML.includes('Check another password'));
+

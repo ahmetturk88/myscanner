@@ -295,6 +295,13 @@ REPORTS_TR = {
     'The link uses a rented server’s default name instead of a website name.': 'Bağlantı bir site adı yerine kiralık bir sunucunun varsayılan adını kullanıyor.',
     'Cloudflare, which serves this site, shows its own warning that the site was reported for phishing.': 'Bu siteyi sunan Cloudflare, sitenin oltalama için bildirildiğine dair kendi uyarısını gösteriyor.',
     'Cloudflare, which serves this site, shows its own warning that the site was reported for spreading malware.': 'Bu siteyi sunan Cloudflare, sitenin kötü amaçlı yazılım yaydığı için bildirildiğine dair kendi uyarısını gösteriyor.',
+    'We didn’t open this page, so there is no preview.': 'Bu sayfayı açmadık, bu yüzden önizleme yok.',
+    'This link downloads a file instead of showing a page, so there is nothing to preview.': 'Bu bağlantı bir sayfa göstermek yerine dosya indiriyor, bu yüzden önizlenecek bir şey yok.',
+    'The link leads to an address our browser doesn’t open, so there is no preview.': 'Bağlantı, tarayıcımızın açmadığı bir adrese gidiyor, bu yüzden önizleme yok.',
+    'Our browser didn’t open the page because its security certificate is invalid. Your browser would show a warning too.': 'Güvenlik sertifikası geçersiz olduğu için tarayıcımız sayfayı açmadı. Senin tarayıcın da bir uyarı gösterirdi.',
+    'The page didn’t load for our browser. The site may be down, or it may hide itself from security checks.': 'Sayfa tarayıcımızda yüklenmedi. Site kapalı olabilir ya da güvenlik kontrollerinden saklanıyor olabilir.',
+    'We couldn’t take a preview of this page this time. The checks above don’t depend on it.': 'Bu sefer bu sayfanın önizlemesini alamadık. Yukarıdaki kontroller buna bağlı değil.',
+    'No preview': 'Önizleme yok',
     # --- AI assistant
     'AI ASSISTANT': 'YAPAY ZEKÂ ASİSTANI',
     'MyScanner AI assistant': 'MyScanner yapay zekâ asistanı',

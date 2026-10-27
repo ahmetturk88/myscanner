@@ -320,3 +320,32 @@ class ImpersonatedBrandTests(unittest.TestCase):
     def test_a_brands_own_subsidiary_on_an_old_domain_stays_clean(self):
         local, deep = evidence('https://www.garantiemeklilik.com.tr/', age=6000, rank=20000)
         self.assertEqual(assess_url(local, deep)['verdict'], 'harmless')
+
+
+class NoPreviewTests(unittest.TestCase):
+    """When a link report has no screenshot, the report says why."""
+
+    def reason(self, url='https://www.dhl.smarthub.vuelogix.ai/', **changes):
+        from services.url_report_view import plain_report
+        local, deep = evidence(url, age=3000, rank=0)
+        for key, value in changes.items():
+            target, field = key.split('__')
+            (local if target == 'local' else deep)[field] = value
+        return plain_report(assess_url(local, deep), local, deep, url)['no_preview']
+
+    def test_each_cause_has_its_own_sentence(self):
+        from services.url_report_view import NO_PREVIEW
+        self.assertEqual(self.reason(local__ssl={'valid': False}, deep__ssl={'valid': False}), NO_PREVIEW['certificate'])
+        download = {'title': '', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': None, 'scam_signals': [],
+                    'download': {'filename': 'a.apk', 'program': True}}
+        self.assertEqual(self.reason(deep__page_content=download), NO_PREVIEW['download'])
+        self.assertEqual(self.reason(deep__behavior={'error': 'Connection refused', 'original_url': 'x', 'final_url': 'x'}), NO_PREVIEW['not_loaded'])
+        self.assertEqual(self.reason(local__reputation_only=True), NO_PREVIEW['not_opened'])
+        self.assertEqual(self.reason(), NO_PREVIEW['other'])
+
+    def test_every_sentence_is_in_turkish(self):
+        from services.report_i18n import translate
+        from services.url_report_view import NO_PREVIEW
+        for sentence in NO_PREVIEW.values():
+            self.assertNotEqual(translate(sentence, 'tr'), sentence, sentence)
+        self.assertEqual(translate('No preview', 'tr'), 'Önizleme yok')

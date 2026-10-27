@@ -220,6 +220,7 @@ export const TR: Record<string, string> = {
   "What to do": "Ne yapmalı",
   "What we checked": "Neleri kontrol ettik",
   "Page preview": "Sayfa önizlemesi",
+  "No preview": "Önizleme yok",
   "Screenshot of the scanned page": "Taranan sayfanın ekran görüntüsü",
   "Taken in an isolated browser on our server. Your phone never opened the page. A normal-looking page is not proof of safety.": "Sunucumuzdaki yalıtılmış bir tarayıcıda alındı. Telefonun sayfayı hiç açmadı. Normal görünen bir sayfa, güvenli olduğunun kanıtı değildir.",
   "Share report": "Raporu paylaş",

@@ -131,6 +131,32 @@ def imitated(local, deep):
     return ''
 
 
+NO_PREVIEW = {
+    'not_opened': 'We didn’t open this page, so there is no preview.',
+    'download': 'This link downloads a file instead of showing a page, so there is nothing to preview.',
+    'other_port': 'The link leads to an address our browser doesn’t open, so there is no preview.',
+    'certificate': 'Our browser didn’t open the page because its security certificate is invalid. Your browser would show a warning too.',
+    'not_loaded': 'The page didn’t load for our browser. The site may be down, or it may hide itself from security checks.',
+    'other': 'We couldn’t take a preview of this page this time. The checks above don’t depend on it.',
+}
+
+
+def no_preview(codes, local, deep):
+    """Why a report may have no page preview, in one sentence; shown only when the screenshot is missing."""
+    behavior, page = mapping(deep.get('behavior')), mapping(deep.get('page_content'))
+    if local.get('reputation_only') is True:
+        return NO_PREVIEW['not_opened']
+    if mapping(page.get('download')):
+        return NO_PREVIEW['download']
+    if behavior.get('unvisited_destination') is True:
+        return NO_PREVIEW['other_port']
+    if 'tls_invalid' in codes:
+        return NO_PREVIEW['certificate']
+    if behavior.get('error') or 'content_hidden' in codes or not page or page.get('error'):
+        return NO_PREVIEW['not_loaded']
+    return NO_PREVIEW['other']
+
+
 def plain_report(assessment, local, deep, url):
     assessment, local, deep = mapping(assessment), mapping(local), mapping(deep)
     verdict = assessment.get('verdict') if assessment.get('verdict') in VERDICTS else 'unknown'
@@ -322,4 +348,5 @@ def plain_report(assessment, local, deep, url):
     return {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,
             'url': url_parts(url), 'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally(checks),
             'reputation_only': reputation_only, 'not_visited': NOT_VISITED if reputation_only else None,
+            'no_preview': no_preview(set(found), local, deep),
             'share_text': share.rstrip('.') + '. Check links free at https://myscanners.com'}

@@ -18,6 +18,7 @@
   };
   const SVG = (paths, size, width) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   const SHARE = SVG('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', 18, 2.2);
+  const NO_CAMERA = SVG('<path d="M3 3l18 18"/><path d="M21 17V8a2 2 0 0 0-2-2h-3l-2-3H10M6.3 6H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14"/><path d="M9.5 9.6A3.5 3.5 0 0 0 14.4 14.5"/>', 26, 1.8);
   const SEARCH = SVG('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 18, 2.2);
   const STATES = ['bad', 'warn', 'ok', 'na', 'info'];
 
@@ -55,7 +56,11 @@
       ? share('rp-primary', tone === 'danger' && !opts.plainShare ? 'Warn whoever sent it' : 'Share this warning') + another('rp-ghost')
       : another('rp-primary') + share('rp-ghost', 'Share report');
     const shot = /^\/api\/scan_screenshot\/\d+$/.test(opts.screenshot || '') ? opts.screenshot : '';
-    const preview = shot ? `<section class="rp-card rp-preview"><h2>Page preview</h2><img src="${esc(shot)}" alt="Screenshot of the scanned page" loading="lazy"><p>Taken in an isolated browser on our server. Your device never opened the page. A normal-looking page is not proof of safety.</p></section>` : '';
+    // Without a screenshot, say why (bad certificate, a download, the site down…) instead of hiding the card.
+    const why = typeof plain.no_preview === 'string' ? plain.no_preview : '';
+    const missing = `<div class="rp-nopreview">${NO_CAMERA}<div><strong>No preview</strong><span>${esc(why)}</span></div></div>`;
+    const preview = shot ? `<section class="rp-card rp-preview"><h2>Page preview</h2><img src="${esc(shot)}" alt="Screenshot of the scanned page" loading="lazy"><p>Taken in an isolated browser on our server. Your device never opened the page. A normal-looking page is not proof of safety.</p></section>`
+      : why ? `<section class="rp-card rp-preview"><h2>Page preview</h2>${missing}</section>` : '';
     const checked = typeof opts.checked === 'string' ? opts.checked : typeof plain.checked === 'string' ? plain.checked : '';
     box.dataset.tone = tone;
     box.innerHTML = `<div class="rp-main">
@@ -68,7 +73,12 @@
     <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}
       <p class="rp-note">A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.</p></aside>`;
     const img = box.querySelector('.rp-preview img');
-    if (img) img.addEventListener('error', () => { const card = img.closest('.rp-preview'); if (card) card.remove(); });
+    if (img) img.addEventListener('error', () => {
+      const card = img.closest('.rp-preview');
+      if (!card) return;
+      if (!why) { card.remove(); return; }
+      card.innerHTML = `<h2>Page preview</h2>${missing}`;
+    });
     box.querySelectorAll('[data-rp-share]').forEach(button => button.addEventListener('click', () => shareText(plain.share_text, opts.feedback)));
     box.hidden = false;
     return true;

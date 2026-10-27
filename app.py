@@ -1492,7 +1492,10 @@ def download_pdf(scan_id):
     analysis['aggregate_assessment'] = saved_assessment(saved, saved['local_analysis'], saved.get('deep_analysis', {}))
 
     # توليد PDF
-    buffer = generate_vulnerability_report(scan, analysis, current_user.username)
+    # Same verdict and wording as the report page, in the language the user reads the site in.
+    buffer = generate_vulnerability_report(scan, analysis, current_user.username,
+                                           deep=saved.get('deep_analysis') if isinstance(saved.get('deep_analysis'), dict) else {},
+                                           lang=current_language())
     
     return send_file(
         buffer,

@@ -427,6 +427,7 @@ REPORTS_TR.update({
 })
 
 REPORTS_TR_PATTERNS = [
+    (r'^Long-standing domain history \((.+)\)\.$', r'Uzun süredir var olan alan adı geçmişi (\1).'),
     (r'^Hi (.+), how can I help you stay safe today\?$', r'Merhaba \1, bugün güvende kalman için nasıl yardımcı olabilirim?'),
     (r'^Hi (.+) 👋$', r'Merhaba \1 👋'),
     ('^(\\d+) findings?$', '\\1 bulgu'),

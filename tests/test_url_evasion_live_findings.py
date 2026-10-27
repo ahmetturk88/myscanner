@@ -349,3 +349,38 @@ class NoPreviewTests(unittest.TestCase):
         for sentence in NO_PREVIEW.values():
             self.assertNotEqual(translate(sentence, 'tr'), sentence, sentence)
         self.assertEqual(translate('No preview', 'tr'), 'Önizleme yok')
+
+
+class ShortLinkBlockedTests(unittest.TestCase):
+    """Manual check: tinyurl.com/mtmka79f showed TinyURL's "URL is Blocked or Blacklisted" page; we said "not sure"."""
+
+    PAGE = ('<html><head><title>TinyURL</title></head><body><h1>TINYURL</h1><h2>URL is Blocked or Blacklisted</h2>'
+            '<p>This TinyURL has been blocked for violating our terms of use.</p></body></html>')
+
+    def test_block_page_is_recognised_only_on_short_link_services(self):
+        from services.url_analyzer import URLDeepAnalyzer
+        analyzer = URLDeepAnalyzer()
+        self.assertEqual(analyzer.analyze_page_content('https://tinyurl.com/mtmka79f', html=self.PAGE)['host_warning'],
+                         {'host': 'shortener', 'kind': 'blocked'})
+        self.assertNotIn('host_warning', analyzer.analyze_page_content('https://tinyurl.com/app', html='<title>TinyURL</title><p>Make your links shorter.</p>'))
+        self.assertNotIn('host_warning', analyzer.analyze_page_content('https://news.example.com/a', html=self.PAGE))
+
+    def test_blocked_short_link_is_dangerous_in_both_languages(self):
+        from services.report_i18n import translate_plain
+        from services.url_report_view import plain_report
+        page = {'title': 'TinyURL', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 300, 'scam_signals': [],
+                'host_warning': {'host': 'shortener', 'kind': 'blocked'}}
+        local, deep = evidence('https://tinyurl.com/mtmka79f', age=9000, rank=500, page=page, behavior={'is_shortened': True})
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'malicious')
+        plain = plain_report(result, local, deep, local['url'])
+        self.assertEqual(plain['summary'], 'The short-link service has blocked this link after abuse reports. Don’t open it.')
+        turkish = translate_plain(plain, 'tr')
+        self.assertEqual(turkish['reasons'][0]['title'], 'Kısa bağlantı hizmeti onu engelledi')
+
+    def test_old_recommendation_lines_are_translated(self):
+        from services.site_i18n import _catalogs, _lookup
+        catalog = _catalogs()['tr']
+        for text in ('URL shortener detected - destination unknown', 'Set X-Frame-Options', 'URL shortener used - destination unknown until clicked',
+                     '1 coverage gaps were reported. Review the missing-check section before relying on the index.'):
+            self.assertTrue(_lookup(text, catalog, 'tr'), text)

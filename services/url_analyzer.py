@@ -69,6 +69,12 @@ def download_info(response, scan=True):
     return info
 
 
+# Short-link services replace a link they took down with a page saying so.
+SHORT_LINK_BLOCKED = re.compile(r'\b(?:url|link|tinyurl|bitly|short link)\b[^.]{0,40}\b(?:is |has been |was )?(?:blocked|blacklisted|disabled|suspended|banned|removed)\b'
+                                r'|\b(?:blocked|blacklisted|disabled|banned)\b[^.]{0,30}\b(?:url|link)\b'
+                                r'|\b(?:flagged|reported) (?:as|for) (?:spam|phishing|malware|abuse|harmful|unsafe)', re.I)
+
+
 def page_redirect(response):
     """(target, 'meta'|'script') when a short page sends the browser on, else None."""
     try:
@@ -860,6 +866,11 @@ class URLDeepAnalyzer:
             match = re.search(r'suspected (phishing|malware)', result["title"] + ' ' + lowered[:20000], re.I)
             if match and ('reported for' in lowered or 'ignore & proceed' in lowered or 'ignore &amp; proceed' in lowered):
                 result["host_warning"] = {'host': 'cloudflare', 'kind': match.group(1).lower()}
+
+        # A short-link service's own block page ("URL is Blocked or Blacklisted" on TinyURL).
+        host = (urlparse(url).hostname or '').lower()
+        if (host in self.SHORTENED_DOMAINS or looks_like_short_link(url) or host.removeprefix('www.') in self.SHORTENED_DOMAINS) and SHORT_LINK_BLOCKED.search(visible):
+            result["host_warning"] = {'host': 'shortener', 'kind': 'blocked'}
 
         from services.scam_content import scam_signals
         fields = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input')]

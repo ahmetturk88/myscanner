@@ -18,7 +18,12 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
+from pathlib import Path
+import unicodedata
+
+from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table,
     TableStyle, Flowable, PageBreak, NextPageTemplate, CondPageBreak,
@@ -28,6 +33,12 @@ from reportlab.platypus import (
 # ═════════════════════════════════════════════════════════════════
 # الأبعاد والألوان
 # ═════════════════════════════════════════════════════════════════
+# DejaVu (a free font with every Turkish letter: ğ ş ı İ); the built-in PDF fonts lack them.
+FONT_DIR = Path(__file__).with_name('fonts')
+for _name, _file in (('MS', 'DejaVuSans.ttf'), ('MS-Bold', 'DejaVuSans-Bold.ttf'), ('MS-Mono', 'DejaVuSansMono.ttf')):
+    if _name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(_name, str(FONT_DIR / _file)))
+
 PAGE_W, PAGE_H = A4
 MARGIN = 1.5 * cm
 CW = PAGE_W - 2 * MARGIN  # عرض المحتوى
@@ -61,7 +72,9 @@ def hx(c):
 
 
 def esc(v):
-    return escape(str(v))
+    # Emoji and symbols (🚩, ⚠️) have no glyph in a PDF font and print as boxes.
+    text = ''.join(c for c in str(v) if unicodedata.category(c) != 'So' and c not in '\ufe0f\u200d')
+    return escape(text.strip())
 
 
 def clip(text, n):
@@ -87,57 +100,130 @@ def score_color(score):
 # ═════════════════════════════════════════════════════════════════
 # الأحكام (Verdicts)
 # ═════════════════════════════════════════════════════════════════
-VERDICTS = {
-    'safe': (
-        COLORS['green'], 'SAFE',
-        'No significant threats were identified. The target shows strong trust '
-        'signals across domain, encryption and reputation checks. Continue to '
-        'apply standard caution when sharing sensitive data.'
-    ),
-    'suspicious': (
-        COLORS['yellow'], 'SUSPICIOUS',
-        'Several risk indicators were detected. Avoid entering credentials or '
-        'sensitive information until the target is verified through an '
-        'independent and trusted channel.'
-    ),
-    'malicious': (
-        COLORS['red'], 'MALICIOUS',
-        'Strong indicators of malicious activity were found. Do not visit this '
-        'target or submit any information. Block it and report it to your '
-        'security team.'
-    ),
+# The report's tones, coloured as on the site.
+TONE_COLORS = {'danger': COLORS['red'], 'caution': COLORS['yellow'], 'unknown': COLORS['muted'],
+               'safe': COLORS['green'], 'info': COLORS['accent']}
+LEGEND = [
+    ('danger', 'DANGEROUS', 'A threat list, our antivirus or the site’s own host confirms it is dangerous.'),
+    ('danger', 'HIGH RISK', 'Strong warning signs together, or a trick in the address. Treat it as unsafe.'),
+    ('caution', 'BE CAREFUL', 'Signs common on scam pages. Don’t enter passwords or card details.'),
+    ('unknown', 'NOT SURE', 'Some checks couldn’t run, so we can’t call it safe.'),
+    ('safe', 'LOOKS SAFE', 'No warning signs in the checks we ran. This is not a guarantee of safety.'),
+]
+# Evidence categories of the assessment, as the site names them.
+COMPONENTS = [('transport', 'Connection security'), ('identity', 'Address and name'), ('content', 'Page content'),
+              ('behavior', 'Redirects'), ('reputation', 'Threat intelligence')]
+# Values url.vet sends when it has nothing to report.
+EMPTY_VALUES = {'', 'N/A', 'None', '0001-01-01', '0001-01-01T00:00:00Z', 'Unknown'}
+
+PDF_TR = {
+    'ADVANCED CYBERSECURITY PLATFORM': 'GELİŞMİŞ SİBER GÜVENLİK PLATFORMU',
+    'LINK SECURITY REPORT': 'BAĞLANTI GÜVENLİK RAPORU',
+    'An evidence-based check of one link': 'Tek bir bağlantının kanıta dayalı kontrolü',
+    'EVIDENCE INDEX': 'KANIT ENDEKSİ', 'OUT OF 100': '100 ÜZERİNDEN', 'INCOMPLETE': 'EKSİK',
+    'CHECKED LINK': 'KONTROL EDİLEN BAĞLANTI', 'SCANNED': 'TARAMA', 'REPORT ID': 'RAPOR NO',
+    'PREPARED FOR': 'HAZIRLANDIĞI KİŞİ', 'CONFIDENTIAL REPORT': 'GİZLİ RAPOR', 'CONFIDENTIAL': 'GİZLİ', 'Page': 'Sayfa',
+    'SUMMARY': 'ÖZET', 'What this report means for you': 'Bu rapor senin için ne anlama geliyor',
+    'WARNINGS': 'UYARI', 'FINE': 'SORUNSUZ', 'NOT CHECKED': 'KONTROL EDİLMEDİ',
+    'out of 100': '100 üzerinden', 'in the checks': 'kontrollerde', 'checks': 'kontrol',
+    'What to do': 'Ne yapmalı', 'What we checked': 'Neleri kontrol ettik', 'Good to know': 'Bilmekte fayda var',
+    'TECHNICAL EVIDENCE': 'TEKNİK KANITLAR', 'For experts: how the verdict was reached': 'Uzmanlar için: sonuca nasıl ulaşıldı',
+    'Scan overview': 'Tarama özeti', 'Checked link': 'Kontrol edilen bağlantı', 'Final address': 'Son adres',
+    'Scanned': 'Tarama zamanı', 'Report generated': 'Rapor oluşturuldu', 'Report ID': 'Rapor no', 'Prepared for': 'Hazırlandığı kişi',
+    'Policy': 'Politika', 'Sources': 'Kaynaklar', 'Evidence by category': 'Kategoriye göre kanıtlar',
+    'Not assessed': 'Değerlendirilmedi', 'No deductions': 'Kesinti yok', 'points deducted': 'puan düşüldü',
+    'Findings': 'Bulgular', 'pts': 'puan', 'Checks that couldn’t run': 'Çalıştırılamayan kontroller',
+    'URL.VET OBSERVATIONS': 'URL.VET GÖZLEMLERİ',
+    'Inputs from url.vet. They inform the verdict but don’t decide it.': 'url.vet’ten gelen girdiler. Sonucu etkiler ama tek başına belirlemez.',
+    'Warnings from url.vet': 'url.vet uyarıları', 'Positive signals': 'Olumlu işaretler', 'Notes': 'Notlar',
+    'Domain information': 'Alan adı bilgileri', 'Age': 'Yaş', 'Registrar': 'Kayıt şirketi', 'Created': 'Oluşturulma',
+    'Expires': 'Bitiş', 'Enabled': 'Açık', 'Disabled': 'Kapalı', 'Certificate (url.vet)': 'Sertifika (url.vet)',
+    'Certificate chain': 'Sertifika zinciri', 'Valid': 'Geçerli', 'Invalid': 'Geçersiz', 'Issuer': 'Yayıncı',
+    'Yes': 'Evet', 'No': 'Hayır', 'Not available': 'Mevcut değil',
+    'Address features (url.vet)': 'Adres özellikleri (url.vet)', 'URL shortener': 'URL kısaltıcı', 'Uses an IP address': 'IP adresi kullanıyor',
+    'Punycode': 'Punycode', 'Look-alike letters': 'Benzer harfler', 'Sensitive keywords': 'Hassas anahtar kelimeler',
+    'Detected': 'Tespit edildi', 'Not used': 'Kullanılmıyor', 'None': 'Yok', 'Found': 'Bulundu',
+    'PhishTank (via url.vet)': 'PhishTank (url.vet üzerinden)', 'Listed': 'Listede', 'Not listed': 'Listede değil',
+    'Our certificate check': 'Kendi sertifika kontrolümüz', 'DNS records': 'DNS kayıtları',
+    'FIELD': 'ALAN', 'VALUE': 'DEĞER', 'STATUS': 'DURUM', 'PASS': 'GEÇTİ', 'WARNING': 'UYARI', 'FAIL': 'BAŞARISIZ', 'INFO': 'BİLGİ',
+    'CHECK': 'KONTROL', 'RESULT': 'SONUÇ', 'VERDICT': 'SONUÇ', 'MEANING': 'ANLAMI',
+    'HOW TO READ THIS REPORT': 'BU RAPOR NASIL OKUNUR', 'Verdicts and limits': 'Sonuçlar ve sınırlar',
+    'The verdict comes from MyScanner’s checks: threat lists, the address itself, the page, its redirects and an antivirus scan, weighed together. The evidence index (0–100) summarises the deductions; it is not a probability, and the verdict can be stricter than the number when a strong sign is found.':
+        'Sonuç, MyScanner’ın kontrollerinden gelir: tehdit listeleri, adresin kendisi, sayfa, yönlendirmeleri ve antivirüs taraması birlikte değerlendirilir. Kanıt endeksi (0–100) kesintileri özetler; bir olasılık değildir ve güçlü bir işaret bulunduğunda sonuç bu sayıdan daha katı olabilir.',
+    'This report reflects the link at the time of the scan. Websites change quickly, so results may differ later. It is information, not a guarantee of safety.':
+        'Bu rapor, bağlantının tarama anındaki durumunu yansıtır. Web siteleri hızla değişir, bu yüzden sonuçlar daha sonra farklı olabilir. Bu bir bilgilendirmedir, güvenlik garantisi değildir.',
+    'Report generated by MyScanner': 'Bu rapor MyScanner tarafından oluşturuldu', 'All rights reserved.': 'Tüm hakları saklıdır.',
+    'DANGEROUS': 'TEHLİKELİ', 'HIGH RISK': 'YÜKSEK RİSK', 'BE CAREFUL': 'DİKKATLİ OL', 'NOT SURE': 'EMİN DEĞİLİZ', 'LOOKS SAFE': 'GÜVENLİ GÖRÜNÜYOR',
+    'A threat list, our antivirus or the site’s own host confirms it is dangerous.': 'Bir tehdit listesi, antivirüsümüz ya da sitenin kendi barındırıcısı tehlikeli olduğunu doğruluyor.',
+    'Strong warning signs together, or a trick in the address. Treat it as unsafe.': 'Birlikte güçlü uyarı işaretleri ya da adreste bir hile var. Güvensiz kabul et.',
+    'Signs common on scam pages. Don’t enter passwords or card details.': 'Dolandırıcılık sayfalarında yaygın işaretler. Şifre ya da kart bilgisi girme.',
+    'Some checks couldn’t run, so we can’t call it safe.': 'Bazı kontroller çalıştırılamadı, bu yüzden güvenli diyemeyiz.',
+    'No warning signs in the checks we ran. This is not a guarantee of safety.': 'Çalıştırdığımız kontrollerde uyarı işareti yok. Bu bir güvenlik garantisi değildir.',
+    'Certificate check unavailable': 'Sertifika kontrolü yapılamadı',
+    'HTTP header check unavailable': 'HTTP başlık kontrolü yapılamadı',
+    'URLVet assessment unavailable or incomplete': 'url.vet değerlendirmesi eksik ya da alınamadı',
+    'URLVet domain registration (WHOIS) check unavailable': 'url.vet alan adı kaydı (WHOIS) kontrolü yapılamadı',
+    'Deep page content was not assessed': 'Sayfa içeriği değerlendirilmedi',
+    'Redirect behavior was not assessed': 'Yönlendirmeler değerlendirilmedi',
+    'Phishing database evidence is unverified or unavailable': 'Oltalama veri tabanı kanıtı doğrulanmadı ya da alınamadı',
+    'Redirect destination of the short link could not be reached': 'Kısa bağlantının hedefine ulaşılamadı',
+    'Transport evidence unavailable': 'Bağlantı güvenliği kanıtı yok', 'Identity evidence unavailable': 'Adres kanıtı yok',
+    'Content evidence unavailable': 'Sayfa içeriği kanıtı yok', 'Behavior evidence unavailable': 'Yönlendirme kanıtı yok',
+    'Reputation evidence unavailable': 'Tehdit istihbaratı kanıtı yok',
+    'Error': 'Hata', 'A Records': 'A kayıtları', 'Aaaa Records': 'AAAA kayıtları', 'Mx Records': 'MX kayıtları',
+    'Ns Records': 'NS kayıtları', 'Txt Records': 'TXT kayıtları', 'Has Spf': 'SPF kaydı', 'Has Dmarc': 'DMARC kaydı',
+    'Subject': 'Konu', 'Days Left': 'Kalan gün', 'Days Until Expiry': 'Bitişe kalan gün', 'Version': 'Sürüm',
+    'Connection security': 'Bağlantı güvenliği', 'Address and name': 'Adres ve alan adı', 'Page content': 'Sayfa içeriği',
+    'Redirects': 'Yönlendirmeler', 'Threat intelligence': 'Tehdit istihbaratı',
 }
 
 
-def resolve_verdict(trust_score, phishing):
-    if phishing.get('in_database'):
-        return 'malicious'
-    if trust_score >= 80:
-        return 'safe'
-    if trust_score >= 50:
-        return 'suspicious'
-    return 'malicious'
+def translator(lang):
+    """Text in the report's language: the PDF's own words first, then the site's report catalog."""
+    if lang != 'tr':
+        return lambda text: text
+    from services.site_i18n import _catalogs, _lookup
+    catalog = _catalogs()['tr']
+
+    def t(text):
+        if not isinstance(text, str) or not text:
+            return text
+        return PDF_TR.get(text) or _lookup(text, catalog, 'tr') or text
+    return t
 
 
-DEFAULT_RECOMMENDATIONS = {
-    'safe': [
-        'Keep monitoring the target periodically; trust signals can change over time.',
-        'Keep verifying links received by email or messaging apps before opening them.',
-        'Keep browsers, extensions and endpoint protection fully updated.',
-    ],
-    'suspicious': [
-        'Do not enter credentials, payment details or personal data on this target until verified.',
-        'Verify the domain owner through an independent channel (official website, phone, support).',
-        'If access is required, open the target only inside an isolated environment or sandbox.',
-        'Re-scan the target later and compare the results.',
-    ],
-    'malicious': [
-        'Do not visit this target and do not interact with any content it serves.',
-        'Block the domain and URL at DNS, proxy and email-gateway level.',
-        'If credentials were entered, reset them immediately and enable multi-factor authentication.',
-        'Report the URL to your security team and to phishing-reporting services.',
-    ],
-}
+def upper(text, lang):
+    """Upper case that keeps Turkish dotted and dotless i apart (istihbarat → İSTİHBARAT)."""
+    if lang == 'tr':
+        text = text.replace('i', 'İ').replace('ı', 'I')
+    return text.upper()
+
+
+def missing_text(messages):
+    """The checks that couldn't run, once each, in words a reader understands ("local"/"deep" dropped)."""
+    seen = []
+    for message in messages:
+        text = message.removeprefix('local ').removeprefix('deep ').strip()
+        text = text[:1].upper() + text[1:]
+        if text and text not in seen:
+            seen.append(text)
+    return seen
+
+
+def age_words(text, lang):
+    """url.vet's "8 years 10 months" in the report's language."""
+    if lang != 'tr' or not isinstance(text, str):
+        return text
+    import re
+    return re.sub(r'(\d+) months?', r'\1 ay', re.sub(r'(\d+) years?', r'\1 yıl', re.sub(r'(\d+) days?', r'\1 gün', text)))
+
+
+def present(value):
+    """A url.vet value worth printing, or None for its "nothing to report" placeholders."""
+    if value is None or isinstance(value, bool):
+        return None
+    text = str(value).strip()
+    return None if text in EMPTY_VALUES or text.startswith('0001-01-01') else text
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -156,37 +242,37 @@ def get_styles():
 
     white, muted, accent = COLORS['white'], COLORS['muted'], COLORS['accent']
     _STYLES = {
-        'body': ps('Body', fontName='Helvetica', fontSize=9.5, leading=15,
+        'body': ps('Body', fontName='MS', fontSize=9.5, leading=15,
                    textColor=white),
-        'body_url': ps('BodyUrl', fontName='Helvetica', fontSize=9.5, leading=15,
+        'body_url': ps('BodyUrl', fontName='MS', fontSize=9.5, leading=15,
                        textColor=white, wordWrap='CJK'),
-        'muted': ps('Muted', fontName='Helvetica', fontSize=8.5, leading=13,
+        'muted': ps('Muted', fontName='MS', fontSize=8.5, leading=13,
                     textColor=muted),
-        'th': ps('TH', fontName='Helvetica-Bold', fontSize=7.5, leading=10,
+        'th': ps('TH', fontName='MS-Bold', fontSize=7.5, leading=10,
                  textColor=accent),
-        'th_c': ps('THC', fontName='Helvetica-Bold', fontSize=7.5, leading=10,
+        'th_c': ps('THC', fontName='MS-Bold', fontSize=7.5, leading=10,
                    textColor=accent, alignment=TA_CENTER),
-        'cell': ps('Cell', fontName='Helvetica', fontSize=8.5, leading=12,
+        'cell': ps('Cell', fontName='MS', fontSize=8.5, leading=12,
                    textColor=white, wordWrap='CJK'),
-        'cell_label': ps('CellLabel', fontName='Helvetica-Bold', fontSize=8,
+        'cell_label': ps('CellLabel', fontName='MS-Bold', fontSize=8,
                          leading=11, textColor=muted),
-        'cell_c': ps('CellC', fontName='Helvetica', fontSize=8.5, leading=12,
+        'cell_c': ps('CellC', fontName='MS', fontSize=8.5, leading=12,
                      textColor=white, alignment=TA_CENTER),
-        'status': ps('Status', fontName='Helvetica-Bold', fontSize=7.5,
+        'status': ps('Status', fontName='MS-Bold', fontSize=7.5,
                      leading=10, alignment=TA_CENTER),
-        'flag': ps('Flag', fontName='Helvetica', fontSize=9, leading=13,
+        'flag': ps('Flag', fontName='MS', fontSize=9, leading=13,
                    textColor=white, wordWrap='CJK'),
-        'icon': ps('Icon', fontName='Helvetica-Bold', fontSize=11, leading=13,
+        'icon': ps('Icon', fontName='MS-Bold', fontSize=11, leading=13,
                    alignment=TA_CENTER),
-        'banner_title': ps('BannerTitle', fontName='Helvetica-Bold', fontSize=15,
+        'banner_title': ps('BannerTitle', fontName='MS-Bold', fontSize=15,
                            leading=19),
-        'banner_text': ps('BannerText', fontName='Helvetica', fontSize=9,
+        'banner_text': ps('BannerText', fontName='MS', fontSize=9,
                           leading=14, textColor=white),
-        'foot1': ps('Foot1', fontName='Helvetica-Bold', fontSize=10, leading=14,
+        'foot1': ps('Foot1', fontName='MS-Bold', fontSize=10, leading=14,
                     textColor=accent, alignment=TA_CENTER),
-        'foot2': ps('Foot2', fontName='Helvetica', fontSize=8.5, leading=13,
+        'foot2': ps('Foot2', fontName='MS', fontSize=8.5, leading=13,
                     textColor=muted, alignment=TA_CENTER),
-        'foot3': ps('Foot3', fontName='Helvetica', fontSize=7.5, leading=11,
+        'foot3': ps('Foot3', fontName='MS', fontSize=7.5, leading=11,
                     textColor=muted, alignment=TA_CENTER),
     }
     return _STYLES
@@ -283,7 +369,7 @@ def draw_shield(c, cx, cy, s, fill, inner, check):
 
 def draw_logo_text(c, x, y, size, align='left'):
     """MyScanner بلونين: My أبيض + Scanner سيان"""
-    f = 'Helvetica-Bold'
+    f = 'MS-Bold'
     w1 = stringWidth('My', f, size)
     w2 = stringWidth('Scanner', f, size)
     if align == 'center':
@@ -324,20 +410,19 @@ def draw_cover(c, ctx):
     draw_shield(c, cx, PAGE_H - 108, 1.05, accent, COLORS['dark_bg'], accent)
     draw_logo_text(c, cx, PAGE_H - 186, 40, align='center')
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, PAGE_H - 207, 'ADVANCED CYBERSECURITY PLATFORM',
-                'Helvetica', 8.5, 3)
+    draw_spaced(c, cx, PAGE_H - 207, ctx['t']('ADVANCED CYBERSECURITY PLATFORM'),
+                'MS', 8.5, 3)
     c.setStrokeColor(accent)
     c.setLineWidth(2)
     c.line(cx - 40, PAGE_H - 224, cx + 40, PAGE_H - 224)
 
     # عنوان التقرير
     c.setFillColor(COLORS['white'])
-    c.setFont('Helvetica-Bold', 21)
-    c.drawCentredString(cx, PAGE_H - 258, 'VULNERABILITY & THREAT')
-    c.drawCentredString(cx, PAGE_H - 283, 'ANALYSIS REPORT')
+    c.setFont('MS-Bold', 22)
+    c.drawCentredString(cx, PAGE_H - 266, ctx['t']('LINK SECURITY REPORT'))
     c.setFillColor(COLORS['muted'])
-    c.setFont('Helvetica', 10)
-    c.drawCentredString(cx, PAGE_H - 304, 'Comprehensive URL security assessment')
+    c.setFont('MS', 10)
+    c.drawCentredString(cx, PAGE_H - 290, ctx['t']('An evidence-based check of one link'))
 
     # المقياس الدائري
     c.setFillColor(COLORS['surface'])
@@ -354,16 +439,16 @@ def draw_cover(c, ctx):
         c.arc(cx - r, gy - r, cx + r, gy + r, 90 - sweep, sweep)
 
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, gy + 36, 'OVERALL SCORE', 'Helvetica-Bold', 8, 2.5)
+    draw_spaced(c, cx, gy + 36, ctx['t']('EVIDENCE INDEX'), 'MS-Bold', 8, 2.5)
     c.setFillColor(vcol)
-    c.setFont('Helvetica-Bold', 50)
+    c.setFont('MS-Bold', 50)
     c.drawCentredString(cx, gy - 16, ctx.get('score_display', str(ctx['trust'])))
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, gy - 35, 'INCOMPLETE' if ctx.get('incomplete') else 'OUT OF 100', 'Helvetica', 7.5, 2)
+    draw_spaced(c, cx, gy - 35, ctx['t']('INCOMPLETE' if ctx.get('incomplete') else 'OUT OF 100'), 'MS', 7.5, 2)
 
     # شارة الحكم
     label = ctx['vlabel']
-    pw = stringWidth(label, 'Helvetica-Bold', 15) + 76
+    pw = stringWidth(label, 'MS-Bold', 15) + 76
     py = gy - r - 62
     c.setFillColor(mix(vcol, bg, 0.16))
     c.setStrokeColor(vcol)
@@ -371,7 +456,7 @@ def draw_cover(c, ctx):
     c.roundRect(cx - pw / 2, py, pw, 36, 18, fill=1, stroke=1)
     c.setFillColor(vcol)
     c.circle(cx - pw / 2 + 22, py + 18, 5, fill=1, stroke=0)
-    c.setFont('Helvetica-Bold', 15)
+    c.setFont('MS-Bold', 15)
     c.drawString(cx - pw / 2 + 36, py + 12.5, label)
 
     # بطاقة الهدف
@@ -384,20 +469,20 @@ def draw_cover(c, ctx):
     c.setFillColor(accent)
     c.roundRect(bx, ty + 12, 3.5, 42, 1.7, fill=1, stroke=0)
     c.setFillColor(accent)
-    draw_spaced(c, bx + 20, ty + 47, 'TARGET URL', 'Helvetica-Bold', 7.5, 2,
+    draw_spaced(c, bx + 20, ty + 47, ctx['t']('CHECKED LINK'), 'MS-Bold', 7.5, 2,
                 align='left')
     c.setFillColor(COLORS['white'])
-    c.setFont('Courier', 10)
+    c.setFont('MS-Mono', 10)
     c.drawString(bx + 20, ty + 24,
-                 fit_text(ctx['url'], 'Courier', 10, bw - 40))
+                 fit_text(ctx['url'], 'MS-Mono', 10, bw - 40))
 
     # بطاقات المعلومات
     gap = 10
     mw = (bw - 2 * gap) / 3
     meta = [
-        ('REPORT DATE', ctx['date']),
-        ('REPORT ID', ctx['report_id']),
-        ('ANALYZED FOR', ctx['username']),
+        (ctx['t']('SCANNED'), ctx['scanned']),
+        (ctx['t']('REPORT ID'), ctx['report_id']),
+        (ctx['t']('PREPARED FOR'), ctx['username']),
     ]
     for i, (lab, val) in enumerate(meta):
         x = bx + i * (mw + gap)
@@ -405,16 +490,16 @@ def draw_cover(c, ctx):
         c.setStrokeColor(COLORS['border'])
         c.roundRect(x, 112, mw, 60, 10, fill=1, stroke=1)
         c.setFillColor(COLORS['muted'])
-        draw_spaced(c, x + 14, 112 + 40, lab, 'Helvetica-Bold', 7, 2,
+        draw_spaced(c, x + 14, 112 + 40, lab, 'MS-Bold', 7, 2,
                     align='left')
         c.setFillColor(COLORS['white'])
-        c.setFont('Helvetica-Bold', 10)
+        c.setFont('MS-Bold', 10)
         c.drawString(x + 14, 112 + 20,
-                     fit_text(val, 'Helvetica-Bold', 10, mw - 28))
+                     fit_text(val, 'MS-Bold', 10, mw - 28))
 
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, 62, 'CONFIDENTIAL REPORT  |  MYSCANNERS.COM',
-                'Helvetica', 7, 2.5)
+    draw_spaced(c, cx, 62, ctx['t']('CONFIDENTIAL REPORT') + '  |  MYSCANNERS.COM',
+                'MS', 7, 2.5)
     c.restoreState()
 
 
@@ -432,24 +517,23 @@ def draw_content_page(c, doc, ctx):
                 COLORS['dark_bg'], COLORS['accent'])
     draw_logo_text(c, MARGIN + 22, PAGE_H - 31, 11)
     c.setFillColor(COLORS['muted'])
-    c.setFont('Courier', 7.5)
+    c.setFont('MS-Mono', 7.5)
     c.drawRightString(PAGE_W - MARGIN, PAGE_H - 30,
-                      f'SECURITY REPORT  |  {ctx["report_id"]}')
+                      f'{ctx["t"]("LINK SECURITY REPORT")}  |  {ctx["report_id"]}')
     c.setStrokeColor(COLORS['border'])
     c.setLineWidth(0.6)
     c.line(MARGIN, PAGE_H - 44, PAGE_W - MARGIN, PAGE_H - 44)
 
     # التذييل
     c.line(MARGIN, 40, PAGE_W - MARGIN, 40)
-    c.setFont('Helvetica', 7)
+    c.setFont('MS', 7)
     c.setFillColor(COLORS['muted'])
-    c.drawString(MARGIN, 26,
-                 'MyScanner Advanced Cybersecurity Platform  |  myscanners.com')
+    c.drawString(MARGIN, 26, 'MyScanner  |  myscanners.com')
     c.setFillColor(COLORS['accent'])
-    draw_spaced(c, PAGE_W / 2 + 60, 26, 'CONFIDENTIAL', 'Helvetica-Bold', 7, 1.5)
+    draw_spaced(c, PAGE_W / 2, 26, ctx['t']('CONFIDENTIAL'), 'MS-Bold', 7, 1.5)
     c.setFillColor(COLORS['muted'])
-    c.setFont('Helvetica', 7)
-    c.drawRightString(PAGE_W - MARGIN, 26, f'Page {doc.page}')
+    c.setFont('MS', 7)
+    c.drawRightString(PAGE_W - MARGIN, 26, f'{ctx["t"]("Page")} {doc.page}')
     c.restoreState()
 
 
@@ -477,14 +561,14 @@ class SectionHeader(Flowable):
         c.setFillColor(COLORS['accent'])
         c.roundRect(0, 12, 28, 28, 7, fill=1, stroke=0)
         c.setFillColor(COLORS['dark_bg'])
-        c.setFont('Helvetica-Bold', 14)
+        c.setFont('MS-Bold', 14)
         c.drawCentredString(14, 21, str(self.number))
         c.setFillColor(COLORS['white'])
-        c.setFont('Helvetica-Bold', 16)
-        c.drawString(40, 27 if self.subtitle else 21, self.title.upper())
+        c.setFont('MS-Bold', 16)
+        c.drawString(40, 27 if self.subtitle else 21, self.title)
         if self.subtitle:
             c.setFillColor(COLORS['muted'])
-            c.setFont('Helvetica', 8)
+            c.setFont('MS', 8)
             c.drawString(40, 14, self.subtitle)
         c.setStrokeColor(COLORS['border'])
         c.setLineWidth(1)
@@ -511,18 +595,18 @@ class SubHeader(Flowable):
         c.setFillColor(self.color)
         c.roundRect(0, 5, 3.5, 15, 1.7, fill=1, stroke=0)
         c.setFillColor(COLORS['white'])
-        c.setFont('Helvetica-Bold', 11)
+        c.setFont('MS-Bold', 11)
         c.drawString(12, 8.5, self.title)
         if self.count is not None:
-            tw = stringWidth(self.title, 'Helvetica-Bold', 11)
+            tw = stringWidth(self.title, 'MS-Bold', 11)
             s = str(self.count)
-            bw = stringWidth(s, 'Helvetica-Bold', 8) + 14
+            bw = stringWidth(s, 'MS-Bold', 8) + 14
             c.setFillColor(mix(self.color, COLORS['dark_bg'], 0.2))
             c.setStrokeColor(self.color)
             c.setLineWidth(0.6)
             c.roundRect(12 + tw + 8, 4.5, bw, 15, 7.5, fill=1, stroke=1)
             c.setFillColor(self.color)
-            c.setFont('Helvetica-Bold', 8)
+            c.setFont('MS-Bold', 8)
             c.drawCentredString(12 + tw + 8 + bw / 2, 8.8, s)
 
 
@@ -553,13 +637,13 @@ class StatCards(Flowable):
             c.setLineCap(1)
             c.line(x + 14, h - 1.2, x + cw - 14, h - 1.2)
             c.setFillColor(COLORS['muted'])
-            draw_spaced(c, x + 14, h - 20, label, 'Helvetica-Bold', 6.8, 1.6,
+            draw_spaced(c, x + 14, h - 20, label, 'MS-Bold', 6.8, 1.6,
                         align='left')
             c.setFillColor(col)
-            c.setFont('Helvetica-Bold', 25)
+            c.setFont('MS-Bold', 25)
             c.drawString(x + 14, 22, str(value))
             c.setFillColor(COLORS['muted'])
-            c.setFont('Helvetica', 7.5)
+            c.setFont('MS', 7.5)
             c.drawString(x + 14, 9, sub)
 
 
@@ -595,7 +679,7 @@ class RiskMeter(Flowable):
             c.setFillColor(col if active else mix(col, COLORS['dark_bg'], 0.38))
             c.rect(x0, bar_y, x1 - x0, bar_h, fill=1, stroke=0)
             c.setFillColor(col if active else COLORS['muted'])
-            draw_spaced(c, (x0 + x1) / 2, bar_y - 14, name, 'Helvetica-Bold',
+            draw_spaced(c, (x0 + x1) / 2, bar_y - 14, name, 'MS-Bold',
                         6.5, 1.4)
 
         mx = pad + bw * self.score / 100
@@ -607,7 +691,7 @@ class RiskMeter(Flowable):
         p.lineTo(mx, bar_y + bar_h + 4)
         p.close()
         c.drawPath(p, fill=1, stroke=0)
-        c.setFont('Helvetica-Bold', 8)
+        c.setFont('MS-Bold', 8)
         c.drawCentredString(mx, bar_y + bar_h + 18, str(self.score))
 
 
@@ -635,23 +719,23 @@ class ScoreBars(Flowable):
         x0, x1 = 200, W - 70
         for i, (label, score, detail) in enumerate(self.rows):
             y = H - 7 - (i + 1) * self.ROW_H
-            col = score_color(score)
+            col = COLORS['muted'] if score is None else score_color(score)
             c.setFillColor(COLORS['white'])
-            c.setFont('Helvetica-Bold', 9)
+            c.setFont('MS-Bold', 9)
             c.drawString(16, y + 18, label)
             c.setFillColor(COLORS['muted'])
-            c.setFont('Helvetica', 7.2)
-            c.drawString(16, y + 7, fit_text(detail, 'Helvetica', 7.2, x0 - 30))
+            c.setFont('MS', 7.2)
+            c.drawString(16, y + 7, fit_text(detail, 'MS', 7.2, x0 - 30))
 
             c.setFillColor(COLORS['border'])
             c.roundRect(x0, y + 13, x1 - x0, 8, 4, fill=1, stroke=0)
-            if score > 0:
+            if score:
                 c.setFillColor(col)
                 c.roundRect(x0, y + 13, max(8, (x1 - x0) * score / 100), 8, 4,
                             fill=1, stroke=0)
             c.setFillColor(col)
-            c.setFont('Helvetica-Bold', 10)
-            c.drawRightString(W - 16, y + 12, f'{score}/100')
+            c.setFont('MS-Bold', 10)
+            c.drawRightString(W - 16, y + 12, '—' if score is None else f'{score}/100')
             if i < len(self.rows) - 1:
                 c.setStrokeColor(mix(COLORS['border'], COLORS['card_bg'], 0.5))
                 c.setLineWidth(0.4)
@@ -670,11 +754,11 @@ STATUS_MAP = {
 }
 
 
-def kv_table(rows):
+def kv_table(rows, t=lambda text: text):
     """جدول (Field | Value | Status) بتلوين حسب الحالة"""
     st = get_styles()
-    data = [[Paragraph('FIELD', st['th']), Paragraph('VALUE', st['th']),
-             Paragraph('STATUS', st['th_c'])]]
+    data = [[Paragraph(t('FIELD'), st['th']), Paragraph(t('VALUE'), st['th']),
+             Paragraph(t('STATUS'), st['th_c'])]]
     style = [
         ('BOX', (0, 0), (-1, -1), 0.7, COLORS['border']),
         ('LINEBELOW', (0, 0), (-1, -1), 0.4, COLORS['border']),
@@ -692,7 +776,7 @@ def kv_table(rows):
         data.append([
             Paragraph(esc(label), st['cell_label']),
             Paragraph(esc(value), st['cell']),
-            Paragraph(f'<font color="{hx(col)}">{text}</font>', st['status']),
+            Paragraph(f'<font color="{hx(col)}">{t(text)}</font>', st['status']),
         ])
         if status:
             style.append(('BACKGROUND', (2, i), (2, i),
@@ -768,7 +852,7 @@ def numbered_table(items):
 def verdict_banner(vcol, vlabel, vdesc):
     st = get_styles()
     inner = [
-        Paragraph(f'<font color="{hx(vcol)}">VERDICT: {vlabel}</font>',
+        Paragraph(f'<font color="{hx(vcol)}">{esc(vlabel)}</font>',
                   st['banner_title']),
         Spacer(1, 4),
         Paragraph(esc(vdesc), st['banner_text']),
@@ -789,18 +873,10 @@ def verdict_banner(vcol, vlabel, vdesc):
     return t
 
 
-def legend_table():
+def verdict_legend(t):
+    """What each verdict on the report means, in the same words and colours as the site."""
     st = get_styles()
-    rows = [
-        ('80 - 100', 'SAFE', COLORS['green'],
-         'Strong trust signals, no significant threat indicators.'),
-        ('50 - 79', 'SUSPICIOUS', COLORS['yellow'],
-         'Mixed or weak signals. Verify before trusting the target.'),
-        ('0 - 49', 'MALICIOUS', COLORS['red'],
-         'Strong threat indicators. Avoid and block the target.'),
-    ]
-    data = [[Paragraph('SCORE', st['th']), Paragraph('VERDICT', st['th_c']),
-             Paragraph('MEANING', st['th'])]]
+    data = [[Paragraph(t('VERDICT'), st['th_c']), Paragraph(t('MEANING'), st['th'])]]
     style = [
         ('BOX', (0, 0), (-1, -1), 0.7, COLORS['border']),
         ('LINEBELOW', (0, 0), (-1, -1), 0.4, COLORS['border']),
@@ -812,16 +888,64 @@ def legend_table():
         ('LINEBELOW', (0, 0), (-1, 0), 1.2, COLORS['accent']),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COLORS['card_bg'], COLORS['surface']]),
     ]
-    for i, (rng, name, col, meaning) in enumerate(rows, start=1):
-        data.append([
-            Paragraph(f'<font name="Courier-Bold">{rng}</font>', st['cell']),
-            Paragraph(f'<font color="{hx(col)}">{name}</font>', st['status']),
-            Paragraph(meaning, st['cell']),
-        ])
+    for i, (tone, label, meaning) in enumerate(LEGEND, start=1):
+        col = TONE_COLORS[tone]
+        data.append([Paragraph(f'<font color="{hx(col)}">{esc(t(label))}</font>', st['status']),
+                     Paragraph(esc(t(meaning)), st['cell'])])
+        style.append(('BACKGROUND', (0, i), (0, i), mix(col, COLORS['card_bg'], 0.14)))
+    table = Table(data, colWidths=[0.24 * CW, 0.76 * CW])
+    table.setStyle(TableStyle(style))
+    return table
+
+
+def reasons_table(reasons):
+    """The report's "why we think so" list, each with its own colour and mark."""
+    st = get_styles()
+    marks = {'bad': (COLORS['red'], '!'), 'warn': (COLORS['yellow'], '!'), 'info': (COLORS['accent'], 'i'),
+             'ok': (COLORS['green'], '+'), 'na': (COLORS['muted'], '–')}
+    data, style = [], [
+        ('BACKGROUND', (1, 0), (1, -1), COLORS['card_bg']),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.4, COLORS['border']),
+        ('LINEAFTER', (-1, 0), (-1, -1), 0.7, COLORS['border']),
+        ('LINEABOVE', (0, 0), (-1, 0), 0.7, COLORS['border']),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (1, 0), (1, -1), 12), ('RIGHTPADDING', (1, 0), (1, -1), 12),
+    ]
+    for i, reason in enumerate(reasons):
+        col, mark = marks.get(reason.get('tone'), marks['info'])
+        data.append([Paragraph(f'<font color="{hx(col)}">{mark}</font>', st['icon']),
+                     Paragraph(f'<b>{esc(reason.get("title", ""))}</b><br/>'
+                               f'<font color="{hx(COLORS["muted"])}">{esc(reason.get("detail", ""))}</font>', st['flag'])])
+        style += [('BACKGROUND', (0, i), (0, i), mix(col, COLORS['card_bg'], 0.14)), ('LINEBEFORE', (0, i), (0, i), 3, col)]
+    table = Table(data, colWidths=[1.0 * cm, CW - 1.0 * cm])
+    table.setStyle(TableStyle(style))
+    return table
+
+
+def checks_table(checks, t):
+    """The report's "what we checked" list: check, result, and the state colour."""
+    st = get_styles()
+    states = {'bad': COLORS['red'], 'warn': COLORS['yellow'], 'ok': COLORS['green'], 'info': COLORS['accent'], 'na': COLORS['muted']}
+    data = [[Paragraph(t('CHECK'), st['th']), Paragraph(t('RESULT'), st['th_c'])]]
+    style = [
+        ('BOX', (0, 0), (-1, -1), 0.7, COLORS['border']),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.4, COLORS['border']),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 7), ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (0, 0), (-1, -1), 11), ('RIGHTPADDING', (0, 0), (-1, -1), 11),
+        ('BACKGROUND', (0, 0), (-1, 0), mix(COLORS['accent'], COLORS['dark_bg'], 0.16)),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.2, COLORS['accent']),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COLORS['card_bg'], COLORS['surface']]),
+    ]
+    for i, check in enumerate(checks, start=1):
+        col = states.get(check.get('state'), COLORS['muted'])
+        data.append([Paragraph(esc(check.get('name', '')), st['cell']),
+                     Paragraph(f'<font color="{hx(col)}"><b>{esc(check.get("result", ""))}</b></font>', st['cell_c'])])
         style.append(('BACKGROUND', (1, i), (1, i), mix(col, COLORS['card_bg'], 0.14)))
-    t = Table(data, colWidths=[0.2 * CW, 0.2 * CW, 0.6 * CW])
-    t.setStyle(TableStyle(style))
-    return t
+    table = Table(data, colWidths=[0.62 * CW, 0.38 * CW], repeatRows=1)
+    table.setStyle(TableStyle(style))
+    return table
 
 
 def generic_rows(data, limit=14):
@@ -855,336 +979,206 @@ def yes_no(flag, yes='Yes', no='No'):
 
 
 # ═════════════════════════════════════════════════════════════════
-# تقييم الوضع الأمني (مشتق من الإشارات المتوفرة)
-# ═════════════════════════════════════════════════════════════════
-def compute_posture(trust, local, domain_info, ssl_vet, feats, phishing, typo):
-    rows = [
-        ('url.vet Trust Score', trust, 'Aggregated result of 33 signals / 18 analyzers'),
-        ('Local Security Score', local, "MyScanner's proprietary local engine"),
-    ]
-    if ssl_vet:
-        tls = bool(ssl_vet.get('has_tls'))
-        chain = bool(ssl_vet.get('chain_valid'))
-        s = (50 if tls else 0) + (50 if tls and chain else 0)
-        d = ('HTTPS enabled with a valid certificate chain' if tls and chain else
-             'HTTPS enabled but the certificate chain is invalid' if tls else
-             'No HTTPS / TLS detected')
-        rows.append(('Encryption & TLS', s, d))
-    if feats:
-        keys = ['url_shortener', 'uses_ip', 'contains_punycode',
-                'has_homoglyph', 'has_keywords']
-        hits = sum(1 for k in keys if feats.get(k))
-        rows.append(('URL Structure', max(0, 100 - 25 * hits),
-                     f'{hits} suspicious URL characteristic(s) found'))
-    if domain_info:
-        s = 100
-        notes = []
-        if not domain_info.get('dnssec'):
-            s -= 15
-            notes.append('DNSSEC disabled')
-        else:
-            notes.append('DNSSEC enabled')
-        try:
-            days = float(domain_info.get('age_days'))
-            if days < 30:
-                s -= 45
-            elif days < 180:
-                s -= 25
-            elif days < 365:
-                s -= 10
-        except (TypeError, ValueError):
-            pass
-        age = domain_info.get('age_human')
-        if age:
-            notes.append(f'age {age}')
-        rows.append(('Domain Reputation', max(0, s), ', '.join(notes)))
-    rows.append(('Phishing Exposure', 0 if phishing.get('in_database') else 100,
-                 'Listed in phishing database' if phishing.get('in_database')
-                 else 'Not found in phishing databases'))
-    rows.append(('Typosquatting Risk', 0 if typo.get('is_suspicious') else 100,
-                 'Lookalike of a known brand detected' if typo.get('is_suspicious')
-                 else 'No lookalike patterns detected'))
-    return rows
-
-
-# ═════════════════════════════════════════════════════════════════
 # الدالة الرئيسية
 # ═════════════════════════════════════════════════════════════════
-def generate_vulnerability_report(scan, analysis, username):
-    """
-    توليد تقرير PDF احترافي كامل
+def generate_vulnerability_report(scan, analysis, username, deep=None, lang='en'):
+    """The URL report as a PDF, built from the same verdict and plain summary the site shows.
 
-    Args:
-        scan: كائن Scan من قاعدة البيانات
-        analysis: dict يحتوي على نتائج التحليل (من URLDeepAnalyzer)
-        username: اسم المستخدم
-
-    Returns:
-        BytesIO: ملف PDF جاهز للتحميل
+    analysis: the saved quick analysis with its aggregate_assessment; deep: the saved deep
+    analysis; lang: 'en' or 'tr'. Returns a BytesIO.
     """
+    from services.report_i18n import translate_plain
+    from services.url_report_view import plain_report
+
     st = get_styles()
-    analysis = analysis or {}
+    analysis = analysis if isinstance(analysis, dict) else {}
+    deep = deep if isinstance(deep, dict) else analysis.get('deep_analysis') if isinstance(analysis.get('deep_analysis'), dict) else {}
+    lang = 'tr' if lang == 'tr' else 'en'
+    t = translator(lang)
 
-    # ── استخراج البيانات ─────────────────────────────────────────
+    url = str(getattr(scan, 'url', '') or 'N/A')
+    from services.url_assessment import assess_url
+    aggregate = analysis.get('aggregate_assessment') or assess_url(analysis, deep)
+    plain = plain_report(aggregate, analysis, deep, url)
+    if lang != 'en':
+        plain = translate_plain(plain, lang)
+    tone = plain.get('tone') if plain.get('tone') in TONE_COLORS else 'unknown'
+    vcol = TONE_COLORS[tone]
+    score = aggregate.get('score')
+
     urlvet = analysis.get('urlvet', {}) or {}
-    trust = to_num(urlvet.get('trust_score', 0))
-    verdict_raw = urlvet.get('verdict_raw', 'Unknown')
-    red_flags = urlvet.get('red_flags', []) or []
-    green_flags = urlvet.get('green_flags', []) or []
-    neutral = urlvet.get('neutral_reasons', []) or []
     domain_info = urlvet.get('domain_info', {}) or {}
     ssl_vet = urlvet.get('ssl_info', {}) or {}
     feats = urlvet.get('url_features', {}) or {}
     analysis_vet = urlvet.get('analysis', {}) or {}
     phishing = urlvet.get('phishing', {}) or {}
-    typo = urlvet.get('typosquatting', {}) or {}
-
-    local = to_num(analysis.get('security_score', 0))
-    recs = analysis.get('recommendations', []) or []
-    ssl_local = analysis.get('ssl', {}) or {}
-    dns_records = analysis.get('dns', {}) or {}
-
-    from services.url_assessment import assess_url
-    aggregate = analysis.get('aggregate_assessment') or assess_url(analysis, analysis.get('deep_analysis', {}))
-    overall = to_num(aggregate.get('score') or 0)
-    vkey = {'harmless':'safe','high_risk':'suspicious'}.get(aggregate.get('verdict'), aggregate.get('verdict','unknown'))
-    if vkey in VERDICTS:
-        vcol, vlabel, vdesc = VERDICTS[vkey]
-    else:
-        vkey = 'unknown'
-        vcol, vlabel, vdesc = COLORS['yellow'], 'UNKNOWN', 'Available evidence does not confirm safety. Review coverage limitations.' 
 
     try:
         report_id = f'MYS-{int(scan.id):06d}'
     except (TypeError, ValueError, AttributeError):
         report_id = 'MYS-000000'
-    url = str(getattr(scan, 'url', '') or 'N/A')
     now = datetime.now(timezone.utc)
-    date_str = now.strftime('%Y-%m-%d %H:%M UTC')
+    scanned_at = getattr(scan, 'date_posted', None) or getattr(scan, 'created_at', None)
+    try:
+        scanned = scanned_at.strftime('%Y-%m-%d %H:%M UTC')
+    except AttributeError:
+        scanned = now.strftime('%Y-%m-%d %H:%M UTC')
     username = str(username or 'N/A')
 
     ctx = {
-        'incomplete': aggregate.get('score') is None, 'trust': overall, 'score_display': str(aggregate['score']) if aggregate.get('score') is not None else 'N/A', 'vcolor': vcol, 'vlabel': vlabel, 'url': url,
-        'date': date_str, 'report_id': report_id, 'username': username,
+        't': t, 'incomplete': score is None, 'trust': to_num(score or 0), 'score_display': str(score) if score is not None else 'N/A',
+        'vcolor': vcol, 'vlabel': plain.get('label') or '', 'url': url, 'scanned': scanned, 'report_id': report_id, 'username': username,
     }
 
-    # ── المستند وقوالب الصفحات ───────────────────────────────────
     buffer = BytesIO()
     doc = BaseDocTemplate(
         buffer, pagesize=A4,
         leftMargin=MARGIN, rightMargin=MARGIN, topMargin=2 * cm, bottomMargin=2 * cm,
-        title=f'MyScanner Security Report - {url}',
-        author='MyScanner Security',
-        subject='Vulnerability & Threat Analysis Report',
-        creator='MyScanner Advanced Cybersecurity Platform',
+        title=f'MyScanner - {url}', author='MyScanner', subject=t('LINK SECURITY REPORT'), creator='MyScanner',
     )
-    cover_frame = Frame(MARGIN, PAGE_H / 2, CW, 20, id='cover',
-                        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
-    body_frame = Frame(MARGIN, 2 * cm, CW, PAGE_H - 2 * cm - 64, id='body',
-                       leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    cover_frame = Frame(MARGIN, PAGE_H / 2, CW, 20, id='cover', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    body_frame = Frame(MARGIN, 2 * cm, CW, PAGE_H - 2 * cm - 64, id='body', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     doc.addPageTemplates([
-        PageTemplate(id='cover', frames=[cover_frame],
-                     onPage=lambda c, d: draw_cover(c, ctx)),
-        PageTemplate(id='content', frames=[body_frame],
-                     onPage=lambda c, d: draw_content_page(c, d, ctx)),
+        PageTemplate(id='cover', frames=[cover_frame], onPage=lambda c, d: draw_cover(c, ctx)),
+        PageTemplate(id='content', frames=[body_frame], onPage=lambda c, d: draw_content_page(c, d, ctx)),
     ])
 
-    E = []
-    E += [Spacer(1, 1), NextPageTemplate('content'), PageBreak()]
+    E = [Spacer(1, 1), NextPageTemplate('content'), PageBreak()]
 
-    # ═════════════════════════════════════════════════════════════
-    # 1. EXECUTIVE SUMMARY
-    # ═════════════════════════════════════════════════════════════
-    E.append(SectionHeader(1, 'Executive Summary', 'Overall assessment at a glance'))
+    # 1. SUMMARY: the same verdict, reasons, actions and checks as the report on the site.
+    E.append(SectionHeader(1, t('SUMMARY'), t('What this report means for you')))
     E.append(Spacer(1, 12))
-    E.append(Paragraph(
-        f'This report presents a comprehensive security analysis of '
-        f'<font color="{hx(COLORS["accent"])}"><b>{esc(url)}</b></font>, conducted by '
-        f"MyScanner's advanced threat detection engine. The analysis combines "
-        f'<b>url.vet</b> (33 security signals across 18 analyzers) with the '
-        f'<b>MyScanner local security engine</b> and deep content checks to provide an evidence assessment '
-        f"of the target's security posture.", st['body_url']))
-    E.append(Paragraph('Coverage: '+esc(aggregate['coverage'])+'; '+esc('; '.join(aggregate['missing_checks'])), st['body']))
-    E.append(Spacer(1, 14))
-    E.append(verdict_banner(vcol, vlabel, vdesc))
+    E.append(verdict_banner(vcol, plain.get('headline') or plain.get('label') or '', plain.get('summary') or ''))
     E.append(Spacer(1, 12))
+    checks = [c for c in plain.get('checks') or [] if isinstance(c, dict)]
+    count = lambda *states: sum(c.get('state') in states for c in checks)
     E.append(StatCards([
-        ('OVERALL SCORE', aggregate.get('score') if aggregate.get('score') is not None else 'N/A', 'assessment incomplete' if aggregate.get('score') is None else 'out of 100', COLORS['yellow'] if aggregate.get('score') is None else score_color(overall)),
-        ('LOCAL SCORE', local, 'out of 100', score_color(local)),
-        ('RED FLAGS', len(red_flags), 'threat indicators',
-         COLORS['red'] if red_flags else COLORS['green']),
-        ('GREEN FLAGS', len(green_flags), 'positive signals', COLORS['green']),
+        (t('EVIDENCE INDEX'), score if score is not None else 'N/A', t('out of 100'), vcol),
+        (t('WARNINGS'), count('bad', 'warn'), t('in the checks'), COLORS['red'] if count('bad') else COLORS['yellow'] if count('warn') else COLORS['green']),
+        (t('FINE'), count('ok'), f'{len(checks)} {t("checks")}', COLORS['green']),
+        (t('NOT CHECKED'), count('na'), t('checks'), COLORS['muted']),
     ]))
-    E.append(Spacer(1, 12))
-    if aggregate.get('score') is not None:
-        E.append(RiskMeter(overall))
     E.append(Spacer(1, 16))
+    reasons = [r for r in plain.get('reasons') or [] if isinstance(r, dict)]
+    if reasons:
+        E.append(SubHeader(plain.get('why_title') or t('Why we think so'), vcol, len(reasons)))
+        E.append(reasons_table(reasons))
+        E.append(Spacer(1, 16))
+    actions = [a for a in plain.get('actions') or [] if isinstance(a, str)]
+    if actions:
+        E.append(SubHeader(t('Good to know' if tone == 'safe' else 'What to do'), COLORS['accent']))
+        E.append(numbered_table(actions))
+        E.append(Spacer(1, 16))
+    if checks:
+        E.append(KeepTogether([SubHeader(t('What we checked'), COLORS['accent']), checks_table(checks, t)]))
 
-    E.append(SubHeader('Scan Overview', COLORS['accent']))
-    overview = [
-        ('Target URL', url, None),
-        ('Report ID', report_id, None),
-        ('Generated', date_str, None),
-        ('Analyzed For', username, None),
-        ('url.vet Verdict', str(verdict_raw), 'info'),
-        ('Engines', 'url.vet + MyScanner Local Security Engine', None),
-    ]
-    created = getattr(scan, 'created_at', None)
-    if created:
-        try:
-            overview.insert(2, ('Scan Time', created.strftime('%Y-%m-%d %H:%M UTC'), None))
-        except AttributeError:
-            pass
-    E.append(kv_table(overview))
-
-    # ═════════════════════════════════════════════════════════════
-    # 2. URL.VET THREAT ANALYSIS
-    # ═════════════════════════════════════════════════════════════
-    E.append(CondPageBreak(7 * cm))
+    # 2. TECHNICAL EVIDENCE: how the verdict was reached.
+    E.append(CondPageBreak(9 * cm))
     E.append(Spacer(1, 22))
-    E.append(SectionHeader(2, 'url.vet Threat Analysis', 'Signals collected by the url.vet engine'))
+    E.append(SectionHeader(2, t('TECHNICAL EVIDENCE'), t('For experts: how the verdict was reached')))
     E.append(Spacer(1, 12))
-
-    if red_flags:
-        E.append(SubHeader('Red Flags - Threats Detected', COLORS['red'], len(red_flags)))
-        E.append(flag_table(red_flags, 'red'))
-        E.append(Spacer(1, 16))
-    else:
-        E.append(SubHeader('Red Flags - Threats Detected', COLORS['red'], 0))
-        E.append(flag_table(['No threat indicators were detected for this target.'], 'info'))
-        E.append(Spacer(1, 16))
-
-    if green_flags:
-        E.append(SubHeader('Green Flags - Positive Signals', COLORS['green'], len(green_flags)))
-        E.append(flag_table(green_flags, 'green'))
-        E.append(Spacer(1, 16))
-
-    if neutral:
-        E.append(SubHeader('Informational', COLORS['accent'], len(neutral[:8])))
-        E.append(flag_table(neutral[:8], 'info'))
-        E.append(Spacer(1, 10))
-
-    # ═════════════════════════════════════════════════════════════
-    # 3. TECHNICAL DETAILS
-    # ═════════════════════════════════════════════════════════════
-    E.append(CondPageBreak(8 * cm))
-    E.append(Spacer(1, 22))
-    E.append(SectionHeader(3, 'Technical Details', 'Domain, certificate and URL characteristics'))
-    E.append(Spacer(1, 12))
-
-    if domain_info:
-        E.append(SubHeader('Domain Information', COLORS['accent']))
-        E.append(kv_table([
-            ('Age', str(domain_info.get('age_human', 'N/A')), None),
-            ('Registrar', clip(domain_info.get('registrar', 'N/A'), 60), None),
-            ('Created', str(domain_info.get('created', 'N/A'))[:10], None),
-            ('Expires', str(domain_info.get('expiry', 'N/A'))[:10], None),
-            ('DNSSEC', yes_no(domain_info.get('dnssec'), 'Enabled', 'Disabled'),
-             'good' if domain_info.get('dnssec') else 'warn'),
-        ]))
-        E.append(Spacer(1, 18))
-
-    if ssl_vet:
-        E.append(SubHeader('SSL / TLS Certificate', COLORS['accent']))
-        E.append(kv_table([
-            ('HTTPS', yes_no(ssl_vet.get('has_tls'), 'Yes', 'No'),
-             'good' if ssl_vet.get('has_tls') else 'bad'),
-            ('Chain Validity', yes_no(ssl_vet.get('chain_valid'), 'Valid', 'Invalid'),
-             'good' if ssl_vet.get('chain_valid') else 'bad'),
-            ('Issuer', clip(ssl_vet.get('issuer', 'N/A'), 60), None),
-            ('Expires', str(ssl_vet.get('not_after', 'N/A'))[:10], None),
-        ]))
-        E.append(Spacer(1, 18))
-
-    if feats:
-        kw = feats.get('keywords_found', []) or []
-        E.append(SubHeader('URL Security Features', COLORS['accent']))
-        E.append(kv_table([
-            ('URL Shortener', yes_no(feats.get('url_shortener'), 'Detected', 'Not used'),
-             'warn' if feats.get('url_shortener') else 'good'),
-            ('Uses IP Address', yes_no(feats.get('uses_ip'), 'Yes', 'No'),
-             'warn' if feats.get('uses_ip') else 'good'),
-            ('Punycode', yes_no(feats.get('contains_punycode'), 'Detected', 'Not used'),
-             'warn' if feats.get('contains_punycode') else 'good'),
-            ('Homoglyph Attack', yes_no(feats.get('has_homoglyph'), 'Detected', 'None'),
-             'warn' if feats.get('has_homoglyph') else 'good'),
-            ('Sensitive Keywords',
-             ', '.join(str(k) for k in kw) if feats.get('has_keywords') and kw
-             else ('Found' if feats.get('has_keywords') else 'None'),
-             'warn' if feats.get('has_keywords') else 'good'),
-        ]))
-        E.append(Spacer(1, 18))
-
-    E.append(SubHeader('Phishing & Typosquatting', COLORS['accent']))
-    E.append(kv_table([
-        ('PhishTank', yes_no(phishing.get('in_database'), 'Listed', 'Clean'),
-         'bad' if phishing.get('in_database') else 'good'),
-        ('Typosquatting', yes_no(typo.get('is_suspicious'), 'Detected', 'Clean'),
-         'bad' if typo.get('is_suspicious') else 'good'),
-    ]))
+    final_url = (deep.get('behavior') or {}).get('final_url') if isinstance(deep.get('behavior'), dict) else None
+    overview = [(t('Checked link'), url, None)]
+    if isinstance(final_url, str) and final_url and final_url != url:
+        overview.append((t('Final address'), final_url, None))
+    overview += [(t('Scanned'), scanned, None), (t('Report generated'), now.strftime('%Y-%m-%d %H:%M UTC'), None),
+                 (t('Report ID'), report_id, None), (t('Prepared for'), username, None),
+                 (t('Policy'), str(aggregate.get('policy_version') or '—'), None),
+                 (t('Sources'), ', '.join(str(x) for x in aggregate.get('sources') or []) or '—', None)]
+    E.append(SubHeader(t('Scan overview'), COLORS['accent']))
+    E.append(kv_table(overview, t))
     E.append(Spacer(1, 18))
 
-    for title, data in (('Additional url.vet Analysis', analysis_vet),
-                        ('Local Engine - SSL', ssl_local),
-                        ('Local Engine - DNS Records', dns_records)):
-        rows = generic_rows(data)
-        if rows:
-            block = [SubHeader(title, COLORS['accent']), kv_table(rows)]
-            if len(rows) < 8:
-                E.append(KeepTogether(block))
-            else:
-                E.extend(block)
-            E.append(Spacer(1, 18))
+    components = aggregate.get('components') or {}
+    bars = []
+    for key, name in COMPONENTS:
+        part = components.get(key) if isinstance(components.get(key), dict) else {}
+        weight, taken = part.get('weight') or 0, part.get('deduction') or 0
+        if part.get('status') != 'assessed' or not weight:
+            bars.append((t(name), None, t('Not assessed')))
+        else:
+            bars.append((t(name), round(100 * (weight - taken) / weight), f'−{taken:g} {t("points deducted")}' if taken else t('No deductions')))
+    E.append(KeepTogether([SubHeader(t('Evidence by category'), COLORS['accent']), ScoreBars(bars)]))
+    E.append(Spacer(1, 18))
 
-    # ═════════════════════════════════════════════════════════════
-    # 4. SECURITY POSTURE BREAKDOWN
-    # ═════════════════════════════════════════════════════════════
-    E.append(CondPageBreak(9 * cm))
-    E.append(Spacer(1, 6))
-    E.append(SectionHeader(4, 'Security Posture', 'Score breakdown derived from the collected signals'))
-    E.append(Spacer(1, 12))
-    E.append(ScoreBars(compute_posture(trust, local, domain_info, ssl_vet,
-                                       feats, phishing, typo)))
+    findings = [r for r in aggregate.get('reasons') or [] if isinstance(r, dict) and r.get('message')]
+    if findings:
+        E.append(SubHeader(t('Findings'), COLORS['accent'], len(findings)))
+        E.append(flag_table([f'{t(r["message"])}   (−{r.get("deduction", 0):g} {t("pts")})' if r.get('deduction') else t(r['message'])
+                             for r in findings], 'info'))
+        E.append(Spacer(1, 16))
+    missing = [m for m in aggregate.get('missing_checks') or [] if isinstance(m, str)]
+    if missing:
+        E.append(SubHeader(t('Checks that couldn’t run'), COLORS['muted'], len(missing)))
+        E.append(flag_table([t(m) for m in missing_text(missing)[:10]], 'info'))
+        E.append(Spacer(1, 16))
 
-    # ═════════════════════════════════════════════════════════════
-    # 5. RECOMMENDATIONS
-    # ═════════════════════════════════════════════════════════════
+    # 3. URL.VET OBSERVATIONS: inputs, never the verdict.
     E.append(CondPageBreak(8 * cm))
     E.append(Spacer(1, 22))
-    E.append(SectionHeader(5, 'Security Recommendations', 'Suggested actions based on the findings'))
+    E.append(SectionHeader(3, t('URL.VET OBSERVATIONS'), t('Inputs from url.vet. They inform the verdict but don’t decide it.')))
     E.append(Spacer(1, 12))
-    rec_items = recs if recs else DEFAULT_RECOMMENDATIONS.get(vkey, ['Do not treat incomplete checks as confirmation of safety. Verify the destination independently.'])
-    E.append(numbered_table(rec_items))
+    for title, items, kind, col in (('Warnings from url.vet', urlvet.get('red_flags'), 'red', COLORS['yellow']),
+                                    ('Positive signals', urlvet.get('green_flags'), 'green', COLORS['green']),
+                                    ('Notes', urlvet.get('neutral_reasons'), 'info', COLORS['accent'])):
+        items = [age_words(t(flag_text(x)), lang) for x in (items or [])[:8] if esc(flag_text(x))]
+        if items:
+            E.append(SubHeader(t(title), col, len(items)))
+            E.append(flag_table(items, 'info' if kind == 'red' else kind))
+            E.append(Spacer(1, 14))
 
-    # ═════════════════════════════════════════════════════════════
-    # 6. METHODOLOGY & DISCLAIMER
-    # ═════════════════════════════════════════════════════════════
+    yes = lambda flag, a='Yes', b='No': t(a) if flag else t(b)
+    if domain_info:
+        rows = [(t(label), value, None) for label, value in (('Age', age_words(present(domain_info.get('age_human')), lang)),
+                                                             ('Registrar', present(domain_info.get('registrar'))),
+                                                             ('Created', present(str(domain_info.get('created') or '')[:10])),
+                                                             ('Expires', present(str(domain_info.get('expiry') or '')[:10]))) if value]
+        rows.append((t('DNSSEC'), yes(domain_info.get('dnssec'), 'Enabled', 'Disabled'), 'good' if domain_info.get('dnssec') else 'warn'))
+        E.append(KeepTogether([SubHeader(t('Domain information'), COLORS['accent']), kv_table(rows, t)]))
+        E.append(Spacer(1, 16))
+    if ssl_vet:
+        rows = [('HTTPS', yes(ssl_vet.get('has_tls')), 'good' if ssl_vet.get('has_tls') else 'bad')]
+        if ssl_vet.get('has_tls'):
+            rows.append((t('Certificate chain'), yes(ssl_vet.get('chain_valid'), 'Valid', 'Invalid'), 'good' if ssl_vet.get('chain_valid') else 'bad'))
+        for label, value in (('Issuer', present(ssl_vet.get('issuer'))), ('Expires', present(str(ssl_vet.get('not_after') or '')[:10]))):
+            if value:
+                rows.append((t(label), clip(value, 60), None))
+        E.append(KeepTogether([SubHeader(t('Certificate (url.vet)'), COLORS['accent']), kv_table(rows, t)]))
+        E.append(Spacer(1, 16))
+    if feats:
+        keywords = [str(k) for k in feats.get('keywords_found') or []]
+        rows = [(t('URL shortener'), yes(feats.get('url_shortener'), 'Detected', 'Not used'), 'warn' if feats.get('url_shortener') else 'good'),
+                (t('Uses an IP address'), yes(feats.get('uses_ip')), 'warn' if feats.get('uses_ip') else 'good'),
+                (t('Punycode'), yes(feats.get('contains_punycode'), 'Detected', 'Not used'), 'warn' if feats.get('contains_punycode') else 'good'),
+                (t('Look-alike letters'), yes(feats.get('has_homoglyph'), 'Detected', 'None'), 'warn' if feats.get('has_homoglyph') else 'good'),
+                (t('Sensitive keywords'), ', '.join(keywords) if feats.get('has_keywords') and keywords else yes(feats.get('has_keywords'), 'Found', 'None'),
+                 'warn' if feats.get('has_keywords') else 'good'),
+                (t('PhishTank (via url.vet)'), yes(phishing.get('in_database'), 'Listed', 'Not listed'), 'bad' if phishing.get('in_database') else 'good')]
+        E.append(KeepTogether([SubHeader(t('Address features (url.vet)'), COLORS['accent']), kv_table(rows, t)]))
+        E.append(Spacer(1, 16))
+    ssl_local = analysis.get('ssl', {}) or {}
+    for title, data in (('Our certificate check', ssl_local), ('DNS records', analysis.get('dns', {}) or {})):
+        rows = [(t(label), t(value) if value in ('Yes', 'No') else value, None) for label, value, _ in generic_rows(data) if present(value)]
+        if rows:
+            E.append(KeepTogether([SubHeader(t(title), COLORS['accent']), kv_table(rows, t)]))
+            E.append(Spacer(1, 16))
+    del analysis_vet  # url.vet's redirect view is covered by our own redirect evidence above
+
+    # 4. HOW TO READ THIS REPORT
     E.append(CondPageBreak(10 * cm))
     E.append(Spacer(1, 22))
-    E.append(SectionHeader(6, 'Methodology & Disclaimer', 'How to read this report'))
+    E.append(SectionHeader(4, t('HOW TO READ THIS REPORT'), t('Verdicts and limits')))
     E.append(Spacer(1, 12))
-    E.append(Paragraph(
-        'Scores range from 0 to 100, where a higher value indicates a more '
-        'favorable evidence index. The overall score combines capped transport, identity, '
-        'content, behavior and reputation categories, counting duplicate signals once. '
-        'Verified threat matches override high source scores. Unverified reports '
-        'and unavailable checks prevent confirmation of safety.', st['body']))
+    E.append(Paragraph(esc(t('The verdict comes from MyScanner’s checks: threat lists, the address itself, the page, its redirects and an antivirus scan, weighed together. The evidence index (0–100) summarises the deductions; it is not a probability, and the verdict can be stricter than the number when a strong sign is found.')), st['body']))
     E.append(Spacer(1, 10))
-    E.append(legend_table())
+    E.append(verdict_legend(t))
     E.append(Spacer(1, 12))
-    E.append(Paragraph(
-        'This report reflects the state of the target at the time of the scan. '
-        'Websites change quickly, so results may differ over time. The '
-        'assessment is provided for informational purposes and does not '
-        'constitute a guarantee of safety. MyScanner is not liable for '
-        'decisions taken solely on the basis of this report.', st['muted']))
+    E.append(Paragraph(esc(t('This report reflects the link at the time of the scan. Websites change quickly, so results may differ later. It is information, not a guarantee of safety.')), st['muted']))
     E.append(Spacer(1, 22))
-
     footer = Table([[[
-        Paragraph('Report generated by MyScanner Advanced Cybersecurity Platform', st['foot1']),
+        Paragraph(esc(t('Report generated by MyScanner')), st['foot1']),
         Paragraph('https://myscanners.com  |  info@myscanners.com', st['foot2']),
-        Paragraph(f'(c) {now.year} MyScanner. All rights reserved.  |  Confidential Report',
-                  st['foot3']),
+        Paragraph(f'(c) {now.year} MyScanner. {esc(t("All rights reserved."))}', st['foot3']),
     ]]], colWidths=[CW])
     footer.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COLORS['card_bg']),

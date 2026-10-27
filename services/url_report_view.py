@@ -22,9 +22,9 @@ MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'd
 SCAM = {'verified_phishing', 'web_risk_social_engineering', 'host_blocked_phishing', 'shortener_blocked'}
 LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
-ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait', 'server_hostname', 'random_name', 'victim_email', 'scheme_in_name'}
+ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait', 'server_hostname', 'random_name', 'victim_email', 'scheme_in_name', 'login_path'}
 TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'brand_in_subdomain', 'scheme_in_name'}
-PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path'}
+PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path', 'brand_in_page'}
 # code: (tone, title, detail). Tones: bad, warn, info.
 REASONS = {
     'urlhaus_match': ('bad', 'Reported for spreading malware', 'URLhaus, a public list run by abuse.ch, lists this link as a malware source.'),
@@ -70,6 +70,8 @@ REASONS = {
     'victim_email': ('warn', 'Your email address is in the link', 'The link carries an email address, so a fake sign-in page can show it pre-filled. Targeted password-theft links are built this way.'),
     'scheme_in_name': ('bad', 'A fake “https” in the site name', 'The site name itself starts with “http” or “https” to look secure and official. Real sites never do this.'),
     'random_name': ('warn', 'A machine-made name on a free host', 'The page’s name looks randomly generated. Phishing kits create pages like this by the hundred.'),
+    'brand_in_page': ('warn', 'A brand’s name on a free hosting page', 'The page calls itself by a well-known brand’s name, but it is on a free hosting service where anyone can publish, not on that brand’s own site.'),
+    'login_path': ('warn', 'A sign-in link on a cheap site', 'The link opens a sign-in or verification page on a site with a cheap ending that scam sites use most. Phishing links are built this way.'),
     'kit_path': ('warn', 'A page hidden inside a hacked website', 'It is served from inside the site’s WordPress system folders, where attackers hide phishing pages on hacked sites.'),
     'credential_bait': ('warn', 'A sign-in page on a free host', 'Its name on a free hosting service is about signing in, verifying or paying. Real companies don’t put these pages on free hosts.'),
     'odd_port_destination': ('warn', 'It sends you to an unusual server', 'The link redirects to a server on an unusual port, the way malware downloads are often delivered. We didn’t open it.'),

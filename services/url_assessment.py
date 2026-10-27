@@ -5,7 +5,8 @@ from urllib.parse import urlparse
 
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
-from services.url_tricks import IMPERSONATED, address_signals, email_in_link, kit_path, other_site, program_in_address
+from services.url_tricks import (IMPERSONATED, address_signals, brands_in_text, email_in_link, kit_path, login_path, other_site,
+                                 program_in_address, risky_ending)
 
 POLICY_VERSION = 'url-evidence-v12'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
@@ -110,7 +111,8 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
     if any(item['code'] in ('free_hosting','server_hostname') for item in address_signals(address)):
         established=False  # the hosting platform's age and fame are not the page's
     weak=set()
-    if mapping(provider.get('tld_info')).get('is_risky') is True:
+    tld_risky=mapping(provider.get('tld_info')).get('is_risky')
+    if tld_risky is True or (tld_risky is None and risky_ending(address)):  # our own list when url.vet can't say
         weak.add('risky_tld');signal('identity','risky_tld',4,'The address ends in a domain type that is cheap and often used for scam sites.')
     if rank==0:weak.add('unranked')
     if age is not None and age<365:
@@ -381,6 +383,16 @@ def _assess(local, deep):
     targeted=email_in_link(url_text)
     if targeted:
         signal('identity','victim_email',10,'The link carries an email address, so a fake sign-in page can show it pre-filled for its target.')
+    fake_brand=next((item for item in found if item['code']=='brand_in_name' and item.get('brand') in IMPERSONATED),None)
+    if {'free_hosting','random_name'}&weak and 'brand_in_name' not in weak:
+        named=brands_in_text(page.get('title'),url_text)
+        if named:
+            # A free-host page titled with a brand it doesn't belong to ("WhatsApp Web" on someone.github.io).
+            weak.add('brand_in_page')
+            signal('content','brand_in_page',6,'The page is titled with a well-known brand’s name, but it is on a free hosting service, not that brand’s site.')
+    sign_in_link=not established and 'risky_tld' in weak and login_path(url_text)  # a new shop's own /login is normal
+    if sign_in_link:
+        signal('identity','login_path',6,'The link points to a sign-in or verification page on a site with a cheap ending, the way phishing links are built.')
     hacked_site=kit_path(url_text)
     if hacked_site:
         signal('content','kit_path',10,'The page is served from inside a website’s WordPress folders, where hacked sites hide phishing pages.')
@@ -427,13 +439,23 @@ def _assess(local, deep):
         if strong_scam and weak:escalated='high_risk'
         elif 'brand_in_name' in weak and ('collects_details' in weak or asks_login or 'free_hosting' in weak):escalated='high_risk'
         elif 'credential_bait' in weak:escalated='high_risk'
-        elif {'free_hosting','server_hostname'}&weak and asks_login:escalated='high_risk' if 'brand_in_name' in weak else 'suspicious'
+        elif {'free_hosting','server_hostname'}&weak and asks_login:escalated='high_risk' if {'brand_in_name','brand_in_page'}&weak else 'suspicious'
         elif 'free_hosting' in weak and 'content_hidden' in weak:escalated='suspicious'  # a free-host page hiding from scanners
         elif 'server_hostname' in weak and deep_link:escalated='suspicious'
         elif {'risky_download','download_flagged'}&weak and len(weak)>=2:escalated='high_risk' if len(weak)>=3 else 'suspicious'
         elif len(weak)>=4 and CORE&weak:escalated='high_risk'
         elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'
+    if not confirmed and not established and fake_brand and escalated!='high_risk':
+        # A bank's or cargo company's name on a site that isn't theirs (mydpd.kslud.top): each
+        # sign of a throwaway site makes it worse, even when the page itself can't be reached.
+        signs=len({'risky_tld','new_domain','content_hidden','domain_randomness'}&weak)+(fake_brand.get('subdomain') is True)
+        if signs>=2 or (signs and (asks_login or 'collects_details' in weak)):escalated='high_risk'
+        elif signs:escalated=escalated or 'suspicious'
     if not confirmed and not escalated and 'redirect_loop' in weak:escalated='suspicious'  # a browser never reaches a page
+    if not confirmed and not escalated and 'device_cloaking' in weak:escalated='suspicious'  # computers are shown a decoy
+    if not confirmed and not escalated and 'brand_in_page' in weak:
+        escalated='high_risk' if asks_login or 'collects_details' in weak else 'suspicious'
+    if not confirmed and sign_in_link and escalated!='high_risk':escalated='high_risk' if asks_login else escalated or 'suspicious'
     if not confirmed and not escalated and hacked_site:  # even on an old site: that is how hacked sites are used
         escalated='high_risk' if asks_login or 'collects_details' in weak or 'brand_in_name' in reasons else 'suspicious'
     if not confirmed and not escalated and targeted:  # how targeted password-theft links are built

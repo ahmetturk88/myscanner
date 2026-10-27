@@ -100,3 +100,12 @@ class EvasionCaseTests(unittest.TestCase):
             if expect == 'clean':
                 clean, tricks = unmask(url)
                 self.assertEqual((tricks, [s for s in address_signals(clean) if s['strong']]), ([], []), url)
+
+
+class FileInputTests(unittest.TestCase):
+    def test_links_are_read_once_each_without_blanks_or_comments(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as handle:
+            handle.write('# phishing\nhttps://a.example/\n\nhttps://b.example/x \nhttps://a.example/\n')
+        self.assertEqual(accuracy_check.read_links(handle.name), ['https://a.example/', 'https://b.example/x'])
+        os.unlink(handle.name)

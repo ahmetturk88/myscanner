@@ -322,6 +322,10 @@ REPORTS_TR = {
     'Long random subdomain': 'Uzun rastgele alt alan adı',
     'Suspicious free TLD': 'Şüpheli ücretsiz alan adı uzantısı',
     'The short-link service has blocked this link after abuse reports.': 'Kısa bağlantı hizmeti, kötüye kullanım bildirimleri üzerine bu bağlantıyı engelledi.',
+    'The page’s name on a free hosting service looks machine-made, the way phishing kits name their pages.': 'Sayfanın ücretsiz barındırma hizmetindeki adı makine üretimi gibi görünüyor; oltalama kitleri sayfalarını böyle adlandırır.',
+    'The page is served from inside a website’s WordPress folders, where hacked sites hide phishing pages.': 'Sayfa bir sitenin WordPress klasörlerinin içinden sunuluyor; ele geçirilmiş siteler oltalama sayfalarını buraya gizler.',
+    'The site name starts with “http” or “https” to look like a secure, official address.': 'Site adı, güvenli ve resmi bir adres gibi görünmek için “http” ya da “https” ile başlıyor.',
+    'The link carries an email address, so a fake sign-in page can show it pre-filled for its target.': 'Bağlantı bir e-posta adresi taşıyor; böylece sahte bir giriş sayfası onu hedefi için önceden doldurulmuş gösterebilir.',
     # --- AI assistant
     'AI ASSISTANT': 'YAPAY ZEKÂ ASİSTANI',
     'MyScanner AI assistant': 'MyScanner yapay zekâ asistanı',

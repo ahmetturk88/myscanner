@@ -159,7 +159,8 @@ class URLDeepAnalyzer:
         'db.tt', 'qr.ae', 'cur.lv', 'bitly.com', 'tiny.cc', 'tr.im',
         'v.gd', 'da.gd', 'clck.ru', 'cutt.ly', 'rebrand.ly', 'shorturl.at',
         's.id', 'rb.gy', 't.ly', 'bit.do', 'tiny.one', 'cutt.us', 'surl.li', 'kutt.it', 'u.to', 'gg.gg',
-        'x.gd', 'urlz.fr', 'shorturl.asia', 'bl.ink', 'short.gy', 'lnk.ink', 'qrco.de', 'tinu.be', 'is.gd'
+        'x.gd', 'urlz.fr', 'shorturl.asia', 'bl.ink', 'short.gy', 'lnk.ink', 'qrco.de', 'tinu.be', 'is.gd',
+        'bitly.cx', 'inlnk.co', 'tiny.pl', 'cli.re', 'shorturl.gg', 'u.nu', 'ow.ly', 'rebrand.ly'
     }
 
     # أنماط التصيد (Phishing Patterns)

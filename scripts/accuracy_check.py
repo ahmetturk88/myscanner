@@ -10,6 +10,8 @@ Run it inside the worker container, which has the scanner's network access:
     dc exec worker python scripts/accuracy_check.py --live 15 --blind
         # threat lists (URLhaus, Web Risk) turned off: does the rest of the scan still catch them?
     dc exec worker python scripts/accuracy_check.py --url https://example.com/ --expect clean
+    dc exec -T worker python scripts/accuracy_check.py --file - --expect threat < phishing-links.txt
+        # a list of links (one per line) checked against one expected answer
     dc exec worker python scripts/accuracy_check.py --evasion
         # tricks that hide a link's real destination (an @ sign, coded IPs and names,
         # look-alike letters, decoy addresses, redirects, downloads), and real sites
@@ -71,6 +73,17 @@ EVASION_CASES = [
     ('clean', 'https://github.com/git-for-windows/git/releases/download/v2.47.0.windows.1/Git-2.47.0-64-bit.exe',
      'Program download from an established site'),
 ]
+
+
+def read_links(path):
+    """Links from a file or standard input: one per line, blank lines and # comments skipped, each once."""
+    handle = sys.stdin if path == '-' else open(path, encoding='utf-8')
+    try:
+        lines = [line.strip() for line in handle]
+    finally:
+        if handle is not sys.stdin:
+            handle.close()
+    return list(dict.fromkeys(line for line in lines if line and not line.startswith('#')))[:1000]
 
 
 def evasion_cases():
@@ -206,6 +219,7 @@ def main(argv=None):
     parser.add_argument('--blind', action='store_true',
                         help='turn off the URLhaus and Web Risk threat lists to measure detection of new, unlisted scams')
     parser.add_argument('--url', action='append', default=[], help='scan this URL instead of the built-in cases (repeatable)')
+    parser.add_argument('--file', metavar='PATH', help='scan the links in this file, one per line ("-" reads standard input)')
     parser.add_argument('--evasion', action='store_true', help='run the evasion-technique cases instead of the built-in ones')
     parser.add_argument('--expect', choices=('clean', 'flag', 'threat'), default='flag', help='expected answer for --url (default flag)')
     args = parser.parse_args(argv)
@@ -221,7 +235,9 @@ def main(argv=None):
 
 
 def benchmark(args):
-    if args.url:
+    if args.file:
+        cases = [(args.expect, url, 'from the file') for url in read_links(args.file)]
+    elif args.url:
         cases = [(args.expect, url, 'given on the command line') for url in args.url]
     elif args.evasion:
         cases = [c for c in evasion_cases() if not args.only or c[0] == args.only]

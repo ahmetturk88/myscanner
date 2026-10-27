@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from services.web_risk import MESSAGES as WEB_RISK_MESSAGES
 from services.url_scan_coverage import apply_phishing_evidence
-from services.url_tricks import IMPERSONATED, address_signals, other_site, program_in_address
+from services.url_tricks import IMPERSONATED, address_signals, email_in_link, kit_path, other_site, program_in_address
 
 POLICY_VERSION = 'url-evidence-v12'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
@@ -48,6 +48,7 @@ DECEPTION = {
     'homograph_name': 'The site name uses letters from another alphabet that look like normal ones.',
     'lookalike_name': 'The site name copies a well-known name with swapped letters or numbers.',
     'brand_in_subdomain': 'The link puts a well-known site’s address in front of a different site to fool you.',
+    'scheme_in_name': 'The site name starts with “http” or “https” to look like a secure, official address.',
 }
 # v12: where a redirect really leads.
 APP_STORES = {'play.google.com', 'apps.apple.com', 'itunes.apple.com', 'appgallery.huawei.com'}
@@ -61,6 +62,7 @@ WEAK_ADDRESS = {
     'brand_in_name': (6, 'The address uses a well-known brand’s name, but the site doesn’t belong to that brand.'),
     'free_hosting': (2, 'The page is on a free hosting service where anyone can publish a page.'),
     'server_hostname': (6, 'The link uses a rented server’s default name instead of a website name.'),
+    'random_name': (6, 'The page’s name on a free hosting service looks machine-made, the way phishing kits name their pages.'),
     'credential_bait': (6, 'The page’s name on a free hosting service is about signing in, verifying or paying, the way phishing pages are named.'),
 }
 ESTABLISHED_DAYS = 5 * 365
@@ -376,6 +378,12 @@ def _assess(local, deep):
             impersonated=True;signal('identity',code,*WEAK_ADDRESS[code]);details.append(item)
     page=mapping(deep.get('page_content'))
     asks_login=page.get('has_password_field') is True or page.get('has_login_form') is True
+    targeted=email_in_link(url_text)
+    if targeted:
+        signal('identity','victim_email',10,'The link carries an email address, so a fake sign-in page can show it pre-filled for its target.')
+    hacked_site=kit_path(url_text)
+    if hacked_site:
+        signal('content','kit_path',10,'The page is served from inside a website’s WordPress folders, where hacked sites hide phishing pages.')
     if 'risky_download' not in reasons and program_in_address(url_text):
         # The address itself names an app or program, even when the file couldn't be fetched (…/SS.ps1).
         signal('content','risky_download',8,DOWNLOAD_SIGNALS['risky_download'])
@@ -426,6 +434,12 @@ def _assess(local, deep):
         elif len(weak)>=4 and CORE&weak:escalated='high_risk'
         elif strong_scam or (len(weak)>=3 and CORE&weak):escalated='suspicious'
     if not confirmed and not escalated and 'redirect_loop' in weak:escalated='suspicious'  # a browser never reaches a page
+    if not confirmed and not escalated and hacked_site:  # even on an old site: that is how hacked sites are used
+        escalated='high_risk' if asks_login or 'collects_details' in weak or 'brand_in_name' in reasons else 'suspicious'
+    if not confirmed and not escalated and targeted:  # how targeted password-theft links are built
+        escalated='high_risk' if asks_login or {'free_hosting','random_name','risky_tld','new_domain'}&weak or hacked_site else 'suspicious'
+    if not confirmed and not escalated and 'random_name' in weak:
+        escalated='high_risk' if asks_login or 'collects_details' in weak or 'brand_in_name' in weak else 'suspicious'
     if not confirmed and not escalated and 'odd_port_destination' in reasons:escalated='suspicious'
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):

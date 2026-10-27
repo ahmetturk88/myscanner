@@ -19,7 +19,7 @@ VERDICTS = {
     'harmless': ('safe', 'LOOKS SAFE', 'No warning signs found'),
 }
 MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'download_malware', 'page_malware', 'chain_listed', 'host_blocked_malware'}
-SCAM = {'verified_phishing', 'web_risk_social_engineering', 'host_blocked_phishing'}
+SCAM = {'verified_phishing', 'web_risk_social_engineering', 'host_blocked_phishing', 'shortener_blocked'}
 LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
 ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait', 'server_hostname'}
@@ -59,6 +59,7 @@ REASONS = {
     'brand_in_name': ('warn', 'It uses a brand name it doesn’t own', 'The address contains a well-known brand’s name, but the site doesn’t belong to that brand.'),
     'free_hosting': ('info', 'On a free hosting service', 'Anyone can publish a page there, so the platform’s name says nothing about who made it.'),
     'download_malware': ('bad', 'It downloads a virus', 'The link downloads a file, and our antivirus scan found malware in it.'),
+    'shortener_blocked': ('bad', 'The short-link service blocked it', 'The service that made this short link has blocked it after abuse reports, usually for scams, spam or malware.'),
     'host_blocked_phishing': ('bad', 'Its own host blocked it as a scam', 'Cloudflare, the company that serves this site, shows a warning that it was reported for phishing.'),
     'host_blocked_malware': ('bad', 'Its own host blocked it as malware', 'Cloudflare, the company that serves this site, shows a warning that it was reported for spreading malware.'),
     'chain_listed': ('bad', 'It passes through a malware address', 'On its way, the link goes through an address that URLhaus, a public list run by abuse.ch, lists as a malware source.'),
@@ -264,7 +265,11 @@ def plain_report(assessment, local, deep, url):
 
     codes = set(found)
     if tone == 'danger':
-        if codes & {'host_blocked_malware', 'host_blocked_phishing'}:
+        if 'shortener_blocked' in codes:
+            summary = 'The short-link service has blocked this link after abuse reports. Don’t open it.'
+            actions = ['Don’t open the link or enter any information on it.',
+                       'Already entered a password? Change it on the real site and turn on two-step login.']
+        elif codes & {'host_blocked_malware', 'host_blocked_phishing'}:
             summary = 'The company that hosts this site has blocked it after reports of ' + (
                 'malware.' if 'host_blocked_malware' in codes else 'phishing.') + ' Don’t open it.'
             actions = ['Don’t open the link or enter any information on it.',

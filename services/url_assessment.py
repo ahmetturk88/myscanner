@@ -293,7 +293,10 @@ def _assess(local, deep):
         elif risk>0:signal('content','content_indicators',round(risk*.25,1),'Page content contains risk heuristics; forms or keywords alone do not prove a threat.')
     else:missing.append('Deep page content was not assessed')
     host_warning=mapping(content.get('host_warning'))
-    if host_warning.get('host')=='cloudflare' and host_warning.get('kind') in ('phishing','malware'):
+    if host_warning.get('host')=='shortener' and host_warning.get('kind')=='blocked':
+        # The short-link service took the link down after abuse reports (TinyURL, bit.ly…).
+        confirmed=True;signal('reputation','shortener_blocked',20,'The short-link service has blocked this link after abuse reports.')
+    elif host_warning.get('host')=='cloudflare' and host_warning.get('kind') in ('phishing','malware'):
         # The site's own host blocked it after reports: as strong as a threat list.
         confirmed=True;signal('reputation','host_blocked_'+host_warning['kind'],20,HOST_BLOCKED[host_warning['kind']])
     page_av=mapping(content.get('antivirus'))

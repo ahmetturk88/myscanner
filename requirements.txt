@@ -16,7 +16,7 @@ click-repl==0.3.0
 colorama==0.4.6
 colorclass==2.2.2
 cryptography==50.0.2
-dnspython==2.8.0
+dnspython==2.9.0
 easygui==0.98.3
 email-validator==2.3.0
 filetype==1.2.0

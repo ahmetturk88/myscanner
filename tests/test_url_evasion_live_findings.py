@@ -384,3 +384,55 @@ class ShortLinkBlockedTests(unittest.TestCase):
         for text in ('URL shortener detected - destination unknown', 'Set X-Frame-Options', 'URL shortener used - destination unknown until clicked',
                      '1 coverage gaps were reported. Review the missing-check section before relying on the index.'):
             self.assertTrue(_lookup(text, catalog, 'tr'), text)
+
+
+class PhishingListTests(unittest.TestCase):
+    """From a list of ~330 live phishing links the user collected: patterns the address alone shows."""
+
+    def test_letter_swaps_and_more_brands(self):
+        from services.url_tricks import address_signals
+        found = lambda url: {(s['code'], s['strong'], s.get('brand')) for s in address_signals(url)}
+        self.assertIn(('lookalike_name', True, 'microsoft'), found('https://login-a700.rnicrosoft-login.com/certified/x'))
+        for url, brand in (('https://mydpd.kslud.top/track-ch', 'mydpd'), ('http://intesasanplog.cc/', 'intesa'),
+                           ('https://sbb-info.sbs/templates/cs', 'sbb'), ('https://idporten-norge.vercel.app/', 'idporten')):
+            self.assertIn(brand, {b for _, _, b in found(url)}, url)
+        self.assertEqual(found('https://www.dpd.de/'), set())
+
+    def test_machine_made_names_on_free_hosts(self):
+        from services.url_tricks import random_free_name
+        for url in ('https://qynkj81lzxc-xlzgbwur-3m9m5b-qynk39p.pages.dev/', 'http://sp29ct-korvi-biz-nurak-felto.pages.dev/',
+                    'https://jakxwo-x4hmh1og.vercel.app/', 'https://htah19r-h26r.vercel.app/'):
+            self.assertTrue(random_free_name(url), url)
+        for url in ('https://my-portfolio.vercel.app/', 'https://covid19-tracker-app.vercel.app/', 'https://web3-app.vercel.app/',
+                    'https://www.example-shop.com/x9k2m4/', 'https://vmi3646823.contaboserver.net/'):
+            self.assertFalse(random_free_name(url), url)
+        local, deep = evidence('https://qynkj81lzxc-xlzgbwur-3m9m5b-qynk39p.pages.dev/', age=6000, rank=900)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')
+
+    def test_phishing_kits_inside_hacked_wordpress_sites(self):
+        from services.url_tricks import kit_path
+        for url in ('http://cabinetdelacambre.be/wp-includes/css/', 'https://v6.gimo.co.uk/wp-admin/sg/index.php',
+                    'http://pesquisaclinicaconecta.com.br/wp-admin/network/.wp-plugins/arai'):
+            self.assertTrue(kit_path(url), url)
+        for url in ('https://example.com/wp-admin/', 'https://example.com/wp-login.php', 'https://example.com/wp-content/uploads/2024/05/a.jpg',
+                    'https://example.com/wp-admin/css/', 'https://example.com/.well-known/security.txt'):
+            self.assertFalse(kit_path(url), url)
+        local, deep = evidence('https://v6.gimo.co.uk/wp-admin/sg/index.php', age=6000, rank=900)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')
+        login = {'title': 'Sign in', 'content_risk_score': 45, 'status_code': 200, 'visible_text_length': 400, 'scam_signals': [],
+                 'has_password_field': True, 'has_login_form': True}
+        local, deep = evidence('https://v6.gimo.co.uk/wp-admin/sg/signin.php', age=6000, rank=900, page=login)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'high_risk')
+
+    def test_victim_email_and_fake_https_name(self):
+        from services.url_tricks import address_signals, email_in_link
+        self.assertTrue(email_in_link('https://d33wubrfki0l68.cloudfront.net/84cade77/indLi2nj.html#miran1@cb3c31cf.org'))
+        self.assertTrue(email_in_link('https://sharemyhtml.com/p/rg8FkQrAs3?eta=janenlab%40cf370134.net'))
+        self.assertFalse(email_in_link('https://medium.com/@google'))
+        self.assertFalse(email_in_link('https://shop.example.com/contact'))
+        local, deep = evidence('https://sharemyhtml.com/p/rg8FkQrAs3?eta=janenlab@cf370134.net', age=3000, rank=0)
+        self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')  # an old HTML host: the address alone needs care
+        self.assertTrue([s for s in address_signals('https://httpsautenticacionbcoazure.info/') if s['code'] == 'scheme_in_name'])
+        for url in ('https://www.httpbin.org/', 'https://httpbingo.org/redirect/12', 'https://httpstatus.io/'):
+            self.assertFalse([s for s in address_signals(url) if s['code'] == 'scheme_in_name'], url)
+        self.assertEqual(assess_url(*evidence('https://httpsautenticacionbcoazure.info/', age=30, rank=0))['verdict'], 'high_risk')

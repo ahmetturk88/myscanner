@@ -48,6 +48,8 @@ SHARED_HOSTING = {
     'trycloudflare.com', 'loca.lt', 'serveo.net', 'cloudfront.net', 'amazonaws.com', 'b-cdn.net',
     'ipfs.io', 'dweb.link', 'web.core.windows.net', 'blob.core.windows.net', 'storage.googleapis.com',
     'cloudworkstations.dev', 'idx.dev', 'firebasestorage.app', 'ondigitalocean.app', 'up.railway.app', 'deno.dev',
+    'gitbook.io', 'teleporthq.app', 'typedream.app', 'craftum.io', 'jimdofree.com', 'edgeone.dev', 'edgeone.app',
+    'synology.me', 'dothome.co.kr', 'tw1.ru', 'sharemyhtml.com', 'myfreesites.net', 'sites.google.com', 'wixstudio.io',
     'pythonanywhere.com', 'zapier.app', 'softr.app', 'glide.page', 'bubbleapps.io', 'webnode.page', 'mobirisesite.com',
 } | SERVER_HOSTS
 
@@ -132,10 +134,26 @@ BRANDS = {
     'santander': {'santander.com', 'santander.co.uk', 'santander.com.br'},
     'revolut': {'revolut.com'},
     'samsung': {'samsung.com'},
+    'dpd': {'dpd.com', 'dpd.de', 'dpd.co.uk', 'dpd.ch', 'dpd.fr', 'dpd.at'},
+    'mydpd': {'dpd.com', 'dpd.de', 'dpd.ch'},
+    'sbb': {'sbb.ch'},
+    'raiffeisen': {'raiffeisen.ch', 'raiffeisen.at', 'raiffeisen.de', 'raiffeisen.ru', 'rbinternational.com'},
+    'intesa': {'intesasanpaolo.com', 'intesasanpaolo.it'},
+    'intesasanpaolo': {'intesasanpaolo.com', 'intesasanpaolo.it'},
+    'naver': {'naver.com', 'navercorp.com'},
+    'shopee': {'shopee.com', 'shopee.co.id', 'shopee.vn', 'shopee.ph', 'shopee.tw', 'shopee.co.th', 'shopee.com.my', 'shopee.sg', 'shopee.com.br'},
+    'bancolombia': {'bancolombia.com', 'grupobancolombia.com'},
+    'ledger': {'ledger.com'},
+    'ledgerlive': {'ledger.com'},
+    'trustwallet': {'trustwallet.com'},
+    'idporten': {'idporten.no', 'digdir.no'},
+    'dkb': {'dkb.de'},
+    'ubs': {'ubs.com'},
+    'kleinanzeigen': {'kleinanzeigen.de'},
 }
 # Brands with a site under many country endings (amazon.de, paypal.fr); for the
 # others, the brand's exact name on another ending is a swapped-ending fake (roblox.rw).
-MULTI_COUNTRY = {'amazon', 'google', 'apple', 'microsoft', 'paypal', 'netflix', 'dhl', 'ups', 'fedex', 'vodafone',
+MULTI_COUNTRY = {'amazon', 'google', 'apple', 'microsoft', 'paypal', 'netflix', 'dhl', 'ups', 'fedex', 'vodafone', 'dpd', 'raiffeisen', 'shopee',
                  'facebook', 'instagram', 'spotify', 'linkedin', 'yahoo', 'adobe', 'samsung', 'santander', 'twitter'}
 RISKY_ENDINGS = {'xyz', 'top', 'buzz', 'club', 'icu', 'shop', 'online', 'site', 'live', 'click', 'link', 'rest', 'fit', 'cfd',
                  'sbs', 'bond', 'lol', 'mom', 'tk', 'ml', 'ga', 'cf', 'gq', 'work', 'support', 'help', 'info', 'vip', 'cyou'}
@@ -148,7 +166,8 @@ OFFICIAL = {domain for domains in BRANDS.values() for domain in domains}
 IMPERSONATED = {'garanti', 'garantibbva', 'akbank', 'isbank', 'isbankasi', 'ziraat', 'ziraatbank', 'yapikredi', 'halkbank',
                 'vakifbank', 'denizbank', 'qnb', 'finansbank', 'enpara', 'papara', 'ininal', 'edevlet', 'turkiyegov', 'ptt',
                 'pttkargo', 'yurtici', 'yurticikargo', 'araskargo', 'mngkargo', 'suratkargo', 'paypal', 'dhl', 'ups', 'fedex',
-                'usps', 'royalmail', 'chase', 'wellsfargo', 'bankofamerica', 'santander', 'revolut', 'coinbase', 'binance'}
+                'usps', 'royalmail', 'chase', 'wellsfargo', 'bankofamerica', 'santander', 'revolut', 'coinbase', 'binance',
+                'dpd', 'mydpd', 'sbb', 'raiffeisen', 'intesa', 'intesasanpaolo', 'bancolombia', 'dkb', 'ubs', 'idporten'}
 DISPLAY = {'garanti': 'Garanti BBVA', 'garantibbva': 'Garanti BBVA', 'isbank': 'İş Bankası', 'isbankasi': 'İş Bankası',
            'ziraat': 'Ziraat Bankası', 'ziraatbank': 'Ziraat Bankası', 'yapikredi': 'Yapı Kredi', 'vakifbank': 'VakıfBank',
            'qnb': 'QNB', 'turktelekom': 'Türk Telekom', 'edevlet': 'e-Devlet', 'turkiyegov': 'e-Devlet', 'ptt': 'PTT',
@@ -329,6 +348,9 @@ def address_signals(url):
             signals.append({'code': 'homograph_name', 'strong': True, 'looks_like': '.'.join(plain(l) for l in labels)[:80]})
             break
     name = unicode_label(registrable.split('.')[0])
+    if re.match(r'https(?:-|www|[a-z]{6,})|http-|httpwww', name) and not shared:  # not httpbin.org
+        # "httpsautenticacion-bco.info": the scheme written into the name to look official.
+        signals.append({'code': 'scheme_in_name', 'strong': True})
     if not signals and not shared and name in BRANDS and not owns(name, registrable):
         # The brand's exact name on an ending it doesn't use (roblox.rw, garanti.xyz).
         signals.append({'code': 'lookalike_name', 'strong': True, 'brand': name, 'tld_swap': True})
@@ -346,7 +368,16 @@ def address_signals(url):
                 and not any(owns(b, registrable) for b in BRANDS if domain in BRANDS[b]):
             signals.append({'code': 'brand_in_subdomain', 'strong': True, 'brand': domain, 'real': registrable})
             break
-    if not any(s['code'] == 'brand_in_subdomain' for s in signals):
+    if not any(s['code'] in ('brand_in_subdomain', 'lookalike_name') for s in signals):
+        # A brand that only shows after undoing letter swaps (rnicrosoft-login, paypa1-secure) is a look-alike.
+        text = plain('.'.join(subdomain + [name]))
+        swapped = text
+        for old, new in DIGIT_SWAPS:
+            swapped = swapped.replace(old, new)
+        disguised = {b for b in brand_tokens(swapped) - brand_tokens(text) if len(b) >= 5 and not owns(b, registrable)}
+        if disguised:
+            signals.append({'code': 'lookalike_name', 'strong': True, 'brand': sorted(disguised, key=len, reverse=True)[0]})
+    if not any(s['code'] in ('brand_in_subdomain', 'lookalike_name') for s in signals):
         brands = {b for b in brand_tokens(plain('.'.join(subdomain + [name]))) if not owns(b, registrable)}
         if brands:
             brand = sorted(brands, key=len, reverse=True)[0]
@@ -356,6 +387,8 @@ def address_signals(url):
         signals.append({'code': 'server_hostname', 'strong': False})
     elif shared:
         signals.append({'code': 'free_hosting', 'strong': False})
+    if shared and random_free_name(url):
+        signals.append({'code': 'random_name', 'strong': False})
     if shared:
         if CREDENTIAL_WORDS.search(name):
             signals.append({'code': 'credential_bait', 'strong': False})
@@ -371,6 +404,56 @@ def program_in_address(url):
     name = path.rsplit('/', 1)[-1]
     extension = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
     return extension if extension in ADDRESS_PROGRAM_EXTENSIONS else ''
+
+
+def random_token(token):
+    """A machine-made piece of a name: qynkj81lzxc, sp29ct, xlzgbwur, h2406yta."""
+    letters = sum(c.isalpha() for c in token)
+    digits = sum(c.isdigit() for c in token)
+    if len(token) >= 5 and letters >= 1 and digits >= 1:
+        # Letters after digits (x4hmh1og, sp29ct), or mostly digits (bb9777); not a word plus a number (covid19).
+        if re.search(r'\d[a-z]', token) or digits / len(token) >= 0.5:
+            return True
+    return len(token) >= 6 and re.search(r'[bcdfghjklmnpqrstvwxz]{5,}', token) is not None
+
+
+def random_free_name(url):
+    """True for a page on a free host whose own name looks generated, as phishing kits make them."""
+    try:
+        host = (urlsplit(url).hostname or '').lower()
+    except ValueError:
+        return False
+    subdomain, registrable, shared = split_host(host)
+    if not shared or registrable.split('.', 1)[1] in SERVER_HOSTS:  # vmi3646823 is a rented server's normal name
+        return False
+    tokens = [t for t in re.split(r'[^a-z0-9]+', registrable.split('.')[0]) if t]
+    return any(random_token(t) for t in tokens)
+
+
+# A page served from inside WordPress's own folders is an uploaded phishing kit on a hacked site.
+KIT_PATH = re.compile(r'/wp-(?:includes|content)/(?:[^/?#]+/)*(?:[^/?#.]+/?|[^/?#]+\.(?:html?|php))(?:$|[?#])'
+                      r'|/wp-admin/(?!(?:css|images|js|includes|network|user|maint)(?:/|$))[^/?#]+/'
+                      r'|/\.(?!well-known)[a-z0-9_-]+/', re.I)
+
+
+def kit_path(url):
+    try:
+        path = urlsplit(url).path if isinstance(url, str) else ''
+    except ValueError:
+        return False
+    return bool(path) and KIT_PATH.search(path) is not None and not path.rstrip('/').endswith(('wp-login.php', '/wp-admin'))
+
+
+# A victim's email address carried in the link, so the fake sign-in page shows it pre-filled.
+EMAIL_IN_LINK = re.compile(r'[a-z0-9._%+-]{2,64}@[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})*\.[a-z]{2,24}', re.I)
+
+
+def email_in_link(url):
+    try:
+        parts = urlsplit(url) if isinstance(url, str) else None
+    except ValueError:
+        return False
+    return bool(parts) and EMAIL_IN_LINK.search(unquote(parts.query + '#' + parts.fragment)) is not None
 
 
 def looks_like_short_link(url):

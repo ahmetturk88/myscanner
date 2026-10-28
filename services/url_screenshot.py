@@ -74,7 +74,7 @@ def add_rendered_text(url, deep, base_url=None, rendered=False):
     from services.url_analyzer import apply_rendered_text
     behavior = deep.get('behavior') if isinstance(deep.get('behavior'), dict) else {}
     final = behavior.get('final_url') if isinstance(behavior.get('final_url'), str) else url
-    apply_rendered_text(page, final, rendered_text(url, base_url))
+    apply_rendered_text(page, final, rendered_text(url, base_url), start_url=url)
 
 
 def _to_jpeg(png):

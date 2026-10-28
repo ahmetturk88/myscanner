@@ -82,7 +82,7 @@ def short_link_blocked(url, visible):
     return bool(host) and (short or looks_like_short_link(url)) and SHORT_LINK_BLOCKED.search(visible or '') is not None
 
 
-def apply_rendered_text(page, url, text):
+def apply_rendered_text(page, url, text, start_url=None):
     """Add what a phone browser showed to a page that was empty without scripts (url-evidence-v12).
 
     A short-link service's "this URL has been blocked" page (qrco.de) and many scam kits are
@@ -101,8 +101,8 @@ def apply_rendered_text(page, url, text):
         page['host_warning'] = {'host': 'shortener', 'kind': 'blocked'}
     from services.scam_content import gambling_site, scam_signals
     found = set(page.get('scam_signals') or []) | set(scam_signals(visible, []))
-    if gambling_site(visible, url):
-        found.add('gambling')
+    if gambling_site(visible, url, *(u for u in (start_url,) if u and u != url)):
+        found.add('gambling')  # hbhdyw.com/egame/185 redirects to its home page
     page['scam_signals'] = sorted(found)
     return page
 

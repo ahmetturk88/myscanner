@@ -36,6 +36,17 @@ class GamblingTests(unittest.TestCase):
         self.assertIn('Çevrim içi kumar sitesi', [r['title'] for r in turkish['reasons']])
         self.assertIn('Kumar sitesi', [c['result'] for c in turkish['checks']])
 
+    def test_the_live_page_text_after_a_redirect_home(self):
+        # Live: hbhdyw.com/egame/185 ends at the home page; the phone sees "bet365 … GK Slots … All Games".
+        from services.url_analyzer import apply_rendered_text
+        text = 'bet365\nLogin\nRegister\ndaily check-in\nGK Slots\nNewest\nAll Games\nKing of Glory\nPUBG'
+        page = {'visible_text_length': 417, 'scam_signals': ['collects_phone_or_card']}
+        apply_rendered_text(page, 'https://hbhdyw.com/', text, start_url='https://hbhdyw.com/egame/185')
+        self.assertIn('gambling', page['scam_signals'])
+        self.assertTrue(gambling_site('Casibom giriş - deneme bonusu', 'https://casibom1234.com/'))
+        self.assertFalse(gambling_site('Yasa dışı bahis: Casibom sitesine erişim engeli, casino reklamları',
+                                       'https://www.haber.example/gundem/x'))
+
     def test_news_licensed_betting_and_top_sites_are_not_flagged(self):
         self.assertFalse(gambling_site('Yasa dışı bahis operasyonu: 50 gözaltı. Bahis siteleri kapatıldı.',
                                        'https://www.hurriyet.com.tr/gundem/yasa-disi-bahis-operasyonu'))

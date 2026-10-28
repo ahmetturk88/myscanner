@@ -37,10 +37,10 @@ def scan_url_task(self, url, user_id, scan_id, task_id, tricks=None):
             deep = analyzer.comprehensive_deep_analysis(url)
             stage = 'screenshot'
             from services.url_screenshot import capture_screenshot
-            capture_screenshot(url, scan_id)
+            shot = capture_screenshot(url, scan_id)
             stage = 'rendered_text'
             from services.url_screenshot import add_rendered_text
-            add_rendered_text(url, deep)
+            add_rendered_text(url, deep, rendered=shot is True)
         stage = 'save_report'
         if tricks and isinstance(local, dict):
             local['address_tricks'] = tricks

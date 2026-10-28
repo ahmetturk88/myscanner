@@ -57,6 +57,8 @@ def assess_email(report):
         audit=value.get('audit',{})
         if isinstance(audit,dict) and audit.get('configuration_valid') is False:
             auth.append((points,name.upper()+' configuration issues: '+'; '.join(audit.get('issues',[]))))
+        if isinstance(audit,dict) and 'SPF ptr mechanism is discouraged' in (audit.get('notes') or []):
+            auth.append((0,'SPF uses the ptr mechanism, which mail standards discourage; it still works.'))
         if isinstance(audit,dict) and audit.get('status')=='partial':
             gaps.append(name.upper()+' dependency audit limited')
     dmarc=dns.get('dmarc',{})

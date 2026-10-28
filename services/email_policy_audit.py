@@ -4,7 +4,7 @@ import re
 
 
 def audit_spf(domain, records, lookup, budget=10):
-    result={'status':'assessed','issues':[],'dependencies':[], 'dns_terms':0,
+    result={'status':'assessed','issues':[],'notes':[],'dependencies':[], 'dns_terms':0,
             'scope':'Static policy and literal include/redirect graph; no sender IP evaluation.'}
     def issue(message):
         if message not in result['issues']:result['issues'].append(message)
@@ -39,7 +39,9 @@ def audit_spf(domain, records, lookup, budget=10):
                 result['dns_terms']+=1
                 if result['dns_terms']>budget:
                     issue('SPF DNS term budget exceeded');return
-            if kind=='ptr':issue('SPF ptr mechanism is discouraged')
+            # RFC 7208 discourages ptr (slow, unreliable) but it still works: a note, not an error
+            # (turkcell.com.tr uses it and was flagged as needing review).
+            if kind=='ptr' and 'SPF ptr mechanism is discouraged' not in result['notes']:result['notes'].append('SPF ptr mechanism is discouraged')
             if kind in ('include','redirect'):
                 target=body.split('=',1)[1] if kind=='redirect' else body.partition(':')[2]
                 if '%' in target:

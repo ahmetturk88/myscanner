@@ -604,6 +604,7 @@ SCRIPTS_TR = {
     'Time not recorded': 'Zaman kaydedilmedi',
     'This domain does not exist': 'Bu alan adı yok',
     'Review the evidence': 'Kanıtı incele',
+    'Likely used for scams': 'Büyük olasılıkla dolandırıcılıkta kullanılıyor',
     'Evidence needs review': 'Kanıt incelenmeli',
     'One index combines the available checks. Missing coverage lowers this score separately from reported risk; neither a high score nor SMTP acceptance guarantees safety.': 'Tek bir endeks mevcut kontrolleri birleştirir. Eksik kapsam bu puanı bildirilen riskten ayrı olarak düşürür; ne yüksek puan ne de SMTP kabulü güvenliği garanti eder.',
     'This older result lacks detailed source coverage. Its legacy quality score cannot confirm safety.': 'Bu eski sonuçta ayrıntılı kaynak kapsamı yok. Eski kalite puanı güvenliği doğrulayamaz.',

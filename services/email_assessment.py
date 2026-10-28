@@ -1,6 +1,17 @@
 """Email evidence index; not a safety probability or delivery guarantee."""
 import math
 
+POLICY_VERSION = 'email-evidence-v4'
+# v4: what the domain name and Google say about it. Scam senders set up SPF and DMARC
+# like anyone else, so a copied brand name or a Web Risk listing decides on its own.
+DECEPTION = {
+    'homograph_name': 'The domain uses letters from another alphabet that look like normal ones.',
+    'lookalike_name': 'The domain copies a well-known name with swapped letters or numbers.',
+    'brand_in_subdomain': 'The domain puts a well-known site’s address in front of a different domain to fool you.',
+    'scheme_in_name': 'The domain starts with “http” or “https” to look official.',
+}
+ESTABLISHED_DAYS = 5 * 365
+
 def assess_email(report):
     report=report if isinstance(report,dict) else {}
     dns=report.get('dns') if isinstance(report.get('dns'),dict) else {}
@@ -11,7 +22,7 @@ def assess_email(report):
     if dns.get('domain_status')=='not_found':
         # A domain absent from DNS cannot receive mail; partial-coverage scoring would understate that.
         weights=(('routing','Mail routing',20),('authentication','Sender authentication',25),('reputation','Domain reputation',25),('mailbox','Mailbox acceptance',15),('identity','Domain history',15))
-        return {'policy_version':'email-evidence-v3','score':0,'evidence_score':0,'risk_deduction':100,'coverage_penalty':0,'verdict':'no_domain','coverage':'completed',
+        return {'policy_version':POLICY_VERSION,'score':0,'evidence_score':0,'risk_deduction':100,'coverage_penalty':0,'verdict':'no_domain','coverage':'completed',
                 'categories':[{'key':k,'label':l,'weight':w,'risk_deduction':w,'coverage_deduction':0,'status':'assessed'} for k,l,w in weights],
                 'findings':[{'category':'routing','deduction':100,'message':'The domain does not exist in DNS (NXDOMAIN), so this address cannot receive email.'}],
                 'missing_checks':[],'not_checked':['Blocklist, registration and mailbox checks were skipped because there is no domain to check.'],
@@ -65,9 +76,42 @@ def assess_email(report):
     category('mailbox','Mailbox acceptance',15,[None if probed else 'SMTP acceptance not verified'],mailbox)
     age=domain.get('age_days');known=isinstance(age,(int,float)) and not isinstance(age,bool) and math.isfinite(age) and age>=0 and not domain.get('error')
     category('identity','Domain history',15,[None if known else 'Registration age unavailable'],[(5,'The domain was registered less than 30 days ago.')] if known and age<30 else [])
+    names=[n for n in report.get('name_signals') or [] if isinstance(n,dict)]
+    codes={n.get('code') for n in names}
+    new=known and age<365;established=known and age>=ESTABLISHED_DAYS
+    dangerous=False;name_risks=[]
+    for item in names:
+        code=item.get('code')
+        if code=='lookalike_name' and item.get('tld_swap') and established:continue  # an old defensive registration
+        if code in DECEPTION and (item.get('strong') or new):
+            dangerous=True;name_risks.append((15,DECEPTION[code]))
+        elif code=='lookalike_name' and not established:
+            name_risks.append((10,'The domain is one letter away from a well-known brand’s name.'))
+        elif code=='brand_in_name' and not established:
+            brand=item.get('brand_name') or item.get('brand') or 'a brand'
+            if new or 'risky_tld' in codes:
+                dangerous=True;name_risks.append((15,f'The domain uses {brand}’s name but isn’t one of its known domains, and it is new or uses a cheap ending.'))
+            else:
+                name_risks.append((10,f'The domain uses {brand}’s name but isn’t one of its known domains.'))
+    if 'risky_tld' in codes and new and not name_risks:
+        name_risks.append((5,'The domain is new and uses a cheap ending that scam sites use most.'))
+    web_risk=report.get('web_risk') if isinstance(report.get('web_risk'),dict) else {}
+    listed=[t for t in web_risk.get('threat_types') or [] if isinstance(t,str)] if web_risk.get('status')=='matched' else []
+    if listed:
+        dangerous=True
+    added=[('identity',points,message) for points,message in name_risks]
+    if listed:
+        added.append(('reputation',25,'Google Web Risk lists this domain’s website for '+('phishing' if 'SOCIAL_ENGINEERING' in listed else 'malware')+'.'))
+    for item in categories:
+        extra=sum(points for key,points,message in added if key==item['key'])
+        if extra:
+            item['risk_deduction']=min(item['weight'],item['risk_deduction']+extra)
+            item['coverage_deduction']=min(item['coverage_deduction'],item['weight']-item['risk_deduction'])
+    findings.extend({'category':key,'deduction':points,'message':message} for key,points,message in added)
     risk=sum(c['risk_deduction'] for c in categories);coverage=sum(c['coverage_deduction'] for c in categories)
     score=max(0,100-risk-coverage)
-    verdict='review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':'email-evidence-v3','score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
+    if dangerous:score=min(score,20)
+    verdict='dangerous' if dangerous else 'review' if risk else 'unknown' if missing else 'no_indicators'
+    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'copies_brand':any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
                    +(['Mailbox acceptance (SMTP) was not probed.'] if smtp.get('coverage_status')=='skipped' else [])
                    +(['Blocklists that did not answer: '+', '.join(unanswered)+'.'] if unanswered else []),'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

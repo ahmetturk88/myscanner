@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class ProviderDeploymentTests(unittest.TestCase):
     def test_image_copies_only_binary_assets_and_entrypoint(self):
         source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
-        copies=[line for line in source.splitlines() if line.startswith('COPY ') and 'urlvet-mobile.patch' not in line]
+        copies=[line for line in source.splitlines() if line.startswith('COPY ') and not line.split()[1].endswith('.patch')]  # source patches stay in the builder
         self.assertEqual(len(copies),3)
         self.assertTrue(all('.env' not in line and 'COPY . .' not in line for line in copies))
         self.assertIn('657a8dafeb9c9109a339087ea07cf922aaddc52a',source)

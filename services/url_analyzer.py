@@ -75,6 +75,36 @@ SHORT_LINK_BLOCKED = re.compile(r'\b(?:url|link|tinyurl|bitly|short link)\b[^.]{
                                 r'|\b(?:flagged|reported) (?:as|for) (?:spam|phishing|malware|abuse|harmful|unsafe)', re.I)
 
 
+def short_link_blocked(url, visible):
+    """True when a short-link service shows its own "this link was blocked" page."""
+    host = (urlparse(url).hostname or '').lower() if isinstance(url, str) else ''
+    short = host in URLDeepAnalyzer.SHORTENED_DOMAINS or host.removeprefix('www.') in URLDeepAnalyzer.SHORTENED_DOMAINS
+    return bool(host) and (short or looks_like_short_link(url)) and SHORT_LINK_BLOCKED.search(visible or '') is not None
+
+
+def apply_rendered_text(page, url, text):
+    """Add what a phone browser showed to a page that was empty without scripts (url-evidence-v12).
+
+    A short-link service's "this URL has been blocked" page (qrco.de) and many scam kits are
+    drawn by JavaScript, so the static read sees nothing."""
+    if not isinstance(page, dict) or not isinstance(text, str):
+        return page
+    visible = ' '.join(text.split())[:8000]
+    page['rendered_text_length'] = len(visible)
+    if not visible:
+        return page
+    if len(visible) > (page.get('visible_text_length') or 0):
+        page['visible_text_length'] = len(visible)  # what the visitor sees; the page isn't empty
+    if not page.get('title'):
+        page['title'] = text.strip().split('\n', 1)[0][:200]
+    if not page.get('host_warning') and short_link_blocked(url, visible):
+        page['host_warning'] = {'host': 'shortener', 'kind': 'blocked'}
+    from services.scam_content import scam_signals
+    found = set(page.get('scam_signals') or []) | set(scam_signals(visible, []))
+    page['scam_signals'] = sorted(found)
+    return page
+
+
 def page_redirect(response):
     """(target, 'meta'|'script') when a short page sends the browser on, else None."""
     try:
@@ -869,8 +899,7 @@ class URLDeepAnalyzer:
                 result["host_warning"] = {'host': 'cloudflare', 'kind': match.group(1).lower()}
 
         # A short-link service's own block page ("URL is Blocked or Blacklisted" on TinyURL).
-        host = (urlparse(url).hostname or '').lower()
-        if (host in self.SHORTENED_DOMAINS or looks_like_short_link(url) or host.removeprefix('www.') in self.SHORTENED_DOMAINS) and SHORT_LINK_BLOCKED.search(visible):
+        if short_link_blocked(url, visible):
             result["host_warning"] = {'host': 'shortener', 'kind': 'blocked'}
 
         from services.scam_content import scam_signals

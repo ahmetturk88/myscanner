@@ -141,6 +141,8 @@ def scan(url):
         else:
             local = analyzer.comprehensive_analysis(url)
             deep = analyzer.comprehensive_deep_analysis(url)
+            from services.url_screenshot import add_rendered_text
+            add_rendered_text(url, deep)  # what the phone browser shows, as a real scan adds it
         if tricks:
             local['address_tricks'] = tricks
         result = assess_url(local, deep)

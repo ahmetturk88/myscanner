@@ -10,6 +10,10 @@ RUN sed -i 's/middleware.RateLimiter(20, time.Minute)/middleware.RateLimiter(300
 # scam kits show those visitors a fake 404 (cloaking). The build fails if the patch stops applying.
 COPY urlvet-mobile.patch /tmp/urlvet-mobile.patch
 RUN git apply /tmp/urlvet-mobile.patch
+# The text a phone sees, for pages drawn by scripts (a short-link service's block page is empty
+# without them): saved with each screenshot and served at /api/v1/rendered-text.
+COPY urlvet-rendered-text.patch /tmp/urlvet-rendered-text.patch
+RUN git apply /tmp/urlvet-rendered-text.patch
 WORKDIR /source/server
 RUN go mod download && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /urlvet ./cmd/urlvet
 FROM alpine:3.22

@@ -58,6 +58,13 @@ def events(response):
 
 
 class EvidenceAndParsingTests(unittest.TestCase):
+    def test_the_prompt_names_only_tools_that_exist(self):
+        # The model once advised an "Email content" scan, which MyScanner doesn't have.
+        self.assertNotIn('{tools}', ai_assistant.SYSTEM_PROMPT)
+        for name in ai_assistant.TOOLS.values():
+            self.assertIn(name, ai_assistant.SYSTEM_PROMPT)
+        self.assertIn('not at a message', ai_assistant.SYSTEM_PROMPT)
+
     def test_secrets_media_and_bulk_are_removed_and_bounded(self):
         evidence = {'url': 'https://example.org', 'api_key': 'sk-secret', 'screenshot': 'iVBOR' * 100, 'Cookie': 'a=b',
                     'links': [f'https://e{i}.example' for i in range(100)], 'note': 'x' * 5000,

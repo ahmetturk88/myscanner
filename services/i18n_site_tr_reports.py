@@ -153,6 +153,7 @@ REPORTS_TR = {
     'Inspection unavailable': 'İnceleme kullanılamıyor',
     'Inspection unavailable.': 'İnceleme kullanılamıyor.',
     'Available checks completed': 'Mevcut kontroller tamamlandı',
+    'Blocklists: no listing in the sources that answered': 'Kara listeler: yanıt veren kaynaklarda kayıt yok',
     'Blocklists: coverage limited or unavailable': 'Kara listeler: kapsam sınırlı ya da kullanılamıyor',
     'Blocklists: no listing in checked sources': 'Kara listeler: kontrol edilen kaynaklarda kayıt yok',
     'Warning: blocklist listing reported': 'Uyarı: kara listede kayıt bildirildi',
@@ -453,6 +454,10 @@ REPORTS_TR.update({
 })
 
 REPORTS_TR_PATTERNS = [
+    (r'^No listing was reported by (.+)\. (.+) did not answer, which is common for public blocklists\. This does not prove mailbox safety\.$',
+     r'\1 herhangi bir kayıt bildirmedi. \2 yanıt vermedi; bu, herkese açık kara listelerde sık görülür. Bu, posta kutusunun güvenli olduğunu kanıtlamaz.'),
+    (r'^Checked (\d{4}-\d\d-\d\d \d\d:\d\d) UTC$', r'Kontrol zamanı: \1 UTC'),
+    (r'^Analyzed (\d{4}-\d\d-\d\d \d\d:\d\d) UTC$', r'Analiz zamanı: \1 UTC'),
     (r'^(\d+) coverage gaps were reported\. Review the missing-check section before relying on the index\.$',
      r'\1 kapsam boşluğu bildirildi. Endekse güvenmeden önce eksik kontroller bölümünü incele.'),
     (r'^Possible typosquatting of (.+)$', r'\1 adresinin olası yazım taklidi'),

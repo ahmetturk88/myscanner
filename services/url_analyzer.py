@@ -99,8 +99,10 @@ def apply_rendered_text(page, url, text):
         page['title'] = text.strip().split('\n', 1)[0][:200]
     if not page.get('host_warning') and short_link_blocked(url, visible):
         page['host_warning'] = {'host': 'shortener', 'kind': 'blocked'}
-    from services.scam_content import scam_signals
+    from services.scam_content import gambling_site, scam_signals
     found = set(page.get('scam_signals') or []) | set(scam_signals(visible, []))
+    if gambling_site(visible, url):
+        found.add('gambling')
     page['scam_signals'] = sorted(found)
     return page
 
@@ -905,6 +907,9 @@ class URLDeepAnalyzer:
         from services.scam_content import scam_signals
         fields = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input')]
         result["scam_signals"] = scam_signals(' '.join(filter(None, [result["title"], result["meta_description"], visible])), fields)
+        from services.scam_content import gambling_site
+        if gambling_site(' '.join(filter(None, [result["title"], visible])), url):
+            result["scam_signals"].append('gambling')
 
         # حساب درجة الخطورة للمحتوى
         risk_score = 0

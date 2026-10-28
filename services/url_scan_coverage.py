@@ -91,6 +91,10 @@ def url_scan_outcome(local, deep):
     return ('completed', local['urlvet']['verdict']) if complete else ('partial', 'unknown')
 
 
+# Bump when the deep page or reputation checks change what a result contains (cache keys use it).
+ANALYSIS_VERSION = 'deep-2026-10-28-gambling'
+
+
 def reputation_settled(result):
     """False while a threat list could not answer (Web Risk billing, URLhaus outage): such a
     result must not be reused for a day, or a short outage would hide a listed threat."""

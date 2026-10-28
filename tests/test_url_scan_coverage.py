@@ -89,6 +89,15 @@ class URLCoverageTests(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         analyzer.comprehensive_deep_analysis('https://example.invalid')
 
+    def test_cache_keys_change_with_the_analysis_version(self):
+        # A day-old result read by older page checks hid the new gambling signal on a re-scan.
+        from services import url_analyzer, url_deep_analyzer
+        for module in [url_analyzer, url_deep_analyzer]:
+            analyzer = module.URLDeepAnalyzer()
+            key = analyzer._get_cache_key('https://example.invalid/')
+            with patch.object(module, 'ANALYSIS_VERSION', 'next'):
+                self.assertNotEqual(analyzer._get_cache_key('https://example.invalid/'), key)
+
 
 if __name__ == '__main__':
     unittest.main()

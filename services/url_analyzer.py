@@ -8,7 +8,7 @@ import copy
 import ipaddress
 import re
 import time
-from services.url_scan_coverage import apply_url_coverage, apply_phishing_evidence, reputation_settled, urlvet_available
+from services.url_scan_coverage import apply_url_coverage, apply_phishing_evidence, reputation_settled, urlvet_available, ANALYSIS_VERSION
 import socket
 import ssl
 import dns.resolver
@@ -267,7 +267,9 @@ class URLDeepAnalyzer:
 
     def _get_cache_key(self, url: str) -> str:
         """إنشاء مفتاح cache فريد للرابط"""
-        return hashlib.md5(url.encode()).hexdigest()
+        # The analysis version is part of the key, so a day-old result read by older page
+        # checks (before gambling or rendered-text signals) is never reused after an update.
+        return hashlib.md5(f'{ANALYSIS_VERSION}|{url}'.encode()).hexdigest()
 
     def _get_cached_result(self, url: str) -> Optional[dict]:
         """استرجاع نتيجة من cache إذا كانت موجودة وصالحة"""

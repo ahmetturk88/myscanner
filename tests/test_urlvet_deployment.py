@@ -9,6 +9,13 @@ class ProviderDeploymentTests(unittest.TestCase):
         self.assertTrue(all('.env' not in line and 'COPY . .' not in line for line in copies))
         self.assertIn('657a8dafeb9c9109a339087ea07cf922aaddc52a',source)
         self.assertIn('USER 10001:10001',source)
+    def test_every_copied_file_is_in_the_build_context(self):
+        # deploy/.dockerignore allows files one by one; a new patch left out of it broke the build.
+        allowed={line[1:] for line in (ROOT/'deploy/.dockerignore').read_text().splitlines() if line.startswith('!')}
+        for name in ('urlvet.Dockerfile','egress.Dockerfile'):
+            for line in (ROOT/'deploy'/name).read_text().splitlines():
+                if line.startswith('COPY ') and '--from=' not in line:
+                    self.assertIn(line.split()[1],allowed,line)
     def test_image_normalizes_windows_entrypoint_line_endings(self):
         source=(ROOT/'deploy/urlvet.Dockerfile').read_text()
         self.assertIn("sed -i 's/\\r$//' /app/entrypoint.sh",source)
@@ -39,5 +46,5 @@ class ProviderDeploymentTests(unittest.TestCase):
         self.assertNotIn(':latest',source)
     def test_build_context_excludes_host_files(self):
         source=(ROOT/'deploy/.dockerignore').read_text().splitlines()
-        self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh','!urlvet-mobile.patch','!egress.Dockerfile','!scanner-egress.py','!egress-check.py'])
+        self.assertEqual(source,['**','!urlvet.Dockerfile','!urlvet-entrypoint.sh','!urlvet-mobile.patch','!urlvet-rendered-text.patch','!egress.Dockerfile','!scanner-egress.py','!egress-check.py'])
 if __name__=='__main__':unittest.main()

@@ -18,7 +18,7 @@ COPY routes/ ./routes/
 COPY migrations/ ./migrations/
 COPY templates/ ./templates/
 COPY static/ ./static/
-COPY scripts/vps_runtime.py scripts/accuracy_check.py scripts/tools_check.py ./scripts/
+COPY scripts/vps_runtime.py scripts/accuracy_check.py scripts/tools_check.py scripts/email_bench.py ./scripts/
 RUN mkdir -p cache file_cache temp_uploads logs reports instance /state \
     && chown -R 10001:10001 /app /state
 USER 10001:10001

@@ -209,6 +209,10 @@ TR = {
     'The page calls itself by a well-known brand’s name, but it is on a free hosting service where anyone can publish, not on that brand’s own site.': 'Sayfa kendini tanınmış bir markanın adıyla tanıtıyor ama o markanın kendi sitesinde değil, herkesin sayfa yayınlayabildiği ücretsiz bir barındırma hizmetinde.',
     'A sign-in link on a cheap site': 'Ucuz bir sitede giriş bağlantısı',
     'The link opens a sign-in or verification page on a site with a cheap ending that scam sites use most. Phishing links are built this way.': 'Bağlantı, dolandırıcı sitelerin en çok kullandığı ucuz uzantılı bir sitede giriş veya doğrulama sayfası açıyor. Oltalama bağlantıları böyle hazırlanır.',
+    'An online gambling site': 'Çevrim içi kumar sitesi',
+    'It offers casino games or betting. In Turkey, betting sites without a licence are illegal, and money paid into them is often never paid out.':
+        "Casino oyunları ya da bahis sunuyor. Türkiye'de lisanssız bahis siteleri yasa dışıdır ve yatırılan para çoğu zaman geri ödenmez.",
+    'Gambling site': 'Kumar sitesi',
     'A page hidden inside a hacked website': 'Ele geçirilmiş bir sitenin içine gizlenmiş sayfa',
     'It is served from inside the site’s WordPress system folders, where attackers hide phishing pages on hacked sites.': 'Sitenin WordPress sistem klasörlerinin içinden sunuluyor; saldırganlar ele geçirilmiş sitelerde oltalama sayfalarını buraya gizler.',
     'No website name of its own': 'Kendine ait bir site adı yok',

@@ -1,0 +1,50 @@
+"""Casino and betting sites: unlicensed betting is illegal in Turkey and often never pays out."""
+import copy
+import unittest
+
+from services.report_i18n import translate_plain
+from services.scam_content import gambling_site
+from services.url_assessment import assess_url
+from services.url_report_view import plain_report
+
+
+def scan(url, title, text, rank=0, age=3000):
+    provider = {'verdict': 'harmless', 'trust_score': 100, 'rank': rank, 'domain_info': {'age_days': age},
+                'phishing': {'in_database': False, 'verified': False, 'valid': False}}
+    page = {'title': title, 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 900,
+            'scam_signals': ['gambling'] if gambling_site(f'{title} {text}', url) else []}
+    local = {'url': url, 'urlvet': copy.deepcopy(provider), 'structure': {'is_https': True}, 'ssl': {'valid': True},
+             'security_headers': {'score': 100}, 'phishing': {'risk_score': 0}}
+    deep = {'url': url, 'urlvet': copy.deepcopy(provider), 'structure': {'is_https': True}, 'ssl': {'valid': True},
+            'page_content': page, 'behavior': {'behavior_risk_score': 0, 'original_url': url, 'final_url': url},
+            'osint': {'urlhaus_status': 'not_found'}, 'whois': {'age_days': age}}
+    result = assess_url(local, deep)
+    return result, plain_report(result, local, deep, url)
+
+
+class GamblingTests(unittest.TestCase):
+    def test_casino_and_betting_pages(self):
+        cases = [('https://hbhdyw.com/egame/185', 'GK Slots', 'Please enter the game name. Newest. All Games.'),  # live, from a phishing feed
+                 ('https://giris-bet123.com/', 'Canlı Casino', 'Deneme bonusu 500 TL, Sweet Bonanza, free spin'),
+                 ('https://m.365bet447.com/eng/home/index', '365bet', '体育投注 真人视讯 彩票')]
+        for url, title, text in cases:
+            result, plain = scan(url, title, text)
+            self.assertEqual(result['verdict'], 'suspicious', url)
+            self.assertIn('gambling_site', [r['code'] for r in result['reasons']])
+        self.assertIn('An online gambling site', [r['title'] for r in plain['reasons']])
+        turkish = translate_plain(plain, 'tr')
+        self.assertIn('Çevrim içi kumar sitesi', [r['title'] for r in turkish['reasons']])
+        self.assertIn('Kumar sitesi', [c['result'] for c in turkish['checks']])
+
+    def test_news_licensed_betting_and_top_sites_are_not_flagged(self):
+        self.assertFalse(gambling_site('Yasa dışı bahis operasyonu: 50 gözaltı. Bahis siteleri kapatıldı.',
+                                       'https://www.hurriyet.com.tr/gundem/yasa-disi-bahis-operasyonu'))
+        self.assertFalse(gambling_site('Las Vegas trip: we visited a casino.', 'https://travelblog.example/vegas'))
+        self.assertFalse(gambling_site('iddaa, canlı bahis, poker, casino', 'https://www.nesine.com/'))
+        result, _ = scan('https://bignews.example/sports', 'Casino slot poker news', 'casino slot poker', rank=900)
+        self.assertNotIn('gambling_site', [r['code'] for r in result['reasons']])
+        self.assertEqual(result['verdict'], 'harmless')
+
+
+if __name__ == '__main__':
+    unittest.main()

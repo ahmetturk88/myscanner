@@ -154,6 +154,8 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
         signal('content','scam_content',20,'The page promises free money or prizes, or shows fake comments, the way scam pages do.')
     elif 'collects_phone_or_card' in scam:
         weak.add('collects_details')
+    if 'gambling' in scam and not (rank is not None and 0<rank<=TOP_RANK):  # a top site quoting betting words is news
+        signal('content','gambling_site',10,'The page offers casino games or betting. Betting sites without a licence are illegal in Turkey, and money paid in is often never paid out.')
     return weak,strong,established
 
 
@@ -463,6 +465,7 @@ def _assess(local, deep):
     if not confirmed and not escalated and 'random_name' in weak:
         escalated='high_risk' if asks_login or 'collects_details' in weak or 'brand_in_name' in weak else 'suspicious'
     if not confirmed and not escalated and 'odd_port_destination' in reasons:escalated='suspicious'
+    if not confirmed and not escalated and 'gambling_site' in reasons:escalated='suspicious'  # even on an old site: the business itself
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):
         verdict=escalated

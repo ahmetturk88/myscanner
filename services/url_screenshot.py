@@ -63,10 +63,13 @@ def rendered_text(url, base_url=None):
         return None
 
 
-def add_rendered_text(url, deep, base_url=None):
-    """For a page that was empty without scripts, add the text the preview browser saw on it."""
+def add_rendered_text(url, deep, base_url=None, rendered=False):
+    """Add the text the preview browser saw. rendered=True right after a screenshot, when that text
+    is already saved and costs one local read: then every page gets it (hbhdyw.com showed 417
+    characters of menu without scripts, and its "GK Slots" games only with them). Otherwise only a
+    page that was empty without scripts asks the browser to render it."""
     page = deep.get('page_content') if isinstance(deep, dict) else None
-    if not isinstance(page, dict) or (page.get('visible_text_length') or 0) >= 80:
+    if not isinstance(page, dict) or (not rendered and (page.get('visible_text_length') or 0) >= 80):
         return
     from services.url_analyzer import apply_rendered_text
     behavior = deep.get('behavior') if isinstance(deep.get('behavior'), dict) else {}

@@ -48,6 +48,16 @@ class RenderedTextTests(unittest.TestCase):
             add_rendered_text('https://qrco.de/x', deep)
         self.assertEqual(deep['page_content']['host_warning']['kind'], 'blocked')
 
+    def test_after_a_screenshot_every_page_gets_the_browser_text(self):
+        # hbhdyw.com: 417 characters of menu without scripts; "GK Slots" and the games only with them.
+        deep = {'page_content': {'visible_text_length': 417, 'scam_signals': []}, 'behavior': {'final_url': 'https://hbhdyw.com/egame/185'}}
+        text = 'bet365 Login Register GK Slots Newest All Games King of Glory'
+        with patch('services.url_screenshot.rendered_text', return_value=text):
+            add_rendered_text('https://hbhdyw.com/egame/185', deep)
+            self.assertNotIn('gambling', deep['page_content']['scam_signals'])  # no screenshot: not asked
+            add_rendered_text('https://hbhdyw.com/egame/185', deep, rendered=True)
+        self.assertIn('gambling', deep['page_content']['scam_signals'])
+
     def test_the_provider_answer_is_bounded_and_never_raises(self):
         with patch('services.url_screenshot.requests.get', return_value=FakeResponse(200, {'text': 'hi'})):
             self.assertEqual(rendered_text('https://a.example/', 'http://urlvet:8080'), 'hi')

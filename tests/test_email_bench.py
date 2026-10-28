@@ -12,6 +12,20 @@ class EmailBenchTests(unittest.TestCase):
         with patch('sys.stdin', io.StringIO(links)):
             self.assertEqual(email_bench.scam_addresses('-'), ['info@mydpd.kslud.top', 'info@example.com'])
 
+    def test_sender_lines_are_checked_as_they_are(self):
+        with patch('sys.stdin', io.StringIO('no-reply@abc.top\nx@ABC.top\nhttps://site.example/x\n')):
+            self.assertEqual(email_bench.scam_addresses('-'), ['no-reply@abc.top', 'info@site.example'])
+
+    def test_senders_are_read_from_eml_files_one_per_domain(self):
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            for number, sender in ((2, 'Bank <alert@scam-bank.top>'), (10, 'x@scam-bank.top'), (3, '=?utf-8?q?PTT?= <kargo@ptt-odeme.xyz>'),
+                                   (4, 'no address')):
+                with open(os.path.join(folder, f'sample-{number}.eml'), 'w') as handle:
+                    handle.write(f'From: {sender}\nSubject: hi\n\nbody\n')
+            self.assertEqual(email_bench.senders(folder), ['alert@scam-bank.top', 'kargo@ptt-odeme.xyz'])
+
     def test_real_addresses_must_not_be_dangerous(self):
         self.assertNotIn('dangerous', email_bench.LEGIT_OK)
         self.assertIn('dangerous', email_bench.SCAM_OK)

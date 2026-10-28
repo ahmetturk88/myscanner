@@ -4,10 +4,14 @@ Legitimate addresses of banks, cargo companies, shops and mail providers must ne
 come out dangerous. Domains taken from a list of phishing links (one per line, the
 same file accuracy_check.py reads) stand in for scam sender domains: each becomes
 info@<host> and should be flagged (dangerous or review) or have no domain at all.
+A list may also hold sender addresses (one per line, such as the ones --senders prints
+from real phishing emails); each is checked as it is, one per domain.
 Saves nothing and uses no quota. Run it in the web container, which holds the email
 checker's Web Risk key:
     dc exec -T web python scripts/email_bench.py
     dc exec -T web python scripts/email_bench.py - < ~/phish.txt
+    python3 scripts/email_bench.py --senders ~/phishing_pot/email > ~/senders.txt   # on the host, stdlib only
+    dc exec -T web python scripts/email_bench.py - < ~/senders.txt
 """
 import concurrent.futures
 import logging
@@ -32,17 +36,50 @@ SCAM_OK = {'dangerous', 'review', 'no_domain'}
 
 
 def scam_addresses(path):
-    """info@<host> for each distinct host in a list of links; IP addresses are skipped."""
+    """info@<host> for each distinct host in a list of links, or the sender addresses themselves;
+    one per domain, IP addresses skipped."""
     from scripts.accuracy_check import read_links
-    hosts = []
+    hosts, addresses = [], []
     for link in read_links(path):
+        if '@' in link and '://' not in link and ' ' not in link:
+            domain = link.rsplit('@', 1)[1].lower()
+            if domain not in hosts:
+                hosts.append(domain)
+                addresses.append(link.lower())
+            continue
         try:
             host = (urlsplit(link if '://' in link else 'http://' + link).hostname or '').lower()
         except ValueError:
             continue
         if host and host not in hosts and not host.replace('.', '').isdigit():
             hosts.append(host)
-    return ['info@' + host for host in hosts]
+            addresses.append('info@' + host)
+    return addresses
+
+
+def senders(directory):
+    """One sender address per domain from the .eml files in a folder, newest sample last.
+    The messages are only parsed, never opened in a mail program: they are real phishing."""
+    import email
+    import email.policy
+    import email.utils
+    import re
+    names = sorted((n for n in os.listdir(directory) if n.endswith('.eml')),
+                   key=lambda n: int(re.sub(r'\D', '', n) or 0))
+    seen, out = set(), []
+    for name in names:
+        try:
+            with open(os.path.join(directory, name), 'rb') as handle:
+                message = email.message_from_binary_file(handle, policy=email.policy.default)
+            address = email.utils.parseaddr(str(message.get('From') or ''))[1].strip().lower()
+            local, _, domain = address.rpartition('@')
+            domain = domain.encode('idna').decode('ascii')
+        except Exception:  # broken headers are common in phishing mail
+            continue
+        if local and re.fullmatch(r'[a-z0-9-]+(?:\.[a-z0-9-]+)+', domain) and domain not in seen:
+            seen.add(domain)
+            out.append(local + '@' + domain)
+    return out
 
 
 def check(email):
@@ -70,6 +107,9 @@ def bench(title, emails, good):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ['--senders'] and len(argv) == 2:
+        print('\n'.join(senders(argv[1])))
+        return 0
     logging.disable(logging.ERROR)
     clean = bench('Real addresses (must not be dangerous)', LEGIT, LEGIT_OK)
     if argv:

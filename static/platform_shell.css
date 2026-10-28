@@ -66,7 +66,7 @@
 .shell-status{display:inline-flex;align-items:center;gap:9px;margin:4px 0 14px;padding:6px 12px;border-radius:999px;border:1px solid rgba(94,234,212,.3);background:rgba(94,234,212,.06);color:#99f6e4;font:600 12.5px var(--mono)}
 .shell-status-dot{width:8px;height:8px;border-radius:50%;background:#5eead4;animation:shell-pulse 2s infinite}
 @keyframes shell-pulse{0%{box-shadow:0 0 0 0 rgba(94,234,212,.5)}70%{box-shadow:0 0 0 9px rgba(94,234,212,0)}100%{box-shadow:0 0 0 0 rgba(94,234,212,0)}}
-.shell-github{display:inline-flex;align-items:center;gap:9px}
+.shell-github{display:flex;width:fit-content;align-items:center;gap:9px}
 .shell-github img{width:18px;height:18px}
 @media(max-width:800px){.shell-footer-cta-band{grid-template-columns:1fr;padding:30px 24px;gap:22px;margin-bottom:44px}}
 @media(prefers-reduced-motion:reduce){.shell-cta-glow,.shell-status-dot,.shell-menu-panel{animation:none}}

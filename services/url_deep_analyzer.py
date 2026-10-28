@@ -5,7 +5,7 @@
 # =================================================================
 
 import re
-from services.url_scan_coverage import apply_url_coverage, urlvet_available
+from services.url_scan_coverage import apply_url_coverage, reputation_settled, urlvet_available
 import socket
 import ssl
 import dns.resolver
@@ -902,7 +902,7 @@ class URLDeepAnalyzer:
 
         # التحقق من cache
         cached_result = self._get_cached_result(url)
-        if cached_result and urlvet_available(cached_result.get("urlvet")):
+        if cached_result and urlvet_available(cached_result.get("urlvet")) and reputation_settled(cached_result):
             cached_result['from_cache'] = True
             return apply_url_coverage(cached_result)
 
@@ -1068,7 +1068,7 @@ class URLDeepAnalyzer:
 
         # حفظ في cache
         apply_url_coverage(result)
-        if result["assessment_status"] == "completed":
+        if result["assessment_status"] == "completed" and reputation_settled(result):
             self._save_cached_result(url, result)
         logger.info(f"✅ Deep analysis completed for {url} | Risk Score: {result['overall_risk_score']} | Verdict: {result['verdict']}")
         return result

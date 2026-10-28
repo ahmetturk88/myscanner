@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
-from services.url_scan_coverage import apply_url_coverage, url_scan_outcome, urlvet_available, PARTIAL_WARNING
+from services.url_scan_coverage import apply_url_coverage, reputation_settled, url_scan_outcome, urlvet_available, PARTIAL_WARNING
 
 
 class URLCoverageTests(unittest.TestCase):
@@ -66,6 +66,28 @@ class URLCoverageTests(unittest.TestCase):
                 self.assertEqual(result['overall_risk_score'], 0)
                 self.assertEqual(result['verdict'], 'unknown')
                 saved.assert_not_called()
+
+    def test_a_threat_list_outage_is_never_reused_from_the_cache(self):
+        # A Web Risk billing error cached for a day hid listed phishing pages on re-scans.
+        good = {'osint': {'urlhaus_status': 'not_found', 'web_risk': {'status': 'not_found'}}}
+        self.assertTrue(reputation_settled(good))
+        self.assertTrue(reputation_settled({'osint': {'urlhaus_status': 'matched', 'web_risk': {'status': 'not_configured'}}}))
+        self.assertTrue(reputation_settled({'osint': {'urlhaus_status': 'unavailable', 'urlhaus_reason': 'disabled_by_operator'}}))
+        self.assertFalse(reputation_settled({'osint': {'urlhaus_status': 'not_found',
+                                                       'web_risk': {'status': 'unavailable', 'google_reason': 'BILLING_DISABLED'}}}))
+        self.assertFalse(reputation_settled({'osint': {'urlhaus_status': 'unavailable'}}))
+        self.assertFalse(reputation_settled({}))
+        from services import url_analyzer, url_deep_analyzer
+        for module in [url_analyzer, url_deep_analyzer]:
+            with self.subTest(module=module.__name__), tempfile.TemporaryDirectory() as cache:
+                analyzer = module.URLDeepAnalyzer(cache_dir=cache)
+                stale = {'urlvet': {'verdict': 'harmless', 'trust_score': 100},
+                         'osint': {'urlhaus_status': 'not_found', 'web_risk': {'status': 'unavailable'}}}
+                analyzer._save_cached_result('https://example.invalid', stale)
+                with patch.object(module, 'validate_public_url', return_value=SimpleNamespace(url='https://example.invalid')), \
+                        patch.object(analyzer, 'analyze_behavior', side_effect=RuntimeError('scanned again')):
+                    with self.assertRaises(RuntimeError):
+                        analyzer.comprehensive_deep_analysis('https://example.invalid')
 
 
 if __name__ == '__main__':

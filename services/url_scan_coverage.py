@@ -89,3 +89,13 @@ def url_scan_outcome(local, deep):
         if threat in verdicts:
             return ('completed' if complete else 'partial'), threat
     return ('completed', local['urlvet']['verdict']) if complete else ('partial', 'unknown')
+
+
+def reputation_settled(result):
+    """False while a threat list could not answer (Web Risk billing, URLhaus outage): such a
+    result must not be reused for a day, or a short outage would hide a listed threat."""
+    osint = result.get("osint") if isinstance(result, dict) and isinstance(result.get("osint"), dict) else {}
+    web_risk = osint.get("web_risk") if isinstance(osint.get("web_risk"), dict) else {}
+    if web_risk.get("status") == "unavailable":
+        return False
+    return osint.get("urlhaus_status") in ("matched", "not_found") or osint.get("urlhaus_reason") == "disabled_by_operator"

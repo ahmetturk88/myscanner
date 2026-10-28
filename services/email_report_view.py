@@ -8,6 +8,7 @@ from services.url_assessment import mapping
 from services.url_report_view import age_text, tally, whole
 
 VERDICTS = {
+    'dangerous': ('danger', 'DANGEROUS', 'This address is likely used for scams'),
     'no_domain': ('danger', 'NOT A REAL ADDRESS', 'This address can’t receive email'),
     'review': ('caution', 'BE CAREFUL', 'Be careful with this address'),
     'unknown': ('unknown', 'NOT SURE', 'We couldn’t fully check this address'),
@@ -38,10 +39,27 @@ def plain_email_report(report):
     rejected = smtp.get('coverage_status') == 'checked' and smtp.get('valid') is False
     accepted = smtp.get('coverage_status') == 'checked' and smtp.get('valid') is True
     missing = [m for m in assessment.get('missing_checks') or [] if isinstance(m, str)]
+    names = [n for n in report.get('name_signals') or [] if isinstance(n, dict)]
+    copied = next((n for n in names if n.get('code') in ('homograph_name', 'lookalike_name', 'brand_in_subdomain', 'scheme_in_name', 'brand_in_name')), None)
+    brand = (copied or {}).get('brand_name') or ''
+    copy_found = bool(copied) and assessment.get('copies_brand') is True
+    web_risk = mapping(report.get('web_risk'))
+    google_listed = web_risk.get('status') == 'matched'
 
     reasons = []
     def add(kind, title, detail):
         reasons.append({'tone': kind, 'title': title, 'detail': detail})
+    if google_listed:
+        add('bad', 'Google lists this domain as dangerous', 'Google Web Risk lists the website on this domain for phishing or malware.')
+    if copy_found:
+        code = copied.get('code')
+        add('bad' if verdict == 'dangerous' else 'warn', 'It copies a well-known name',
+            'The domain uses look-alike letters from another alphabet to copy a well-known name.' if code == 'homograph_name'
+            else f'The domain copies {brand}’s name with swapped letters or numbers.' if code == 'lookalike_name' and copied.get('strong') and brand
+            else f'The domain is one letter away from {brand}’s name.' if code == 'lookalike_name' and brand
+            else f'The domain starts with {brand}’s address to look official, but it is a different domain.' if code == 'brand_in_subdomain' and brand
+            else f'The domain uses {brand}’s name, but it isn’t one of {brand}’s known domains.' if brand
+            else 'The domain is made to look like a well-known company’s.')
     if no_domain:
         add('bad', 'The domain doesn’t exist', f'{domain or "The domain"} isn’t registered, so this address can’t send or receive email. Check for a typo.')
     if null_mx:
@@ -85,6 +103,13 @@ def plain_email_report(report):
         summary = 'The part after the @ isn’t a real domain, so no email can reach this address.'
         actions = ['Check the address for a typo.', 'If someone gave you this address, ask them for a working one.',
                    'Don’t trust a message that claims to come from it.']
+    elif verdict == 'dangerous':
+        summary = ('Google lists this domain as dangerous. Treat any message from it as a scam.' if google_listed
+                   else f'The domain pretends to be {brand}’s. Treat any message from it as a scam.' if brand
+                   else 'The domain is made to look like a well-known company’s. Treat any message from it as a scam.')
+        actions = ['Don’t click links, open attachments or reply to messages from this address.',
+                   f'To reach {brand}, use its official app or type its website yourself.' if brand else 'Contact the company through its official website or app.',
+                   'Already shared a password or card details? Change the password and call your bank.']
     elif tone == 'caution':
         summary = ('It is a throwaway address, often used for spam and fake sign-ups.' if disposable
                    else 'Its mail server is on a spam blocklist.' if listed
@@ -117,12 +142,15 @@ def plain_email_report(report):
             else check('Fake-mail protection', 'na', 'Not checked'),
             check('Spam blocklists', 'warn', 'Listed') if listed else check('Spam blocklists', 'ok', 'Not listed') if lists_answered else check('Spam blocklists', 'na', 'Not checked'),
             check('Throwaway address', 'warn', 'Yes') if disposable else check('Throwaway address', 'ok', 'No'),
+            check('Copies a brand’s name', 'bad' if verdict == 'dangerous' else 'warn', 'Yes') if copy_found else check('Copies a brand’s name', 'ok', 'No'),
+            *([check('Google Web Risk', 'bad', 'Listed')] if google_listed else [check('Google Web Risk', 'ok', 'Not listed')] if web_risk.get('status') == 'not_found' else []),
             check('Domain age', 'warn' if age < 30 else 'ok', age_text(age)) if age is not None else check('Domain age', 'na', 'Unknown'),
         ]
         if rejected or accepted:
             checks.append(check('Mailbox', 'warn', 'Rejected') if rejected else check('Mailbox', 'ok', 'Accepts mail'))
     local, _, host = email.partition('@')
     share = (f'MyScanner says the email address {email} can’t receive mail: its domain doesn’t exist.' if no_domain
+             else f'Warning: MyScanner says the email address {email} is likely used for scams.' if verdict == 'dangerous'
              else f'Careful: MyScanner found warning signs for the email address {email}.' if tone == 'caution'
              else f'MyScanner found no warning signs for the email address {email}.' if tone == 'safe'
              else f'MyScanner couldn’t fully check the email address {email}.')

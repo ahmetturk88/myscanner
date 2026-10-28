@@ -13,6 +13,8 @@ from email_validator import validate_email, EmailNotValidError
 from constants import DISPOSABLE_DOMAINS, FREE_DOMAINS
 # DNS query zones, not provider website domains.
 BLACKLISTS = ["zen.spamhaus.org", "bl.spamcop.net"]
+# Address signals (services.url_tricks) that also mean something in an email domain.
+NAME_CODES = {'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'scheme_in_name', 'brand_in_name'}
 import logging
 logger = logging.getLogger(__name__)
 class AdvancedEmailChecker:
@@ -327,6 +329,37 @@ class AdvancedEmailChecker:
         self._cache_set(cache_key, result, 86400)
         return result
     
+    def check_name(self, domain: str):
+        """What the domain name itself shows: a copied brand, swapped letters, a cheap ending (email-evidence-v4)."""
+        from services.url_tricks import address_signals, display, risky_ending
+        if domain in FREE_DOMAINS:
+            return []
+        signals = []
+        for item in address_signals('https://' + domain + '/'):
+            if item.get('code') in NAME_CODES:
+                signals.append({key: item[key] for key in ('code', 'strong', 'brand', 'real', 'subdomain', 'tld_swap') if key in item})
+                if isinstance(item.get('brand'), str):
+                    signals[-1]['brand_name'] = display(item['brand'].split('.')[0] if '.' in item['brand'] else item['brand'])
+        if risky_ending('https://' + domain + '/'):
+            signals.append({'code': 'risky_tld', 'strong': False})
+        return signals
+
+    def check_reputation(self, domain: str):
+        """Google Web Risk for the domain's own site; only the domain is sent. Optional source."""
+        cache_key = self._get_cache_key(domain, "web_risk")
+        cached = self._cache_get(cache_key)
+        if isinstance(cached, dict) and cached.get('status') in ('matched', 'not_found'):
+            return cached
+        from services.safe_http import PublicHTTPSession
+        from services.web_risk import check_web_risk
+        try:
+            result = check_web_risk('http://' + domain.encode('idna').decode('ascii') + '/', PublicHTTPSession())
+        except Exception:
+            result = {'status': 'unavailable', 'threat_types': [], 'reason': 'connection_or_response_error'}
+        if result.get('status') in ('matched', 'not_found'):  # an outage is never cached
+            self._cache_set(cache_key, result, 3600)
+        return result
+
     def check_all(self, email: str, verify_smtp: bool = False):
         if not isinstance(verify_smtp, bool):
             raise ValueError('SMTP consent must be a boolean')
@@ -366,6 +399,9 @@ class AdvancedEmailChecker:
             blacklist_result = self.check_blacklists(domain, mx_records=dns_result.get("mx",{}).get("infrastructure",[]))
             domain_info = self.check_domain_info(domain)
         
+        name_signals = self.check_name(domain) if dns_result.get('domain_status') != 'not_found' else []
+        web_risk = self.check_reputation(domain) if dns_result.get('domain_status') != 'not_found' and not is_free else \
+            {'status': 'not_configured', 'threat_types': [], 'reason': 'not_applicable'}
         report = {
             "email": normalized,
             "domain": domain,
@@ -378,6 +414,8 @@ class AdvancedEmailChecker:
             "is_free": is_free,
             "blacklist": blacklist_result,
             "domain_info": domain_info,
+            "name_signals": name_signals,
+            "web_risk": web_risk,
             "deliverability": "PROBE_ACCEPTED" if smtp_result.get("valid") is True else "PROBE_REJECTED" if smtp_result.get("valid") is False else "UNKNOWN",
             "checked_at": datetime.now(timezone.utc).isoformat()
         }

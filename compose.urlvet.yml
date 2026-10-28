@@ -5,7 +5,9 @@ services:
       URLVET_URL: http://urlvet:8080
       URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
       MALWAREBAZAAR_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
-    secrets: [urlhaus_auth_key]
+      # Optional Google Web Risk lookup of an email address's domain (email checker).
+      WEB_RISK_API_KEY_FILE: /run/secrets/web_risk_api_key
+    secrets: [urlhaus_auth_key, web_risk_api_key]
     networks:
       urlvet-api: {}
   worker:
@@ -13,7 +15,7 @@ services:
       URLVET_URL: http://urlvet:8080
       URLHAUS_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
       MALWAREBAZAAR_AUTH_KEY_FILE: /run/secrets/urlhaus_auth_key
-      # Optional Google Web Risk lookups for URL scans (worker only).
+      # Optional Google Web Risk lookups for URL scans.
       WEB_RISK_API_KEY_FILE: /run/secrets/web_risk_api_key
     secrets: [urlhaus_auth_key, web_risk_api_key]
     networks:

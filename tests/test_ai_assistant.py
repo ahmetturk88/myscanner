@@ -58,6 +58,12 @@ def events(response):
 
 
 class EvidenceAndParsingTests(unittest.TestCase):
+    def test_a_question_is_answered_in_its_own_language(self):
+        # An Arabic "مافهمت" on the Turkish site was answered in Turkish.
+        self.assertIn('(Arabic)', ai_assistant._language_hint('مافهمت شو يعني'))
+        self.assertNotIn('(Arabic)', ai_assistant._language_hint('Bu ne demek?'))
+        self.assertIn('not in the language of the report', ai_assistant._language_hint('Bu ne demek?'))
+
     def test_the_prompt_names_only_tools_that_exist(self):
         # The model once advised an "Email content" scan, which MyScanner doesn't have.
         self.assertNotIn('{tools}', ai_assistant.SYSTEM_PROMPT)
@@ -192,7 +198,8 @@ class ProviderTests(unittest.TestCase):
         body = post.call_args.kwargs['json']
         messages = body['messages']
         self.assertEqual(body['reasoning_effort'], 'low')
-        self.assertEqual(messages[-1], {'role': 'user', 'content': 'اشرحلي بالعربي'})
+        self.assertEqual(messages[-1]['role'], 'user')
+        self.assertTrue(messages[-1]['content'].endswith('(Arabic), not in the language of the report or the verdict reminder.]\nاشرحلي بالعربي'))
         self.assertIn('<evidence>', messages[1]['content']);self.assertNotIn('injected', json.dumps(messages))
         self.assertEqual(len(messages), 1 + 2 + ai_assistant.CHAT_HISTORY_TURNS * 2 + 1)
         self.assertIn("language of the user's latest message", messages[0]['content'])

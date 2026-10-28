@@ -368,8 +368,17 @@ def _verdict_reminder(evidence_json):
 def chat_stream(tool, evidence_json, history, message):
     turns = [{'role': 'user', 'text': _evidence_turn(tool, evidence_json)},
              {'role': 'assistant', 'text': 'I have read the report evidence. What would you like to know?'}]
-    turns += _history(history) + [{'role': 'user', 'text': _verdict_reminder(evidence_json) + message}]
+    turns += _history(history) + [{'role': 'user', 'text': _verdict_reminder(evidence_json) + _language_hint(message) + message}]
     return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}\n\n{CHAT_RULES}', turns, 1500)
+
+
+def _language_hint(message):
+    """The verdict reminder is in the site's language; a short Arabic question was answered in Turkish."""
+    letters = [c for c in message if c.isalpha()]
+    arabic = sum('\u0600' <= c <= '\u06ff' for c in letters)
+    named = 'Arabic' if letters and arabic * 2 >= len(letters) else None
+    return ('[Answer in the language of the question below' + (f' ({named})' if named else '')
+            + ', not in the language of the report or the verdict reminder.]\n')
 
 
 def general_stream(history, message):

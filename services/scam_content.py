@@ -28,14 +28,21 @@ GAMBLING = re.compile(
     r"canlı casino|live casino|\brulet|roulette|blackjack|baccarat|bakara|\bpoker|jackpot|sportsbook|sports betting|"
     r"yatırım bonusu|hoş ?geldin bonusu|kayıp bonusu|sweet bonanza|gates of olympus|\baviator\b|big bass|"
     r"\begame\b|百家乐|老虎机|娱乐城|棋牌|真人视讯|体育投注|彩票|nhà cái|cá cược|nổ hũ|đá gà|xổ số", re.I)
+# Betting brands with no Turkish licence that scam and spam messages push (two terms with one of these are enough).
+BETTING_BRANDS = re.compile(r'bet365|1xbet|mostbet|melbet|betway|pin-?up|betboo|bets10|mobilbahis|youwin|superbahis|tipobet|'
+                            r'matadorbet|jojobet|casibom|betturkey|grandpashabet|holiganbet|marsbahis|meritking|onwin|sahabet|'
+                            r'imajbet|dumanbet|kingroyal|betebet|vdcasino|padişahbet|padisahbet', re.I)
 # Licensed Turkish betting and lottery (Spor Toto, Milli Piyango, TJK) are not flagged.
 LICENSED_BETTING = {'iddaa.com', 'nesine.com', 'bilyoner.com', 'misli.com', 'oley.com', 'tjk.org', 'millipiyangoonline.com',
                     'millipiyango.gov.tr', 'sportoto.gov.tr', 'birebin.com', 'hipodrom.com', 'tuttur.com'}
 
 
-def gambling_site(text, url=''):
+def gambling_site(text, url='', *more_urls):
     """True when the page and its address name three distinct casino or betting terms, or two
-    when one of them is in the address itself (hbhdyw.com/egame/… titled "GK Slots")."""
+    when one of them is in the address itself (hbhdyw.com/egame/… titled "GK Slots") or is an
+    unlicensed betting brand. Extra addresses (where a redirect started) count as the address."""
+    if more_urls:
+        return any(gambling_site(text, u) for u in (url, *more_urls))
     from urllib.parse import urlsplit
     try:
         host = (urlsplit(url).hostname or '').lower() if isinstance(url, str) else ''
@@ -51,7 +58,10 @@ def gambling_site(text, url=''):
     except ValueError:
         path = ''
     words, in_address = terms(text) | terms(path), terms(path)
-    return len(words) >= 3 or (len(words) >= 2 and bool(in_address))
+    brand = BETTING_BRANDS.search(f"{text or ''} {host}") is not None
+    # With a brand, one game-page word is enough; plain "bahis" or "casino" next to a brand is how news reads.
+    playing = words - {'bahis', 'casino', 'kumarhane', 'poker', 'sportsbetting'}
+    return len(words) >= 3 or (len(words) >= 2 and bool(in_address)) or (brand and bool(playing))
 
 
 def scam_signals(text, inputs):

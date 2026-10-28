@@ -47,6 +47,33 @@ def _download(url, base_url):
     return bytes(content)
 
 
+def rendered_text(url, base_url=None):
+    """The visible text the preview browser saw on url (title first), or None. Never raises."""
+    base_url = base_url or os.environ.get('URLVET_URL')
+    if not base_url:
+        return None
+    try:
+        response = requests.get(f'{base_url.rstrip("/")}/api/v1/rendered-text', params={'url': url},
+                                timeout=CAPTURE_TIMEOUT, allow_redirects=False)
+        if response.status_code != 200 or len(response.content) > 64 * 1024:
+            return None
+        text = response.json().get('text')
+        return text if isinstance(text, str) else None
+    except (requests.RequestException, ValueError, AttributeError):
+        return None
+
+
+def add_rendered_text(url, deep, base_url=None):
+    """For a page that was empty without scripts, add the text the preview browser saw on it."""
+    page = deep.get('page_content') if isinstance(deep, dict) else None
+    if not isinstance(page, dict) or (page.get('visible_text_length') or 0) >= 80:
+        return
+    from services.url_analyzer import apply_rendered_text
+    behavior = deep.get('behavior') if isinstance(deep.get('behavior'), dict) else {}
+    final = behavior.get('final_url') if isinstance(behavior.get('final_url'), str) else url
+    apply_rendered_text(page, final, rendered_text(url, base_url))
+
+
 def _to_jpeg(png):
     from PIL import Image
     if not png.startswith(PNG_SIGNATURE):

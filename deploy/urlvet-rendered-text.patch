@@ -1,0 +1,100 @@
+diff --git a/server/internal/handler/router.go b/server/internal/handler/router.go
+index 6345e40..ea67746 100644
+--- a/server/internal/handler/router.go
++++ b/server/internal/handler/router.go
+@@ -102,6 +102,7 @@ func SetupRouter() *gin.Engine {
+ 		}
+ 
+ 		v1.GET("/screenshot", ScreenshotHandler)
++		v1.GET("/rendered-text", RenderedTextHandler)
+ 
+ 	}
+ 
+diff --git a/server/internal/handler/screenshot.go b/server/internal/handler/screenshot.go
+index ff62b31..cb00005 100644
+--- a/server/internal/handler/screenshot.go
++++ b/server/internal/handler/screenshot.go
+@@ -32,3 +32,23 @@ func ScreenshotHandler(c *gin.Context) {
+ 	// Return the image as binary with proper content-type
+ 	c.Data(http.StatusOK, "image/png", imageBytes)
+ }
++
++// RenderedTextHandler returns the visible text of the page a phone browser shows (MyScanner).
++func RenderedTextHandler(c *gin.Context) {
++	rawURL := c.Query("url")
++	if rawURL == "" {
++		c.JSON(http.StatusBadRequest, gin.H{"error": "url query parameter is required"})
++		return
++	}
++	_, isValid, err := checks.IsValidURL(rawURL)
++	if err != nil || !isValid {
++		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid URL"})
++		return
++	}
++	text, err := screenshot.RenderedText(rawURL)
++	if err != nil {
++		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to render page"})
++		return
++	}
++	c.JSON(http.StatusOK, gin.H{"text": text})
++}
+diff --git a/server/internal/service/screenshot/screenshot.go b/server/internal/service/screenshot/screenshot.go
+index e0d7ac1..1c3a131 100644
+--- a/server/internal/service/screenshot/screenshot.go
++++ b/server/internal/service/screenshot/screenshot.go
+@@ -271,6 +271,7 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
+ 	defer cancel()
+ 
+ 	var buf []byte
++	var text string
+ 
+ 	// Configure viewport and anti-bot measures
+ 	err = chromedp.Run(ctx,
+@@ -311,6 +312,9 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
+ 		// Take screenshot with quality 90, but limit height to prevent memory issues
+ 		// Using viewport screenshot instead of full page for memory safety
+ 		chromedp.CaptureScreenshot(&buf),
++		// MyScanner: the text the phone shows, for pages drawn by scripts (a short-link
++		// service's "this URL has been blocked" page is empty without them).
++		chromedp.Evaluate(renderedTextScript, &text),
+ 	)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("screenshot capture failed: %w", err)
+@@ -327,10 +331,37 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
+ 	if err := os.WriteFile(filePath, buf, 0644); err != nil {
+ 		logger.Warn("failed to cache screenshot", "err", err)
+ 	}
++	if err := os.WriteFile(filePath+".txt", []byte(text), 0644); err != nil {
++		logger.Warn("failed to cache rendered text", "err", err)
++	}
+ 
+ 	return buf, nil
+ }
+ 
++// renderedTextScript returns the page title and visible text, bounded (MyScanner).
++const renderedTextScript = `((document.title || '') + '\n' + (document.body ? document.body.innerText : '')).slice(0, 8000)`
++
++// RenderedText returns the visible text of the page the last screenshot of rawURL showed,
++// taking a screenshot first when there is none (MyScanner).
++func RenderedText(rawURL string) (string, error) {
++	validatedURL, err := validateURL(rawURL)
++	if err != nil {
++		return "", fmt.Errorf("URL validation failed: %w", err)
++	}
++	textPath := GetScreenshotPath(validatedURL) + ".txt"
++	if info, err := os.Stat(textPath); err != nil || info.IsDir() || time.Since(info.ModTime()) >= constants.ScreenshotTTL {
++		_ = os.Remove(GetScreenshotPath(validatedURL)) // a cached image without its text: render again
++		if _, err := TakeScreenshot(rawURL); err != nil {
++			return "", err
++		}
++	}
++	data, err := os.ReadFile(textPath)
++	if err != nil {
++		return "", err
++	}
++	return string(data), nil
++}
++
+ // TakeScreenshot is a convenience function that uses the default service
+ func TakeScreenshot(rawURL string) ([]byte, error) {
+ 	service, err := GetService()

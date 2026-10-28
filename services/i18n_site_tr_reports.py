@@ -414,6 +414,8 @@ REPORTS_TR.update({
     'Internationalized domain spelling requires review.': 'Uluslararası karakterli alan adı yazımı incelenmeli.',
     'Page content contains risk heuristics; forms or keywords alone do not prove a threat.': 'Sayfa içeriği risk sezgileri içeriyor; formlar ya da kelimeler tek başına tehdit kanıtı değildir.',
     'Redirect behavior contains risk indicators.': 'Yönlendirme davranışı risk göstergeleri içeriyor.',
+    'local URLVet assessment unavailable or incomplete': 'Hızlı URLVet değerlendirmesi kullanılamadı ya da eksik',
+    'deep URLVet assessment unavailable or incomplete': 'Derin URLVet değerlendirmesi kullanılamadı ya da eksik',
     'Redirect destination of the short link could not be reached': 'Kısa bağlantının yönlendirdiği hedefe ulaşılamadı',
     'Some defensive HTTP headers are absent.': 'Bazı koruyucu HTTP başlıkları eksik.',
     'The URL does not use HTTPS.': 'URL, HTTPS kullanmıyor.',

@@ -32,7 +32,7 @@ LEGIT = [
     'someone@gmail.com', 'someone@hotmail.com', 'someone@outlook.com.tr', 'someone@yandex.com.tr', 'someone@icloud.com',
 ]
 LEGIT_OK = {'no_indicators', 'unknown', 'review'}
-SCAM_OK = {'dangerous', 'review', 'no_domain'}
+SCAM_OK = {'dangerous', 'review', 'no_domain', 'invalid'}  # invalid: an address that can't exist (an emoji ending)
 
 
 def scam_addresses(path):

@@ -8,15 +8,16 @@ from services.email_report_view import plain_email_report
 from services.report_i18n import translate_plain
 
 
-def report(domain, age=9000, web_risk=None, registrar='Example Registrar'):
+def report(domain, age=9000, web_risk=None, registrar='Example Registrar', local='destek', free=False):
     checker = AdvancedEmailChecker(None)
-    data = {'email': 'destek@' + domain, 'domain': domain,
+    data = {'email': local + '@' + domain, 'domain': domain,
             'dns': {'mx': {'status': 'found', 'records': [{'exchange': 'mx.' + domain}], 'infrastructure': []},
                     'spf': {'status': 'found', 'audit': {'configuration_valid': True}},
                     'dmarc': {'status': 'found', 'policy': 'reject', 'audit': {'configuration_valid': True}}},
             'smtp': {'coverage_status': 'skipped'},
             'blacklist': {'coverage_status': 'completed', 'clean_on': ['bl.spamcop.net'], 'is_blacklisted': False},
-            'domain_info': {'age_days': age, 'registrar': registrar}, 'is_disposable': False, 'is_free': False,
+            'domain_info': {'age_days': age, 'registrar': registrar}, 'is_disposable': False, 'is_free': free,
+            'local_signals': checker.check_local(local, domain),
             'name_signals': checker.check_name(domain), 'web_risk': web_risk or {'status': 'not_found', 'threat_types': []}}
     data['assessment'] = assess_email(data)
     return data
@@ -58,6 +59,36 @@ class NameTests(unittest.TestCase):
         self.assertEqual(plain['tone'], 'danger')
         self.assertEqual(plain['reasons'][0]['title'], 'Google lists this domain as dangerous')
         self.assertIn(('Google Web Risk', 'bad', 'Listed'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
+
+
+class LocalPartTests(unittest.TestCase):
+    """Real phishing mail (phishing_pot, Oct 2026) puts the disguise before the @."""
+
+    def test_a_bank_or_cargo_name_on_a_free_address_is_dangerous(self):
+        data = report('gmail.com', local='garanti.destek', free=True)
+        self.assertEqual(data['assessment']['verdict'], 'dangerous')
+        plain = plain_email_report(data)
+        self.assertEqual(plain['reasons'][0]['title'], 'The name before @ pretends to be a company')
+        self.assertIn('free email address', plain['reasons'][0]['detail'])
+        self.assertIn('pretends to be Garanti BBVA', plain['summary'])
+        turkish = translate_plain(plain, 'tr')
+        self.assertIn('ücretsiz bir e-posta adresi', turkish['reasons'][0]['detail'])
+        self.assertIn('Garanti BBVA gibi', turkish['summary'])
+        for local in ('netflixfan', 'ahmet88x', 'john.appleseed'):
+            self.assertEqual(report('gmail.com', local=local, free=True)['assessment']['verdict'], 'no_indicators', local)
+
+    def test_a_brand_name_before_the_at_on_someone_elses_domain(self):
+        self.assertEqual(report('hustle.com.sg', local='paypal-support', age=4000)['assessment']['verdict'], 'review')
+        self.assertEqual(report('fresh-mailer.com', local='paypal-support', age=20)['assessment']['verdict'], 'dangerous')
+        self.assertEqual(report('garantibbva.com.tr', local='garanti.destek')['assessment']['verdict'], 'no_indicators')
+
+    def test_machine_made_sender_names(self):
+        local = 'amendes-gouv-nepasrepondree.5635cbb6-f12a-6a35-1314b814cd19947b'
+        data = report('quantumexchanger.com', local=local, age=4000)
+        self.assertEqual(data['assessment']['verdict'], 'review')
+        self.assertIn('words such as bank or government', str(data['assessment']['findings']))
+        self.assertEqual(plain_email_report(data)['reasons'][0]['title'], 'A machine-made sender name')
+        self.assertEqual(report('example-shop.com', local='orders', age=4000)['assessment']['verdict'], 'no_indicators')
 
 
 class GuardDomainTests(unittest.TestCase):

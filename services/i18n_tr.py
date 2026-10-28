@@ -840,6 +840,12 @@ TR = {
     'Mailbox': 'Posta kutusu',
     'Rejected': 'Reddedildi',
     'Accepts mail': 'E-posta kabul ediyor',
+    'Probably a brand’s guard domain': 'Muhtemelen bir markanın koruma alan adı',
+    'It looks like {brand}’s, but it is held by a brand-protection service, so it is probably {brand}’s own protection against fakes. Real messages from {brand} don’t come from this address.':
+        'Alan adı {brand} adına benziyor ama bir marka koruma hizmetinde tutuluyor; muhtemelen {brand} şirketinin sahtelere karşı kendi koruması. {brand} şirketinin gerçek mesajları bu adresten gelmez.',
+    'This domain probably belongs to {brand} as protection against fakes. {brand} doesn’t send real mail from it.':
+        'Bu alan adı muhtemelen sahtelere karşı koruma için {brand} şirketine ait. {brand} gerçek e-postalarını buradan göndermez.',
+    'Guard domain': 'Koruma alan adı',
     'This address is likely used for scams': 'Bu adres büyük olasılıkla dolandırıcılıkta kullanılıyor',
     'Google lists this domain as dangerous': 'Google bu alan adını tehlikeli olarak listeliyor',
     'Google Web Risk lists the website on this domain for phishing or malware.': 'Google Web Risk, bu alan adındaki siteyi oltalama ya da zararlı yazılım nedeniyle listeliyor.',

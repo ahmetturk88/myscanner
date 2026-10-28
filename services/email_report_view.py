@@ -43,6 +43,7 @@ def plain_email_report(report):
     copied = next((n for n in names if n.get('code') in ('homograph_name', 'lookalike_name', 'brand_in_subdomain', 'scheme_in_name', 'brand_in_name')), None)
     brand = (copied or {}).get('brand_name') or ''
     copy_found = bool(copied) and assessment.get('copies_brand') is True
+    guard = assessment.get('guard_domain') if isinstance(assessment.get('guard_domain'), str) else ''
     web_risk = mapping(report.get('web_risk'))
     google_listed = web_risk.get('status') == 'matched'
 
@@ -60,6 +61,9 @@ def plain_email_report(report):
             else f'The domain starts with {brand}’s address to look official, but it is a different domain.' if code == 'brand_in_subdomain' and brand
             else f'The domain uses {brand}’s name, but it isn’t one of {brand}’s known domains.' if brand
             else 'The domain is made to look like a well-known company’s.')
+    if guard:
+        add('warn', 'Probably a brand’s guard domain',
+            f'It looks like {guard}’s, but it is held by a brand-protection service, so it is probably {guard}’s own protection against fakes. Real messages from {guard} don’t come from this address.')
     if no_domain:
         add('bad', 'The domain doesn’t exist', f'{domain or "The domain"} isn’t registered, so this address can’t send or receive email. Check for a typo.')
     if null_mx:
@@ -111,7 +115,8 @@ def plain_email_report(report):
                    f'To reach {brand}, use its official app or type its website yourself.' if brand else 'Contact the company through its official website or app.',
                    'Already shared a password or card details? Change the password and call your bank.']
     elif tone == 'caution':
-        summary = ('It is a throwaway address, often used for spam and fake sign-ups.' if disposable
+        summary = (f'This domain probably belongs to {guard} as protection against fakes. {guard} doesn’t send real mail from it.' if guard
+                   else 'It is a throwaway address, often used for spam and fake sign-ups.' if disposable
                    else 'Its mail server is on a spam blocklist.' if listed
                    else 'Email from this domain can be faked easily.' if spoofable and not (null_mx or rejected)
                    else 'We found warning signs about this address.')
@@ -142,7 +147,8 @@ def plain_email_report(report):
             else check('Fake-mail protection', 'na', 'Not checked'),
             check('Spam blocklists', 'warn', 'Listed') if listed else check('Spam blocklists', 'ok', 'Not listed') if lists_answered else check('Spam blocklists', 'na', 'Not checked'),
             check('Throwaway address', 'warn', 'Yes') if disposable else check('Throwaway address', 'ok', 'No'),
-            check('Copies a brand’s name', 'bad' if verdict == 'dangerous' else 'warn', 'Yes') if copy_found else check('Copies a brand’s name', 'ok', 'No'),
+            check('Copies a brand’s name', 'bad' if verdict == 'dangerous' else 'warn', 'Yes') if copy_found
+            else check('Copies a brand’s name', 'warn', 'Guard domain') if guard else check('Copies a brand’s name', 'ok', 'No'),
             *([check('Google Web Risk', 'bad', 'Listed')] if google_listed else [check('Google Web Risk', 'ok', 'Not listed')] if web_risk.get('status') == 'not_found' else []),
             check('Domain age', 'warn' if age < 30 else 'ok', age_text(age)) if age is not None else check('Domain age', 'na', 'Unknown'),
         ]

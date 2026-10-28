@@ -8,7 +8,7 @@ from services.email_report_view import plain_email_report
 from services.report_i18n import translate_plain
 
 
-def report(domain, age=9000, web_risk=None):
+def report(domain, age=9000, web_risk=None, registrar='Example Registrar'):
     checker = AdvancedEmailChecker(None)
     data = {'email': 'destek@' + domain, 'domain': domain,
             'dns': {'mx': {'status': 'found', 'records': [{'exchange': 'mx.' + domain}], 'infrastructure': []},
@@ -16,7 +16,7 @@ def report(domain, age=9000, web_risk=None):
                     'dmarc': {'status': 'found', 'policy': 'reject', 'audit': {'configuration_valid': True}}},
             'smtp': {'coverage_status': 'skipped'},
             'blacklist': {'coverage_status': 'completed', 'clean_on': ['bl.spamcop.net'], 'is_blacklisted': False},
-            'domain_info': {'age_days': age}, 'is_disposable': False, 'is_free': False,
+            'domain_info': {'age_days': age, 'registrar': registrar}, 'is_disposable': False, 'is_free': False,
             'name_signals': checker.check_name(domain), 'web_risk': web_risk or {'status': 'not_found', 'threat_types': []}}
     data['assessment'] = assess_email(data)
     return data
@@ -58,6 +58,26 @@ class NameTests(unittest.TestCase):
         self.assertEqual(plain['tone'], 'danger')
         self.assertEqual(plain['reasons'][0]['title'], 'Google lists this domain as dangerous')
         self.assertIn(('Google Web Risk', 'bad', 'Listed'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
+
+
+class GuardDomainTests(unittest.TestCase):
+    def test_an_old_look_alike_held_by_a_brand_protection_registrar(self):
+        # paypa1.com: 26 years old, MarkMonitor, SPF -all. It is PayPal's own guard domain.
+        data = report('paypa1.com', age=9503, registrar='MarkMonitor Inc.')
+        self.assertEqual(data['assessment']['verdict'], 'review')
+        self.assertEqual(data['assessment']['guard_domain'], 'PayPal')
+        plain = plain_email_report(data)
+        self.assertEqual(plain['tone'], 'caution')
+        self.assertEqual(plain['reasons'][0]['title'], 'Probably a brand’s guard domain')
+        self.assertIn('belongs to PayPal', plain['summary'])
+        self.assertIn(('Copies a brand’s name', 'warn', 'Guard domain'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
+        turkish = translate_plain(plain, 'tr')
+        self.assertIn('PayPal şirketine ait', turkish['summary'])
+        self.assertIn('marka koruma', turkish['reasons'][0]['detail'])
+
+    def test_a_new_domain_or_an_ordinary_registrar_stays_dangerous(self):
+        self.assertEqual(verdict('paypa1.com', age=9503), 'dangerous')
+        self.assertEqual(report('paypa1.com', age=100, registrar='MarkMonitor Inc.')['assessment']['verdict'], 'dangerous')
 
 
 class ReportTests(unittest.TestCase):

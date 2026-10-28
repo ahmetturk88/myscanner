@@ -11,6 +11,10 @@ DECEPTION = {
     'scheme_in_name': 'The domain starts with “http” or “https” to look official.',
 }
 ESTABLISHED_DAYS = 5 * 365
+# Registrars that hold look-alike domains for big brands so scammers can't (paypa1.com is
+# PayPal's, through MarkMonitor). An old look-alike there is a guard, not a fake.
+BRAND_PROTECTION = ('markmonitor', 'csc corporate', 'corporation service company', 'com laude', 'nom-iq', 'safenames',
+                    'brandsight', 'godaddy corporate', 'lexsynergy', 'ascio', 'brandshelter', 'clarivate', 'cscdbs')
 
 def assess_email(report):
     report=report if isinstance(report,dict) else {}
@@ -79,7 +83,13 @@ def assess_email(report):
     names=[n for n in report.get('name_signals') or [] if isinstance(n,dict)]
     codes={n.get('code') for n in names}
     new=known and age<365;established=known and age>=ESTABLISHED_DAYS
-    dangerous=False;name_risks=[]
+    dangerous=False;name_risks=[];guard=None
+    registrar=domain.get('registrar') if isinstance(domain.get('registrar'),str) else ''
+    if names and known and age>=365 and any(word in registrar.lower() for word in BRAND_PROTECTION):
+        # Kept by a brand-protection registrar for over a year: the brand's own guard domain.
+        brand=next((n.get('brand_name') for n in names if n.get('brand_name')),None) or 'a well-known brand'
+        guard=brand;names=[]
+        name_risks.append((5,f'The domain looks like {brand}’s and is held by a brand-protection registrar, so it is probably {brand}’s own guard against fakes. Real messages from {brand} don’t come from it.'))
     for item in names:
         code=item.get('code')
         if code=='lookalike_name' and item.get('tld_swap') and established:continue  # an old defensive registration
@@ -112,6 +122,6 @@ def assess_email(report):
     score=max(0,100-risk-coverage)
     if dangerous:score=min(score,20)
     verdict='dangerous' if dangerous else 'review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'copies_brand':any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
+    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'guard_domain':guard,'copies_brand':not guard and any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
                    +(['Mailbox acceptance (SMTP) was not probed.'] if smtp.get('coverage_status')=='skipped' else [])
                    +(['Blocklists that did not answer: '+', '.join(unanswered)+'.'] if unanswered else []),'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

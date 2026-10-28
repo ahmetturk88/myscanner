@@ -9,7 +9,7 @@ class WorkspaceTests(unittest.TestCase):
         template = (ROOT/'templates/qr_scanner.html').read_text()
         self.assertIn('vendor/jsQR-1.4.0.js', template)
         self.assertNotIn('cdn.jsdelivr.net', template)
-        self.assertIn('id="include-provider"', template)
+        self.assertNotIn('id="include-provider"', template)  # the full URL scan always uses every source
         self.assertNotIn('id="include-provider" checked', template)
         self.assertNotIn('onclick=', template)
     def test_reduced_motion_and_literal_dom(self):
@@ -19,7 +19,8 @@ class WorkspaceTests(unittest.TestCase):
         for sink in ('innerHTML', 'insertAdjacentHTML', 'window.open', 'localStorage'):
             self.assertNotIn(sink, js)
         self.assertIn('textContent', js)
-        self.assertIn('AbortController', js)
+        self.assertIn("fetch('/api/url-analyze'", js)  # decoded links get the full URL scanner, as in the app
+        self.assertIn("startsWith('/result/')", js)
     @unittest.skipUnless(shutil.which('node'), 'Node.js required for actual QR decoding and workflow tests')
     def test_real_qr_decode_and_classification(self):
         subprocess.run([shutil.which('node'), str(ROOT/'tests/test_qr_workspace.cjs')], check=True)

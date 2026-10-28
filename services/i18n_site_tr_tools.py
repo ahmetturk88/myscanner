@@ -326,14 +326,16 @@ TOOLS_TR = {
     'Reveal': 'Gör',
     'Decode the first readable QR payload without opening it.': 'Okunabilen ilk QR içeriğini açmadan çöz.',
     'Review the payload type, destination and sensitive content.': 'İçerik türünü, hedefi ve hassas içeriği incele.',
+    'Scan the link with the full link scanner: threat lists, look-alike names and hidden redirects.':
+        'Bağlantıyı tam bağlantı tarayıcısıyla tara: tehdit listeleri, benzer adlar ve gizli yönlendirmeler.',
     'Request web evidence, review coverage and export your findings.': 'Web kanıtı iste, kapsamı incele ve bulgularını dışa aktar.',
     '02 / DECODED INTELLIGENCE': '02 / ÇÖZÜLEN İÇERİK',
     'CHECK COVERAGE': 'KONTROL KAPSAMI',
     'Decoded content': 'Çözülen içerik',
     'REPORT BRIEF': 'RAPOR ÖZETİ',
     'What this QR tells you': 'Bu QR sana ne söylüyor',
-    'One payload per decode. No application action, Wi-Fi connection or contact import is performed. URL inspection uses read-only checks; missing evidence is not an assurance of safety.':
-        'Her çözmede bir içerik. Uygulama eylemi, Wi-Fi bağlantısı ya da kişi içe aktarma yapılmaz. URL incelemesi salt okunur kontroller kullanır; eksik kanıt güvenlik güvencesi değildir.',
+    'One payload per decode. No application action, Wi-Fi connection or contact import is performed. The link scan uses the same checks as the link scanner; missing evidence is not an assurance of safety.':
+        'Her çözmede bir içerik. Uygulama eylemi, Wi-Fi bağlantısı ya da kişi içe aktarma yapılmaz. Bağlantı taraması, bağlantı tarayıcısıyla aynı kontrolleri kullanır; eksik kanıt güvenlik güvencesi değildir.',
 
     # ------------------------------------------------------------ SSL checker
     'MyScanner — SSL Checker · MyScanner': 'MyScanner — SSL Denetleyici · MyScanner',

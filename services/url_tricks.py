@@ -50,7 +50,7 @@ SHARED_HOSTING = {
     'cloudworkstations.dev', 'idx.dev', 'firebasestorage.app', 'ondigitalocean.app', 'up.railway.app', 'deno.dev',
     'gitbook.io', 'teleporthq.app', 'typedream.app', 'craftum.io', 'jimdofree.com', 'edgeone.dev', 'edgeone.app',
     'synology.me', 'dothome.co.kr', 'tw1.ru', 'sharemyhtml.com', 'myfreesites.net', 'sites.google.com', 'wixstudio.io',
-    'pythonanywhere.com', 'zapier.app', 'softr.app', 'glide.page', 'bubbleapps.io', 'webnode.page', 'mobirisesite.com',
+    'pythonanywhere.com', 'whf.bz', 'zapier.app', 'softr.app', 'glide.page', 'bubbleapps.io', 'webnode.page', 'mobirisesite.com',
 } | SERVER_HOSTS
 
 # Brands that scam links in Turkey imitate most, with the domains each one owns.
@@ -428,6 +428,39 @@ def random_free_name(url):
         return False
     tokens = [t for t in re.split(r'[^a-z0-9]+', registrable.split('.')[0]) if t]
     return any(random_token(t) for t in tokens)
+
+
+# Words in a link's path that name a sign-in or verification step (/success-login/, /verify/…).
+LOGIN_PATH = re.compile(r'log-?in|sign-?in|verif|confirm|unlock|recover|wallet|giris|dogrula|sifre|odeme|iade', re.I)
+
+
+def login_path(url):
+    try:
+        parts = urlsplit(url) if isinstance(url, str) else None
+    except ValueError:
+        return False
+    return bool(parts) and LOGIN_PATH.search(unquote(parts.path + '?' + parts.query)) is not None
+
+
+def risky_ending(url):
+    """True when the address ends in a cheap ending scam sites use most (.top, .sbs, .help…)."""
+    try:
+        host = (urlsplit(url).hostname or '').lower().rstrip('.') if isinstance(url, str) else ''
+    except ValueError:
+        return False
+    return bool(host) and loose_ipv4(host) is None and host.rsplit('.', 1)[-1] in RISKY_ENDINGS
+
+
+def brands_in_text(text, url):
+    """Brands a page title names that the address doesn't belong to."""
+    try:
+        host = (urlsplit(url).hostname or '').lower() if isinstance(url, str) else ''
+    except ValueError:
+        return set()
+    registrable = split_host(host)[1]
+    if not isinstance(text, str) or not registrable:
+        return set()
+    return {b for b in brand_tokens(plain(text)) if not owns(b, registrable)}
 
 
 # A page served from inside WordPress's own folders is an uploaded phishing kit on a hacked site.

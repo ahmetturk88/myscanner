@@ -9,7 +9,7 @@ from services.url_report_view import plain_report
 from services.url_tricks import address_signals, loose_ipv4, unmask
 
 
-def scan(raw, age=270, rank=0, page=None):
+def scan(raw, age=270, rank=0, page=None, desktop=None):
     url, tricks = unmask(raw)
     provider = {'verdict': 'harmless', 'trust_score': 100, 'rank': rank, 'domain_info': {'age_days': age},
                 'phishing': {'in_database': False, 'verified': False, 'valid': False}}
@@ -19,7 +19,7 @@ def scan(raw, age=270, rank=0, page=None):
         local['address_tricks'] = tricks
     deep = {'url': url, 'urlvet': copy.deepcopy(provider), 'structure': {'is_https': True}, 'ssl': {'valid': True},
             'page_content': page or {'title': 'Page', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 900, 'scam_signals': []},
-            'behavior': {'behavior_risk_score': 0, 'original_url': url, 'final_url': url},
+            'behavior': {'behavior_risk_score': 0, 'original_url': url, 'final_url': url, 'desktop_final_url': desktop or url},
             'osint': {'urlhaus_status': 'not_found'}, 'whois': {'age_days': age}}
     result = assess_url(local, deep)
     return result, plain_report(result, local, deep, url)
@@ -119,6 +119,47 @@ class VerdictTests(unittest.TestCase):
             self.assertIn(english, plain['reasons'][0]['detail'], raw)
             self.assertIn(turkish, translate_plain(plain, 'tr')['reasons'][0]['detail'], raw)
             self.assertIn('bad', [c['state'] for c in plain['checks']], raw)
+
+
+class LiveFeedPatternTests(unittest.TestCase):
+    """Patterns from 300 live phishing links that passed unflagged (url-evidence-v12)."""
+
+    def test_cargo_or_bank_name_on_a_new_cheap_site(self):
+        for url in ('https://mydpd.kslud.top/track-ch/', 'https://sbb-info.sbs/templates/cs', 'https://fedex.jfhzjs.shop/query'):
+            self.assertEqual(scan(url, age=20)[0]['verdict'], 'high_risk', url)
+        self.assertEqual(scan('https://fedex.jfhzjs.shop/query', age=None)[0]['verdict'], 'high_risk')
+        self.assertEqual(scan('https://dkb.customersales.de/impressum.html', age=900)[0]['verdict'], 'suspicious')
+        self.assertEqual(scan('https://ptt-kargo-odeme.com/x')[0]['verdict'], 'suspicious')
+
+    def test_phones_and_computers_sent_to_different_sites(self):
+        result, plain = scan('https://bitly.cx/Eo1PM/', age=4000, desktop='https://www.wikipedia.org/')
+        self.assertEqual(result['verdict'], 'suspicious')
+        self.assertEqual(scan('https://example.com/app', age=4000, desktop='https://example.com/')[0]['verdict'], 'harmless')
+
+    def test_sign_in_path_on_a_new_or_cheap_site(self):
+        for url in ('https://akctualisirens79.site/success-login/neues26a2sui55ss/', 'https://matelcc73.sbs/verify/94d2be02'):
+            result, plain = scan(url, age=10)
+            self.assertEqual(result['verdict'], 'suspicious', url)
+            self.assertIn('login_path', [r['code'] for r in result['reasons']])
+        self.assertEqual(scan('https://matelcc73.sbs/verify/94d2be02', age=4000, rank=900)[0]['verdict'], 'harmless')
+        self.assertNotIn('login_path', [r['code'] for r in scan('https://new-bakery.com/login', age=10)[0]['reasons']])
+        login = {'title': 'Sign in', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 900, 'scam_signals': [],
+                 'has_password_field': True}
+        self.assertEqual(scan('https://matelcc73.sbs/verify/94d2be02', age=10, page=login)[0]['verdict'], 'high_risk')
+
+    def test_free_host_page_titled_with_a_brand(self):
+        page = {'title': 'WhatsApp Web', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 900, 'scam_signals': []}
+        result, plain = scan('https://mishab-dev.github.io/chat', age=4000, rank=10, page=page)
+        self.assertEqual(result['verdict'], 'suspicious')
+        self.assertEqual(plain['tone'], 'caution')
+        self.assertIn('Sayfa kendini', str(translate_plain(plain, 'tr')))
+        page['has_password_field'] = True
+        self.assertEqual(scan('https://mishab-dev.github.io/chat', age=4000, rank=10, page=page)[0]['verdict'], 'high_risk')
+        page = dict(page, title='WhatsApp Web', has_password_field=False)
+        self.assertEqual(scan('https://www.whatsapp.com/', age=4000, rank=10, page=page)[0]['verdict'], 'harmless')
+
+    def test_whf_bz_is_free_hosting(self):
+        self.assertIn('free_hosting', codes('https://statensveagvesenno.whf.bz/eika/'))
 
 
 class RequestTests(unittest.TestCase):

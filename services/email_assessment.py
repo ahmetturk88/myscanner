@@ -107,6 +107,20 @@ def assess_email(report):
                 name_risks.append((10,f'The domain uses {brand}’s name but isn’t one of its known domains.'))
     if 'risky_tld' in codes and new and not name_risks:
         name_risks.append((5,'The domain is new and uses a cheap ending that scam sites use most.'))
+    local=[n for n in report.get('local_signals') or [] if isinstance(n,dict)]
+    local_codes={n.get('code') for n in local}
+    pretends=next((n for n in local if n.get('code')=='brand_in_local'),None)
+    if pretends:
+        brand=pretends.get('brand_name') or 'a bank or company'
+        if pretends.get('free'):
+            dangerous=True;name_risks.append((15,f'The name before @ says {brand}, but it is a free email address anyone can open.'))
+        elif not established and (new or 'random_local' in local_codes or 'risky_tld' in codes):
+            dangerous=True;name_risks.append((15,f'The name before @ says {brand}, but the address is on a new or throwaway domain that isn’t {brand}’s.'))
+        else:
+            name_risks.append((10,f'The name before @ says {brand}, but the address is on a domain that isn’t {brand}’s.'))
+    elif 'random_local' in local_codes:
+        name_risks.append((10 if 'service_in_local' in local_codes else 5,
+                           'The name before @ holds a long machine-made code'+(' and words such as bank or government' if 'service_in_local' in local_codes else '')+', the way mass phishing mail is sent.'))
     web_risk=report.get('web_risk') if isinstance(report.get('web_risk'),dict) else {}
     listed=[t for t in web_risk.get('threat_types') or [] if isinstance(t,str)] if web_risk.get('status')=='matched' else []
     if listed:
@@ -124,6 +138,6 @@ def assess_email(report):
     score=max(0,100-risk-coverage)
     if dangerous:score=min(score,20)
     verdict='dangerous' if dangerous else 'review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'guard_domain':guard,'copies_brand':not guard and any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
+    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'guard_domain':guard,'local_brand':(pretends or {}).get('brand_name') if pretends else None,'machine_local':'random_local' in local_codes,'copies_brand':not guard and any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
                    +(['Mailbox acceptance (SMTP) was not probed.'] if smtp.get('coverage_status')=='skipped' else [])
                    +(['Blocklists that did not answer: '+', '.join(unanswered)+'.'] if unanswered else []),'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

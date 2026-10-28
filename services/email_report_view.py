@@ -44,6 +44,10 @@ def plain_email_report(report):
     brand = (copied or {}).get('brand_name') or ''
     copy_found = bool(copied) and assessment.get('copies_brand') is True
     guard = assessment.get('guard_domain') if isinstance(assessment.get('guard_domain'), str) else ''
+    local_brand = assessment.get('local_brand') if isinstance(assessment.get('local_brand'), str) else ''
+    if local_brand and not brand:
+        brand = local_brand
+    local_free = any(n.get('code') == 'brand_in_local' and n.get('free') for n in report.get('local_signals') or [] if isinstance(n, dict))
     web_risk = mapping(report.get('web_risk'))
     google_listed = web_risk.get('status') == 'matched'
 
@@ -61,6 +65,12 @@ def plain_email_report(report):
             else f'The domain starts with {brand}’s address to look official, but it is a different domain.' if code == 'brand_in_subdomain' and brand
             else f'The domain uses {brand}’s name, but it isn’t one of {brand}’s known domains.' if brand
             else 'The domain is made to look like a well-known company’s.')
+    if local_brand:
+        add('bad' if verdict == 'dangerous' else 'warn', 'The name before @ pretends to be a company',
+            f'It says {local_brand}, but it is a free email address anyone can open. {local_brand} doesn’t write from one.' if local_free
+            else f'It says {local_brand}, but the address is on {domain or "another domain"}, which isn’t one of {local_brand}’s domains.')
+    elif assessment.get('machine_local') is True:
+        add('warn', 'A machine-made sender name', 'The part before @ holds a long random code. Mass phishing mail is sent from addresses like this.')
     if guard:
         add('warn', 'Probably a brand’s guard domain',
             f'It looks like {guard}’s, but it is held by a brand-protection service, so it is probably {guard}’s own protection against fakes. Real messages from {guard} don’t come from this address.')
@@ -109,6 +119,7 @@ def plain_email_report(report):
                    'Don’t trust a message that claims to come from it.']
     elif verdict == 'dangerous':
         summary = ('Google lists this domain as dangerous. Treat any message from it as a scam.' if google_listed
+                   else f'This address pretends to be {brand}. Treat any message from it as a scam.' if local_brand and not copy_found
                    else f'The domain pretends to be {brand}’s. Treat any message from it as a scam.' if brand
                    else 'The domain is made to look like a well-known company’s. Treat any message from it as a scam.')
         actions = ['Don’t click links, open attachments or reply to messages from this address.',
@@ -147,7 +158,7 @@ def plain_email_report(report):
             else check('Fake-mail protection', 'na', 'Not checked'),
             check('Spam blocklists', 'warn', 'Listed') if listed else check('Spam blocklists', 'ok', 'Not listed') if lists_answered else check('Spam blocklists', 'na', 'Not checked'),
             check('Throwaway address', 'warn', 'Yes') if disposable else check('Throwaway address', 'ok', 'No'),
-            check('Copies a brand’s name', 'bad' if verdict == 'dangerous' else 'warn', 'Yes') if copy_found
+            check('Copies a brand’s name', 'bad' if verdict == 'dangerous' else 'warn', 'Yes') if copy_found or local_brand
             else check('Copies a brand’s name', 'warn', 'Guard domain') if guard else check('Copies a brand’s name', 'ok', 'No'),
             *([check('Google Web Risk', 'bad', 'Listed')] if google_listed else [check('Google Web Risk', 'ok', 'Not listed')] if web_risk.get('status') == 'not_found' else []),
             check('Domain age', 'warn' if age < 30 else 'ok', age_text(age)) if age is not None else check('Domain age', 'na', 'Unknown'),

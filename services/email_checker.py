@@ -1,4 +1,5 @@
 import hashlib
+import re
 import json
 import socket
 import time
@@ -14,6 +15,8 @@ from constants import DISPOSABLE_DOMAINS, FREE_DOMAINS
 # DNS query zones, not provider website domains.
 BLACKLISTS = ["zen.spamhaus.org", "bl.spamcop.net"]
 # Address signals (services.url_tricks) that also mean something in an email domain.
+# Words in the name before the @ that claim an office, bank or delivery service (amendes-gouv-…@, easy-banking-team…@).
+SERVICE_WORDS = re.compile(r'gouv|govt|government|devlet|banking|bankasi|kargo|cargo|customs|gumruk|vergi|refund|iade|odeme')
 NAME_CODES = {'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'scheme_in_name', 'brand_in_name'}
 import logging
 logger = logging.getLogger(__name__)
@@ -344,6 +347,24 @@ class AdvancedEmailChecker:
             signals.append({'code': 'risky_tld', 'strong': False})
         return signals
 
+    def check_local(self, local: str, domain: str):
+        """What the name before the @ shows: a brand or service it pretends to be, a machine-made code."""
+        from services.url_tricks import IMPERSONATED, brand_tokens, display, owns, plain, split_host
+        text = plain(local.lower())
+        registrable = split_host(domain)[1]
+        # Only banks, cargo, payments and government: "netflixfan@" is a fan, "john.appleseed@" a name.
+        brands = {b for b in brand_tokens(text) if not owns(b, registrable)} & IMPERSONATED
+        signals = []
+        if brands:
+            brand = sorted(brands, key=len, reverse=True)[0]
+            signals.append({'code': 'brand_in_local', 'brand': brand, 'brand_name': display(brand), 'free': domain in FREE_DOMAINS})
+        if SERVICE_WORDS.search(text):
+            signals.append({'code': 'service_in_local'})
+        if domain not in FREE_DOMAINS and any(sum(c.isdigit() for c in run) >= 3 and sum(c.isalpha() for c in run) >= 3
+                                              for run in re.findall(r'[0-9a-f]{12,}', text.replace('-', ''))):
+            signals.append({'code': 'random_local'})
+        return signals
+
     def check_reputation(self, domain: str):
         """Google Web Risk for the domain's own site; only the domain is sent. Optional source."""
         cache_key = self._get_cache_key(domain, "web_risk")
@@ -400,6 +421,7 @@ class AdvancedEmailChecker:
             domain_info = self.check_domain_info(domain)
         
         name_signals = self.check_name(domain) if dns_result.get('domain_status') != 'not_found' else []
+        local_signals = self.check_local(normalized.rsplit('@', 1)[0], domain) if dns_result.get('domain_status') != 'not_found' else []
         web_risk = self.check_reputation(domain) if dns_result.get('domain_status') != 'not_found' and not is_free else \
             {'status': 'not_configured', 'threat_types': [], 'reason': 'not_applicable'}
         report = {
@@ -415,6 +437,7 @@ class AdvancedEmailChecker:
             "blacklist": blacklist_result,
             "domain_info": domain_info,
             "name_signals": name_signals,
+            "local_signals": local_signals,
             "web_risk": web_risk,
             "deliverability": "PROBE_ACCEPTED" if smtp_result.get("valid") is True else "PROBE_REJECTED" if smtp_result.get("valid") is False else "UNKNOWN",
             "checked_at": datetime.now(timezone.utc).isoformat()

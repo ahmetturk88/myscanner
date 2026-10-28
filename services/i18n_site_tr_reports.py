@@ -466,6 +466,11 @@ REPORTS_TR.update({
 })
 
 REPORTS_TR_PATTERNS = [
+    (r'^The name before @ says (.+?), but it is a free email address anyone can open\.$', r'@ işaretinden önceki ad \1 diyor ama bu, herkesin açabileceği ücretsiz bir e-posta adresi.'),
+    (r'^The name before @ says (.+?), but the address is on a new or throwaway domain that isn’t \1’s\.$', r'@ işaretinden önceki ad \1 diyor ama adres, \1 şirketine ait olmayan yeni ya da geçici bir alan adında.'),
+    (r'^The name before @ says (.+?), but the address is on a domain that isn’t \1’s\.$', r'@ işaretinden önceki ad \1 diyor ama adres \1 şirketine ait olmayan bir alan adında.'),
+    (r'^The name before @ holds a long machine-made code and words such as bank or government, the way mass phishing mail is sent\.$', r'@ işaretinden önceki ad uzun, makineyle üretilmiş bir kod ile banka ya da devlet gibi kelimeler içeriyor; toplu oltalama e-postaları böyle gönderilir.'),
+    (r'^The name before @ holds a long machine-made code, the way mass phishing mail is sent\.$', r'@ işaretinden önceki ad uzun, makineyle üretilmiş bir kod içeriyor; toplu oltalama e-postaları böyle gönderilir.'),
     (r'^The domain uses (.+?)’s name but isn’t one of its known domains, and it is new or uses a cheap ending\.$',
      r'Alan adı \1 adını kullanıyor ama bilinen alan adlarından biri değil; üstelik yeni ya da ucuz bir uzantı kullanıyor.'),
     (r'^The domain uses (.+?)’s name but isn’t one of its known domains\.$', r'Alan adı \1 adını kullanıyor ama bilinen alan adlarından biri değil.'),

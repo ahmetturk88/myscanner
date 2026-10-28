@@ -846,6 +846,15 @@ TR = {
     'This domain probably belongs to {brand} as protection against fakes. {brand} doesn’t send real mail from it.':
         'Bu alan adı muhtemelen sahtelere karşı koruma için {brand} şirketine ait. {brand} gerçek e-postalarını buradan göndermez.',
     'Guard domain': 'Koruma alan adı',
+    'The name before @ pretends to be a company': '@ işaretinden önceki ad bir şirket gibi davranıyor',
+    'It says {brand}, but it is a free email address anyone can open. {brand} doesn’t write from one.':
+        'Adreste {brand} yazıyor ama bu, herkesin açabileceği ücretsiz bir e-posta adresi. {brand} böyle bir adresten yazmaz.',
+    'It says {brand}, but the address is on {domain}, which isn’t one of {brand}’s domains.':
+        'Adreste {brand} yazıyor ama adres {domain} alan adında; bu, {brand} şirketinin alan adlarından biri değil.',
+    'A machine-made sender name': 'Makineyle üretilmiş bir gönderen adı',
+    'The part before @ holds a long random code. Mass phishing mail is sent from addresses like this.':
+        '@ işaretinden önceki kısımda uzun, rastgele bir kod var. Toplu oltalama e-postaları böyle adreslerden gönderilir.',
+    'This address pretends to be {brand}. Treat any message from it as a scam.': 'Bu adres kendini {brand} gibi gösteriyor. Buradan gelen her mesajı dolandırıcılık say.',
     'This address is likely used for scams': 'Bu adres büyük olasılıkla dolandırıcılıkta kullanılıyor',
     'Google lists this domain as dangerous': 'Google bu alan adını tehlikeli olarak listeliyor',
     'Google Web Risk lists the website on this domain for phishing or malware.': 'Google Web Risk, bu alan adındaki siteyi oltalama ya da zararlı yazılım nedeniyle listeliyor.',

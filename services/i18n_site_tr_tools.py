@@ -38,6 +38,9 @@ TOOLS_TR = {
     'name@company.com': 'ad@sirket.com',
     'Analyze address →': 'Adresi analiz et →',
     'Include a direct SMTP acceptance probe.': 'Doğrudan bir SMTP kabul testi ekle.',
+    'Direct SMTP acceptance probe: not available on this server.': 'Doğrudan SMTP kabul testi bu sunucuda kullanılamıyor.',
+    'Outbound mail port 25 is closed here, and large providers rarely give a reliable answer to such probes. DNS, authentication and reputation checks still run.':
+        'Giden posta portu 25 burada kapalı ve büyük sağlayıcılar bu tür testlere nadiren güvenilir yanıt verir. DNS, kimlik doğrulama ve itibar kontrolleri yine de çalışır.',
     'The receiving mail server gets the email address in this probe. No message body is sent. Acceptance does not prove ownership or future delivery.':
         'Bu testte alıcı posta sunucusu e-posta adresini görür. Mesaj içeriği gönderilmez. Kabul edilmesi sahipliği ya da ileride teslim edileceğini kanıtlamaz.',
     'The score describes evidence and coverage, not a probability of safety. DKIM message signatures and breach exposure are not checked.':

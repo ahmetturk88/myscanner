@@ -39,7 +39,7 @@ index ff62b31..cb00005 100644
 +	c.JSON(http.StatusOK, gin.H{"text": text})
 +}
 diff --git a/server/internal/service/screenshot/screenshot.go b/server/internal/service/screenshot/screenshot.go
-index e0d7ac1..1c3a131 100644
+index e0d7ac1..44eee97 100644
 --- a/server/internal/service/screenshot/screenshot.go
 +++ b/server/internal/service/screenshot/screenshot.go
 @@ -271,6 +271,7 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
@@ -50,17 +50,33 @@ index e0d7ac1..1c3a131 100644
  
  	// Configure viewport and anti-bot measures
  	err = chromedp.Run(ctx,
-@@ -311,6 +312,9 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
+@@ -311,6 +312,25 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
  		// Take screenshot with quality 90, but limit height to prevent memory issues
  		// Using viewport screenshot instead of full page for memory safety
  		chromedp.CaptureScreenshot(&buf),
 +		// MyScanner: the text the phone shows, for pages drawn by scripts (a short-link
-+		// service's "this URL has been blocked" page is empty without them).
-+		chromedp.Evaluate(renderedTextScript, &text),
++		// service's "this URL has been blocked" page is empty without them). Pages that
++		// fill in late get up to four more seconds.
++		chromedp.ActionFunc(func(ctx context.Context) error {
++			for attempt := 0; attempt < 8; attempt++ {
++				if err := chromedp.Evaluate(renderedTextScript, &text).Do(ctx); err != nil {
++					return nil // the screenshot still counts without text
++				}
++				if strings.TrimSpace(text) != "" {
++					return nil
++				}
++				select {
++				case <-time.After(500 * time.Millisecond):
++				case <-ctx.Done():
++					return nil
++				}
++			}
++			return nil
++		}),
  	)
  	if err != nil {
  		return nil, fmt.Errorf("screenshot capture failed: %w", err)
-@@ -327,10 +331,37 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
+@@ -327,10 +347,41 @@ func (s *Service) TakeScreenshot(rawURL string) ([]byte, error) {
  	if err := os.WriteFile(filePath, buf, 0644); err != nil {
  		logger.Warn("failed to cache screenshot", "err", err)
  	}
@@ -71,8 +87,10 @@ index e0d7ac1..1c3a131 100644
  	return buf, nil
  }
  
-+// renderedTextScript returns the page title and visible text, bounded (MyScanner).
-+const renderedTextScript = `((document.title || '') + '\n' + (document.body ? document.body.innerText : '')).slice(0, 8000)`
++// renderedTextScript returns the page title and text, bounded (MyScanner). It reads open
++// shadow roots and same-origin frames too: innerText skips both, and a short-link block page
++// drawn inside a web component came back empty.
++const renderedTextScript = `(() => { const out = [document.title || '']; const seen = new Set(); const walk = node => { if (!node || seen.has(node) || out.length > 4000) return; seen.add(node); if (node.nodeType === 3) { const v = node.nodeValue.replace(/\s+/g, ' ').trim(); if (v) out.push(v); return; } if (node.nodeType === 1) { const tag = node.tagName; if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEMPLATE') return; if (node.shadowRoot) walk(node.shadowRoot); if (tag === 'IFRAME') { try { walk(node.contentDocument && node.contentDocument.body); } catch (e) {} } } for (const child of node.childNodes || []) walk(child); }; walk(document.body); return out.join('\n').slice(0, 8000); })()`
 +
 +// RenderedText returns the visible text of the page the last screenshot of rawURL showed,
 +// taking a screenshot first when there is none (MyScanner).
@@ -82,7 +100,9 @@ index e0d7ac1..1c3a131 100644
 +		return "", fmt.Errorf("URL validation failed: %w", err)
 +	}
 +	textPath := GetScreenshotPath(validatedURL) + ".txt"
-+	if info, err := os.Stat(textPath); err != nil || info.IsDir() || time.Since(info.ModTime()) >= constants.ScreenshotTTL {
++	cached, readErr := os.ReadFile(textPath)
++	if info, err := os.Stat(textPath); err != nil || readErr != nil || info.IsDir() || time.Since(info.ModTime()) >= constants.ScreenshotTTL ||
++		strings.TrimSpace(string(cached)) == "" { // an empty read may have come before the page filled in
 +		_ = os.Remove(GetScreenshotPath(validatedURL)) // a cached image without its text: render again
 +		if _, err := TakeScreenshot(rawURL); err != nil {
 +			return "", err

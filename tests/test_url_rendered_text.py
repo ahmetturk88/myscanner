@@ -80,6 +80,10 @@ class UrlvetPatchTests(unittest.TestCase):
             patch_text = handle.read()
         self.assertIn('v1.GET("/rendered-text", RenderedTextHandler)', patch_text)
         self.assertIn('.slice(0, 8000)', patch_text)
+        # innerText skips shadow roots and frames: the live qrco.de block page came back empty.
+        self.assertIn('node.shadowRoot', patch_text)
+        self.assertIn("tag === 'IFRAME'", patch_text)
+        self.assertIn('500 * time.Millisecond', patch_text)
 
 
 if __name__ == '__main__':

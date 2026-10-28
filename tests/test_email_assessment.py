@@ -32,6 +32,13 @@ class AssessmentTests(unittest.TestCase):
         r=self.baseline();r['dns']['mx']['records']=[{'exchange':'.'}];r['dns']['dmarc']['policy']='none'
         a=assess_email(r);self.assertEqual(a['score'],80);self.assertIn('null MX',str(a['findings']))
         self.assertIn('p=none',str(a['findings']))
+    def test_spf_ptr_is_a_note_not_a_risk(self):
+        # turkcell.com.tr uses ptr; RFC 7208 discourages it but the policy still works.
+        from services.email_policy_audit import audit_spf
+        audit=audit_spf('example.org',['v=spf1 ptr -all'],lambda name,kind:([],'not_found'))
+        self.assertTrue(audit['configuration_valid']);self.assertIn('ptr',str(audit['notes']))
+        r=self.baseline();r['dns']['spf']['audit']=audit
+        a=assess_email(r);self.assertEqual(a['verdict'],'no_indicators');self.assertIn('ptr mechanism',str(a['findings']))
     def test_monitoring_dmarc_alone_is_a_note_not_a_risk(self):
         # gmail.com publishes p=none; its addresses must not need review for that alone.
         r=self.baseline();r['dns']['dmarc']['policy']='none'

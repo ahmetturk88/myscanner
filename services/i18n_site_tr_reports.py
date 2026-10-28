@@ -154,6 +154,7 @@ REPORTS_TR = {
     'Inspection unavailable.': 'İnceleme kullanılamıyor.',
     'Available checks completed': 'Mevcut kontroller tamamlandı',
     'Mail routing': 'Posta yönlendirme',
+    'SPF uses the ptr mechanism, which mail standards discourage; it still works.': 'SPF, posta standartlarının önermediği ptr mekanizmasını kullanıyor; yine de çalışır.',
     'Sender authentication': 'Gönderen doğrulaması',
     'Domain reputation': 'Alan adı itibarı',
     'Mailbox acceptance': 'Posta kutusu kabulü',

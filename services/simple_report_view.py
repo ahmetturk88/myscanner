@@ -302,7 +302,9 @@ def plain_web_report(result, source='link'):
             check('Downloads', 'bad', 'Malware') if 'crawl_malware_download' in codes else
             check('Downloads', 'info', f'{found} files') if found else check('Downloads', 'ok', 'None'),
         ]
-        if shop:
+        if shop.get('not_judged'):
+            checks.append(check('Online shop', 'na', 'Foreign version'))
+        elif shop:
             have = 5 - len(shop.get('missing') or [])
             checks.append(check('Online shop', 'warn', 'Fake shop signs') if shop.get('fake_signs') else
                           check('Online shop', 'ok' if have >= 3 else 'info', f'{have} of 5 details'))

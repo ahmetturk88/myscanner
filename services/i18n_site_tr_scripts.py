@@ -9,6 +9,7 @@ SCRIPTS_TR = {
     'Warning copied. Paste it into your chat.': 'Uyarı kopyalandı. Sohbetine yapıştır.',
     'Could not copy. Share the report yourself.': 'Kopyalanamadı. Raporu kendin paylaş.',
     'Next step': 'Sonraki adım',
+    'Coverage is not a safety score.': 'Kapsam bir güvenlik puanı değildir.',
     'Good signs': 'Olumlu işaretler', 'Other notes': 'Diğer notlar', 'Errors': 'Hatalar', 'More rules': 'Diğer kurallar',
     'not_found': 'bulunamadı', 'Warning signs': 'Uyarı işaretleri',
     # Website check evidence (web_assessment, site_evidence, site_workspace.js)
@@ -838,6 +839,7 @@ SCRIPTS_TR_PATTERNS = [
     (r'^Evidence index: (\d+)/100\. Coverage deductions: (\d+) points\. Not a probability of safety\.$',
      r'Kanıt endeksi: \1/100. Kapsam kesintisi: \2 puan. Bir güvenlik olasılığı değildir.'),
     (r'^Reported: (.+)$', r'Bildirildi: \1'),
+    (r'^(\d+) / (\d+) checks$', r'\2 kontrolden \1'),
     (r'^Read-only inspection of (\S+)\.$', r'\1 için salt okunur inceleme.'),
     (r'^Final HTTP response: (\S+); (\d+) redirects observed\.$', r'Son HTTP yanıtı: \1; \2 yönlendirme gözlendi.'),
     (r'^TLS certificate state: (\S+); static page: (\S+)\.$', r'TLS sertifika durumu: \1; statik sayfa: \2.'),

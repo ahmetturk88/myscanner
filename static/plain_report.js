@@ -21,6 +21,25 @@
   const NO_CAMERA = SVG('<path d="M3 3l18 18"/><path d="M21 17V8a2 2 0 0 0-2-2h-3l-2-3H10M6.3 6H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14"/><path d="M9.5 9.6A3.5 3.5 0 0 0 14.4 14.5"/>', 26, 1.8);
   const SEARCH = SVG('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 18, 2.2);
   const STATES = ['bad', 'warn', 'ok', 'na', 'info'];
+  // The next check that fits the tool just used. Scams come as a message plus a link, a file or a code.
+  const CHECK_LINK = ['/dashboard', 'Check a link'], CHECK_FILE = ['/file-scanner', 'Check a file'], CHECK_SENDER = ['/email-check', 'Check a sender'];
+  const NEXT = {
+    '/dashboard': ['Who sent you this link?', 'Check the sender’s email address too, and any file that came with it.', [CHECK_SENDER, CHECK_FILE], 'url'],
+    '/file-scanner': ['Where did this file come from?', 'Check the link or the email address it came with too.', [CHECK_LINK, CHECK_SENDER], 'file'],
+    '/email-check': ['Did the email have a link or a file?', 'Check them before you open anything.', [CHECK_LINK, CHECK_FILE], 'email'],
+    '/qr-scanner': ['Where did you find this code?', 'Codes on letters, parking meters and messages get swapped. Check who sent it too.', [CHECK_SENDER, CHECK_FILE], 'qr'],
+  };
+  const NEXT_OTHER = ['Got a suspicious message?', 'Check its link, file or sender before you act.', [CHECK_LINK, CHECK_FILE, CHECK_SENDER], 'other'];
+  // Never on a password check, and Pro never next to a "dangerous" verdict: no selling to someone who may have just been scammed.
+  function nextCard(href, tone) {
+    if (href === '/password-check') return '';
+    const [title, detail, links, ref] = NEXT[href] || NEXT_OTHER;
+    const go = links.filter(([path]) => path !== href).map(([path, label]) => `<a class="rp-next-link" href="${path}">${esc(label)}</a>`).join('');
+    const pro = tone === 'danger' ? '' : `<div class="rp-pro"><span class="rp-pro-tag">Pro · coming soon</span>
+      <p>Got this in a message? Pro will check the whole message or a screenshot: every link, IBAN and QR code in it.</p>
+      <a class="rp-pro-link" href="/pro?ref=report-${ref}">Get notified</a></div>`;
+    return `<section class="rp-card rp-next"><h2>Next step</h2><strong>${esc(title)}</strong><p>${esc(detail)}</p><div class="rp-next-links">${go}</div>${pro}</section>`;
+  }
 
   function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -70,7 +89,7 @@
       <div class="rp-pair">${reasons ? `<section class="rp-why"><h2>${esc(typeof plain.why_title === 'string' ? plain.why_title : 'Why we think so')}</h2><ul>${reasons}</ul></section>` : ''}
       <section class="rp-card rp-do"><h2>${tone === 'safe' ? 'Good to know' : 'What to do'}</h2><ol>${actions}</ol></section></div>
       ${opts.buttons === false ? '' : `<div class="rp-buttons">${buttons}</div>`}<div class="rp-ai"></div></div>
-    <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}
+    <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}${opts.buttons === false ? '' : nextCard(again.href, tone)}
       <p class="rp-note">A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.</p></aside>`;
     const img = box.querySelector('.rp-preview img');
     if (img) img.addEventListener('error', () => {

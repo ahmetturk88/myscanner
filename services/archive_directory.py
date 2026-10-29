@@ -42,6 +42,80 @@ def archive_observations(content, kind):
             return unavailable(kind, 'Archive directory inspection unavailable')
 
 
+APP_EXTENSIONS = ('.apk', '.xapk', '.apks')
+MAX_APP = 50 * 1024 * 1024
+MAX_APPS = 3
+
+
+def archive_apps(content, kind):
+    """Android apps packed inside a ZIP, RAR or 7z file, each read by the app inspector.
+
+    {'apps': [{'name', 'inspection'}], 'error'?}. The apps are decompressed in memory in a
+    resource-limited subprocess; nothing is written under a member's name or executed.
+    """
+    if kind not in ('zip', 'rar', '7z') or len(content) > 50 * 1024 * 1024 or os.name != 'posix':
+        return {'apps': [], 'error': 'Archive input unsupported or exceeds limit'}
+    with tempfile.TemporaryDirectory(prefix='myscanner-apps-') as directory:
+        source = Path(directory)/'input.bin'; output = Path(directory)/'apps.json'
+        source.write_bytes(content)
+        try:
+            with output.open('wb') as target:
+                result = subprocess.run([sys.executable, str(Path(__file__).resolve()), str(source), kind, 'apps'],
+                                        stdout=target, stderr=subprocess.DEVNULL, timeout=15, check=False,
+                                        env={'PATH': os.defpath, 'LANG': 'C.UTF-8'})
+            if result.returncode != 0 or output.stat().st_size > MAX_OUTPUT:
+                return {'apps': [], 'error': 'App inspection failed or resource limit reached'}
+            data = json.loads(output.read_text())
+            return data if isinstance(data, dict) and isinstance(data.get('apps'), list) else {'apps': [], 'error': 'App inspection returned no result'}
+        except subprocess.TimeoutExpired:
+            return {'apps': [], 'error': 'App inspection timed out'}
+        except (OSError, ValueError):
+            return {'apps': [], 'error': 'App inspection unavailable'}
+
+
+def inspect_apps(path, kind):
+    from services.format_inspectors import inspect_apk
+    library = ctypes.util.find_library('archive')
+    if not library:
+        return {'apps': [], 'error': 'Archive parser library not installed'}
+    lib = C.CDLL(library)
+    def bind(name, result, args):
+        fn = getattr(lib, name); fn.restype = result; fn.argtypes = args; return fn
+    a = bind('archive_read_new', C.c_void_p, [])()
+    free = bind('archive_read_free', C.c_int, [C.c_void_p])
+    for name in {'zip': ('zip',), 'rar': ('rar', 'rar5'), '7z': ('7zip',)}[kind]:
+        bind('archive_read_support_format_' + name, C.c_int, [C.c_void_p])(a)
+    header = bind('archive_read_next_header', C.c_int, [C.c_void_p, C.POINTER(C.c_void_p)])
+    pathname = bind('archive_entry_pathname', C.c_char_p, [C.c_void_p])
+    size = bind('archive_entry_size', C.c_int64, [C.c_void_p])
+    encrypted = bind('archive_entry_is_encrypted', C.c_int, [C.c_void_p])
+    read = bind('archive_read_data', C.c_ssize_t, [C.c_void_p, C.c_void_p, C.c_size_t])
+    result = {'apps': []}
+    try:
+        if bind('archive_read_open_filename', C.c_int, [C.c_void_p, C.c_char_p, C.c_size_t])(a, os.fsencode(path), 10240) != 0:
+            return {'apps': [], 'error': 'Archive headers unavailable, encrypted or malformed'}
+        chunk = C.create_string_buffer(65536)
+        for _ in range(MAX_ENTRIES):
+            entry = C.c_void_p()
+            if header(a, C.byref(entry)) != 0 or len(result['apps']) >= MAX_APPS:
+                break
+            member = (pathname(entry) or b'').decode('utf-8', 'replace')
+            if not member.lower().endswith(APP_EXTENSIONS) or encrypted(entry) > 0 or not 0 < size(entry) <= MAX_APP:
+                continue
+            data = bytearray()
+            while len(data) <= MAX_APP:
+                count = read(a, chunk, len(chunk))
+                if count <= 0:
+                    break
+                data += chunk.raw[:count]
+            if 0 < len(data) <= MAX_APP:
+                basename = member.replace('\\', '/').rsplit('/', 1)[-1]
+                result['apps'].append({'name': member[:500], 'inspection': inspect_apk(bytes(data), basename)})
+        return result
+    finally:
+        free(a)
+
+
 def inspect_directory(path, kind):
     from file_structure import unsafe_name
     library = ctypes.util.find_library('archive')
@@ -113,8 +187,14 @@ def inspect_directory(path, kind):
 
 if __name__=='__main__':
     import resource
-    resource.setrlimit(resource.RLIMIT_AS,(256*1024*1024,256*1024*1024))
-    resource.setrlimit(resource.RLIMIT_CPU,(3,3))
+    apps = sys.argv[3:] == ['apps']
+    memory, seconds = ((512, 10) if apps else (256, 3))  # an app is decompressed whole to read its manifest
+    resource.setrlimit(resource.RLIMIT_AS,(memory*1024*1024,)*2)
+    resource.setrlimit(resource.RLIMIT_CPU,(seconds,seconds))
     resource.setrlimit(resource.RLIMIT_FSIZE,(MAX_OUTPUT,MAX_OUTPUT))
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
-    print(json.dumps(inspect_directory(sys.argv[1],sys.argv[2]),ensure_ascii=True))
+    if apps:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # the app inspector lives in services/
+        print(json.dumps(inspect_apps(sys.argv[1], sys.argv[2]), ensure_ascii=True))
+    else:
+        print(json.dumps(inspect_directory(sys.argv[1],sys.argv[2]),ensure_ascii=True))

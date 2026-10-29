@@ -733,6 +733,18 @@ TR = {
     'Known scam site': 'Bilinen dolandırıcılık sitesi',
     'Look-alike site': 'Taklit site',
     '{n} checked': '{n} kontrol edildi',
+    'The archive hides an Android app': 'Arşivin içinde bir Android uygulaması gizli',
+    '“{name}” is an app file. Scammers pack apps in archives to get past filters. Install apps only from Google Play.':
+        "“{name}” bir uygulama dosyası. Dolandırıcılar filtrelere takılmamak için uygulamaları arşivlere koyar. Uygulamaları yalnızca Google Play'den yükle.",
+    'The archive hides a program': 'Arşivin içinde bir program gizli',
+    '“{name}” is a program. Scammers pack programs in archives to get past email filters. Don’t run it.':
+        '“{name}” bir program. Dolandırıcılar e-posta filtrelerine takılmamak için programları arşivlere koyar. Çalıştırma.',
+    'The archive hides a program dressed as a document': 'Arşivin içinde belge kılığına girmiş bir program var',
+    '“{name}” looks like a document but is a program, a common way to spread malware. Don’t open it.':
+        '“{name}” belge gibi görünüyor ama bir program; bu, kötü amaçlı yazılım yaymanın yaygın bir yolu. Açma.',
+    'Programs inside': 'İçindeki programlar',
+    'Android app': 'Android uygulaması',
+    'Program': 'Program',
     'Malware found': 'Kötü amaçlı yazılım bulundu',
     'Warning': 'Uyarı',
     'Clean': 'Temiz',

@@ -173,6 +173,7 @@ def plain_file_report(report):
                    'If a document asks you to enable macros or content, don’t.']
     # Advice that fits the kind of file, whatever the verdict.
     first = {'apk': 'Install apps only from Google Play, never from a link or a message.',
+             'archive': 'Install apps only from Google Play, never from a link or a message.' if (inspection.get('row') or {}).get('result') == 'Android app' else None,
              'image': 'Check the QR code’s link with the URL scanner before you open it.' if (inspection.get('facts') or {}).get('qr_links') else None,
              'email': 'Don’t open attachments or links in this email unless you expected it.',
              'html': 'Never type a password into a page that came as a file.' if (inspection.get('facts') or {}).get('password_fields') else None}.get(inspected)

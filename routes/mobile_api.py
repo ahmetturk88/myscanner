@@ -25,8 +25,10 @@ PUBLIC = {'mobile.login', 'mobile.oauth_start', 'mobile.oauth_exchange', 'mobile
 # The app's tool names, mapped to the website endpoints that do the work.
 TOOLS = {
     # 'file' is the website's unified scan (antivirus, MalwareBazaar and the plain-language summary);
-    # the older async_scan_file endpoint returns raw analyzer output with no summary.
-    'url': 'api_url_analyze', 'site': 'async_scan_site', 'file': 'api_scan_file', 'qr-url': 'api_scan_qr_url',
+    # the older async_scan_file endpoint returns raw analyzer output with no summary. 'site' is the
+    # website's evidence job; the older async_scan_site saved a report with no summary, so the app
+    # showed no green, yellow or red verdict for websites.
+    'url': 'api_url_analyze', 'site': 'api_site_scan', 'file': 'api_scan_file', 'qr-url': 'api_scan_qr_url',
     'email': 'api_check_email', 'password': 'api_check_password', 'ip': 'api_check_ip',
     'domain': 'api_domain_lookup', 'subdomain': 'api_subdomain_finder', 'ssl': 'api_ssl_checker',
 }

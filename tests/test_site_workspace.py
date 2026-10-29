@@ -155,7 +155,7 @@ class TemplateAndBoundaryTests(unittest.TestCase):
         self.assertEqual(result['content']['description'],'Description')
         self.assertEqual(result['content']['headings'],['Heading'])
         self.assertEqual(result['content']['images_missing_alt'],1)
-        self.assertEqual(result['verdict'],'unknown')
+        self.assertEqual(result['verdict'],'clean')  # site-trust-v1: url.vet is optional
 
 class ProviderObservationTests(unittest.TestCase):
     def test_unverified_phishing_entry_is_usable_unknown_not_outage(self):

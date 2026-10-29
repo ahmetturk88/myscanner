@@ -194,7 +194,15 @@ WEB_FINDINGS = {
     'redirect_parameter': ('info', 'It carries another address inside', 'The link contains a destination address, a trick some scams use.'),
     'idn': ('info', 'Unusual characters in the name', 'International characters can imitate real site names.'),
     'unverified_phishing_report': ('info', 'An unconfirmed scam report', 'Someone reported it as phishing; reviewers haven’t confirmed it.'),
+    # site-trust-v1: the URL scanner's evidence, for websites and QR links
+    'web_risk_listed': ('bad', 'Google lists it as dangerous', 'Google Web Risk reports this address for phishing or malware.'),
+    'gambling_site': ('warn', 'An online gambling site', 'Unlicensed betting sites are illegal in Turkey and often keep deposits.'),
+    'prize_offer': ('warn', 'It promises a prize or a gift', 'Prize and free-gift pages are a common way to collect card details.'),
+    'fake_comments': ('warn', 'It shows fake comments', 'The page imitates social media comments to look trustworthy.'),
+    'collects_card': ('warn', 'It asks for a card or phone number', 'A new or copied site asking for these details is a common scam.'),
 }
+# Findings whose sentence names the brand or the age, so it comes from the evidence, not from this table.
+WEB_TRUST_FINDINGS = {'lookalike_brand', 'new_domain'}
 
 
 def plain_web_report(result, source='link'):
@@ -206,15 +214,27 @@ def plain_web_report(result, source='link'):
     tls = mapping(result.get('tls'))
     http = mapping(result.get('http'))
     findings = [f for f in result.get('findings') or [] if isinstance(f, dict) and f.get('code') in WEB_FINDINGS]
-    codes = {f['code'] for f in findings}
+    every = [f for f in result.get('findings') or [] if isinstance(f, dict)]
+    codes = {f.get('code') for f in every}
+    trust = mapping(result.get('trust'))
+    risk = mapping(trust.get('web_risk'))
+    brand = trust.get('brand') if isinstance(trust.get('brand'), str) else ''
+    age = mapping(trust.get('domain_age'))
+    age_days = age.get('age_days') if isinstance(age.get('age_days'), int) and not isinstance(age.get('age_days'), bool) else None
+    new_finding = next((f for f in every if f.get('code') == 'new_domain'), None)
     hops = len(http.get('chain')) - 1 if isinstance(http.get('chain'), list) and http.get('chain') else None
     final = http.get('final_url') if isinstance(http.get('final_url'), str) else ''
     host = (urlsplit(url).hostname or '') if url else ''
     final_host = (urlsplit(final).hostname or '') if final else ''
 
     reasons = []
-    if verdict == 'malicious':
+    if verdict == 'malicious' and 'web_risk_listed' not in codes:
         reasons.append(reason('bad', 'Listed as a threat', 'A threat-intelligence source reports this link as malicious.'))
+    if brand and 'lookalike_brand' in codes:
+        reasons.append(reason('warn', f'The address copies {brand}', f'It uses the name {brand}, but it isn’t one of {brand}’s sites.'))
+    if new_finding and age_days is not None:
+        reasons.append(reason('warn' if new_finding.get('severity') == 'warning' else 'info', 'The site is brand new',
+                              f'Its domain was registered {age_days} days ago. Scam shops and fake login pages rarely live longer than a few weeks.'))
     for item in findings:
         kind, title, detail = WEB_FINDINGS[item['code']]
         reasons.append(reason(kind, title, detail + (f' It ends at {final_host}.' if item['code'] == 'host_change' and final_host else '')))
@@ -225,14 +245,15 @@ def plain_web_report(result, source='link'):
 
     opening = 'this QR code’s link' if source == 'qr' else 'this website' if source == 'site' else 'this link'
     if verdict == 'malicious':
-        tone, label, headline = 'danger', 'DANGEROUS', 'Don’t open this link'
-        summary = 'A threat source reports it as malicious.'
+        tone, label, headline = 'danger', 'DANGEROUS', 'Don’t open this link' if source != 'site' else 'Don’t use this website'
+        summary = 'Google lists it as a phishing or malware site.' if risk.get('status') == 'matched' else 'A threat source reports it as malicious.'
         actions = ['Don’t open it or enter any information on it.',
                    'If it is a QR code in a public place, tell the business: stickers over real codes are a common scam.' if source == 'qr'
                    else 'Tell the person who sent it.']
     elif verdict == 'suspicious':
         tone, label, headline = 'caution', 'BE CAREFUL', f'Be careful with {opening}'
-        summary = 'We found warning signs on the page or its connection.'
+        summary = (f'It copies {brand}’s name but isn’t its site.' if brand and 'lookalike_brand' in codes
+                   else 'We found warning signs on the page or its connection.')
         actions = ['Don’t enter passwords or payment details on it.',
                    'For payments, type the company’s address yourself instead of using the QR code.' if source == 'qr'
                    else 'Open important sites by typing the address yourself.']
@@ -249,7 +270,8 @@ def plain_web_report(result, source='link'):
     checks = [
         check('Threat lists', 'bad', 'Listed') if verdict == 'malicious' else
         check('Threat lists', 'info', 'Unconfirmed report') if 'unverified_phishing_report' in codes else
-        check('Threat lists', 'ok', 'Not listed') if provider.get('status') in ('completed', 'partial') else
+        check('Threat lists', 'ok', 'Not listed') if provider.get('status') in ('completed', 'partial') or risk.get('status') == 'not_found' else
+        check('Threat lists', 'na', 'Not checked') if risk.get('status') == 'unavailable' else
         check('Threat lists', 'na', 'Not requested') if provider.get('status') == 'not_requested' else check('Threat lists', 'na', 'Not checked'),
         check('Secure connection', 'ok', 'Valid HTTPS') if tls_status == 'completed' and not codes & {'https_downgrade', 'unencrypted_entry'} else
         check('Secure connection', 'warn', 'Not secure') if tls_status == 'invalid' or codes & {'https_downgrade', 'unencrypted_entry', 'invalid_certificate', 'tls_http_failure'} else
@@ -257,6 +279,18 @@ def plain_web_report(result, source='link'):
         check('Password forms', 'warn', 'Unsafe') if codes & {'external_password_form', 'password_http'} else check('Password forms', 'ok', 'Nothing unsafe'),
         check('Redirects', 'info', f'{hops}') if hops else check('Redirects', 'ok', 'None') if hops == 0 else check('Redirects', 'na', 'Not checked'),
     ]
+    if trust:
+        scam = codes & {'gambling_site', 'prize_offer', 'fake_comments', 'collects_card'}
+        checks += [
+            check('Copies a brand’s name', 'warn', brand) if brand else check('Copies a brand’s name', 'ok', 'No'),
+            check('Domain age', 'warn' if new_finding and new_finding.get('severity') == 'warning' else 'info' if new_finding else 'ok',
+                  f'{age_days} days') if age_days is not None and age_days < 365 else
+            check('Domain age', 'ok', f'{age_days // 365} years' if age_days >= 730 else '1 year') if age_days is not None else
+            check('Domain age', 'na', 'Not published'),
+            check('Page content', 'warn', 'Scam signs') if scam else
+            check('Page content', 'ok', 'Nothing suspicious') if mapping(result.get('content')).get('status') == 'completed' else
+            check('Page content', 'na', 'Not checked'),
+        ]
     share = (f'Warning: MyScanner rates this link as dangerous: {defang(url)}. Don’t open it.' if tone == 'danger'
              else f'Careful: MyScanner found warning signs on this link: {defang(url)}.' if tone == 'caution'
              else f'MyScanner found no warning signs on this link: {defang(url)}.' if tone == 'safe'

@@ -143,6 +143,9 @@ class WebAssessment:
             finding('long_url', 'info', 'Long URL', 'Length alone is not a threat; inspect the hostname rather than the full text.')
         if any(key.lower() in ('url','redirect','next','return','continue') for key,_ in parse_qsl(parsed.query)):
             finding('redirect_parameter', 'info', 'Destination parameter present', 'This parameter may point elsewhere. Its presence does not prove an exploitable redirect.')
+        from services import site_trust
+        age_future = site_trust.start_age_lookup(url)  # WHOIS runs while the page is fetched
+        page_text, page_inputs, password_any = None, [], False
         dns = dns_records(parsed.hostname, deadline=deadline)
         http = {'status': 'unavailable', 'chain': [], 'reason': 'HTTP assessment unavailable'}
         content = {'status': 'unavailable'}
@@ -165,6 +168,8 @@ class WebAssessment:
                         finding('http_error', 'info', 'Page returned an error', 'An HTTP error does not establish that a website is inactive or malicious.')
                     if 'html' in http['content_type'].lower() and response.status_code < 400:
                         soup = BeautifulSoup(response.content[:1024*1024], 'html.parser')
+                        page_inputs = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input', limit=200)]
+                        password_any = any(str(kind).lower() == 'password' for kind, _, _ in page_inputs)
                         forms = []
                         for form in soup.find_all('form', limit=20):
                             try:
@@ -189,6 +194,7 @@ class WebAssessment:
                                    'image_count': len(soup.find_all('img')), 'images_missing_alt': len([img for img in soup.find_all('img') if not img.get('alt')]),
                                    'stylesheet_count': len(soup.find_all('link',rel='stylesheet')),
                                    'viewport': str((soup.find('meta',attrs={'name':re.compile('^viewport$',re.I)}) or {}).get('content',''))[:200]}
+                        page_text = ' '.join(filter(None, [content['title'], content['description'], soup.get_text(' ', strip=True)[:200000]]))
 
                     else:
                         content = {'status': 'not_applicable', 'reason': 'No successful HTML page was returned'}
@@ -229,8 +235,15 @@ class WebAssessment:
                     provider.update(status='unavailable', reason='External analysis unavailable')
             else:
                 provider.update(status='unavailable', reason='External analysis is not configured or the time budget was reached')
+        trust, trust_findings = site_trust.assess(url, final_url, page_text, page_inputs, password_any, age_future)
+        findings.extend(trust_findings)
+        risk_status = trust['web_risk']['status']
         checks = [{'name':'URL structure','status':'completed'}, {'name':'DNS','status':'completed' if all(v['status'] != 'unavailable' for v in dns.values()) else 'partial'},
-                  {'name':'HTTP / redirects','status':http['status']}, {'name':'TLS certificate','status':tls['status']}, {'name':'Static page','status':content['status']}, {'name':'url.vet','status':provider['status']}]
+                  {'name':'HTTP / redirects','status':http['status']}, {'name':'TLS certificate','status':tls['status']}, {'name':'Static page','status':content['status']}, {'name':'url.vet','status':provider['status']},
+                  # A missing Web Risk key is configuration, not a failed check. Many registries (.com.tr among them)
+                  # publish no registration date, so a missing age never blocks a result.
+                  {'name':'Google Web Risk','status':'completed' if risk_status in ('matched', 'not_found') else 'not_requested' if risk_status == 'not_configured' else 'unavailable'},
+                  {'name':'Domain age','status':'completed' if trust['domain_age'].get('status') == 'completed' else 'not_applicable'}]
         selected_checks = [c for c in checks if c['status'] not in ('not_requested', 'not_applicable')]
         completed_checks = sum(c['status'] in ('completed', 'invalid') for c in selected_checks)
         complete = bool(selected_checks) and completed_checks == len(selected_checks)
@@ -241,11 +254,13 @@ class WebAssessment:
         if unconfirmed_only:
             findings.append({'code':'unverified_phishing_report','severity':'info','title':'Unconfirmed phishing report',
                              'detail':'A community phishing database has an unconfirmed report for this address; reviewers have not confirmed it.'})
-        provider_clean = provider.get('verdict') == 'harmless' or unconfirmed_only
-        verdict = 'malicious' if provider.get('verdict') == 'malicious' else 'suspicious' if warnings or provider.get('verdict') == 'suspicious' else 'clean' if complete and provider_clean else 'unknown'
+        # url.vet is optional; when it was not requested, the local checks and Google Web Risk decide (site-trust-v1).
+        # An error page or a download shows no page to judge, so it stays unknown.
+        provider_clean = provider.get('verdict') == 'harmless' or unconfirmed_only or provider.get('status') == 'not_requested'
+        verdict = 'malicious' if provider.get('verdict') == 'malicious' or risk_status == 'matched' else 'suspicious' if warnings or provider.get('verdict') == 'suspicious' else 'clean' if complete and provider_clean and content['status'] == 'completed' else 'unknown'
         return {'schema_version':2, 'url':url, 'verdict':verdict, 'assessment_status':'completed' if complete else 'partial',
-                'summary': 'Threat indicators reported by the external analyzer.' if verdict == 'malicious' else 'Caution: review the observed indicators before proceeding.' if verdict == 'suspicious' else 'No threat indicators observed in the completed checks. This is not a guarantee of safety.' if verdict == 'clean' else 'The available evidence cannot establish whether this URL is safe.',
-                'analyzed_at':datetime.now(timezone.utc).isoformat(), 'structure':structure, 'dns':dns, 'http':http, 'tls':tls, 'content':content, 'provider':provider,
+                'summary': 'A threat list reports this address as dangerous.' if verdict == 'malicious' else 'Caution: review the observed indicators before proceeding.' if verdict == 'suspicious' else 'No threat indicators observed in the completed checks. This is not a guarantee of safety.' if verdict == 'clean' else 'The available evidence cannot establish whether this URL is safe.',
+                'analyzed_at':datetime.now(timezone.utc).isoformat(), 'structure':structure, 'dns':dns, 'http':http, 'tls':tls, 'content':content, 'provider':provider, 'trust':trust,
                 'assessment_scope':'local_and_provider' if include_provider else 'local',
                 'checks':checks, 'findings':findings, 'stats':{'checks_completed':completed_checks, 'checks_total':len(selected_checks), 'checks_not_requested':sum(c['status']=='not_requested' for c in checks), 'warning_count':len(warnings), 'redirect_count':max(0,len(http['chain'])-1)},
                 'limitations':['Read-only HTTP, DNS and TLS observations; no exploit attempts.', 'No browser execution, malware detonation or exhaustive threat-engine coverage.', 'A valid certificate and a responsive host do not prove that a page is trustworthy.']}

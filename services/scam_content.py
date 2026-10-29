@@ -32,6 +32,12 @@ GAMBLING = re.compile(
 BETTING_BRANDS = re.compile(r'bet365|1xbet|mostbet|melbet|betway|pin-?up|betboo|bets10|mobilbahis|youwin|superbahis|tipobet|'
                             r'matadorbet|jojobet|casibom|betturkey|grandpashabet|holiganbet|marsbahis|meritking|onwin|sahabet|'
                             r'imajbet|dumanbet|kingroyal|betebet|vdcasino|padişahbet|padisahbet', re.I)
+# Betting affiliate links. 1xBet's partner programme (also Melbet, Betwinner) sends players through
+# reffpa.com / refpa*.top with /L?tag=d_<partner>m_<campaign>c_; nothing else uses that shape.
+BETTING_AFFILIATE_HOST = re.compile(r'(?:^|\.)ref+pa[a-z0-9-]*\.[a-z]{2,}$', re.I)
+BETTING_AFFILIATE_TAG = re.compile(r'(?:^|&)tag=d_\d+m_\d+c_', re.I)
+# A brand as a whole part of the host name, mirror numbers allowed (casibom742.com), but not inside a word (onwindows).
+BETTING_HOST = re.compile(r'(?:^|[.-])(?:' + BETTING_BRANDS.pattern + r')\d*(?:[.-]|$)', re.I)
 # Licensed Turkish betting and lottery (Spor Toto, Milli Piyango, TJK) are not flagged.
 LICENSED_BETTING = {'iddaa.com', 'nesine.com', 'bilyoner.com', 'misli.com', 'oley.com', 'tjk.org', 'millipiyangoonline.com',
                     'millipiyango.gov.tr', 'sportoto.gov.tr', 'birebin.com', 'hipodrom.com', 'tuttur.com'}
@@ -57,8 +63,19 @@ def gambling_site(text, url='', *more_urls):
         path = urlsplit(url).path.replace('-', ' ').replace('_', ' ') if isinstance(url, str) else ''
     except ValueError:
         path = ''
+    try:
+        query = urlsplit(url).query if isinstance(url, str) else ''
+    except ValueError:
+        query = ''
+    if BETTING_AFFILIATE_HOST.search(host) or BETTING_AFFILIATE_TAG.search(query) or BETTING_HOST.search(host):
+        return True  # a betting affiliate link, or the brand in the domain itself (1xbet-giris.com)
     words, in_address = terms(text) | terms(path), terms(path)
     brand = BETTING_BRANDS.search(f"{text or ''} {host}") is not None
+    lead = (text or '').strip()
+    if brand and len(lead.split()) < 40 and BETTING_BRANDS.match(lead):
+        # A page that opens with the brand and says little else: 1xBet's "1XBET Erişim reddedildi!"
+        # geo-block page (the logo comes first). A news headline names the brand after its own words.
+        return True
     # With a brand, one game-page word is enough; plain "bahis" or "casino" next to a brand is how news reads.
     playing = words - {'bahis', 'casino', 'kumarhane', 'poker', 'sportsbetting'}
     return len(words) >= 3 or (len(words) >= 2 and bool(in_address)) or (brand and bool(playing))

@@ -47,6 +47,19 @@ class GamblingTests(unittest.TestCase):
         self.assertFalse(gambling_site('Yasa dışı bahis: Casibom sitesine erişim engeli, casino reklamları',
                                        'https://www.haber.example/gundem/x'))
 
+    def test_betting_affiliate_links_and_brand_pages(self):
+        from services.url_analyzer import apply_rendered_text
+        # reffpa.com: 1xBet's partner link. Turkish providers block it; our server saw 1xBet's geo-block page.
+        link = 'https://reffpa.com/L?tag=d_5543531m_97c_&site=5543531&ad=97&r=registration'
+        self.assertTrue(gambling_site('', link))
+        self.assertTrue(gambling_site('Welcome', 'https://refpa4293501.top/L?tag=d_1m_2c_'))
+        page = {'visible_text_length': 30, 'scam_signals': []}
+        apply_rendered_text(page, 'https://1xbet.com/tr', '1XBET\nErişim reddedildi!', start_url=link)
+        self.assertIn('gambling', page['scam_signals'])
+        self.assertTrue(gambling_site('Giriş', 'https://1xbet-giris7.com/'))
+        for url in ('https://onwindows.com/', 'https://pinupgirls.com/', 'https://www.reference.com/', 'https://mybet365tips.blog/'):
+            self.assertFalse(gambling_site('Ana sayfa', url), url)
+
     def test_news_licensed_betting_and_top_sites_are_not_flagged(self):
         self.assertFalse(gambling_site('Yasa dışı bahis operasyonu: 50 gözaltı. Bahis siteleri kapatıldı.',
                                        'https://www.hurriyet.com.tr/gundem/yasa-disi-bahis-operasyonu'))

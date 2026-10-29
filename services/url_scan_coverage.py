@@ -92,7 +92,7 @@ def url_scan_outcome(local, deep):
 
 
 # Bump when the deep page or reputation checks change what a result contains (cache keys use it).
-ANALYSIS_VERSION = 'deep-2026-10-28-betting'
+ANALYSIS_VERSION = 'deep-2026-10-29-affiliate'
 
 
 def reputation_settled(result):

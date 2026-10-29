@@ -159,7 +159,20 @@ def _apk_signer(archive):
     return None
 
 
-def inspect_apk(content):
+def apk_brand(package, filename):
+    """The bank, cargo or government brand an app file is named after (e-Devlet.apk, com.ptt.kargo)."""
+    from services.url_tricks import IMPERSONATED, display, plain
+    stem = (filename or '').rsplit('.', 1)[0] if '.' in (filename or '') else (filename or '')
+    for text in (package or '', stem):
+        tokens = [t for t in re.split(r'[^a-z0-9]+', plain(text)) if t]
+        # Short names must stand alone (ptt, but not "chaser" for Chase); long ones may run together (edevlet).
+        found = [b for b in IMPERSONATED if b in tokens or (len(b) >= 6 and b in ''.join(tokens))]
+        if found:
+            return display(max(found, key=len))
+    return None
+
+
+def inspect_apk(content, filename=''):
     try:
         archive = zipfile.ZipFile(io.BytesIO(content))
         info = archive.getinfo('AndroidManifest.xml')
@@ -201,12 +214,19 @@ def inspect_apk(content):
                   f'It can {serious[0]}, and asks for 1 more risky permission. Banking malware uses these to steal one-time codes.' if len(serious) == 2 else
                   f'It can {serious[0]}, and asks for {len(serious) - 1} more risky permissions. Banking malware uses these to steal one-time codes.')
         findings.insert(0, _finding('warn', 'The app asks for risky permissions', detail))
-    if signer and 'Android Debug' in signer:
+    brand = apk_brand(package, filename)
+    if brand:
+        # Banks, cargo companies and e-Devlet publish their apps only in the app stores.
+        findings.insert(0, _finding('warn', 'The app pretends to be ' + brand,
+                                    f'It uses the name {brand}. {brand} publishes its app only on Google Play; an app file with its name is a common scam.'))
+    debug = bool(signer and 'Android Debug' in signer)
+    if debug:
         findings.append(_finding('warn', 'Signed with a test key', 'It was signed with Android’s debug key, which real published apps don’t use.'))
     return {'format': 'apk', 'status': 'assessed',
             'facts': {'package': package, 'permissions': sorted(set(permissions))[:60], 'risky_capabilities': risky,
-                      'signer': signer, 'receives_sms': sms_receiver},
-            'findings': findings, 'raises_review': len(serious) >= 2 or bool(signer and 'Android Debug' in signer),
+                      'signer': signer, 'receives_sms': sms_receiver, 'brand': brand},
+            # One takeover permission is enough: many banking trojans ask only for accessibility.
+            'findings': findings, 'raises_review': bool(serious or brand or debug),
             'row': {'name': 'App permissions', 'state': 'warn' if serious else 'ok',
                     'result': f'{len(serious)} risky' if serious else 'None risky'}}
 
@@ -238,7 +258,8 @@ def inspect_html(content, svg=False):
         if found:
             redirects.append(found.group(1).strip(' \'"'))
     redirect_hosts = _hosts(redirects)
-    links = _hosts(a.get('href') or '' for a in soup.find_all('a'))
+    hrefs = [a.get('href') or '' for a in soup.find_all('a')]
+    links = _hosts(hrefs)
     obfuscated = bool(_OBFUSCATION.search(script_text)) or bool(_LONG_BASE64.search(content[:MAX_TEXT]))
     foreign = bool(soup.find_all(re.compile('^foreignobject$', re.I))) if svg else False
     findings, review = [], False
@@ -267,6 +288,7 @@ def inspect_html(content, svg=False):
             'facts': {'password_fields': len(passwords), 'forms': len(actions), 'form_targets': external_actions[:MAX_LIST],
                       'scripts': len(scripts), 'event_handlers': handlers, 'redirects_to': redirect_hosts[:MAX_LIST],
                       'linked_sites': links[:MAX_LIST], 'obfuscation': obfuscated},
+            'urls': (redirects + [a for a in actions if a.lower().startswith(('http://', 'https://'))] + hrefs)[:200],
             'findings': findings, 'raises_review': review, 'row': {'name': row_name, 'state': state, 'result': result}}
 
 
@@ -305,7 +327,8 @@ def inspect_email(content):
                 bodies.append(part.get_content()[:MAX_TEXT])
             except (LookupError, ValueError):
                 continue
-    sites = _hosts(_URL.findall(' '.join(bodies)))
+    body_urls = _URL.findall(' '.join(bodies))
+    sites = _hosts(body_urls)
     from services.file_deep_analyzer import disguised_filename
     risky = [n for n in attachments if n.rsplit('.', 1)[-1].lower() in RISKY_ATTACHMENTS or disguised_filename(n)]
     findings, review = [], False
@@ -318,12 +341,13 @@ def inspect_email(content):
         findings.append(_finding('warn', 'The sender couldn’t be verified',
                                  f'The email failed its {", ".join(f.upper() for f in failed)} check, so it may not come from who it claims.'))
     if sender and reply_to and reply_to != sender and not reply_to.endswith('.' + sender) and not sender.endswith('.' + reply_to):
-        findings.append(_finding('warn', 'Replies go somewhere else', f'It comes from {sender}, but replies go to {reply_to}.'))
+        findings.append(_finding('info', 'Replies go somewhere else', f'It comes from {sender}, but replies go to {reply_to}.'))
     if sites:
         findings.append(_finding('info', 'It contains links', _linked(sites) + ' Check links with the URL scanner before opening them.'))
     return {'format': 'email', 'status': 'assessed',
             'facts': {'from_domain': sender, 'reply_to_domain': reply_to, 'subject': str(message.get('Subject') or '')[:200],
                       'failed_checks': failed, 'attachments': attachments[:MAX_LIST * 2], 'linked_sites': sites[:MAX_LIST]},
+            'urls': body_urls[:200],
             'findings': findings, 'raises_review': review,
             'row': {'name': 'Attachments', 'state': 'warn' if risky else 'ok',
                     'result': 'Risky attachment' if risky else f'{len(attachments)} safe-looking' if attachments else 'None'}}
@@ -415,7 +439,7 @@ def inspect_image(content):
                                  'Check that link with the URL scanner before you open it.'))
     elif texts:
         findings.append(_finding('info', 'It contains a QR code', 'The code holds text, not a website link.'))
-    return {'format': 'image', 'status': 'assessed', 'facts': {'qr_texts': texts, 'qr_links': links},
+    return {'format': 'image', 'status': 'assessed', 'facts': {'qr_texts': texts, 'qr_links': links}, 'urls': links,
             'findings': findings, 'raises_review': False,
             'row': {'name': 'QR code', 'state': 'info' if texts else 'ok',
                     'result': 'Contains a link' if links else 'Contains text' if texts else 'None'}}
@@ -428,6 +452,13 @@ _HTML_NAMES = ('html', 'htm', 'shtml', 'xhtml', 'mht', 'mhtml')
 
 def inspect(content, filename, file_type):
     """The matching inspector's result, or None when no inspector applies."""
+    result = _inspect(content, filename, file_type)
+    if result and any(f.get('level') == 'warn' for f in result.get('findings', [])):
+        result['raises_review'] = True  # a warning never sits under a "no warning signs" verdict
+    return result
+
+
+def _inspect(content, filename, file_type):
     name = (filename or '').lower()
     extension = name.rsplit('.', 1)[-1] if '.' in name else ''
     actual = file_type.get('actual_type')
@@ -438,7 +469,7 @@ def inspect(content, filename, file_type):
                 is_apk = 'AndroidManifest.xml' in archive.namelist()
         except (zipfile.BadZipFile, ValueError, OSError):
             is_apk = False
-        return inspect_apk(content) if is_apk else None
+        return inspect_apk(content, filename) if is_apk else None
     if file_type.get('is_office'):
         return inspect_office_macros(content, filename)
     if file_type.get('is_image'):

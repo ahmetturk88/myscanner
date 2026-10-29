@@ -67,6 +67,11 @@ def plain_file_report(report):
     av_signature = av_signature[:80] or 'a known signature'
     av_malware = av_status == 'found' and antivirus.get('kind') == 'malware' and not eicar
     av_heuristic = av_status == 'found' and antivirus.get('kind') == 'heuristic' and not eicar
+    link_check = mapping(report.get('link_check'))
+    listed_links = [x for x in link_check.get('listed') or [] if isinstance(x, dict) and isinstance(x.get('host'), str)]
+    lookalike_links = [x for x in link_check.get('lookalikes') or [] if isinstance(x, dict) and isinstance(x.get('host'), str)]
+    if isinstance(link_check.get('sites'), int):
+        links = max(links, link_check['sites'])
     inspection = mapping(meta.get('inspection'))
     inspected = inspection.get('format') if inspection.get('status') == 'assessed' else None
     # Name what the inspector recognised: an app is a ZIP and a web page is text underneath.
@@ -85,6 +90,12 @@ def plain_file_report(report):
         add('bad', 'Antivirus found malware', f'ClamAV, an antivirus engine, recognises it as {av_signature}.')
     elif av_heuristic:
         add('warn', 'Antivirus warning', f'ClamAV flags a risky feature in it ({av_signature}). This is a warning sign, not proof of malware.')
+    if listed_links:
+        add('bad', 'A link inside is a known scam site',
+            f'Google lists {listed_links[0]["host"][:80]} as dangerous. The file is bait to get you there.')
+    elif lookalike_links:
+        brand = str(lookalike_links[0].get('brand', ''))[:40]
+        add('warn', f'A link pretends to be {brand}', f'{lookalike_links[0]["host"][:80]} isn’t one of {brand}’s sites.')
     if disguise:
         hidden = 'right-to-left' in disguise
         add('bad', 'The name hides a program' if not hidden else 'The name is reversed on purpose',
@@ -134,6 +145,7 @@ def plain_file_report(report):
                    'Didn’t expect this file? Delete it and ask the sender why they sent it.']
     elif tone == 'danger':
         summary = ('It is a known piece of malware. Opening it could infect your device.' if matched or av_malware
+                   else 'It leads to a site Google lists as dangerous. It is bait for a scam.' if listed_links
                    else 'It is a program disguised as a document, a common way to spread malware.' if disguise
                    else 'We found strong warning signs. Treat it as dangerous.')
         actions = ['Don’t open or run this file. Delete it.',
@@ -141,6 +153,7 @@ def plain_file_report(report):
                    'Tell the person who sent it. Their device or account may be infected.']
     elif tone == 'caution':
         summary = ('It is a program disguised as a document, a common way to spread malware.' if disguise
+                   else 'It links to a site that copies a well-known name. Don’t open its links.' if lookalike_links
                    else 'It isn’t known malware, but it has features that malicious files often use.')
         actions = ['Don’t open it unless you expected it from someone you trust.',
                    'If you open it, don’t click “Enable content”, “Enable macros” or allow scripts.' if any(meta.get(k) is True for k, _ in HIDDEN_CODE)
@@ -198,7 +211,10 @@ def plain_file_report(report):
         checks.append(check(row['name'], row['state'], row['result']))
     # Compressed, media and unidentified bytes are not searched for links (file-evidence-v5).
     links_skipped = meta.get('ioc_scope') == PATTERN_SCOPE
-    checks.append(check('Links inside', 'warn', 'Dark-web / crypto') if darkweb else
+    checks.append(check('Links inside', 'bad', 'Known scam site') if listed_links else
+                  check('Links inside', 'warn', 'Look-alike site') if lookalike_links else
+                  check('Links inside', 'warn', 'Dark-web / crypto') if darkweb else
+                  check('Links inside', 'ok', f'{links} checked') if links and link_check.get('status') == 'checked' else
                   check('Links inside', 'info', f'{links} link' + ('s' if links != 1 else '')) if links else
                   check('Links inside', 'na', 'Not checked') if links_skipped else check('Links inside', 'ok', 'None'))
     shown = name or 'this file'

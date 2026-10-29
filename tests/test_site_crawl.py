@@ -109,6 +109,18 @@ class CrawlTests(unittest.TestCase):
         self.assertNotIn('It links to dangerous sites', titles)
 
 
+class ShopDetectionTests(unittest.TestCase):
+    def test_product_data_marks_a_shop_whose_prices_are_drawn_by_scripts(self):
+        self.assertIsNone(site_crawl.shop_signals('Willkommen', {}))
+        shop = site_crawl.shop_signals('Willkommen', {}, age_days=6000, schema_pages=2)
+        self.assertIsNotNone(shop)
+        self.assertFalse(shop['fake_signs'])
+        self.assertTrue(site_crawl.SHOP_SCHEMA.search('{"@context":"https://schema.org","@type": "Product","name":"x"}'))
+
+    def test_the_turkish_page_is_requested(self):
+        self.assertTrue(site_crawl.ACCEPT_LANGUAGE.startswith('tr-TR'))
+
+
 class PastedAddressTests(unittest.TestCase):
     def test_markdown_debris_is_removed(self):
         self.assertEqual(pasted_url('http://testphp.vulnweb.com/](http://testphp.vulnweb.com'), 'http://testphp.vulnweb.com/')

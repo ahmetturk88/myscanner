@@ -152,7 +152,8 @@ class WebAssessment:
         content = {'status': 'unavailable'}
         try:
             with PublicHTTPSession(response_limit=1024*1024, deadline=deadline) as session:
-                session.headers['User-Agent'] = 'MyScanner/1.0 (read-only security assessment)'
+                session.headers.update({'User-Agent': 'MyScanner/1.0 (read-only security assessment)',
+                                        'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.6'})  # the Turkish page, not the server's country
                 response, chain, reason = response_chain(session, url, deadline)
                 http['chain'] = chain
                 if response is not None:

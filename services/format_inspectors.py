@@ -231,6 +231,65 @@ def inspect_apk(content, filename=''):
                     'result': f'{len(serious)} risky' if serious else 'None risky'}}
 
 
+# ---------------------------------------------------------------- Windows programs
+
+# Software that fake installers imitate, besides the banks and services in url_tricks.IMPERSONATED.
+PROGRAM_BRANDS = {'chatgpt': 'ChatGPT', 'openai': 'OpenAI', 'whatsapp': 'WhatsApp', 'telegram': 'Telegram',
+                  'zoom': 'Zoom', 'teams': 'Microsoft Teams', 'chrome': 'Google Chrome', 'microsoft': 'Microsoft',
+                  'office': 'Microsoft Office', 'adobe': 'Adobe', 'acrobat': 'Adobe Acrobat', 'discord': 'Discord',
+                  'steam': 'Steam', 'spotify': 'Spotify', 'netflix': 'Netflix', 'anydesk': 'AnyDesk',
+                  'teamviewer': 'TeamViewer', 'binance': 'Binance', 'metamask': 'MetaMask', 'gemini': 'Gemini',
+                  'deepseek': 'DeepSeek', 'copilot': 'Copilot', 'capcut': 'CapCut', 'roblox': 'Roblox', 'minecraft': 'Minecraft'}
+
+
+def program_brand(filename):
+    """The software or service a program's file name claims to be (ChatGPT_Installer.exe)."""
+    from services.url_tricks import IMPERSONATED, display, plain
+    stem = (filename or '').rsplit('.', 1)[0]
+    tokens = [t for t in re.split(r'[^a-z0-9]+', plain(stem)) if t]
+    names = {**{b: display(b) for b in IMPERSONATED}, **PROGRAM_BRANDS}
+    found = [b for b in names if b in tokens or (len(b) >= 6 and b in ''.join(tokens))]
+    return names[max(found, key=len)] if found else None
+
+
+def authenticode_signer(table):
+    """The signer named in a PE certificate table (WIN_CERTIFICATE + PKCS#7), or None."""
+    from cryptography.hazmat.primitives.serialization import pkcs7
+    from cryptography.x509.oid import NameOID
+    if len(table) < 8 or struct.unpack('<H', table[6:8])[0] != 2:  # WIN_CERT_TYPE_PKCS_SIGNED_DATA
+        return None
+    length = struct.unpack('<I', table[:4])[0]
+    try:
+        certificates = pkcs7.load_der_pkcs7_certificates(table[8:length])
+    except ValueError:
+        return None
+    issuers = {c.issuer for c in certificates}
+    leaves = [c for c in certificates if c.subject not in issuers] or certificates
+    for oid in (NameOID.ORGANIZATION_NAME, NameOID.COMMON_NAME):
+        values = leaves[0].subject.get_attributes_for_oid(oid) if leaves else []
+        if values:
+            return str(values[0].value)[:120]
+    return None
+
+
+def inspect_program(filename, metadata):
+    """Whether a Windows program is signed, and whether its name claims a well-known brand."""
+    signed, signer = metadata.get('has_digital_signature') is True, metadata.get('signer')
+    brand = program_brand(filename)
+    findings = []
+    if brand and not signed:
+        findings.append(_finding('warn', 'A fake ' + brand + ' installer?',
+                                 f'It uses the name {brand} but isn’t digitally signed. Real {brand} programs are signed by the company; '
+                                 'download it only from the official site or app store.'))
+    elif not signed:
+        findings.append(_finding('info', 'It isn’t digitally signed',
+                                 'Most software companies sign their programs. Run it only if you got it from the maker’s official site.'))
+    return {'format': 'program', 'status': 'assessed', 'facts': {'signed': signed, 'signer': signer, 'brand': brand},
+            'findings': findings, 'raises_review': bool(brand and not signed),
+            'row': {'name': 'Digital signature', 'state': 'ok' if signed else 'warn' if brand else 'info',
+                    'result': (signer or 'Signed') if signed else 'Not signed'}}
+
+
 # ---------------------------------------------------------------- programs packed in archives
 
 # Programs scam archives carry. A .js counts only at the top: source-code archives are full of them.

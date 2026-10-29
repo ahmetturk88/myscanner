@@ -72,8 +72,10 @@ EXPECTED_TYPES = {
     'zip': ('zip',), 'jar': ('zip',), 'apk': ('zip',), 'rar': ('rar',), '7z': ('7z',),
     'jpg': ('jpg',), 'jpeg': ('jpg',), 'png': ('png',), 'gif': ('gif',), 'webp': ('webp',),
     'exe': ('exe',), 'dll': ('exe',), 'scr': ('exe',), 'msi': ('exe', 'ole'),
+    'class': ('class',), 'dex': ('dex',), 'dylib': ('macho',),
     **{name: _TEXT for name in ('txt', 'csv', 'json', 'xml', 'html', 'htm', 'md', 'svg', 'js', 'py', 'ps1', 'sh', 'bat', 'vbs', 'rb', 'pl')},
 }
+PROGRAM_CODE = {'class': 'Java', 'dex': 'Android', 'macho': 'macOS'}
 EXECUTABLE_NAMES = {'exe', 'dll', 'scr', 'msi', 'com', 'sys', 'cpl', 'ocx', 'drv', 'efi', 'bin', 'elf', 'so', 'run', 'out', ''}
 # Byte patterns and IoC text only mean something in bytes that are not compressed or
 # encoded. In images, media, archives and unidentified binaries they match by chance:
@@ -146,7 +148,9 @@ class FileDeepAnalyzer:
             'example.com', 'test.com', 'localhost', '127.0.0.1'
         ]
         
-        # قواعد YARA المتقدمة (معدلة لتقليل النتائج الخاطئة)
+        # Short byte patterns (file-evidence-v6). Each one must be rare in ordinary programs and
+        # documents: bare words such as Run, Module, callback or base64 are in almost every
+        # Windows program, and made every installer "Be careful".
         self.YARA_RULES = {
             # PDF Rules (معدلة)
             "PDF_JavaScript": {
@@ -188,7 +192,7 @@ class FileDeepAnalyzer:
                 "requires_context": False
             },
             "PE_AntiDebug": {
-                "patterns": [b'IsDebuggerPresent', b'CheckRemoteDebuggerPresent', b'NtGlobalFlag', b'OutputDebugString'],
+                "patterns": [b'CheckRemoteDebuggerPresent', b'NtGlobalFlag'],
                 "risk": 20,
                 "description": "Anti-debugging techniques detected",
                 "requires_context": False
@@ -214,19 +218,19 @@ class FileDeepAnalyzer:
                 "requires_context": True
             },
             "Persistence_Mechanism": {
-                "patterns": [b'Run', b'RunOnce', b'Startup', b'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', b'CreateService'],
+                "patterns": [b'CurrentVersion\\Run', b'schtasks /create', b'schtasks.exe /create'],
                 "risk": 35,
                 "description": "Persistence mechanism detected",
                 "requires_context": True
             },
             "Data_Exfiltration": {
-                "patterns": [b'post(', b'send(', b'upload', b'exfiltrate', b'steal'],
+                "patterns": [b'exfiltrat'],
                 "risk": 40,
                 "description": "Possible data exfiltration",
                 "requires_context": True
             },
             "Encoded_Commands": {
-                "patterns": [b'base64', b'FromBase64String', b'-EncodedCommand', b'hex_decode'],
+                "patterns": [b'-EncodedCommand', b'powershell -enc ', b'powershell.exe -enc '],
                 "risk": 25,
                 "description": "Encoded/obfuscated commands",
                 "requires_context": True
@@ -240,7 +244,7 @@ class FileDeepAnalyzer:
             
             # Office Rules (معدلة - DDE أصبحت أقل خطورة)
             "Office_Macros": {
-                "patterns": [b'VBA', b'Macro', b'ThisDocument', b'Module', b'AutoOpen', b'Document_Open', b'Workbook_Open'],
+                "patterns": [b'AutoOpen', b'Document_Open', b'Workbook_Open'],
                 "risk": 45,
                 "description": "Office macros detected",
                 "requires_context": True
@@ -254,19 +258,19 @@ class FileDeepAnalyzer:
             
             # Suspicious Content (معدلة)
             "Suspicious_URLs": {
-                "patterns": [b'.onion', b'bitcoin', b'cryptocurrency', b'wallet'],
+                "patterns": [b'.onion'],
                 "risk": 10,  # خفضنا من 20 إلى 10
                 "description": "Suspicious URL patterns",
                 "requires_context": True
             },
             "Ransomware_Indicators": {
-                "patterns": [b'.encrypted', b'.locked', b'.crypted', b'recover', b'decrypt'],
+                "patterns": [b'your files have been encrypted', b'YOUR FILES ARE ENCRYPTED', b'vssadmin delete shadows', b'vssadmin.exe delete shadows'],
                 "risk": 50,
                 "description": "Ransomware-like indicators",
                 "requires_context": True
             },
             "C2_Communication": {
-                "patterns": [b'beacon', b'heartbeat', b'command and control', b'c&c', b'callback'],
+                "patterns": [b'command and control'],
                 "risk": 45,
                 "description": "Possible C2 communication patterns",
                 "requires_context": True
@@ -274,7 +278,7 @@ class FileDeepAnalyzer:
             
             # Image Rules (Steganography)
             "Steganography_Indicator": {
-                "patterns": [b'steg', b'LSB', b'zsteg', b'steghide', b'outguess'],
+                "patterns": [b'zsteg', b'steghide', b'outguess'],
                 "risk": 30,
                 "description": "Possible steganography tool references",
                 "requires_context": True
@@ -419,6 +423,16 @@ class FileDeepAnalyzer:
                 result["actual_type"] = "7z"
                 result["mime_type"] = "application/x-7z-compressed"
                 result["description"] = "7-Zip archive"
+            # Java, Android and macOS program code (CAFEBABE is also a universal Mach-O: the version tells them apart)
+            elif file_content[:4] == b'\xca\xfe\xba\xbe' and len(file_content) >= 8:
+                java = 45 <= int.from_bytes(file_content[6:8], 'big') <= 90
+                result.update(actual_type='class' if java else 'macho',
+                              mime_type='application/java-vm' if java else 'application/x-mach-binary',
+                              description='Java class file' if java else 'macOS universal program')
+            elif file_content[:4] == b'dex\n':
+                result.update(actual_type='dex', mime_type='application/vnd.android.dex', description='Android program code (DEX)')
+            elif file_content[:4] in (b'\xfe\xed\xfa\xce', b'\xfe\xed\xfa\xcf', b'\xce\xfa\xed\xfe', b'\xcf\xfa\xed\xfe'):
+                result.update(actual_type='macho', mime_type='application/x-mach-binary', description='macOS program')
             # PE (EXE/DLL)
             elif file_content[:2] == b'MZ':
                 result["actual_type"] = "exe"
@@ -537,13 +551,12 @@ class FileDeepAnalyzer:
                     result["suspicious"].append(f"High entropy section: {section_name} ({section_data['entropy']:.2f})")
             
             # تحليل الاستيرادات الخطرة
+            # Imports that ordinary programs rarely need: injecting into other processes, keylogging,
+            # downloading files. TerminateProcess, DeleteFile or registry writes are in almost every program.
             dangerous_apis = [
-                "CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx", "VirtualProtectEx",
-                "ShellExecute", "WinExec", "URLDownloadToFile", "URLDownloadToFileA", "URLDownloadToFileW",
-                "DeleteFile", "MoveFile", "CopyFile", "RegSetValue", "RegCreateKey", "RegDeleteKey",
-                "CreateService", "StartService", "DeleteService", "CryptEncrypt", "CryptDecrypt",
-                "SetWindowsHookEx", "SetWinEventHook", "GetAsyncKeyState", "GetKeyState", "GetForegroundWindow",
-                "OpenProcess", "TerminateProcess", "DebugActiveProcess", "WriteProcessMemory", "ReadProcessMemory"
+                "CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx", "VirtualProtectEx", "ReadProcessMemory",
+                "WinExec", "URLDownloadToFile", "URLDownloadToFileA", "URLDownloadToFileW",
+                "SetWindowsHookEx", "SetWindowsHookExA", "SetWindowsHookExW", "GetAsyncKeyState", "DebugActiveProcess"
             ]
             
             if hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
@@ -570,9 +583,13 @@ class FileDeepAnalyzer:
                     else:
                         result["resources"].append(f"Type ID: {resource_type.id}")
             
-            # التحقق من التوقيع الرقمي
-            if hasattr(pe, 'DIRECTORY_ENTRY_SECURITY'):
-                result["has_digital_signature"] = True
+            # Authenticode: the certificate table (data directory 4) holds the signature. The signer's
+            # name is read, not verified against a trusted root.
+            security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[4] if len(pe.OPTIONAL_HEADER.DATA_DIRECTORY) > 4 else None
+            result["has_digital_signature"] = bool(security and security.VirtualAddress and security.Size)
+            if result["has_digital_signature"]:
+                from services.format_inspectors import authenticode_signer
+                result["signer"] = authenticode_signer(file_content[security.VirtualAddress:security.VirtualAddress + security.Size])
             
             os.unlink(tmp_path)
             return result
@@ -1004,6 +1021,9 @@ class FileDeepAnalyzer:
             metadata.update(self.extract_metadata_script(file_content, filename))
         elif file_type.get("is_image"):
             metadata.update(self.extract_metadata_image(file_content))
+        elif file_type.get('actual_type') in PROGRAM_CODE:
+            # The antivirus engine reads compiled code; it is not decompiled here.
+            metadata['parser'] = 'program code (' + PROGRAM_CODE[file_type['actual_type']] + '); scanned by the antivirus engine, not decompiled'
         elif str(file_type.get('mime_type', '')).startswith(('audio/', 'video/')):
             metadata['parser'] = 'audio or video file (media contents are not decoded)'
         elif file_type.get('actual_type') == 'txt':
@@ -1028,6 +1048,9 @@ class FileDeepAnalyzer:
             if apps.get('error'):
                 metadata.setdefault('missing_checks', []).append('Apps inside the archive were not inspected')
             inspection = inspect_archive(names, apps.get('apps'))
+        if inspection is None and metadata.get('is_pe'):
+            from services.format_inspectors import inspect_program
+            inspection = inspect_program(original_filename, metadata)
         if inspection:
             metadata['inspection'] = inspection
             facts = inspection.get('facts') or {}

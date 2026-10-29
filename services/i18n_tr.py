@@ -743,6 +743,15 @@ TR = {
     '“{name}” looks like a document but is a program, a common way to spread malware. Don’t open it.':
         '“{name}” belge gibi görünüyor ama bir program; bu, kötü amaçlı yazılım yaymanın yaygın bir yolu. Açma.',
     'Programs inside': 'İçindeki programlar',
+    'A fake {brand} installer?': 'Sahte bir {brand} yükleyicisi mi?',
+    'It uses the name {brand} but isn’t digitally signed. Real {brand} programs are signed by the company; download it only from the official site or app store.':
+        '{brand} adını kullanıyor ama dijital olarak imzalanmamış. Gerçek {brand} programları şirket tarafından imzalanır; yalnızca resmi siteden ya da uygulama mağazasından indir.',
+    'It isn’t digitally signed': 'Dijital olarak imzalanmamış',
+    'Most software companies sign their programs. Run it only if you got it from the maker’s official site.':
+        'Yazılım şirketlerinin çoğu programlarını imzalar. Yalnızca üreticinin resmi sitesinden aldıysan çalıştır.',
+    'Digital signature': 'Dijital imza',
+    'Signed': 'İmzalı',
+    'Not signed': 'İmzasız',
     'Android app': 'Android uygulaması',
     'Program': 'Program',
     'Malware found': 'Kötü amaçlı yazılım bulundu',

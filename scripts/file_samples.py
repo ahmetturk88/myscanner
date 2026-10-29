@@ -60,6 +60,26 @@ def pdf_with_link(url):
     return stream.getvalue()
 
 
+def zipped(files):
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for name, data in files:
+            archive.writestr(name, data)
+    return stream.getvalue()
+
+
+def rar(name, data):
+    """A RAR 4 archive holding one stored file."""
+    import zlib
+
+    def header(kind, flags, body=b''):
+        raw = struct.pack('<BHH', kind, flags, 7 + len(body)) + body
+        return struct.pack('<H', zlib.crc32(raw) & 0xffff) + raw
+    encoded = name.encode()
+    body = struct.pack('<IIBIIBBHI', len(data), len(data), 3, zlib.crc32(data), 0, 20, 0x30, len(encoded), 0) + encoded
+    return b'Rar!\x1a\x07\x00' + header(0x73, 0, b'\0' * 6) + header(0x74, 0x8000, body) + data + header(0x7b, 0)
+
+
 def samples():
     """(file name, bytes, expected verdicts)"""
     accessibility = 'android.permission.BIND_ACCESSIBILITY_SERVICE'
@@ -70,6 +90,9 @@ def samples():
         ('Fatura.pdf', pdf_with_link('https://garanti-bbva-giris.xyz/login'), {'suspicious', 'malicious'}),
         ('Odeme.pdf', pdf_with_link(GOOGLE_TEST_PHISHING), {'malicious'}),
         ('Brosur.pdf', pdf_with_link('https://www.garantibbva.com.tr/'), {'not_found', 'unknown'}),
+        ('Kargo.rar', rar('Kargo Takip.apk', apk('com.ptt.kargotakip', ['android.permission.RECEIVE_SMS'])), {'suspicious'}),
+        ('Fatura.zip', zipped([('Fatura.pdf.exe', b'MZ' + b'\0' * 64)]), {'suspicious', 'malicious'}),
+        ('photos.zip', zipped([('tatil/deniz.jpg', b'\xff\xd8\xff\xe0'), ('tatil/notlar.txt', b'merhaba')]), {'not_found', 'unknown'}),
         ('odeme.html', f'<html><body><a href="{GOOGLE_TEST_PHISHING}">Öde</a></body></html>'.encode(), {'malicious'}),
     ]
 

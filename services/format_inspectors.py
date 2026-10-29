@@ -231,6 +231,52 @@ def inspect_apk(content, filename=''):
                     'result': f'{len(serious)} risky' if serious else 'None risky'}}
 
 
+# ---------------------------------------------------------------- programs packed in archives
+
+# Programs scam archives carry. A .js counts only at the top: source-code archives are full of them.
+ARCHIVE_PROGRAMS = {'apk', 'xapk', 'apks', 'exe', 'scr', 'msi', 'pif', 'bat', 'cmd', 'ps1', 'vbs', 'vbe', 'jse',
+                    'wsf', 'hta', 'lnk', 'jar', 'cpl', 'iso', 'img', 'vhd', 'vhdx'}
+
+
+def archive_programs(names):
+    found = []
+    for name in names:
+        clean = str(name).replace('\\', '/').rstrip('/')
+        extension = clean.rsplit('.', 1)[-1].lower() if '.' in clean.rsplit('/', 1)[-1] else ''
+        if extension in ARCHIVE_PROGRAMS or (extension in ('js', 'jse') and '/' not in clean):
+            found.append(clean)
+    return found
+
+
+def inspect_archive(names, apps=None):
+    """Programs and Android apps inside a ZIP, RAR or 7z file; None when it holds neither."""
+    programs = archive_programs(names)
+    apps = [a for a in apps or [] if isinstance(a, dict) and isinstance(a.get('inspection'), dict)]
+    if not programs and not apps:
+        return None
+    app_names = [p for p in programs if p.lower().endswith(('.apk', '.xapk', '.apks'))]
+    shown = (app_names or programs or [apps[0]['name']])[0].rsplit('/', 1)[-1][:120]
+    from services.file_deep_analyzer import disguised_filename
+    disguised = [p for p in programs if disguised_filename(p.rsplit('/', 1)[-1])]
+    if disguised:
+        shown = disguised[0].rsplit('/', 1)[-1][:120]
+        findings = [_finding('warn', 'The archive hides a program dressed as a document',
+                             f'“{shown}” looks like a document but is a program, a common way to spread malware. Don’t open it.')]
+    elif app_names or apps:
+        findings = [_finding('warn', 'The archive hides an Android app',
+                             f'“{shown}” is an app file. Scammers pack apps in archives to get past filters. Install apps only from Google Play.')]
+    else:
+        findings = [_finding('warn', 'The archive hides a program',
+                             f'“{shown}” is a program. Scammers pack programs in archives to get past email filters. Don’t run it.')]
+    facts = {'programs': programs[:MAX_LIST * 2], 'apps': []}
+    for app in apps:
+        inner = app['inspection']
+        facts['apps'].append({'name': str(app.get('name', ''))[:200], **(inner.get('facts') or {})})
+        findings += [f for f in inner.get('findings') or [] if f.get('level') == 'warn' and f not in findings]
+    return {'format': 'archive', 'status': 'assessed', 'facts': facts, 'findings': findings, 'raises_review': True,
+            'row': {'name': 'Programs inside', 'state': 'warn', 'result': 'Android app' if app_names or apps else 'Program'}}
+
+
 # ---------------------------------------------------------------- web pages and SVG
 
 _REDIRECT = re.compile(r'''(?:window\.|document\.|top\.)?location(?:\.href)?\s*=\s*['"](https?://[^'"]+)|location\.(?:replace|assign)\(\s*['"](https?://[^'"]+)''', re.I)

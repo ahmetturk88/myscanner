@@ -1019,6 +1019,15 @@ class FileDeepAnalyzer:
         except Exception as error:  # a broken inspector must not lose the rest of the report
             logger.warning('Format inspection failed: %s', type(error).__name__)
             inspection = None
+        if inspection is None and metadata.get('is_archive') and metadata.get('type') in ('zip', 'rar', '7z'):
+            # Programs and apps packed inside archives (file-evidence-v6); apps are read like an uploaded APK.
+            from services.archive_directory import APP_EXTENSIONS, archive_apps
+            from services.format_inspectors import inspect_archive
+            names = [str(f.get('name', '')) for f in metadata.get('files') or [] if isinstance(f, dict)]
+            apps = archive_apps(file_content, metadata['type']) if any(n.lower().endswith(APP_EXTENSIONS) for n in names) else {'apps': []}
+            if apps.get('error'):
+                metadata.setdefault('missing_checks', []).append('Apps inside the archive were not inspected')
+            inspection = inspect_archive(names, apps.get('apps'))
         if inspection:
             metadata['inspection'] = inspection
             facts = inspection.get('facts') or {}

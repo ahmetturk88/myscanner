@@ -122,7 +122,8 @@ class WebAssessment:
     def analyze(self, value, include_provider=False):
         if not isinstance(value, str) or len(value) > 2048:
             raise ValueError('Enter an HTTP or HTTPS URL of at most 2048 characters')
-        url = normalize_url(value)
+        from services.safe_http import pasted_url
+        url = normalize_url(pasted_url(value))
         validate_public_url(url)  # Reject private/mixed addresses before optional providers.
         parsed = urlsplit(url)
         deadline = time.monotonic() + 18
@@ -160,6 +161,11 @@ class WebAssessment:
                     http = {'status': 'completed', 'chain': chain, 'final_url': chain[-1]['url'], 'status_code': response.status_code,
                             'content_type': headers.get('Content-Type', '')[:160],
                             'security_headers': {k: headers.get(k, '')[:512] for k in ('Strict-Transport-Security','Content-Security-Policy','X-Content-Type-Options','Referrer-Policy','X-Frame-Options')}}
+                    if parsed.scheme == 'http' and final.scheme == 'https':
+                        # Typing http:// is how people write addresses; the site moved to HTTPS by itself.
+                        for item in findings:
+                            if item['code'] == 'unencrypted_entry':
+                                item['severity'] = 'info'
                     if final.scheme == 'http' and parsed.scheme == 'https':
                         finding('https_downgrade', 'warning', 'HTTPS downgrade', 'The redirect chain ends on an unencrypted HTTP page.')
                     if final.hostname != parsed.hostname:
@@ -257,6 +263,9 @@ class WebAssessment:
         # url.vet is optional; when it was not requested, the local checks and Google Web Risk decide (site-trust-v1).
         # An error page or a download shows no page to judge, so it stays unknown.
         provider_clean = provider.get('verdict') == 'harmless' or unconfirmed_only or provider.get('status') == 'not_requested'
+        if http['status'] != 'completed':
+            # The site didn't answer: only evidence that needs no page (a listing, a copied name) can warn.
+            warnings = [f for f in warnings if f['code'] not in ('unencrypted_entry',)]
         verdict = 'malicious' if provider.get('verdict') == 'malicious' or risk_status == 'matched' else 'suspicious' if warnings or provider.get('verdict') == 'suspicious' else 'clean' if complete and provider_clean and content['status'] == 'completed' else 'unknown'
         return {'schema_version':2, 'url':url, 'verdict':verdict, 'assessment_status':'completed' if complete else 'partial',
                 'summary': 'A threat list reports this address as dangerous.' if verdict == 'malicious' else 'Caution: review the observed indicators before proceeding.' if verdict == 'suspicious' else 'No threat indicators observed in the completed checks. This is not a guarantee of safety.' if verdict == 'clean' else 'The available evidence cannot establish whether this URL is safe.',

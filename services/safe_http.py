@@ -40,6 +40,24 @@ class PublicTarget:
     addresses: tuple
 
 
+PASTED_URL = re.compile(r'https?://[^\s\[\]()<>"\'`]+', re.I)
+
+
+def pasted_url(value):
+    """The address inside text copied from a chat or a Markdown link, as a person meant it.
+
+    "http://a.example/](http://a.example" or "[site](https://a.example)" become the first
+    full address; anything without such debris is returned unchanged.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not any(mark in text for mark in ('](', '[', ' ', '\n', '\t', '<', '>')):
+        return text
+    found = PASTED_URL.search(text)
+    return found.group(0).rstrip('.,;:!?') if found else text
+
+
 def normalize_url(value, any_port=False):
     if not isinstance(value, str) or not value:
         raise UnsafeTargetError('A public HTTP or HTTPS URL is required')

@@ -18,7 +18,9 @@ def response(body=b'',code=200):
 
 class SiteReportTests(unittest.TestCase):
     def assess(self,r=None,**options):
-        with patch('services.site_evidence.WebAssessment') as factory:
+        walked={'pages':[{'url':'https://example.com/','status':'read','signals':[]}],'external':{},'downloads':[],'skipped_by_robots':0,
+                'contacts':{'phone_links':0,'email_links':0,'whatsapp_links':0},'stopped':None,'pages_read':1,'text':''}
+        with patch('services.site_evidence.WebAssessment') as factory, patch('services.site_crawl.crawl',return_value=walked):
             factory.return_value.analyze.return_value=copy.deepcopy(r or fixture())
             result=assess_site('example.com',**options)
             factory.return_value.analyze.assert_called_once_with('example.com',include_provider=options.get('include_provider',False))
@@ -27,15 +29,15 @@ class SiteReportTests(unittest.TestCase):
         r=self.assess();self.assertEqual(r['assessment']['score'],100);self.assertEqual(r['verdict'],'unknown')
         self.assertIsNone(r['security_score']);self.assertFalse(r['active_scan_performed'])
         self.assertEqual(r['vulnerabilities']['dynamic']['status'],'not_performed')
-        self.assertEqual(r['assessment']['checks_total'],6)
+        self.assertEqual(r['assessment']['checks_total'],7)  # with the site-crawl-v1 'Site pages' check
     def test_unavailable_source_reduces_coverage_without_safe_verdict(self):
         r=fixture();r['checks'][-1]['status']='unavailable'
         result=self.assess(r,include_provider=True)
-        self.assertEqual(result['assessment']['score'],86);self.assertIn('url.vet',result['missing_checks'])
+        self.assertEqual(result['assessment']['score'],88);self.assertIn('url.vet',result['missing_checks'])
     def test_optional_documents_are_counted_only_when_requested(self):
         with patch('services.site_evidence.discovery_documents',return_value={'robots':{'status':'not_found'},'sitemap':{'status':'unavailable'}}):
             result=self.assess(include_discovery=True)
-        self.assertEqual(result['assessment']['checks_total'],8);self.assertEqual(result['assessment']['score'],88)
+        self.assertEqual(result['assessment']['checks_total'],9);self.assertEqual(result['assessment']['score'],89)
     def test_blocked_http_does_not_request_documents(self):
         r=fixture();r['http']['status']='blocked'
         with patch('services.site_evidence.discovery_documents') as discovery:

@@ -772,6 +772,45 @@ TR = {
     'Nothing suspicious': 'Şüpheli bir şey yok',
     'Not published': 'Yayımlanmamış',
     '1 year': '1 yıl',
+    # Website crawl (site-crawl-v1)
+    'Google lists pages of this site as dangerous': 'Google bu sitenin sayfalarını tehlikeli olarak listeliyor',
+    '{n} of its pages are on Google’s phishing or malware lists, for example {url}.':
+        "Sayfalarından {n} tanesi Google'ın oltalama ya da zararlı yazılım listelerinde, örneğin {url}.",
+    'It links to dangerous sites': 'Tehlikeli sitelere bağlantı veriyor',
+    '{n} of the sites it links to are on Google’s phishing or malware lists, for example {host}.':
+        "Bağlantı verdiği sitelerden {n} tanesi Google'ın oltalama ya da zararlı yazılım listelerinde, örneğin {host}.",
+    'It offers malware for download': 'İndirmek için zararlı yazılım sunuyor',
+    'Antivirus found {signature} in {url}.': 'Antivirüs {url} dosyasında {signature} buldu.',
+    'A hidden login page': 'Gizli bir giriş sayfası',
+    '{url} asks for a password from a folder phishing kits use. Hacked sites carry these.':
+        '{url}, oltalama kitlerinin kullandığı bir klasörden şifre istiyor. Hacklenmiş sitelerde bu tür sayfalar bulunur.',
+    'It links to copies of well-known sites': 'Tanınmış sitelerin kopyalarına bağlantı veriyor',
+    '{host} uses the name {brand} but isn’t its site.': '{host}, {brand} adını kullanıyor ama onun sitesi değil.',
+    'Betting content on its pages': 'Sayfalarında bahis içeriği var',
+    '{n} of its pages show casino or betting content. Hacked sites often carry betting spam.':
+        'Sayfalarından {n} tanesinde casino ya da bahis içeriği var. Hacklenmiş siteler sıklıkla bahis spam içeriği taşır.',
+    'It links to betting sites': 'Bahis sitelerine bağlantı veriyor',
+    'It links to {n} betting sites, for example {host}.': '{n} bahis sitesine bağlantı veriyor, örneğin {host}.',
+    'It looks like a fake shop': 'Sahte bir mağazaya benziyor',
+    'It sells online but hides who runs it, or asks for bank transfer only. Fake shops take the money and send nothing.':
+        'İnternetten satış yapıyor ama kimin işlettiğini gizliyor ya da yalnızca havale istiyor. Sahte mağazalar parayı alır ve hiçbir şey göndermez.',
+    'It offers programs for download': 'İndirmek için program sunuyor',
+    'Antivirus found nothing in the files we checked. Install apps only from Google Play or the maker’s official site.':
+        "Kontrol ettiğimiz dosyalarda antivirüs bir şey bulmadı. Uygulamaları yalnızca Google Play'den ya da üreticinin resmi sitesinden yükle.",
+    'We read {n} of its pages and checked the sites they link to; nothing looked suspicious. This isn’t a guarantee.':
+        'Sayfalarından {n} tanesini okuduk ve bağlantı verdikleri siteleri kontrol ettik; şüpheli bir şey görünmedi. Bu bir garanti değildir.',
+    'Pages read': 'Okunan sayfalar',
+    'Links to other sites': 'Diğer sitelere bağlantılar',
+    'Dangerous': 'Tehlikeli',
+    'Look-alike': 'Taklit',
+    'Betting': 'Bahis',
+    '{n} sites': '{n} site',
+    'Downloads': 'İndirmeler',
+    'Malware': 'Zararlı yazılım',
+    '{n} files': '{n} dosya',
+    'Online shop': 'Çevrim içi mağaza',
+    'Fake shop signs': 'Sahte mağaza işaretleri',
+    '{n} of 5 details': '5 bilgiden {n} tanesi',
     'Android app': 'Android uygulaması',
     'Program': 'Program',
     'Malware found': 'Kötü amaçlı yazılım bulundu',

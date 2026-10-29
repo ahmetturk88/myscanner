@@ -717,6 +717,22 @@ TR = {
     'Don’t open attachments or links in this email unless you expected it.':
         'Bu e-postayı beklemiyorsan içindeki ekleri ya da bağlantıları açma.',
     'Never type a password into a page that came as a file.': 'Dosya olarak gelen bir sayfaya asla şifre yazma.',
+    # Fake apps and links inside files (file-evidence-v6)
+    'The app pretends to be {brand}': 'Uygulama kendini {brand} gibi gösteriyor',
+    'It uses the name {brand}. {brand} publishes its app only on Google Play; an app file with its name is a common scam.':
+        "{brand} adını kullanıyor. {brand} uygulamasını yalnızca Google Play'de yayınlar; bu adı taşıyan bir uygulama dosyası yaygın bir dolandırıcılık yöntemidir.",
+    'A link inside is a known scam site': 'İçindeki bir bağlantı bilinen bir dolandırıcılık sitesine gidiyor',
+    'Google lists {host} as dangerous. The file is bait to get you there.':
+        'Google, {host} adresini tehlikeli olarak listeliyor. Dosya seni oraya götürmek için hazırlanmış bir tuzak.',
+    'A link pretends to be {brand}': 'Bir bağlantı kendini {brand} gibi gösteriyor',
+    '{host} isn’t one of {brand}’s sites.': '{host}, {brand} sitelerinden biri değil.',
+    'It leads to a site Google lists as dangerous. It is bait for a scam.':
+        "Google'ın tehlikeli olarak listelediği bir siteye götürüyor. Bir dolandırıcılık tuzağı.",
+    'It links to a site that copies a well-known name. Don’t open its links.':
+        'Tanınmış bir adı taklit eden bir siteye bağlantı veriyor. Bağlantılarını açma.',
+    'Known scam site': 'Bilinen dolandırıcılık sitesi',
+    'Look-alike site': 'Taklit site',
+    '{n} checked': '{n} kontrol edildi',
     'Malware found': 'Kötü amaçlı yazılım bulundu',
     'Warning': 'Uyarı',
     'Clean': 'Temiz',

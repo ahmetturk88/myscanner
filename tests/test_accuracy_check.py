@@ -36,9 +36,10 @@ class GradeTests(unittest.TestCase):
         self.assertIn('!scripts/accuracy_check.py', lines)
         self.assertIn('!scripts/tools_check.py', lines)
         self.assertIn('!scripts/email_bench.py', lines)  # it was left out once and the run printed nothing
+        self.assertIn('!scripts/file_samples.py', lines)
         with open(os.path.join(root, 'Dockerfile.vps'), encoding='utf-8') as dockerfile:
             source = dockerfile.read()
-        for script in ('accuracy_check.py', 'tools_check.py', 'email_bench.py'):
+        for script in ('accuracy_check.py', 'tools_check.py', 'email_bench.py', 'file_samples.py'):
             self.assertIn('scripts/' + script, source)
 
     def test_standard_port_detection(self):

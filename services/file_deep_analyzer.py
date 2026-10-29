@@ -1210,6 +1210,20 @@ class FileDeepAnalyzer:
             for item in inspection.get('findings', []):
                 if item.get('level') == 'warn':
                     recommendations.insert(0, '🔍 ' + item['title'] + ': ' + item['detail'])
+        # Links inside the file: address tricks for all, Google Web Risk for the first few (file-evidence-v6).
+        from services.file_links import check_links, file_urls
+        urls = file_urls(metadata, inspection)
+        link_check = check_links(urls) if urls else {'status': 'no_links', 'checked': 0, 'listed': [], 'lookalikes': []}
+        if link_check['status'] == 'unavailable':
+            missing_checks.append('Link reputation unavailable')
+        if link_check['lookalikes'] and verdict != 'malicious':
+            first = link_check['lookalikes'][0]
+            verdict='suspicious';verdict_icon='⚠️';severity='medium';security_score=min(security_score,55)
+            recommendations.insert(0, f"🔍 A link inside pretends to be {first['brand']}: {first['host']}. Don't open it.")
+        if link_check['listed']:
+            first = link_check['listed'][0]
+            verdict='malicious';verdict_icon='💀';severity='critical';security_score=min(security_score,20)
+            recommendations.insert(0, f"🚨 A link inside goes to {first['host']}, which Google Web Risk lists as dangerous. Don't open the link or the file.")
         if antivirus.get('status') == 'found':
             signature = antivirus.get('signature') or 'unnamed signature'
             if antivirus.get('kind') == 'malware':
@@ -1244,6 +1258,7 @@ class FileDeepAnalyzer:
             "yara": yara_result,
             "hash_reputation": hash_reputation,
             "antivirus": antivirus,
+            "link_check": link_check,
             "warnings": warnings,
             "security_score": security_score,
             "verdict": verdict,

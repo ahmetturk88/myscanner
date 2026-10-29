@@ -30,6 +30,7 @@
 !scripts/accuracy_check.py
 !scripts/tools_check.py
 !scripts/email_bench.py
+!scripts/file_samples.py
 # Override directory allowances for generated or sensitive files.
 **/__pycache__/**
 **/*.pyc

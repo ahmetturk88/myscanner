@@ -235,6 +235,14 @@ def plain_web_report(result, source='link'):
     if new_finding and age_days is not None:
         reasons.append(reason('warn' if new_finding.get('severity') == 'warning' else 'info', 'The site is brand new',
                               f'Its domain was registered {age_days} days ago. Scam shops and fake login pages rarely live longer than a few weeks.'))
+    crawl = mapping(result.get('crawl'))
+    pages_read = crawl.get('pages_read') if isinstance(crawl.get('pages_read'), int) and not isinstance(crawl.get('pages_read'), bool) else 0
+    for item in every:
+        # site-crawl-v1 findings carry their own sentences (with counts and names); see i18n_tr.
+        code = str(item.get('code', ''))
+        if code.startswith(('crawl_', 'fake_shop')) and isinstance(item.get('title'), str) and isinstance(item.get('detail'), str):
+            kind = 'bad' if code in ('crawl_page_listed', 'crawl_malware_download') else 'warn' if item.get('severity') == 'warning' else 'info'
+            reasons.append(reason(kind, item['title'], item['detail']))
     for item in findings:
         kind, title, detail = WEB_FINDINGS[item['code']]
         reasons.append(reason(kind, title, detail + (f' It ends at {final_host}.' if item['code'] == 'host_change' and final_host else '')))
@@ -259,7 +267,8 @@ def plain_web_report(result, source='link'):
                    else 'Open important sites by typing the address yourself.']
     elif verdict == 'clean':
         tone, label, headline = 'safe', 'NO WARNING SIGNS', 'No warning signs found'
-        summary = 'Its connection and page looked normal. This isn’t a guarantee.'
+        summary = (f'We read {pages_read} of its pages and checked the sites they link to; nothing looked suspicious. This isn’t a guarantee.'
+                   if pages_read > 1 else 'Its connection and page looked normal. This isn’t a guarantee.')
         actions = ['Check that the address shown is the one you expected before signing in or paying.']
     else:
         tone, label, headline = 'unknown', 'NOT SURE', f'We couldn’t fully check {opening}'
@@ -279,6 +288,24 @@ def plain_web_report(result, source='link'):
         check('Password forms', 'warn', 'Unsafe') if codes & {'external_password_form', 'password_http'} else check('Password forms', 'ok', 'Nothing unsafe'),
         check('Redirects', 'info', f'{hops}') if hops else check('Redirects', 'ok', 'None') if hops == 0 else check('Redirects', 'na', 'Not checked'),
     ]
+    if crawl.get('policy') == 'site-crawl-v1' and crawl.get('status') != 'not_performed':
+        downloads = [d for d in crawl.get('downloads') or [] if isinstance(d, dict)]
+        shop = mapping(crawl.get('shop'))
+        found = crawl.get('downloads_found') if isinstance(crawl.get('downloads_found'), int) else len(downloads)
+        checks += [
+            check('Pages read', 'ok' if pages_read else 'na', f'{pages_read}' if pages_read else 'Not checked'),
+            check('Links to other sites', 'bad', 'Dangerous') if crawl.get('listed_links') else
+            check('Links to other sites', 'warn', 'Look-alike') if crawl.get('lookalike_links') else
+            check('Links to other sites', 'warn', 'Betting') if crawl.get('betting_links') else
+            check('Links to other sites', 'ok', f'{crawl.get("external_sites", 0)} sites') if crawl.get('external_sites') else
+            check('Links to other sites', 'ok', 'None'),
+            check('Downloads', 'bad', 'Malware') if 'crawl_malware_download' in codes else
+            check('Downloads', 'info', f'{found} files') if found else check('Downloads', 'ok', 'None'),
+        ]
+        if shop:
+            have = 5 - len(shop.get('missing') or [])
+            checks.append(check('Online shop', 'warn', 'Fake shop signs') if shop.get('fake_signs') else
+                          check('Online shop', 'ok' if have >= 3 else 'info', f'{have} of 5 details'))
     if trust:
         scam = codes & {'gambling_site', 'prize_offer', 'fake_comments', 'collects_card'}
         checks += [

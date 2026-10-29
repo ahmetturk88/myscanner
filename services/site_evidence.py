@@ -79,7 +79,22 @@ def assess_site(value, include_provider=False, include_discovery=False):
     if type(include_provider) is not bool or type(include_discovery) is not bool:raise ValueError()
     started=time.monotonic()
     report=WebAssessment().analyze(value,include_provider=include_provider)
-    report['site_schema_version']=1
+    report['site_schema_version']=2
+    if report['http']['status']=='completed' and report['content']['status']=='completed':
+        # site-crawl-v1: walk the site's own pages and check what they link to and offer.
+        from services import site_crawl
+        found=site_crawl.crawl(report['http']['final_url'])
+        age=((report.get('trust') or {}).get('domain_age') or {}).get('age_days')
+        crawl,crawl_findings=site_crawl.assess(found, age)
+        report['crawl']=crawl
+        report['findings'].extend(crawl_findings)
+        report['checks'].append({'name':'Site pages','status':'completed' if crawl['pages_read'] else 'unavailable'})
+        if any(f['code'] in ('crawl_page_listed','crawl_malware_download') for f in crawl_findings):
+            report['verdict']='malicious'
+        elif any(f['severity']=='warning' for f in crawl_findings) and report['verdict']!='malicious':
+            report['verdict']='suspicious'
+    else:
+        report['crawl']={'policy':'site-crawl-v1','status':'not_performed','pages_read':0}
     report['domain']=report['structure']['hostname']
     report['analysis_mode']='passive';report['active_scan_performed']=False
     report['from_cache']=False;report['evidence_policy']='site-passive-v3'

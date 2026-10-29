@@ -180,6 +180,9 @@ services:
       CLAMD_CONF_StreamMaxLength: 51M
       CLAMD_CONF_MaxFileSize: 51M
       CLAMD_CONF_MaxScanSize: 200M
+      # Big apps unpack into thousands of files; finish before the client's limit (clamav_client.scan_timeout).
+      CLAMD_CONF_MaxScanTime: '160000'
+      CLAMD_CONF_MaxFiles: '20000'
       CLAMD_CONF_ConcurrentDatabaseReload: 'no'
     volumes: [clamav-db:/var/lib/clamav]
     networks: [data, outbound]

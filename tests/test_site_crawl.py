@@ -133,6 +133,29 @@ class ShopDetectionTests(unittest.TestCase):
         self.assertTrue(site_crawl.ACCEPT_LANGUAGE.startswith('tr-TR'))
 
 
+class ForeignVersionTests(unittest.TestCase):
+    def test_another_countrys_pages_are_noted_and_the_shop_is_not_judged(self):
+        pages = {'https://magaza.example/': b'<html lang="de-DE"><title>Shop</title><p>In den Warenkorb 19,99 EUR In den Warenkorb 9,99 EUR Warenkorb</p></html>'}
+        def chain(session, url, deadline):
+            r = requests.Response(); r.url = url; r._content_consumed = True
+            r.status_code, r._content = (200, pages[url]) if url in pages else (404, b'')
+            r.headers['Content-Type'] = 'text/html'
+            return r, [{'url': url, 'status_code': r.status_code}], None
+        with patch('services.web_assessment.response_chain', side_effect=chain):
+            found = site_crawl.crawl('https://magaza.example/', pause=0)
+        self.assertEqual(found['language'], 'de')
+        evidence, findings = site_crawl.assess(found, age_days=9000, lookup=lookup)
+        self.assertEqual(evidence['shop'], {'language': 'de', 'not_judged': True})
+        self.assertEqual([f['code'] for f in findings], ['crawl_foreign_version'])
+        self.assertIn('German pages', findings[0]['detail'])
+        result = {'url': 'https://magaza.example/', 'verdict': 'clean', 'assessment_status': 'completed', 'tls': {'status': 'completed'},
+                  'http': {'chain': [{'url': 'https://magaza.example/'}], 'final_url': 'https://magaza.example/'}, 'provider': {'status': 'not_requested'},
+                  'content': {'status': 'completed'}, 'findings': findings, 'crawl': evidence, 'trust': {'web_risk': {'status': 'not_found'}}}
+        plain = plain_web_report(result, source='site')
+        self.assertIn(('Online shop', 'na', 'Foreign version'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
+        self.assertIn('Almanca sayfalarını', ' '.join(r['detail'] for r in translate_plain(plain, 'tr')['reasons']))
+
+
 class PastedAddressTests(unittest.TestCase):
     def test_markdown_debris_is_removed(self):
         self.assertEqual(pasted_url('http://testphp.vulnweb.com/](http://testphp.vulnweb.com'), 'http://testphp.vulnweb.com/')

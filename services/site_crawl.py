@@ -42,6 +42,7 @@ USER_AGENT = 'MyScanner/1.0 (read-only website check; +https://myscanners.com)'
 # Our people are in Turkey and the server is not: ask for the Turkish page, or a shop like
 # trendyol.com sends the German one (it went to /de from the server).
 ACCEPT_LANGUAGE = 'tr-TR,tr;q=0.9,en;q=0.6'
+LANGUAGES = {'de': 'German', 'en': 'English', 'ar': 'Arabic', 'ru': 'Russian', 'fr': 'French', 'nl': 'Dutch', 'es': 'Spanish', 'it': 'Italian'}
 DOWNLOAD_EXTENSIONS = {'apk', 'xapk', 'apks', 'exe', 'msi', 'scr', 'bat', 'cmd', 'jar', 'dmg', 'pkg', 'zip', 'rar', '7z', 'iso'}
 PROGRAMS = DOWNLOAD_EXTENSIONS - {'zip', 'rar', '7z', 'iso'}
 
@@ -155,6 +156,10 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
             text = soup.get_text(' ', strip=True)[:TEXT_LIMIT // 4]
             title = soup.title.get_text(' ', strip=True)[:200] if soup.title else ''
             inputs = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input', limit=200)]
+            if 'language' not in result:
+                # The language the site showed us (<html lang="de">); a server outside Turkey can get another country's version.
+                lang = str((soup.html or {}).get('lang') or '').strip().lower()[:12] if soup.html else ''
+                result['language'] = lang.split('-')[0] if re.fullmatch(r'[a-z]{2}(?:-[a-z0-9]{2,8})?', lang) else ''
             page.update(title=title, password_form=any(str(k).lower() == 'password' for k, _, _ in inputs),
                         signals=sorted(set(scam_signals(text, inputs)) | ({'gambling'} if gambling_site(f'{title} {text}', final) else set())))
             schema = ' '.join(tag.get_text() for tag in soup.find_all('script', attrs={'type': 'application/ld+json'}, limit=20))[:200_000]
@@ -290,6 +295,11 @@ def assess(found, age_days=None, lookup=None, scan=None):
         downloads.append({**item, 'antivirus': {k: answer.get(k) for k in ('status', 'kind', 'signature') if k in answer}})
     infected = [d for d in downloads if d['antivirus'].get('status') == 'found' and d['antivirus'].get('kind') == 'malware']
     shop = shop_signals(found.get('text') or '', found['contacts'], age_days, found.get('shop_schema_pages', 0))
+    language = found.get('language') or ''
+    foreign = bool(language) and language != 'tr'
+    if shop and foreign:
+        # The Turkish details (MERSİS, ETBİS, a Turkish address) aren't on another country's pages: no judgement.
+        shop = {'language': language, 'not_judged': True}
 
     if listed_pages:
         finding('crawl_page_listed', 'warning', 'Google lists pages of this site as dangerous',
@@ -312,7 +322,10 @@ def assess(found, age_days=None, lookup=None, scan=None):
     if betting:
         finding('crawl_betting_links', 'warning', 'It links to betting sites',
                 f'It links to {len(betting)} betting sites, for example {betting[0]["host"]}.')
-    if shop and shop['fake_signs']:
+    if foreign:
+        finding('crawl_foreign_version', 'info', 'We were shown another country’s version',
+                f'Our server is outside Turkey, so the site showed its {LANGUAGES.get(language, language.upper())} pages. What you see in Turkey may differ.')
+    if shop and shop.get('fake_signs'):
         finding('fake_shop_signs', 'warning', 'It looks like a fake shop',
                 'It sells online but hides who runs it, or asks for bank transfer only. Fake shops take the money and send nothing.')
     if any(d['extension'] in PROGRAMS for d in found['downloads']) and not infected:
@@ -325,5 +338,5 @@ def assess(found, age_days=None, lookup=None, scan=None):
                 'web_risk': risk_status, 'listed_links': listed, 'listed_pages': listed_pages, 'lookalike_links': lookalikes[:10],
                 'betting_links': betting[:10], 'hidden_logins': hidden_logins[:5], 'gambling_pages': gambling_pages[:10],
                 'downloads': downloads, 'downloads_found': len(found['downloads']), 'shop': shop,
-                'contacts': found['contacts'], 'skipped_by_robots': found['skipped_by_robots'], 'stopped': found['stopped']}
+                'contacts': found['contacts'], 'language': language, 'skipped_by_robots': found['skipped_by_robots'], 'stopped': found['stopped']}
     return evidence, findings

@@ -811,6 +811,12 @@ TR = {
     'Online shop': 'Çevrim içi mağaza',
     'Fake shop signs': 'Sahte mağaza işaretleri',
     '{n} of 5 details': '5 bilgiden {n} tanesi',
+    'We were shown another country’s version': 'Bize başka bir ülkenin sürümü gösterildi',
+    'Our server is outside Turkey, so the site showed its {lang} pages. What you see in Turkey may differ.':
+        "Sunucumuz Türkiye dışında olduğu için site bize {lang} sayfalarını gösterdi. Türkiye'den gördüğün site farklı olabilir.",
+    'Foreign version': 'Yabancı sürüm',
+    'German': 'Almanca', 'English': 'İngilizce', 'Arabic': 'Arapça', 'Russian': 'Rusça', 'French': 'Fransızca',
+    'Dutch': 'Hollandaca', 'Spanish': 'İspanyolca', 'Italian': 'İtalyanca',
     'Android app': 'Android uygulaması',
     'Program': 'Program',
     'Malware found': 'Kötü amaçlı yazılım bulundu',

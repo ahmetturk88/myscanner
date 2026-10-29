@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Site Scanner · MyScanner{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261029-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='site_workspace.css',v='20261013-1') }}">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261029-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='site_workspace.css',v='20261029-4') }}">{% endblock %}
 {% block content %}
 <main class="site-workspace">
  <header class="site-hero"><div><span class="site-eyebrow">WEBSITE INTELLIGENCE / READ-ONLY</span><h1>See beyond<br><em>the homepage.</em></h1><p>Follow the destination. Inspect its connection. Understand the evidence behind the page.</p><div class="site-tags"><span>HTTP & redirects</span><span>TLS identity</span><span>Static page evidence</span></div></div>
@@ -13,5 +13,5 @@
  <p id="site-feedback" role="status"></p>
 </main>
 <script src="{{ url_for('static', filename='plain_report.js', v='20261029-1') }}" defer></script>
-<script src="{{ url_for('static', filename='site_workspace.js', v='20261029-3') }}" defer></script>
+<script src="{{ url_for('static', filename='site_workspace.js', v='20261029-4') }}" defer></script>
 {% endblock %}

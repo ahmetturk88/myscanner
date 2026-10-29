@@ -116,9 +116,11 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
                 break
             url, depth = queue.popleft()
             url = urldefrag(url)[0]
-            if url in seen:
+            # One visit per path: /search?wb=1,2,3… and /search?wc=4,5… are the same page again.
+            path_key = urlsplit(url)._replace(query='').geturl()
+            if url in seen or path_key in seen:
                 continue
-            seen.add(url)
+            seen.update((url, path_key))
             if robots is not None and not robots.can_fetch(USER_AGENT, url):
                 result['skipped_by_robots'] += 1
                 continue

@@ -9,6 +9,28 @@ SCRIPTS_TR = {
     'Warning copied. Paste it into your chat.': 'Uyarı kopyalandı. Sohbetine yapıştır.',
     'Could not copy. Share the report yourself.': 'Kopyalanamadı. Raporu kendin paylaş.',
     'Next step': 'Sonraki adım',
+    # File scanner recommendations (the leading symbol is kept by site_i18n.js)
+    'CRITICAL: DO NOT EXECUTE this file!': 'KRİTİK: Bu dosyayı ÇALIŞTIRMA!',
+    'Delete the file immediately': 'Dosyayı hemen sil',
+    'Scan your system with updated antivirus': 'Sistemini güncel bir antivirüsle tara',
+    'Quarantine this file immediately.': 'Bu dosyayı hemen karantinaya al.',
+    'Scan your system for other infected files.': 'Sisteminde başka virüslü dosya olup olmadığını tara.',
+    'Local indicators need review - no reputation source confirms a threat. Do not run the file until you trust its source.':
+        'Yerel göstergeler incelenmeli; hiçbir itibar kaynağı bir tehdidi doğrulamıyor. Kaynağına güvenene kadar dosyayı çalıştırma.',
+    'Local indicators need review. Do not open the file until another tool or a trusted reviewer has checked it.':
+        'Yerel göstergeler incelenmeli. Başka bir araç ya da güvendiğin biri kontrol edene kadar dosyayı açma.',
+    "No reputation match for this file's fingerprint. That is not a safety verdict; check unfamiliar files with another tool before opening them.":
+        'Bu dosyanın parmak izi için itibar eşleşmesi yok. Bu bir güvenlik sonucu değildir; tanımadığın dosyaları açmadan önce başka bir araçla da kontrol et.',
+    'Reputation evidence is unavailable or incomplete. Check the file with another tool before opening it.':
+        'İtibar kanıtı yok ya da eksik. Açmadan önce dosyayı başka bir araçla kontrol et.',
+    'File appears safe. Still, always be cautious when executing files from untrusted sources.':
+        'Dosya güvenli görünüyor. Yine de güvenmediğin kaynaklardan gelen dosyaları çalıştırırken her zaman dikkatli ol.',
+    'No indicators detected by the available local checks; this does not establish safety.':
+        'Mevcut yerel kontroller bir gösterge bulmadı; bu, güvenli olduğunu kanıtlamaz.',
+    'File contains macros - DISABLE macros before opening': 'Dosyada makro var; açmadan önce makroları KAPAT',
+    'The PDF JavaScript can launch external URLs': "PDF'teki JavaScript dış adresleri açabilir",
+    'This PDF contains JavaScript. Some forms use it legitimately, but malicious PDFs use it to run code; open it only if you trust the sender.':
+        'Bu PDF JavaScript içeriyor. Bazı formlar bunu meşru amaçla kullanır ama zararlı PDF\'ler kod çalıştırmak için kullanır; yalnızca gönderene güveniyorsan aç.',
     'Check a link': 'Bağlantı kontrol et',
     'Check a file': 'Dosya kontrol et',
     'Check a sender': 'Göndereni kontrol et',
@@ -675,4 +697,22 @@ SCRIPTS_TR_PATTERNS = [
     (r'^(\d+) / (\d+) selected checks completed\. Coverage is not safety\.$', r'Seçilen \2 kontrolden \1 tanesi tamamlandı. Kapsam güvenlik değildir.'),
     (r'^Observed (.+) · Registration source: (.+)$', r'Gözlem \1 · Kayıt kaynağı: \2'),
     (r'^DNS checks with gaps \((\d+)\)$', r'Boşluklu DNS kontrolleri (\1)'),
+    (r'^The observed file format is (.+); this describes its structure, not its safety\.$', r'Gözlenen dosya biçimi: \1. Bu, dosyanın güvenliğini değil yapısını anlatır.'),
+    (r'^The evidence index is (\d+)/100, with (\d+) coverage points deducted\. It is not a probability of safety\.$',
+     r'Kanıt endeksi 100 üzerinden \1; kapsam eksikliği için \2 puan düşüldü. Bu bir güvenlik olasılığı değildir.'),
+    (r'^Evidence index: (\d+)/100\. Coverage deductions: (\d+) points\. Not a probability of safety\.$',
+     r'Kanıt endeksi: \1/100. Kapsam kesintisi: \2 puan. Bir güvenlik olasılığı değildir.'),
+    (r'^Reported: (.+)$', r'Bildirildi: \1'),
+    (r'^Local byte patterns reported \((\d+)\): (.+)$', r'Yerel bayt kalıpları bildirildi (\1): \2'),
+    (r'^High entropy section: (\S+) \(([\d.]+)\)$', r'Yüksek entropili bölüm: \1 (\2)'),
+    (r'^Dangerous API: (\S+)$', r'Riskli API: \1'),
+    (r'^Packer detected: (\S+)$', r'Paketleyici bulundu: \1'),
+    (r'^Extension spoofing detected! Real type: (\S+)$', r'Uzantı sahte! Gerçek tür: \1'),
+    (r'^File hash found in malware database \((.+)\)$', r'Dosya özeti zararlı yazılım veritabanında bulundu (\1)'),
+    (r'^CRITICAL: File is a known malware \((.+)\)\. DO NOT execute!$', r'KRİTİK: Dosya bilinen bir zararlı yazılım (\1). ÇALIŞTIRMA!'),
+    (r'^Antivirus \(ClamAV\) detected known malware: (.+)\. Do not open this file\.$', r'Antivirüs (ClamAV) bilinen bir zararlı yazılım buldu: \1. Bu dosyayı açma.'),
+    (r'^Antivirus \(ClamAV\) flags a risky feature: (.+)\.$', r'Antivirüs (ClamAV) riskli bir özellik bildiriyor: \1.'),
+    (r"^A link inside pretends to be (.+): (\S+)\. Don't open it\.$", r'İçindeki bir bağlantı kendini \1 gibi gösteriyor: \2. Açma.'),
+    (r"^A link inside goes to (\S+), which Google Web Risk lists as dangerous\. Don't open the link or the file\.$",
+     r"İçindeki bir bağlantı \1 adresine gidiyor; Google Web Risk bu adresi tehlikeli olarak listeliyor. Bağlantıyı da dosyayı da açma."),
 ]

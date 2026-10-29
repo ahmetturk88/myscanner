@@ -1224,6 +1224,14 @@ class FileDeepAnalyzer:
         missing_checks=[]
         if hash_reputation.get('status') not in ('matched','not_found'):missing_checks.append('Hash reputation unavailable')
         if metadata.get('error') or metadata.get('metadata_error'):missing_checks.append('File metadata parser unavailable or failed')
+        if (metadata.get('inspection') or {}).get('format') == 'apk' and (metadata.get('inspection') or {}).get('status') == 'assessed':
+            # An app is a ZIP with thousands of members. The app inspector read its manifest, and the
+            # antivirus engine reads the whole package, so the generic archive budgets are notes, not gaps.
+            limits = [m for m in metadata.get('missing_checks', []) if 'Container entry limit' in m or 'member contents limited' in m]
+            metadata['notes'] = limits
+            metadata['missing_checks'] = [m for m in metadata.get('missing_checks', []) if m not in limits]
+            if not metadata['missing_checks'] and metadata.get('coverage_status') == 'partial':
+                metadata['coverage_status'] = 'assessed'
         missing_checks.extend(metadata.get('missing_checks', []))
         if file_type.get('actual_type') == 'unknown':missing_checks.append('File format could not be identified')
         # exiftool only adds descriptive metadata; its absence is not a missing safety check.

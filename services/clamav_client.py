@@ -15,12 +15,18 @@ CHUNK = 256 * 1024
 SOFT_PREFIXES = ('Heuristics.', 'PUA.')
 
 
-def _connect():
+def _connect(timeout=TIMEOUT):
     host = os.environ.get('CLAMAV_HOST', '').strip()
     if not host:
         return None
     port = int(os.environ.get('CLAMAV_PORT', PORT))
-    return socket.create_connection((host, port), timeout=TIMEOUT)
+    return socket.create_connection((host, port), timeout=timeout)
+
+
+def scan_timeout(size):
+    """Seconds to wait for a verdict. clamd unpacks apps and archives (a 34 MB app holds thousands of
+    files), which took longer than a flat 60 s on the server; it stops itself at MaxScanTime."""
+    return min(170, TIMEOUT + 3 * size // (1024 * 1024))
 
 
 def _reply(sock):
@@ -53,7 +59,7 @@ def scan_bytes(content):
     Heuristics.* and PUA.* names, which describe risky features, not known malware.
     """
     try:
-        sock = _connect()
+        sock = _connect(scan_timeout(len(content)))
     except OSError:
         return {'status': 'unavailable', 'error': 'Antivirus service unreachable'}
     if sock is None:

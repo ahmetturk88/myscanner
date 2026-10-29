@@ -39,12 +39,19 @@ WEB_RISK_EXTERNAL = 10
 WEB_RISK_INTERNAL = 3
 PAUSE = 0.15  # between requests: a visitor, not a load test
 USER_AGENT = 'MyScanner/1.0 (read-only website check; +https://myscanners.com)'
+# Our people are in Turkey and the server is not: ask for the Turkish page, or a shop like
+# trendyol.com sends the German one (it went to /de from the server).
+ACCEPT_LANGUAGE = 'tr-TR,tr;q=0.9,en;q=0.6'
 DOWNLOAD_EXTENSIONS = {'apk', 'xapk', 'apks', 'exe', 'msi', 'scr', 'bat', 'cmd', 'jar', 'dmg', 'pkg', 'zip', 'rar', '7z', 'iso'}
 PROGRAMS = DOWNLOAD_EXTENSIONS - {'zip', 'rar', '7z', 'iso'}
 
 # Online shop words (Turkish and English), and the details a real Turkish shop publishes.
 SHOP = re.compile(r'sepete ekle|sepetim|add to cart|checkout|ödemeye geç|alışverişe devam|kargo bedava|ücretsiz kargo|'
-                  r'\b\d{1,3}(?:[.,]\d{3})*(?:,\d{2})?\s?(?:₺|TL)\b', re.I)
+                  r'in den warenkorb|warenkorb|kasse|'
+                  r'\b\d{1,3}(?:[.,]\d{3})*(?:,\d{2})?\s?(?:₺|TL|€|EUR)\b|₺\s?\d', re.I)
+# Product data shops publish for search engines (schema.org JSON-LD): present in the HTML even when
+# prices and buttons are drawn by scripts.
+SHOP_SCHEMA = re.compile(r'"@type"\s*:\s*"(?:Product|Offer|AggregateOffer|OnlineStore|Store)"')
 PHONE = re.compile(r'(?:\+90|0)\s?\(?(?:[2-5]\d{2})\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}|\b0?850[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}')
 ADDRESS = re.compile(r'\b(?:mah(?:allesi)?\.?|cad(?:desi)?\.?|sok(?:ak|ağı)?\.?|bulvarı)\s', re.I)
 COMPANY_ID = re.compile(r'mersis|vergi\s*(?:no|numarası|dairesi)|\bvkn\b|ticaret sicil', re.I)
@@ -98,7 +105,7 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
     texts, seen = [], set()
     queue = deque([(start_url, 0)])
     with PublicHTTPSession(response_limit=PAGE_LIMIT, deadline=deadline) as session:
-        session.headers['User-Agent'] = USER_AGENT
+        session.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': ACCEPT_LANGUAGE})
         robots = _robots(session, origin, deadline)
         while queue:
             if len(result['pages']) >= max_pages:
@@ -109,9 +116,11 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
                 break
             url, depth = queue.popleft()
             url = urldefrag(url)[0]
-            if url in seen:
+            # One visit per path: /search?wb=1,2,3… and /search?wc=4,5… are the same page again.
+            path_key = urlsplit(url)._replace(query='').geturl()
+            if url in seen or path_key in seen:
                 continue
-            seen.add(url)
+            seen.update((url, path_key))
             if robots is not None and not robots.can_fetch(USER_AGENT, url):
                 result['skipped_by_robots'] += 1
                 continue
@@ -148,6 +157,9 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
             inputs = [(i.get('type', 'text'), i.get('name', ''), i.get('placeholder', '')) for i in soup.find_all('input', limit=200)]
             page.update(title=title, password_form=any(str(k).lower() == 'password' for k, _, _ in inputs),
                         signals=sorted(set(scam_signals(text, inputs)) | ({'gambling'} if gambling_site(f'{title} {text}', final) else set())))
+            schema = ' '.join(tag.get_text() for tag in soup.find_all('script', attrs={'type': 'application/ld+json'}, limit=20))[:200_000]
+            if SHOP_SCHEMA.search(schema):
+                result['shop_schema_pages'] = result.get('shop_schema_pages', 0) + 1
             if sum(len(t) for t in texts) < TEXT_LIMIT:
                 texts.append(f'{title} {text}')
             for anchor in soup.find_all(['a', 'area'], href=True, limit=600):
@@ -184,9 +196,9 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
     return result
 
 
-def shop_signals(text, contacts, age_days=None):
+def shop_signals(text, contacts, age_days=None, schema_pages=0):
     """What an online shop shows about itself. None when the site doesn't look like a shop."""
-    if len(SHOP.findall(text)) < 3:
+    if len(SHOP.findall(text)) < 3 and not schema_pages:
         return None
     card = bool(CARD_PAYMENT.search(text))
     shop = {'phone': bool(PHONE.search(text)) or contacts.get('phone_links', 0) > 0,
@@ -277,7 +289,7 @@ def assess(found, age_days=None, lookup=None, scan=None):
         answer = _download(item['url'], scan)
         downloads.append({**item, 'antivirus': {k: answer.get(k) for k in ('status', 'kind', 'signature') if k in answer}})
     infected = [d for d in downloads if d['antivirus'].get('status') == 'found' and d['antivirus'].get('kind') == 'malware']
-    shop = shop_signals(found.get('text') or '', found['contacts'], age_days)
+    shop = shop_signals(found.get('text') or '', found['contacts'], age_days, found.get('shop_schema_pages', 0))
 
     if listed_pages:
         finding('crawl_page_listed', 'warning', 'Google lists pages of this site as dangerous',

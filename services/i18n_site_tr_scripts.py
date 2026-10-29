@@ -9,6 +9,8 @@ SCRIPTS_TR = {
     'Warning copied. Paste it into your chat.': 'Uyarı kopyalandı. Sohbetine yapıştır.',
     'Could not copy. Share the report yourself.': 'Kopyalanamadı. Raporu kendin paylaş.',
     'Next step': 'Sonraki adım',
+    'Good signs': 'Olumlu işaretler', 'Other notes': 'Diğer notlar', 'Errors': 'Hatalar', 'More rules': 'Diğer kurallar',
+    'not_found': 'bulunamadı', 'Warning signs': 'Uyarı işaretleri',
     # Website check evidence (web_assessment, site_evidence, site_workspace.js)
     'completed': 'tamamlandı',
     'unavailable': 'ulaşılamadı',

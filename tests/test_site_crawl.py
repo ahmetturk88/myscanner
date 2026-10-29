@@ -80,6 +80,18 @@ class CrawlTests(unittest.TestCase):
         self.assertEqual(findings, [])
         self.assertIsNone(evidence['shop'])
 
+    def test_one_visit_per_path(self):
+        pages = {'https://ara.example/': b'<html><a href="/sr?wb=1,2,3">a</a><a href="/sr?wc=4,5,6">b</a><a href="/sr?x=9">c</a></html>',
+                 'https://ara.example/sr?wb=1,2,3': b'<html><p>Sonuclar</p></html>'}
+        def chain(session, url, deadline):
+            r = requests.Response(); r.url = url; r._content_consumed = True
+            r.status_code, r._content = (200, pages[url]) if url in pages else (404, b'')
+            r.headers['Content-Type'] = 'text/html'
+            return r, [{'url': url, 'status_code': r.status_code}], None
+        with patch('services.web_assessment.response_chain', side_effect=chain):
+            found = site_crawl.crawl('https://ara.example/', pause=0)
+        self.assertEqual([p['url'] for p in found['pages']], ['https://ara.example/', 'https://ara.example/sr?wb=1,2,3'])
+
     def test_robots_txt_is_honoured(self):
         pages = dict(PAGES, **{'https://shop.example/robots.txt': b'User-agent: *\nDisallow: /urunler\n'})
         def chain(session, url, deadline):
@@ -107,6 +119,18 @@ class CrawlTests(unittest.TestCase):
         titles = [r['title'] for r in turkish['reasons']]
         self.assertIn('Tehlikeli sitelere bağlantı veriyor', titles)
         self.assertNotIn('It links to dangerous sites', titles)
+
+
+class ShopDetectionTests(unittest.TestCase):
+    def test_product_data_marks_a_shop_whose_prices_are_drawn_by_scripts(self):
+        self.assertIsNone(site_crawl.shop_signals('Willkommen', {}))
+        shop = site_crawl.shop_signals('Willkommen', {}, age_days=6000, schema_pages=2)
+        self.assertIsNotNone(shop)
+        self.assertFalse(shop['fake_signs'])
+        self.assertTrue(site_crawl.SHOP_SCHEMA.search('{"@context":"https://schema.org","@type": "Product","name":"x"}'))
+
+    def test_the_turkish_page_is_requested(self):
+        self.assertTrue(site_crawl.ACCEPT_LANGUAGE.startswith('tr-TR'))
 
 
 class PastedAddressTests(unittest.TestCase):

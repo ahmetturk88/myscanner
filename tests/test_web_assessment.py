@@ -27,13 +27,14 @@ class AssessmentTests(unittest.TestCase):
         self.mocks=[p.start() for p in self.patches]
         self.addCleanup(lambda:[p.stop() for p in reversed(self.patches)])
 
-    def test_local_success_is_not_safe_or_fake_engine_count(self):
+    def test_local_success_without_url_vet_is_clean_and_no_fake_engine_count(self):
+        # site-trust-v1: url.vet is optional; completed local checks and an unlisted address are enough.
         r=WebAssessment().analyze('https://example.com')
-        self.assertEqual(r['verdict'],'unknown');self.assertEqual(r['assessment_status'],'completed')
+        self.assertEqual(r['verdict'],'clean');self.assertEqual(r['assessment_status'],'completed')
         self.assertEqual(r['assessment_scope'],'local')
         self.assertEqual(r['stats']['checks_completed'],5)
         self.assertEqual(r['stats']['checks_total'],5)
-        self.assertEqual(r['stats']['checks_not_requested'],1)
+        self.assertEqual(r['stats']['checks_not_requested'],2)  # url.vet, and Google Web Risk without a key
         self.assertEqual(r['provider']['status'],'not_requested');self.assertNotIn('harmless',r['stats'])
         self.assertEqual(r['content']['title'],'Example')
 

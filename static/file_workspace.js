@@ -170,15 +170,16 @@
     if (!recs.length) ul.append(node('li','',danger ? 'Keep the file unexecuted and review the threat evidence.' : 'Review source status and metadata before deciding whether to open the file.'));
     ul.append(node('li','','No sandbox execution or multi-engine antivirus verdict is provided.')); next.append(ul);
     const findings=$('threats'); findings.replaceChildren();
-    list(patterns.matched_rules).slice(0,30).forEach(rule=>finding(findings,'Local byte pattern',rule));
-    list(meta.suspicious).slice(0,20).forEach(item=>finding(findings,'Metadata observation',item));
-    if(mb.status==='matched' && mb.is_malicious===true) finding(findings,'MalwareBazaar hash match',mb.signature || 'Signature not reported');
+    list(patterns.matched_rules).slice(0,30).forEach(rule=>finding(findings,'Local byte pattern',rule,'review'));
+    list(meta.suspicious).slice(0,20).forEach(item=>finding(findings,'Metadata observation',item,'note'));
+    if(mb.status==='matched' && mb.is_malicious===true) finding(findings,'MalwareBazaar hash match',mb.signature || 'Signature not reported','danger');
     $('detection-list').hidden=!findings.childElementCount;
     renderEvidence(d); $('evidence-search').value=''; filter();
     return plainShown;
   }
   function source(parent,title,label,tone,description){const box=node('div','fw-source'),body=node('div','');body.append(node('strong','',title),node('p','',description));box.append(state(label,tone),body);parent.append(box);}
-  function finding(parent,label,value){const box=node('div','fw-finding');box.append(node('strong','',label),node('p','',value));parent.append(box);}
+  // Only a confirmed match is red: a structure note (a compressed section) is not a warning.
+  function finding(parent,label,value,tone){const box=node('div','fw-finding');box.dataset.tone=tone;box.append(node('strong','',label),node('p','',value));parent.append(box);}
   function section(id,title,subtitle,description,open=false){const box=node('details','fw-detail');box.id='evidence-'+id;box.open=open;const summary=node('summary',''),heading=node('div','');heading.append(node('strong','',title),node('span','',subtitle));summary.append(heading);const body=node('div','fw-detail-body');if(description)body.append(node('p','fw-detail-description',description));box.append(summary,body);$('deep-analysis-container').append(box);return body;}
   function valueText(value){if(value===true)return 'Yes';if(value===false)return 'No';if(value==null || value==='')return 'Not reported';return text(value);}
   function rows(parent,data,depth=0){const dl=node('dl','fw-data-list');let count=0;for(const [key,value] of Object.entries(object(data)).slice(0,60)){if(count++>60)break;if(value && typeof value==='object'){

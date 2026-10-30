@@ -20,6 +20,7 @@
   const SHARE = SVG('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', 18, 2.2);
   const NO_CAMERA = SVG('<path d="M3 3l18 18"/><path d="M21 17V8a2 2 0 0 0-2-2h-3l-2-3H10M6.3 6H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14"/><path d="M9.5 9.6A3.5 3.5 0 0 0 14.4 14.5"/>', 26, 1.8);
   const SEARCH = SVG('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 18, 2.2);
+  const DOWNLOAD = SVG('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', 18, 2.2);
   const STATES = ['bad', 'warn', 'ok', 'na', 'info'];
   // The next check that fits the tool just used. Scams come as a message plus a link, a file or a code.
   const CHECK_LINK = ['/dashboard', 'Check a link'], CHECK_FILE = ['/file-scanner', 'Check a file'], CHECK_SENDER = ['/email-check', 'Check a sender'];
@@ -74,6 +75,8 @@
       : tone === 'danger' || tone === 'caution'
       ? share('rp-primary', tone === 'danger' && !opts.plainShare ? 'Warn whoever sent it' : 'Share this warning') + another('rp-ghost')
       : another('rp-primary') + share('rp-ghost', 'Share report');
+    // pdf: a function that downloads the server-built PDF of this same result.
+    const pdfButton = typeof opts.pdf === 'function' ? `<button type="button" class="rp-btn rp-ghost" data-rp-pdf>${DOWNLOAD}Download PDF</button>` : '';
     const shot = /^\/api\/scan_screenshot\/\d+$/.test(opts.screenshot || '') ? opts.screenshot : '';
     // Without a screenshot, say why (bad certificate, a download, the site down…) instead of hiding the card.
     const why = typeof plain.no_preview === 'string' ? plain.no_preview : '';
@@ -88,7 +91,7 @@
         <div class="rp-url">${esc(target.prefix)}<b>${esc(target.host)}</b>${esc(target.rest)}</div><span class="rp-when">${esc(checked)}</span></div></section>
       <div class="rp-pair">${reasons ? `<section class="rp-why"><h2>${esc(typeof plain.why_title === 'string' ? plain.why_title : 'Why we think so')}</h2><ul>${reasons}</ul></section>` : ''}
       <section class="rp-card rp-do"><h2>${tone === 'safe' ? 'Good to know' : 'What to do'}</h2><ol>${actions}</ol></section></div>
-      ${opts.buttons === false ? '' : `<div class="rp-buttons">${buttons}</div>`}<div class="rp-ai"></div></div>
+      ${opts.buttons === false ? '' : `<div class="rp-buttons">${buttons}${pdfButton}</div>`}<div class="rp-ai"></div></div>
     <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}${opts.buttons === false ? '' : nextCard(again.href, tone)}
       <p class="rp-note">A scan checks known warning signs at one moment in time. It can’t guarantee that something is safe.</p></aside>`;
     const img = box.querySelector('.rp-preview img');
@@ -98,6 +101,7 @@
       if (!why) { card.remove(); return; }
       card.innerHTML = `<h2>Page preview</h2>${missing}`;
     });
+    box.querySelectorAll('[data-rp-pdf]').forEach(button => button.addEventListener('click', () => opts.pdf()));
     box.querySelectorAll('[data-rp-share]').forEach(button => button.addEventListener('click', () => shareText(plain.share_text, opts.feedback)));
     box.hidden = false;
     return true;

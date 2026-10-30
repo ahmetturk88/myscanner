@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Site Scanner · MyScanner{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261029-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='site_workspace.css',v='20261029-6') }}">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261029-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='site_workspace.css',v='20261030-1') }}">{% endblock %}
 {% block content %}
 <main class="site-workspace">
  <header class="site-hero"><div><span class="site-eyebrow">WEBSITE INTELLIGENCE / READ-ONLY</span><h1>See beyond<br><em>the homepage.</em></h1><p>Follow the destination. Inspect its connection. Understand the evidence behind the page.</p><div class="site-tags"><span>HTTP & redirects</span><span>TLS identity</span><span>Static page evidence</span></div></div>
@@ -12,6 +12,6 @@
  <div class="site-bottom"><article><b>01 / Connection</b><p>Public DNS, redirect chain and certificate observations.</p></article><article><b>02 / Page</b><p>Headers, static HTML and form destinations without submission.</p></article><article><b>03 / Context</b><p>Source evidence, missing checks and portable exports.</p></article></div>
  <p id="site-feedback" role="status"></p>
 </main>
-<script src="{{ url_for('static', filename='plain_report.js', v='20261029-1') }}" defer></script>
-<script src="{{ url_for('static', filename='site_workspace.js', v='20261029-6') }}" defer></script>
+<script src="{{ url_for('static', filename='plain_report.js', v='20261030-1') }}" defer></script>
+<script src="{{ url_for('static', filename='site_workspace.js', v='20261030-1') }}" defer></script>
 {% endblock %}

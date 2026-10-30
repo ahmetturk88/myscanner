@@ -20,3 +20,12 @@ def no_live_crawl(request, monkeypatch):
     walked = {'pages': [], 'external': {}, 'downloads': [], 'skipped_by_robots': 0, 'language': '',
               'contacts': {'phone_links': 0, 'email_links': 0, 'whatsapp_links': 0}, 'stopped': None, 'pages_read': 0, 'text': ''}
     monkeypatch.setattr('services.site_crawl.crawl', lambda *args, **kwargs: dict(walked))
+
+
+@pytest.fixture(autouse=True)
+def no_live_mail_lookup(request, monkeypatch):
+    """The website check reads SPF and DMARC of the site's domain over DNS; tests never do.
+    test_site_posture drives the audit through its own fake resolver."""
+    if request.module.__name__.endswith('test_site_posture'):
+        return
+    monkeypatch.setattr('services.site_posture.mail_security', lambda domain, resolve=None: {'status': 'unavailable', 'domain': domain})

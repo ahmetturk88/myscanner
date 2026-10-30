@@ -837,6 +837,32 @@ TR = {
     'Our server is outside Turkey, so the site showed its {lang} pages. What you see in Turkey may differ.':
         "Sunucumuz Türkiye dışında olduğu için site bize {lang} sayfalarını gösterdi. Türkiye'den gördüğün site farklı olabilir.",
     'Foreign version': 'Yabancı sürüm',
+    # Website setup (site-posture-v1)
+    'It loads code from a copied address': 'Kopya bir adresten kod yüklüyor',
+    'A script comes from {host}, which uses the name {brand} but isn’t its site. Card-stealing code hides like this.':
+        'Bir betik {host} adresinden geliyor; bu adres {brand} adını kullanıyor ama onun sitesi değil. Kart bilgisi çalan kodlar böyle gizlenir.',
+    'It runs old software': 'Eski yazılım kullanıyor',
+    '{name} no longer gets security fixes. Hacked sites often run old versions; this isn’t proof of a problem.':
+        '{name} artık güvenlik güncellemesi almıyor. Hacklenen siteler çoğunlukla eski sürümler kullanır; bu bir sorun olduğunun kanıtı değildir.',
+    'Some parts load without encryption': 'Bazı bölümler şifrelenmeden yükleniyor',
+    '{n} scripts or frames load over plain http:// on a secure page. Browsers block them; the site may look broken.':
+        'Güvenli bir sayfada {n} betik veya çerçeve düz http:// üzerinden yükleniyor. Tarayıcılar bunları engeller; site bozuk görünebilir.',
+    'Its login cookie isn’t fully protected': 'Oturum çerezi tam korunmuyor',
+    'The cookie {name} is missing the Secure or HttpOnly flag. If it is your site, set both.':
+        '{name} çerezinde Secure ya da HttpOnly işareti eksik. Site senin ise ikisini de ekle.',
+    'Others could send email in its name': 'Başkaları onun adına e-posta gönderebilir',
+    '{domain} has no enforced DMARC policy, so scammers can send email that looks like it comes from this site. Be careful with emails claiming to be from it.':
+        '{domain} için uygulanan bir DMARC politikası yok; dolandırıcılar bu siteden geliyormuş gibi görünen e-posta gönderebilir. Ondan geldiğini söyleyen e-postalara dikkat et.',
+    'Hosted in': 'Barındırıldığı yer',
+    'Email in its name': 'Onun adına e-posta',
+    'Protected': 'Korunuyor',
+    'Not protected': 'Korunmuyor',
+    'Software': 'Yazılım',
+    'Old version': 'Eski sürüm',
+    'Not shown': 'Gösterilmiyor',
+    'Scripts from other sites': 'Diğer sitelerden betikler',
+    'Copied address': 'Kopya adres',
+    'Privacy notice': 'Gizlilik / KVKK metni',
     'German': 'Almanca', 'English': 'İngilizce', 'Arabic': 'Arapça', 'Russian': 'Rusça', 'French': 'Fransızca',
     'Dutch': 'Hollandaca', 'Spanish': 'İspanyolca', 'Italian': 'İtalyanca',
     'Android app': 'Android uygulaması',

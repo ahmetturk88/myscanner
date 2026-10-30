@@ -201,6 +201,8 @@ WEB_FINDINGS = {
     'fake_comments': ('warn', 'It shows fake comments', 'The page imitates social media comments to look trustworthy.'),
     'collects_card': ('warn', 'It asks for a card or phone number', 'A new or copied site asking for these details is a common scam.'),
 }
+# site-posture-v1 findings carry their own sentences (software versions, cookie and host names); see i18n_tr.
+POSTURE_FINDINGS = {'script_lookalike', 'old_software', 'mixed_content', 'cookie_flags', 'mail_spoofable'}
 # Findings whose sentence names the brand or the age, so it comes from the evidence, not from this table.
 WEB_TRUST_FINDINGS = {'lookalike_brand', 'new_domain'}
 
@@ -240,7 +242,9 @@ def plain_web_report(result, source='link'):
     for item in every:
         # site-crawl-v1 findings carry their own sentences (with counts and names); see i18n_tr.
         code = str(item.get('code', ''))
-        if code.startswith(('crawl_', 'fake_shop')) and isinstance(item.get('title'), str) and isinstance(item.get('detail'), str):
+        if code.startswith(('crawl_', 'fake_shop')) or code in POSTURE_FINDINGS:
+            if not (isinstance(item.get('title'), str) and isinstance(item.get('detail'), str)):
+                continue
             kind = 'bad' if code in ('crawl_page_listed', 'crawl_malware_download') else 'warn' if item.get('severity') == 'warning' else 'info'
             reasons.append(reason(kind, item['title'], item['detail']))
     for item in findings:
@@ -308,6 +312,23 @@ def plain_web_report(result, source='link'):
             have = 5 - len(shop.get('missing') or [])
             checks.append(check('Online shop', 'warn', 'Fake shop signs') if shop.get('fake_signs') else
                           check('Online shop', 'ok' if have >= 3 else 'info', f'{have} of 5 details'))
+    posture = mapping(result.get('posture'))
+    if posture.get('policy') == 'site-posture-v1' and posture.get('status') != 'not_performed':
+        place, mail = mapping(posture.get('hosting')), mapping(posture.get('mail'))
+        where = ', '.join(str(v) for v in (place.get('country'), place.get('network')) if isinstance(v, str) and v)
+        software = [t for t in posture.get('technology') or [] if isinstance(t, dict) and t.get('source') != 'Server']
+        outside = posture.get('outside_scripts') if isinstance(posture.get('outside_scripts'), list) else []
+        checks += [
+            check('Hosted in', 'info', where[:60]) if place.get('status') == 'completed' and where else check('Hosted in', 'na', 'Not checked'),
+            check('Email in its name', 'ok', 'Protected') if mail.get('protected') is True else
+            check('Email in its name', 'info', 'Not protected') if mail.get('status') == 'completed' else check('Email in its name', 'na', 'Not checked'),
+            check('Software', 'info', 'Old version') if posture.get('old_software') else
+            check('Software', 'ok', str(software[0].get('name'))[:40]) if software else check('Software', 'na', 'Not shown'),
+            check('Scripts from other sites', 'warn', 'Copied address') if posture.get('copied_scripts') else
+            check('Scripts from other sites', 'ok', f'{len(outside)} sites') if outside else check('Scripts from other sites', 'ok', 'None'),
+        ]
+        if 'crawl' in result and mapping(result.get('crawl')).get('pages_read'):
+            checks.append(check('Privacy notice', 'ok', 'Found') if mapping(result.get('crawl')).get('privacy_notice') else check('Privacy notice', 'info', 'Not found'))
     if trust:
         scam = codes & {'gambling_site', 'prize_offer', 'fake_comments', 'collects_card'}
         checks += [

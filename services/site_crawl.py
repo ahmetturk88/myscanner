@@ -254,6 +254,7 @@ def assess(found, age_days=None, lookup=None, scan=None):
     from services.web_risk import validated_observation
     from services.scam_content import gambling_site
     from services.url_tricks import kit_path
+    from services.site_posture import privacy_notice
     findings = []
 
     def finding(code, severity, title, detail):
@@ -346,5 +347,5 @@ def assess(found, age_days=None, lookup=None, scan=None):
                 'web_risk': risk_status, 'listed_links': listed, 'listed_pages': listed_pages, 'lookalike_links': lookalikes[:10],
                 'betting_links': betting[:10], 'hidden_logins': hidden_logins[:5], 'gambling_pages': gambling_pages[:10],
                 'downloads': downloads, 'downloads_found': len(found['downloads']), 'shop': shop,
-                'contacts': found['contacts'], 'language': language, 'skipped_by_robots': found['skipped_by_robots'], 'stopped': found['stopped']}
+                'contacts': found['contacts'], 'language': language, 'privacy_notice': privacy_notice(found.get('text') or ''), 'skipped_by_robots': found['skipped_by_robots'], 'stopped': found['stopped']}
     return evidence, findings

@@ -311,6 +311,8 @@ from services.runtime_health import health_bp
 app.register_blueprint(health_bp)
 from routes.file_pdf import file_pdf_bp
 app.register_blueprint(file_pdf_bp)
+from routes.report_pdf import report_pdf_bp
+app.register_blueprint(report_pdf_bp)
 
 # Mobile app API: authorised only by app tokens in the Authorization header,
 # never by the session cookie, so the cookie-based CSRF check does not apply.
@@ -1354,6 +1356,14 @@ def api_check_email():
         result = checker.check_all(email, verify_smtp=data.get("verify_smtp", False) and SMTP_PROBE_ENABLED)
         from services.email_report_view import plain_email_report
 
+        def email_pdf_receipt(found):
+            # The PDF is built from this signed copy, so it says exactly what the page says.
+            from services.report_receipts import issue_receipt
+            try:
+                return issue_receipt('email', dict(found, plain=plain_email_report(found)), str(current_user.id), app.config['SECRET_KEY'])
+            except (ValueError, TypeError, AttributeError):
+                return None
+
         if not result.get("valid"):
             app.logger.warning(f'[WARNING] Invalid email format: {email}')
             return jsonify({
@@ -1401,6 +1411,7 @@ def api_check_email():
             "smtp_details": result["smtp"],
             "assessment": result.get("assessment"),
             "plain": plain_email_report(result),
+            "pdf_receipt": email_pdf_receipt(result),
             "dns_evidence": result["dns"],
             "reputation_evidence": result["blacklist"],
             "domain_evidence": result["domain_info"],

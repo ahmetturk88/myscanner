@@ -47,6 +47,19 @@ SCRIPTS_TR = {
     'Skipped by robots.txt': 'robots.txt nedeniyle atlanan',
     'Pages are read the way a visitor sees them: no forms are sent and no scripts run.': 'Sayfalar bir ziyaretçinin gördüğü gibi okunur: form gönderilmez, betik çalıştırılmaz.',
     'Online shop details': 'Çevrim içi mağaza bilgileri',
+    'Download PDF report': 'PDF raporu indir',
+    'Preparing the PDF…': 'PDF hazırlanıyor…',
+    'PDF downloaded.': 'PDF indirildi.',
+    'PDF unavailable. Start a new inspection.': 'PDF kullanılamıyor. Yeni bir inceleme başlat.',
+    'PDF unavailable. Check the address again.': 'PDF kullanılamıyor. Adresi yeniden kontrol et.',
+    'Site setup': 'Site kurulumu',
+    'Hosted in': 'Barındırıldığı yer',
+    'Email in its name': 'Onun adına e-posta',
+    'Version not shown': 'Sürüm gösterilmiyor',
+    'Parts loaded over http://': 'http:// üzerinden yüklenen bölümler',
+    'Privacy notice (KVKK)': 'Gizlilik / KVKK metni',
+    'Configuration observations, not a vulnerability test. Hosting location comes from DB-IP Lite.':
+        'Yapılandırma gözlemleri; bir zafiyet testi değildir. Barındırma konumu DB-IP Lite verisinden gelir.',
     'Phone': 'Telefon',
     'Address': 'Adres',
     'Company number': 'Şirket numarası',
@@ -826,6 +839,12 @@ SCRIPTS_TR = {
 
 # Script text with a number or name inside: (pattern, replacement), merged into SITE_TR_PATTERNS.
 SCRIPTS_TR_PATTERNS = [
+    (r'^Script from (.+)$', r'\1 adresinden betik'),
+    (r'^Uses the name (.+)$', r'\1 adını kullanıyor'),
+    (r'^Seen in (.+)$', r'\1 içinde görüldü'),
+    (r'^Protected \(DMARC (.+)\)$', r'Korunuyor (DMARC \1)'),
+    (r'^Not protected \(DMARC (.+)\)$', r'Korunmuyor (DMARC \1)'),
+    (r'^Scripts: (\d+) · Frames: (\d+) · Other: (\d+)$', r'Betikler: \1 · Çerçeveler: \2 · Diğer: \3'),
     (r'^(\d+) tools match your selection$', r'Seçimine uyan \1 araç'),
     (r'^(\d+) of (\d+) discovered names shown$', r'Keşfedilen \2 addan \1 tanesi gösteriliyor'),
     (r'^(\d+) seconds elapsed$', r'\1 saniye geçti'),

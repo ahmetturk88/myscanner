@@ -95,6 +95,17 @@ def assess_site(value, include_provider=False, include_discovery=False):
             report['verdict']='suspicious'
     else:
         report['crawl']={'policy':'site-crawl-v1','status':'not_performed','pages_read':0}
+    if report['http']['status']=='completed':
+        # site-posture-v1: hosting, email in its name, software, outside scripts, cookies.
+        from services import site_posture
+        posture,posture_findings=site_posture.assess(report)
+        report['posture']=posture
+        report['findings'].extend(posture_findings)
+        report['checks'].append({'name':'Site setup','status':'completed'})
+        if any(f['severity']=='warning' for f in posture_findings) and report['verdict']!='malicious':
+            report['verdict']='suspicious'
+    else:
+        report['posture']={'policy':'site-posture-v1','status':'not_performed'}
     report['domain']=report['structure']['hostname']
     report['analysis_mode']='passive';report['active_scan_performed']=False
     report['from_cache']=False;report['evidence_policy']='site-passive-v3'

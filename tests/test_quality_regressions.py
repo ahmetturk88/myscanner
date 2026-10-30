@@ -44,8 +44,14 @@ class MetricsTests(unittest.TestCase):
                     dict(id='threat', email='a@threat.example', label='threat', provenance='independently-reviewed-domain', observed_at='2026-10-30')]
             path.write_text('\n'.join(json.dumps(r) for r in rows))
             self.assertEqual(len(email_bench.labeled_dataset(path)), 2)
-            with patch.object(email_bench, 'check', side_effect=[('a', 'no_indicators', '-'), ('b', 'unknown', '-')]), patch('builtins.print'):
+            import logging
+            def check_private(email):
+                self.assertTrue(logging.root.manager.disable >= logging.CRITICAL)
+                return email, 'unknown', '-'
+            previous_logging = logging.root.manager.disable
+            with patch.object(email_bench, 'check', side_effect=check_private), patch('builtins.print'):
                 self.assertEqual(email_bench.benchmark_dataset(path), 2)
+            self.assertEqual(logging.root.manager.disable, previous_logging)
             rows[1]['email'] = rows[0]['email']
             path.write_text('\n'.join(json.dumps(r) for r in rows))
             with self.assertRaises(ValueError):

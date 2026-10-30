@@ -143,8 +143,13 @@ def benchmark_dataset(path):
     import json
     from scripts.benchmark_metrics import classification_metrics
     samples = labeled_dataset(path)
-    with concurrent.futures.ThreadPoolExecutor(8) as pool:
-        observations = list(pool.map(check, [s['email'] for s in samples]))
+    previous_logging = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)  # Provider/checker logs can contain supplied addresses.
+    try:
+        with concurrent.futures.ThreadPoolExecutor(8) as pool:
+            observations = list(pool.map(check, [s['email'] for s in samples]))
+    finally:
+        logging.disable(previous_logging)
     metrics = classification_metrics([(s['label'], observation[1]) for s, observation in zip(samples, observations)])
     # Aggregates only: do not print personal addresses from a supplied holdout.
     print(json.dumps({'mode': 'independently-labeled-email-holdout', 'metrics': metrics}, indent=2))

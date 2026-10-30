@@ -1,4 +1,4 @@
-"""email-evidence-v4: a copied brand name or a Web Risk listing decides on its own (scam domains set up SPF too)."""
+"""email-evidence-v5: naming signals need review; supported source evidence can escalate."""
 import unittest
 from unittest.mock import patch
 

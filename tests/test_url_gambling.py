@@ -1,4 +1,4 @@
-"""Casino and betting sites: unlicensed betting is illegal in Turkey and often never pays out."""
+"""Content categories remain visible without becoming security detections by themselves."""
 import copy
 import unittest
 

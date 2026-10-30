@@ -15,6 +15,13 @@ from itertools import combinations
 TR = {
     'Google Web Risk lookup unavailable': 'Google Web Risk sorgusu yapılamadı',
     'A threat source flags this domain': 'Bir tehdit kaynağı bu alan adını işaretliyor',
+    'This address looks like a scam': 'Bu adres dolandırıcılık gibi görünüyor',
+    'Casino or betting content. We didn’t verify a licence; unlicensed betting is illegal in Turkey and deposits are often never paid out.':
+        'Kumar veya bahis içeriği. Lisansını doğrulamadık; lisanssız bahis Türkiye\'de yasa dışıdır ve yatırılan para çoğu zaman geri ödenmez.',
+    '{n} of its pages show casino or betting content. Hacked sites often carry betting spam; we didn’t verify how it got there.':
+        'Sayfalarından {n} tanesinde kumar veya bahis içeriği var. Hacklenmiş siteler sıklıkla bahis spam içeriği taşır; nasıl eklendiğini doğrulamadık.',
+    'The domain was registered recently and is made to look like {brand}’s. Treat messages from it as a scam.':
+        'Alan adı yakın zamanda kaydedilmiş ve {brand} adresine benzetilmiş. Bu adresten gelen iletileri dolandırıcılık say.',
     'Google Web Risk flags this domain’s website. This does not verify the sender or every message from this address.': 'Google Web Risk bu alan adının web sitesini işaretliyor. Bu, göndereni veya bu adresten gelen her iletiyi doğrulamaz.',
     'The saved report marked this address as dangerous. Review its recorded evidence before acting.': 'Kaydedilen rapor bu adresi tehlikeli olarak işaretlemiş. Harekete geçmeden önce kayıtlı kanıtları incele.',
 

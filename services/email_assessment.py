@@ -2,8 +2,12 @@
 import math
 from services.web_risk import validated_observation
 
-POLICY_VERSION = 'email-evidence-v5'
-# Naming signals require review; only supported threat-source evidence escalates to dangerous.
+POLICY_VERSION = 'email-evidence-v6'
+# v5: naming signals require review; a Google Web Risk listing is dangerous.
+# v6: one naming case is dangerous on its own: a strong disguise (other-alphabet letters, swapped
+# letters, a brand's domain in front of another, "https" in the name) or a bank, cargo or government
+# brand in the name, on a domain registered less than YOUNG_DAYS ago. Old or undated look-alikes stay review.
+YOUNG_DAYS = 90
 DECEPTION = {
     'homograph_name': 'The domain uses letters from another alphabet that look like normal ones.',
     'lookalike_name': 'The domain copies a well-known name with swapped letters or numbers.',
@@ -86,6 +90,12 @@ def assess_email(report):
     codes={n.get('code') for n in names}
     new=known and age<365;established=known and age>=ESTABLISHED_DAYS
     dangerous=False;name_risks=[];guard=None
+    young=known and age<YOUNG_DAYS
+    from services.url_tricks import IMPERSONATED
+    disguise=next((n for n in names if young and ((n.get('code') in DECEPTION and n.get('strong'))
+                    or (n.get('code')=='brand_in_name' and n.get('brand') in IMPERSONATED))),None)
+    if disguise:
+        dangerous=True
     for item in names:
         code=item.get('code')
         if code in DECEPTION and (item.get('strong') or new):
@@ -130,6 +140,6 @@ def assess_email(report):
     score=max(0,100-risk-coverage)
     if dangerous:score=min(score,20)
     verdict='dangerous' if dangerous else 'review' if risk else 'unknown' if missing else 'no_indicators'
-    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'guard_domain':guard,'local_brand':(pretends or {}).get('brand_name') if pretends else None,'machine_local':'random_local' in local_codes,'copies_brand':not guard and any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
+    return {'policy_version':POLICY_VERSION,'score':score,'evidence_score':100-risk,'risk_deduction':risk,'coverage_penalty':coverage,'verdict':verdict,'guard_domain':guard,'local_brand':(pretends or {}).get('brand_name') if pretends else None,'machine_local':'random_local' in local_codes,'young_disguise':(disguise or {}).get('brand_name') or ((disguise or {}).get('code') and 'a well-known company') or None,'copies_brand':not guard and any(m.startswith('The domain') and 'new and uses' not in m for p,m in name_risks),'coverage':'partial' if missing else 'completed','categories':categories,'findings':findings,'missing_checks':missing,'not_checked':['DKIM signature verification requires a message and selector; it was not performed.','Breach exposure and mailbox ownership were not checked.']
                    +(['Mailbox acceptance (SMTP) was not probed.'] if smtp.get('coverage_status')=='skipped' else [])
                    +(['Blocklists that did not answer: '+', '.join(unanswered)+'.'] if unanswered else []),'warning':'Evidence and coverage index, not a probability or a guarantee of safety or delivery.'}

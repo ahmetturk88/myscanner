@@ -8,7 +8,7 @@ from services.url_scan_coverage import apply_phishing_evidence
 from services.url_tricks import (IMPERSONATED, address_signals, brands_in_text, email_in_link, kit_path, login_path, other_site,
                                  program_in_address, risky_ending)
 
-POLICY_VERSION = 'url-evidence-v13'
+POLICY_VERSION = 'url-evidence-v14'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 # v10: url.vet's own overall verdict is a threshold over signals we already read
 # one by one (and includes a traffic-rank heuristic that flags small, honest
@@ -155,7 +155,7 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
     elif 'collects_phone_or_card' in scam:
         weak.add('collects_details')
     if 'gambling' in scam and not (rank is not None and 0<rank<=TOP_RANK):  # a top site quoting betting words is news
-        signal('content','gambling_site',0,'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.')
+        signal('content','gambling_site',10,'Casino or betting content. We didn’t verify a licence; unlicensed betting is illegal in Turkey and deposits are often never paid out.')
     return weak,strong,established
 
 
@@ -465,6 +465,9 @@ def _assess(local, deep):
     if not confirmed and not escalated and 'random_name' in weak:
         escalated='high_risk' if asks_login or 'collects_details' in weak or 'brand_in_name' in weak else 'suspicious'
     if not confirmed and not escalated and 'odd_port_destination' in reasons:escalated='suspicious'
+    # v14: betting is a warning for our users, not a neutral category: unlicensed betting is illegal in Turkey
+    # and often keeps deposits. It is never 'dangerous' on its own (that needs a listing or malware).
+    if not confirmed and not escalated and 'gambling_site' in reasons:escalated='suspicious'
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):
         verdict=escalated

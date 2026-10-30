@@ -31,7 +31,8 @@ class ReportSurfaceParityTests(unittest.TestCase):
             if confirmed:
                 deep['osint'] = {'urlhaus': True, 'urlhaus_status': 'matched'}
             aggregate = assess_url(local, deep)
-            self.assertEqual(aggregate['verdict'], 'malicious' if confirmed else 'harmless')
+            # url-evidence-v14: betting alone asks for care; a listing still makes it malicious.
+            self.assertEqual(aggregate['verdict'], 'malicious' if confirmed else 'suspicious')
             local['aggregate_assessment'] = aggregate
             expected = plain_report(aggregate, local, deep, local['url'])
             with self.app.app_context():

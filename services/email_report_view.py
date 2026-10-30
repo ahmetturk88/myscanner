@@ -23,6 +23,7 @@ def plain_email_report(report):
     smtp, lists, domain_info = mapping(report.get('smtp')), mapping(report.get('blacklist')), mapping(report.get('domain_info'))
     verdict = assessment.get('verdict') if assessment.get('verdict') in VERDICTS else 'unknown'
     tone, label, headline = VERDICTS[verdict]
+    young_disguise = assessment.get('young_disguise') if isinstance(assessment.get('young_disguise'), str) else ''
     email = report.get('email') if isinstance(report.get('email'), str) else ''
     domain = report.get('domain') if isinstance(report.get('domain'), str) else (email.rsplit('@', 1)[-1] if '@' in email else '')
     no_domain = verdict == 'no_domain'
@@ -115,7 +116,11 @@ def plain_email_report(report):
         actions = ['Check the address for a typo.', 'If someone gave you this address, ask them for a working one.',
                    'Don’t trust a message that claims to come from it.']
     elif verdict == 'dangerous':
-        summary = 'Google Web Risk flags this domain’s website. This does not verify the sender or every message from this address.' if google_listed else 'The saved report marked this address as dangerous. Review its recorded evidence before acting.'
+        summary = ('Google Web Risk flags this domain’s website. This does not verify the sender or every message from this address.' if google_listed
+                   else f'The domain was registered recently and is made to look like {young_disguise}’s. Treat messages from it as a scam.' if young_disguise
+                   else 'The saved report marked this address as dangerous. Review its recorded evidence before acting.')
+        if young_disguise and not google_listed:
+            headline = 'This address looks like a scam'
         actions = ['Don’t click links, open attachments or reply to messages from this address.',
                    f'To reach {brand}, use its official app or type its website yourself.' if brand else 'Contact the company through its official website or app.',
                    'Already shared a password or card details? Change the password and call your bank.']

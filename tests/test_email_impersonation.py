@@ -33,7 +33,9 @@ class NameTests(unittest.TestCase):
             self.assertEqual(verdict(domain, age=900), 'review', domain)
 
     def test_a_brand_name_on_a_new_or_cheap_domain(self):
-        self.assertEqual(verdict('ptt-kargo-odeme.com', age=20), 'review')
+        # email-evidence-v6: a bank, cargo or government name on a domain under 90 days old is dangerous.
+        self.assertEqual(verdict('ptt-kargo-odeme.com', age=20), 'dangerous')
+        self.assertEqual(verdict('garanti.com.tr.giris-dogrula.com', age=30), 'dangerous')
         self.assertEqual(verdict('yurticikargo-takip.xyz', age=900), 'review')
         self.assertEqual(verdict('ptt-kargo-odeme.com', age=900), 'review')
         self.assertEqual(verdict('ptt-kargo-odeme.com', age=None), 'review')
@@ -112,8 +114,16 @@ class GuardDomainTests(unittest.TestCase):
 
 
 class ReportTests(unittest.TestCase):
-    def test_heuristic_report_in_both_languages(self):
+    def test_young_disguise_report_in_both_languages(self):
         plain = plain_email_report(report('ptt-kargo-odeme.com', age=20))
+        self.assertEqual((plain['tone'], plain['headline']), ('danger', 'This address looks like a scam'))
+        self.assertIn('made to look like PTT Kargo’s', plain['summary'])
+        turkish = translate_plain(plain, 'tr')
+        self.assertEqual(turkish['headline'], 'Bu adres dolandırıcılık gibi görünüyor')
+        self.assertIn('PTT Kargo adresine benzetilmiş', turkish['summary'])
+
+    def test_heuristic_report_in_both_languages(self):
+        plain = plain_email_report(report('ptt-kargo-odeme.com', age=900))
         self.assertEqual((plain['tone'], plain['label']), ('caution', 'BE CAREFUL'))
         self.assertNotIn('as a scam', plain['summary'])
         self.assertEqual(plain['reasons'][0]['title'], 'It copies a well-known name')

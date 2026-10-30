@@ -14,6 +14,8 @@ HEADER_NOTES = {
     'Referrer-Policy':'Controls referrer information sent by browsers.',
     'X-Frame-Options':'Framing control; CSP frame-ancestors can provide the alternative.'}
 
+TLS_BRIEF={'completed':'The certificate was verified.','invalid':'The certificate failed validation.','not_applicable':'The site doesn’t use HTTPS.'}
+
 def header_observations(http):
     values = http.get('security_headers', {})
     completed = http.get('status') == 'completed'
@@ -143,5 +145,5 @@ def assess_site(value, include_provider=False, include_discovery=False):
     report['performance']={'elapsed_ms':round((time.monotonic()-started)*1000),'scope':'Whole assessment elapsed time, not browser load time or a performance grade.'}
     report['missing_checks']=[c['name'] for c in selected if c['status'] not in ('completed','invalid')]
     report['scope']='Read-only public HTTP, DNS, TLS and static HTML observations. No exploit attempts, JavaScript execution, form submission or downloads.'
-    report['report_brief']=[f"Read-only inspection of {report['domain']}.",f"Final HTTP response: {report['http'].get('status_code','unavailable')}; {report['stats']['redirect_count']} redirects observed.",f"TLS certificate state: {report['tls']['status']}; static page: {report['content']['status']}.",f"{completed} of {total} selected checks returned usable observations; {len(report['findings'])} review observations.", 'Review the evidence and missing checks. This report does not establish that the site is safe.']
+    report['report_brief']=[f"Read-only inspection of {report['domain']}.",f"Final HTTP response: {report['http'].get('status_code','unavailable')}; {report['stats']['redirect_count']} redirects observed.",TLS_BRIEF.get(report['tls']['status'],'The certificate couldn’t be checked.'),'The home page was read.' if report['content']['status']=='completed' else 'The home page couldn’t be read.',f"{completed} of {total} selected checks returned usable observations; {len(report['findings'])} review observations.", 'Review the evidence and missing checks. This report does not establish that the site is safe.']
     return report

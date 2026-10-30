@@ -182,4 +182,4 @@ class ProviderObservationTests(unittest.TestCase):
         self.assertEqual(len(r['findings']),5)
         self.assertEqual(r['stats']['observation_count'],5)
         self.assertEqual(r['stats']['warning_count'],0)
-        self.assertIn('5 review observations',r['report_brief'][3])
+        self.assertIn('5 review observations',r['report_brief'][4])

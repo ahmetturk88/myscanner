@@ -178,3 +178,27 @@ class PastedAddressTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BlockingAndOrderTests(unittest.TestCase):
+    """Bot protection: stop when the site stops answering; read who-runs-it pages before product pages."""
+
+    def test_policy_pages_come_first_and_a_refusing_site_ends_the_walk(self):
+        links = ''.join(f'<a href="/urun-{i}">u</a>' for i in range(12)) + '<a href="/iletisim">Iletisim</a><a href="/kvkk">KVKK</a>'
+        pages = {'https://blocky.example/': f'<html><title>Home</title>{links}</html>'.encode(),
+                 'https://blocky.example/iletisim': b'<html><title>Iletisim</title><p>Mersis no 0123</p></html>',
+                 'https://blocky.example/kvkk': b'<html><title>KVKK</title></html>'}
+
+        def chain(session, url, deadline):
+            if url not in pages:
+                raise requests.ConnectionError('reset by bot protection')
+            r = requests.Response(); r.url = url; r.status_code = 200; r._content = pages[url]
+            r.headers['Content-Type'] = 'text/html'; r._content_consumed = True
+            return r, [{'url': url, 'status_code': 200}], None
+        with patch('services.web_assessment.response_chain', side_effect=chain), patch('services.site_crawl._robots', return_value=None):
+            found = site_crawl.crawl('https://blocky.example/', pause=0)
+        urls = [p['url'] for p in found['pages']]
+        self.assertEqual(urls[1:3], ['https://blocky.example/kvkk', 'https://blocky.example/iletisim'])
+        self.assertEqual(found['pages_read'], 3)
+        self.assertEqual(found['stopped'], 'site_refused')
+        self.assertEqual(sum(p.get('status') == 'unavailable' for p in found['pages']), site_crawl.REFUSED_IN_A_ROW)

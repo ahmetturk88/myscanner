@@ -347,7 +347,10 @@ def generate_site_report(report, username, lang='en'):
         software.append((t('Cookies'), ', '.join(f'{c.get("name")} ({"Secure" if c.get("secure") else "-"}/{"HttpOnly" if c.get("httponly") else "-"})' for c in cookies[:8]), None))
     story += _table('Software and scripts', software, t)
 
-    pages = [p for p in _list(crawl.get('pages')) if isinstance(p, dict)]
+    every_page = [p for p in _list(crawl.get('pages')) if isinstance(p, dict)]
+    pages = [p for p in every_page if p.get('status') == 'read']
+    if len(every_page) > len(pages):
+        pages.append({'url': t('Pages that didn’t answer'), 'title': str(len(every_page) - len(pages)), 'status': 'unavailable'})
     if pages:
         story += [CondPageBreak(6 * cm), SubHeader(t('Pages read'), COLORS['accent'], crawl.get('pages_read')),
                   _rows_table(('PAGE', 'TITLE', 'STATUS'), [(_path(p.get('url')), str(p.get('title') or '')[:80], t(str(p.get('status') or '')))

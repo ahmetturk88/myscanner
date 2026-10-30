@@ -38,6 +38,10 @@ MAX_DOWNLOADS = 3
 DOWNLOAD_LIMIT = 15 * 1024 * 1024
 WEB_RISK_EXTERNAL = 10
 WEB_RISK_INTERNAL = 3
+# Pages where a shop says who it is: read them before product pages, which a small budget never gets past.
+POLICY_PAGE = re.compile(r'iletisim|hakkimizda|hakkinda|kurumsal|kvkk|gizlilik|cerez|iade|degisim|mesafeli|satis-sozlesmesi|sozlesme|'
+                         r'odeme|yardim|sss|contact|about|privacy|return|refund|terms|impressum', re.I)
+REFUSED_IN_A_ROW = 4  # unanswered pages in a row: the site is blocking readers, so stop instead of hammering it
 PAUSE = 0.15  # between requests: a visitor, not a load test
 USER_AGENT = 'MyScanner/1.0 (read-only website check; +https://myscanners.com)'
 # Our people are in Turkey and the server is not: ask for the Turkish page, or a shop like
@@ -133,6 +137,10 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
             result['pages'].append(page)
             if len(result['pages']) > 1 and pause:
                 time.sleep(pause)
+            if len(result['pages']) > REFUSED_IN_A_ROW and all(p.get('status') == 'unavailable' for p in result['pages'][-REFUSED_IN_A_ROW - 1:-1]):
+                result['pages'].pop()
+                result['stopped'] = 'site_refused'
+                break
             try:
                 response, chain, reason = response_chain(session, url, deadline)
             except (UnsafeTargetError, TargetResolutionError):
@@ -197,7 +205,10 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
                     if depth < MAX_DEPTH and link not in seen and link not in scheduled:
                         if len(queue) < MAX_PENDING:
                             scheduled.add(link)
-                            queue.append((link, depth + 1))
+                            if POLICY_PAGE.search(urlsplit(link).path):
+                                queue.appendleft((link, depth + 1))
+                            else:
+                                queue.append((link, depth + 1))
                         else:
                             result['stopped'] = 'queue_limit'
                 elif len(result['external']) < MAX_EXTERNAL_HOSTS or host in result['external']:

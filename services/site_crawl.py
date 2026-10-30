@@ -48,9 +48,10 @@ DOWNLOAD_EXTENSIONS = {'apk', 'xapk', 'apks', 'exe', 'msi', 'scr', 'bat', 'cmd',
 PROGRAMS = DOWNLOAD_EXTENSIONS - {'zip', 'rar', '7z', 'iso'}
 
 # Online shop words (Turkish and English), and the details a real Turkish shop publishes.
-SHOP = re.compile(r'sepete ekle|sepetim|add to cart|checkout|ödemeye geç|alışverişe devam|kargo bedava|ücretsiz kargo|'
-                  r'in den warenkorb|warenkorb|kasse|'
-                  r'\b\d{1,3}(?:[.,]\d{3})*(?:,\d{2})?\s?(?:₺|TL|€|EUR)\b|₺\s?\d', re.I)
+# Prices alone aren't a shop: news and finance pages are full of "1.250 TL". A shop also has a cart.
+SHOP_ACTION = re.compile(r'sepete ekle|sepetim|add to cart|checkout|ödemeye geç|alışverişe devam|kargo bedava|ücretsiz kargo|'
+                         r'in den warenkorb|warenkorb|kasse', re.I)
+SHOP = re.compile(SHOP_ACTION.pattern + r'|\b\d{1,3}(?:[.,]\d{3})*(?:,\d{2})?\s?(?:₺|TL|€|EUR)\b|₺\s?\d', re.I)
 # Product data shops publish for search engines (schema.org JSON-LD): present in the HTML even when
 # prices and buttons are drawn by scripts.
 SHOP_SCHEMA = re.compile(r'"@type"\s*:\s*"(?:Product|Offer|AggregateOffer|OnlineStore|Store)"')
@@ -61,7 +62,8 @@ RETURNS = re.compile(r'iade|cayma hakkı|iptal ve iade|return policy|refund poli
 ETBIS = re.compile(r'etbis', re.I)
 BANK_TRANSFER = re.compile(r'havale|\beft\b|\biban\b', re.I)
 CARD_PAYMENT = re.compile(r'kredi kartı|banka kartı|3d secure|iyzico|paytr|shopier|param\b|masterpass|visa|mastercard|troy', re.I)
-BIG_DISCOUNT = re.compile(r'%\s?(?:[7-9]\d)\b|\b(?:[7-9]\d)\s?%\s*(?:indirim|off)', re.I)
+# A discount, not any big percentage ("enflasyon %75" is news): the word indirim or off must follow.
+BIG_DISCOUNT = re.compile(r'(?:%\s?[7-9]\d|\b[7-9]\d\s?%)\s*(?:\'?(?:ye|ya|e|a)\s+varan\s+)?(?:indirim|off)', re.I)
 
 
 def _registrable(url):
@@ -209,7 +211,7 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
 
 def shop_signals(text, contacts, age_days=None, schema_pages=0):
     """What an online shop shows about itself. None when the site doesn't look like a shop."""
-    if len(SHOP.findall(text)) < 3 and not schema_pages:
+    if (len(SHOP.findall(text)) < 3 or not SHOP_ACTION.search(text)) and not schema_pages:
         return None
     card = bool(CARD_PAYMENT.search(text))
     shop = {'phone': bool(PHONE.search(text)) or contacts.get('phone_links', 0) > 0,

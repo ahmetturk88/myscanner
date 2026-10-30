@@ -83,3 +83,20 @@ def test_privacy_notice_reads_turkish_and_english():
     assert site_posture.privacy_notice('KVKK Aydınlatma Metni')
     assert site_posture.privacy_notice('Read our Privacy Policy')
     assert not site_posture.privacy_notice('Sepete ekle')
+
+
+def test_a_cdn_hides_the_country(monkeypatch):
+    monkeypatch.setattr('services.ip_location.lookup', lambda ip: {'country': 'Canada', 'org': 'Cloudflare, Inc.', 'asn': 13335})
+    place = site_posture.hosting({'A': {'values': ['104.16.0.1']}})
+    assert place['cdn'] is True and 'country' not in place
+    rows = {c['name']: c['result'] for c in plain_web_report({'url': 'https://x.example/', 'verdict': 'clean',
+            'posture': {'policy': 'site-posture-v1', 'hosting': place}}, source='site')['checks']}
+    assert rows['Hosted in'] == 'Behind Cloudflare, Inc.'
+
+
+def test_a_news_site_full_of_prices_is_not_a_shop():
+    from services.site_crawl import shop_signals
+    news = 'Enflasyon %75 oldu. Altın 2.450 TL, dolar 34,50 TL, benzin 45 TL. Havale ve EFT limitleri değişti. Faiz %80.'
+    assert shop_signals(news, {}) is None
+    shop = shop_signals('Sepete ekle 1.299 TL 899 TL %80 indirim %75\'e varan indirim', {})
+    assert shop and shop['big_discounts']

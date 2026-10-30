@@ -53,6 +53,8 @@ SCRIPTS_TR = {
     'PDF unavailable. Start a new inspection.': 'PDF kullanılamıyor. Yeni bir inceleme başlat.',
     'PDF unavailable. Check the address again.': 'PDF kullanılamıyor. Adresi yeniden kontrol et.',
     'Site setup': 'Site kurulumu',
+    'Behind a CDN': 'Bir CDN arkasında',
+    'The real server is hidden behind this network, so its country isn’t visible.': 'Asıl sunucu bu ağın arkasında gizli, bu yüzden ülkesi görünmüyor.',
     'Hosted in': 'Barındırıldığı yer',
     'Email in its name': 'Onun adına e-posta',
     'Version not shown': 'Sürüm gösterilmiyor',

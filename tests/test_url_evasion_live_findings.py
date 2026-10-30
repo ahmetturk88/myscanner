@@ -436,3 +436,39 @@ class PhishingListTests(unittest.TestCase):
         for url in ('https://www.httpbin.org/', 'https://httpbingo.org/redirect/12', 'https://httpstatus.io/'):
             self.assertFalse([s for s in address_signals(url) if s['code'] == 'scheme_in_name'], url)
         self.assertEqual(assess_url(*evidence('https://httpsautenticacionbcoazure.info/', age=30, rank=0))['verdict'], 'high_risk')
+
+
+class CarriedAddressTests(unittest.TestCase):
+    """An open redirect that wasn't followed during the scan still hands people the address it carries."""
+
+    def test_carried_addresses_are_read_from_the_query(self):
+        from services.url_analyzer import embedded_urls
+        url = 'https://redirect.example/to?url=https%3A%2F%2Fraw.example%2Fx.bat&next=/home&u=http://b.example/'
+        self.assertEqual(embedded_urls(url), ['https://raw.example/x.bat', 'http://b.example/'])
+        self.assertEqual(embedded_urls('https://example.com/?q=hello'), [])
+
+    def test_a_listed_carried_address_is_looked_up_and_makes_the_link_dangerous(self):
+        from unittest.mock import patch
+        from services.url_analyzer import URLDeepAnalyzer
+        from services.url_assessment import assess_url
+        analyzer = URLDeepAnalyzer()
+        start = 'https://redirect.example/to?url=https%3A%2F%2Fraw.example%2Fx.bat'
+        behavior = {'original_url': start, 'final_url': start, 'error': None, 'redirect_chain': []}
+        looked = []
+
+        def urlhaus(url):
+            looked.append(url)
+            return {'coverage_status': 'matched' if 'raw.example' in url else 'not_found', 'is_malicious': 'raw.example' in url}
+        empty = lambda *a, **k: {}  # noqa: E731
+        with patch.object(analyzer, 'analyze_behavior', return_value=behavior), patch.object(analyzer, 'check_urlhaus', side_effect=urlhaus), \
+                patch.object(analyzer, 'analyze_page_content', side_effect=empty), patch.object(analyzer, 'destination_evidence', side_effect=empty), \
+                patch.object(analyzer, 'analyze_whois', side_effect=empty), patch.object(analyzer, 'check_osint_sources', side_effect=empty), \
+                patch.object(analyzer, 'check_ssl_certificate', side_effect=empty), patch.object(analyzer, 'check_dns_records', side_effect=empty), \
+                patch.object(analyzer, 'check_security_headers', side_effect=empty), patch.object(analyzer, 'analyze_with_urlvet', side_effect=empty), \
+                patch('services.url_analyzer.validate_public_url', side_effect=lambda u: type('T', (), {'url': u})()):
+            deep = analyzer.comprehensive_deep_analysis(start)
+        self.assertEqual(looked, ['https://raw.example/x.bat'])
+        self.assertEqual(deep['chain_reputation'], [{'url': 'https://raw.example/x.bat', 'status': 'matched', 'matched': True, 'carried': True}])
+        codes = {r.get('code') for r in assess_url({}, deep)['reasons']}
+        self.assertIn('carried_listed', codes)
+        self.assertEqual(assess_url({}, deep)['verdict'], 'malicious')

@@ -18,7 +18,7 @@ VERDICTS = {
     'unknown': ('unknown', 'NOT SURE', 'We couldn’t fully check this link'),
     'harmless': ('safe', 'LOOKS SAFE', 'No warning signs found'),
 }
-MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'download_malware', 'page_malware', 'chain_listed', 'host_blocked_malware'}
+MALWARE = {'urlhaus_match', 'web_risk_malware', 'web_risk_unwanted_software', 'download_malware', 'page_malware', 'chain_listed', 'carried_listed', 'host_blocked_malware'}
 SCAM = {'verified_phishing', 'web_risk_social_engineering', 'host_blocked_phishing', 'shortener_blocked'}
 LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
@@ -63,6 +63,7 @@ REASONS = {
     'shortener_blocked': ('bad', 'The short-link service blocked it', 'The service that made this short link has blocked it after abuse reports, usually for scams, spam or malware.'),
     'host_blocked_phishing': ('bad', 'Its own host blocked it as a scam', 'Cloudflare, the company that serves this site, shows a warning that it was reported for phishing.'),
     'host_blocked_malware': ('bad', 'Its own host blocked it as malware', 'Cloudflare, the company that serves this site, shows a warning that it was reported for spreading malware.'),
+    'carried_listed': ('bad', 'It hides a malware address inside', 'The link carries another address that URLhaus, a public list run by abuse.ch, lists as a malware source. Sites that forward visitors pass people on to it.'),
     'chain_listed': ('bad', 'It passes through a malware address', 'On its way, the link goes through an address that URLhaus, a public list run by abuse.ch, lists as a malware source.'),
     'page_malware': ('bad', 'The page contains malware', 'Our antivirus scan found malware in this page.'),
     'download_flagged': ('warn', 'The download looks risky', 'Our antivirus flagged risky features in the file this link downloads.'),

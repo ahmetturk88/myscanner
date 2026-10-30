@@ -837,6 +837,9 @@ TR = {
     'Our server is outside Turkey, so the site showed its {lang} pages. What you see in Turkey may differ.':
         "Sunucumuz Türkiye dışında olduğu için site bize {lang} sayfalarını gösterdi. Türkiye'den gördüğün site farklı olabilir.",
     'Foreign version': 'Yabancı sürüm',
+    'It hides a malware address inside': 'İçinde bir zararlı yazılım adresi gizliyor',
+    'The link carries another address that URLhaus, a public list run by abuse.ch, lists as a malware source. Sites that forward visitors pass people on to it.':
+        'Bağlantı, abuse.ch tarafından yürütülen herkese açık URLhaus listesinde zararlı yazılım kaynağı olarak geçen başka bir adres taşıyor. Ziyaretçileri yönlendiren siteler insanları bu adrese gönderir.',
     # Website setup (site-posture-v1)
     'It loads code from a copied address': 'Kopya bir adresten kod yüklüyor',
     'A script comes from {host}, which uses the name {brand} but isn’t its site. Card-stealing code hides like this.':

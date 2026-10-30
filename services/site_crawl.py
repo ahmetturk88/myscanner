@@ -324,8 +324,9 @@ def assess(found, age_days=None, lookup=None, scan=None):
         finding('crawl_lookalike_links', 'warning', 'It links to copies of well-known sites',
                 f'{lookalikes[0]["host"]} uses the name {lookalikes[0]["brand"]} but isn’t its site.')
     if gambling_pages and (len(gambling_pages) < len(pages) or len(pages) == 1):
-        finding('crawl_gambling_pages', 'info', 'Betting content on its pages',
-                f'{len(gambling_pages)} of its pages show casino or betting content. This is a content category; licensing and site compromise were not verified.')
+        # Betting pages on a site that isn't a betting site are usually spam planted on a hacked site.
+        finding('crawl_gambling_pages', 'warning', 'Betting content on its pages',
+                f'{len(gambling_pages)} of its pages show casino or betting content. Hacked sites often carry betting spam; we didn’t verify how it got there.')
     if betting:
         finding('crawl_betting_links', 'info', 'It links to betting sites',
                 f'It links to {len(betting)} betting sites, for example {betting[0]["host"]}.')

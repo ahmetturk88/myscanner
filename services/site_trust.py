@@ -108,8 +108,8 @@ def assess(start_url, final_url, page_text, inputs, password_form, age_future=No
         finding('new_domain', 'warning' if asks or brand else 'info', 'The site is brand new',
                 f'Its domain was registered {age["age_days"]} days ago. Scam shops and fake login pages rarely live longer than a few weeks.')
     if 'gambling' in signals:
-        finding('gambling_site', 'info', 'An online gambling site',
-                'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.')
+        finding('gambling_site', 'warning', 'An online gambling site',
+                'Casino or betting content. We didn’t verify a licence; unlicensed betting is illegal in Turkey and deposits are often never paid out.')
     if 'prize_offer' in signals:
         finding('prize_offer', 'warning', 'It promises a prize or a gift',
                 'Prize and free-gift pages are a common way to collect card details.')

@@ -196,7 +196,7 @@ WEB_FINDINGS = {
     'unverified_phishing_report': ('info', 'An unconfirmed scam report', 'Someone reported it as phishing; reviewers haven’t confirmed it.'),
     # site-trust-v1: the URL scanner's evidence, for websites and QR links
     'web_risk_listed': ('bad', 'Google lists it as dangerous', 'Google Web Risk reports this address for phishing or malware.'),
-    'gambling_site': ('warn', 'An online gambling site', 'Unlicensed betting sites are illegal in Turkey and often keep deposits.'),
+    'gambling_site': ('info', 'An online gambling site', 'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.'),
     'prize_offer': ('warn', 'It promises a prize or a gift', 'Prize and free-gift pages are a common way to collect card details.'),
     'fake_comments': ('warn', 'It shows fake comments', 'The page imitates social media comments to look trustworthy.'),
     'collects_card': ('warn', 'It asks for a card or phone number', 'A new or copied site asking for these details is a common scam.'),
@@ -296,7 +296,7 @@ def plain_web_report(result, source='link'):
             check('Pages read', 'ok' if pages_read else 'na', f'{pages_read}' if pages_read else 'Not checked'),
             check('Links to other sites', 'bad', 'Dangerous') if crawl.get('listed_links') else
             check('Links to other sites', 'warn', 'Look-alike') if crawl.get('lookalike_links') else
-            check('Links to other sites', 'warn', 'Betting') if crawl.get('betting_links') else
+            check('Links to other sites', 'info', 'Betting') if crawl.get('betting_links') else
             check('Links to other sites', 'ok', f'{crawl.get("external_sites", 0)} sites') if crawl.get('external_sites') else
             check('Links to other sites', 'ok', 'None'),
             check('Downloads', 'bad', 'Malware') if 'crawl_malware_download' in codes else
@@ -309,7 +309,7 @@ def plain_web_report(result, source='link'):
             checks.append(check('Online shop', 'warn', 'Fake shop signs') if shop.get('fake_signs') else
                           check('Online shop', 'ok' if have >= 3 else 'info', f'{have} of 5 details'))
     if trust:
-        scam = codes & {'gambling_site', 'prize_offer', 'fake_comments', 'collects_card'}
+        scam = codes & {'prize_offer', 'fake_comments', 'collects_card'}
         checks += [
             check('Copies a brand’s name', 'warn', brand) if brand else check('Copies a brand’s name', 'ok', 'No'),
             check('Domain age', 'warn' if new_finding and new_finding.get('severity') == 'warning' else 'info' if new_finding else 'ok',
@@ -320,6 +320,8 @@ def plain_web_report(result, source='link'):
             check('Page content', 'ok', 'Nothing suspicious') if mapping(result.get('content')).get('status') == 'completed' else
             check('Page content', 'na', 'Not checked'),
         ]
+    if 'gambling_site' in codes:
+        checks.append(check('Content category', 'info', 'Gambling site'))
     share = (f'Warning: MyScanner rates this link as dangerous: {defang(url)}. Don’t open it.' if tone == 'danger'
              else f'Careful: MyScanner found warning signs on this link: {defang(url)}.' if tone == 'caution'
              else f'MyScanner found no warning signs on this link: {defang(url)}.' if tone == 'safe'

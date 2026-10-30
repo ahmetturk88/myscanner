@@ -5,10 +5,11 @@ blocklist, registration or probe result, and the verdict itself is never
 changed. A well-configured domain says nothing about who is behind an address.
 """
 from services.url_assessment import mapping
+from services.web_risk import validated_observation
 from services.url_report_view import age_text, tally, whole
 
 VERDICTS = {
-    'dangerous': ('danger', 'DANGEROUS', 'This address is likely used for scams'),
+    'dangerous': ('danger', 'DANGEROUS', 'A threat source flags this domain'),
     'no_domain': ('danger', 'NOT A REAL ADDRESS', 'This address can’t receive email'),
     'review': ('caution', 'BE CAREFUL', 'Be careful with this address'),
     'unknown': ('unknown', 'NOT SURE', 'We couldn’t fully check this address'),
@@ -43,13 +44,12 @@ def plain_email_report(report):
     copied = next((n for n in names if n.get('code') in ('homograph_name', 'lookalike_name', 'brand_in_subdomain', 'scheme_in_name', 'brand_in_name')), None)
     brand = (copied or {}).get('brand_name') or ''
     copy_found = bool(copied) and assessment.get('copies_brand') is True
-    guard = assessment.get('guard_domain') if isinstance(assessment.get('guard_domain'), str) else ''
     local_brand = assessment.get('local_brand') if isinstance(assessment.get('local_brand'), str) else ''
     if local_brand and not brand:
         brand = local_brand
     local_free = any(n.get('code') == 'brand_in_local' and n.get('free') for n in report.get('local_signals') or [] if isinstance(n, dict))
-    web_risk = mapping(report.get('web_risk'))
-    google_listed = web_risk.get('status') == 'matched'
+    web_risk = validated_observation(report.get('web_risk'))
+    google_listed = web_risk.get('status') == 'matched' and any(t in ('SOCIAL_ENGINEERING', 'MALWARE', 'UNWANTED_SOFTWARE') for t in web_risk.get('threat_types') or [])
 
     reasons = []
     def add(kind, title, detail):
@@ -66,16 +66,13 @@ def plain_email_report(report):
             else f'The domain uses {brand}’s name, but it isn’t one of {brand}’s known domains.' if brand
             else 'The domain is made to look like a well-known company’s.')
     if local_brand:
-        add('bad' if verdict == 'dangerous' else 'warn', 'The name before @ pretends to be a company',
-            f'It says {local_brand}, but it is a free email address anyone can open. {local_brand} doesn’t write from one.' if local_free
+        add('bad' if verdict == 'dangerous' else 'warn', 'A company name appears before @',
+            f'It says {local_brand}, but it is a free email address anyone can open. This does not verify affiliation with {local_brand}.' if local_free
             else f'It says {local_brand}, but the address is on {domain or "another domain"}, which isn’t one of {local_brand}’s domains.')
     elif assessment.get('machine_local') is True:
         add('warn', 'A machine-made sender name', 'The part before @ holds a long random code. Mass phishing mail is sent from addresses like this.')
-    if guard:
-        add('warn', 'Probably a brand’s guard domain',
-            f'It looks like {guard}’s, but it is held by a brand-protection service, so it is probably {guard}’s own protection against fakes. Real messages from {guard} don’t come from this address.')
     if no_domain:
-        add('bad', 'The domain doesn’t exist', f'{domain or "The domain"} isn’t registered, so this address can’t send or receive email. Check for a typo.')
+        add('bad', 'The domain doesn’t exist', f'{domain or "The domain"} did not resolve in DNS. Incoming delivery could not be established. Check for a typo.')
     if null_mx:
         add('bad', 'This domain doesn’t accept email', 'Its owner has declared that it never receives mail.')
     elif mx.get('status') == 'not_found' and not no_domain:
@@ -118,16 +115,12 @@ def plain_email_report(report):
         actions = ['Check the address for a typo.', 'If someone gave you this address, ask them for a working one.',
                    'Don’t trust a message that claims to come from it.']
     elif verdict == 'dangerous':
-        summary = ('Google lists this domain as dangerous. Treat any message from it as a scam.' if google_listed
-                   else f'This address pretends to be {brand}. Treat any message from it as a scam.' if local_brand and not copy_found
-                   else f'The domain pretends to be {brand}’s. Treat any message from it as a scam.' if brand
-                   else 'The domain is made to look like a well-known company’s. Treat any message from it as a scam.')
+        summary = 'Google Web Risk flags this domain’s website. This does not verify the sender or every message from this address.' if google_listed else 'The saved report marked this address as dangerous. Review its recorded evidence before acting.'
         actions = ['Don’t click links, open attachments or reply to messages from this address.',
                    f'To reach {brand}, use its official app or type its website yourself.' if brand else 'Contact the company through its official website or app.',
                    'Already shared a password or card details? Change the password and call your bank.']
     elif tone == 'caution':
-        summary = (f'This domain probably belongs to {guard} as protection against fakes. {guard} doesn’t send real mail from it.' if guard
-                   else 'It is a throwaway address, often used for spam and fake sign-ups.' if disposable
+        summary = ('It is a throwaway address, often used for spam and fake sign-ups.' if disposable
                    else 'Its mail server is on a spam blocklist.' if listed
                    else 'Email from this domain can be faked easily.' if spoofable and not (null_mx or rejected)
                    else 'We found warning signs about this address.')
@@ -159,7 +152,7 @@ def plain_email_report(report):
             check('Spam blocklists', 'warn', 'Listed') if listed else check('Spam blocklists', 'ok', 'Not listed') if lists_answered else check('Spam blocklists', 'na', 'Not checked'),
             check('Throwaway address', 'warn', 'Yes') if disposable else check('Throwaway address', 'ok', 'No'),
             check('Copies a brand’s name', 'bad' if verdict == 'dangerous' else 'warn', 'Yes') if copy_found or local_brand
-            else check('Copies a brand’s name', 'warn', 'Guard domain') if guard else check('Copies a brand’s name', 'ok', 'No'),
+            else check('Copies a brand’s name', 'ok', 'No'),
             *([check('Google Web Risk', 'bad', 'Listed')] if google_listed else [check('Google Web Risk', 'ok', 'Not listed')] if web_risk.get('status') == 'not_found' else []),
             check('Domain age', 'warn' if age < 30 else 'ok', age_text(age)) if age is not None else check('Domain age', 'na', 'Unknown'),
         ]

@@ -29,8 +29,9 @@ class GamblingTests(unittest.TestCase):
                  ('https://m.365bet447.com/eng/home/index', '365bet', '体育投注 真人视讯 彩票')]
         for url, title, text in cases:
             result, plain = scan(url, title, text)
-            self.assertEqual(result['verdict'], 'suspicious', url)
-            self.assertIn('gambling_site', [r['code'] for r in result['reasons']])
+            self.assertEqual(result['verdict'], 'harmless', url)
+            category = next(r for r in result['reasons'] if r['code'] == 'gambling_site')
+            self.assertEqual(category['deduction'], 0)
         self.assertIn('An online gambling site', [r['title'] for r in plain['reasons']])
         turkish = translate_plain(plain, 'tr')
         self.assertIn('Çevrim içi kumar sitesi', [r['title'] for r in turkish['reasons']])

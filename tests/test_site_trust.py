@@ -75,8 +75,9 @@ class SiteTrustTests(unittest.TestCase):
     def test_gambling_page(self):
         body = b'<html><title>Casino</title><p>canli casino slot bahis bonus rulet</p></html>'
         result, plain = assess('https://kazan-casino.example', body=body, age=9000)
-        self.assertEqual(result['verdict'], 'suspicious')
-        self.assertEqual(rows(plain)['Page content'], ('warn', 'Scam signs'))
+        self.assertEqual(result['verdict'], 'clean')
+        self.assertEqual(rows(plain)['Content category'], ('info', 'Gambling site'))
+        self.assertNotEqual(rows(plain)['Page content'][0], 'warn')
 
     def test_an_error_page_is_not_green(self):
         with patch('services.web_assessment.validate_public_url'), patch('services.web_assessment.dns_records', side_effect=records), \

@@ -1,9 +1,9 @@
 """Email evidence index; not a safety probability or delivery guarantee."""
 import math
+from services.web_risk import validated_observation
 
-POLICY_VERSION = 'email-evidence-v4'
-# v4: what the domain name and Google say about it. Scam senders set up SPF and DMARC
-# like anyone else, so a copied brand name or a Web Risk listing decides on its own.
+POLICY_VERSION = 'email-evidence-v5'
+# Naming signals require review; only supported threat-source evidence escalates to dangerous.
 DECEPTION = {
     'homograph_name': 'The domain uses letters from another alphabet that look like normal ones.',
     'lookalike_name': 'The domain copies a well-known name with swapped letters or numbers.',
@@ -11,10 +11,6 @@ DECEPTION = {
     'scheme_in_name': 'The domain starts with “http” or “https” to look official.',
 }
 ESTABLISHED_DAYS = 5 * 365
-# Registrars that hold look-alike domains for big brands so scammers can't (paypa1.com is
-# PayPal's, through MarkMonitor). An old look-alike there is a guard, not a fake.
-BRAND_PROTECTION = ('markmonitor', 'csc corporate', 'corporation service company', 'com laude', 'nom-iq', 'safenames',
-                    'brandsight', 'godaddy corporate', 'lexsynergy', 'ascio', 'brandshelter', 'clarivate', 'cscdbs')
 
 def assess_email(report):
     report=report if isinstance(report,dict) else {}
@@ -73,7 +69,11 @@ def assess_email(report):
     if report.get('is_disposable') is True:rep.append((10,'The domain appears in the local disposable-domain dataset.'))
     # One blocklist that answered covers reputation; ones that refused are listed, not counted as a gap (v3).
     answered=reputation.get('coverage_status')=='completed' or bool(reputation.get('clean_on')) or reputation.get('is_blacklisted') is True
-    category('reputation','Domain reputation',25,[None if answered else 'DNS blocklist coverage incomplete'],rep)
+    reputation_gaps = [None if answered else 'DNS blocklist coverage incomplete']
+    web_risk = validated_observation(report.get('web_risk')) if 'web_risk' in report else {'status': 'not_configured', 'threat_types': []}
+    if web_risk.get('status') == 'unavailable':
+        reputation_gaps.append('Google Web Risk lookup unavailable')
+    category('reputation','Domain reputation',25,reputation_gaps,rep)
     unanswered=[s for s in reputation.get('unavailable_on') or [] if isinstance(s,str)] if answered else []
     mailbox=[]
     if smtp.get('coverage_status')=='checked' and smtp.get('valid') is False:mailbox.append((15,'The SMTP server rejected this recipient probe.'))
@@ -86,23 +86,16 @@ def assess_email(report):
     codes={n.get('code') for n in names}
     new=known and age<365;established=known and age>=ESTABLISHED_DAYS
     dangerous=False;name_risks=[];guard=None
-    registrar=domain.get('registrar') if isinstance(domain.get('registrar'),str) else ''
-    if names and known and age>=365 and any(word in registrar.lower() for word in BRAND_PROTECTION):
-        # Kept by a brand-protection registrar for over a year: the brand's own guard domain.
-        brand=next((n.get('brand_name') for n in names if n.get('brand_name')),None) or 'a well-known brand'
-        guard=brand;names=[]
-        name_risks.append((5,f'The domain looks like {brand}’s and is held by a brand-protection registrar, so it is probably {brand}’s own guard against fakes. Real messages from {brand} don’t come from it.'))
     for item in names:
         code=item.get('code')
-        if code=='lookalike_name' and item.get('tld_swap') and established:continue  # an old defensive registration
         if code in DECEPTION and (item.get('strong') or new):
-            dangerous=True;name_risks.append((15,DECEPTION[code]))
+            name_risks.append((15,DECEPTION[code]))
         elif code=='lookalike_name' and not established:
             name_risks.append((10,'The domain is one letter away from a well-known brand’s name.'))
         elif code=='brand_in_name' and not established:
             brand=item.get('brand_name') or item.get('brand') or 'a brand'
             if new or 'risky_tld' in codes:
-                dangerous=True;name_risks.append((15,f'The domain uses {brand}’s name but isn’t one of its known domains, and it is new or uses a cheap ending.'))
+                name_risks.append((15,f'The domain uses {brand}’s name but isn’t one of its known domains, and it is new or uses a cheap ending.'))
             else:
                 name_risks.append((10,f'The domain uses {brand}’s name but isn’t one of its known domains.'))
     if 'risky_tld' in codes and new and not name_risks:
@@ -113,16 +106,15 @@ def assess_email(report):
     if pretends:
         brand=pretends.get('brand_name') or 'a bank or company'
         if pretends.get('free'):
-            dangerous=True;name_risks.append((15,f'The name before @ says {brand}, but it is a free email address anyone can open.'))
+            name_risks.append((15,f'The name before @ says {brand}, but it is a free email address anyone can open.'))
         elif not established and (new or 'random_local' in local_codes or 'risky_tld' in codes):
-            dangerous=True;name_risks.append((15,f'The name before @ says {brand}, but the address is on a new or throwaway domain that isn’t {brand}’s.'))
+            name_risks.append((15,f'The name before @ says {brand}, but the address is on a new or throwaway domain that isn’t {brand}’s.'))
         else:
             name_risks.append((10,f'The name before @ says {brand}, but the address is on a domain that isn’t {brand}’s.'))
     elif 'random_local' in local_codes:
         name_risks.append((10 if 'service_in_local' in local_codes else 5,
                            'The name before @ holds a long machine-made code'+(' and words such as bank or government' if 'service_in_local' in local_codes else '')+', the way mass phishing mail is sent.'))
-    web_risk=report.get('web_risk') if isinstance(report.get('web_risk'),dict) else {}
-    listed=[t for t in web_risk.get('threat_types') or [] if isinstance(t,str)] if web_risk.get('status')=='matched' else []
+    listed=[t for t in web_risk.get('threat_types') or [] if t in ('SOCIAL_ENGINEERING','MALWARE','UNWANTED_SOFTWARE')] if web_risk.get('status')=='matched' else []
     if listed:
         dangerous=True
     added=[('identity',points,message) for points,message in name_risks]

@@ -13,6 +13,21 @@ uppercase with Turkish casing. Never stronger or weaker than the English.
 from itertools import combinations
 
 TR = {
+    'Google Web Risk lookup unavailable': 'Google Web Risk sorgusu yapılamadı',
+    'A threat source flags this domain': 'Bir tehdit kaynağı bu alan adını işaretliyor',
+    'Google Web Risk flags this domain’s website. This does not verify the sender or every message from this address.': 'Google Web Risk bu alan adının web sitesini işaretliyor. Bu, göndereni veya bu adresten gelen her iletiyi doğrulamaz.',
+    'The saved report marked this address as dangerous. Review its recorded evidence before acting.': 'Kaydedilen rapor bu adresi tehlikeli olarak işaretlemiş. Harekete geçmeden önce kayıtlı kanıtları incele.',
+
+    '{domain} did not resolve in DNS. Incoming delivery could not be established. Check for a typo.': '{domain} DNS üzerinden çözümlenemedi. Gelen iletilerin teslim edilebileceği belirlenemedi. Yazım hatasını kontrol et.',
+    'The domain did not resolve in DNS. Incoming delivery could not be established. Check for a typo.': 'Alan adı DNS üzerinden çözümlenemedi. Gelen iletilerin teslim edilebileceği belirlenemedi. Yazım hatasını kontrol et.',
+
+    'Content category': 'İçerik kategorisi',
+    'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.': 'Kumar veya bahis içeriği gözlendi. Lisans, yasallık ve ödeme güvenilirliği doğrulanmadı; bu kategori tek başına kimlik avı veya zararlı yazılım kanıtı değildir.',
+    'A company name appears before @': '@ işaretinden önce bir şirket adı var',
+    'It says {name}, but it is a free email address anyone can open. This does not verify affiliation with {name}.': '{name} yazıyor, ancak bu herkesin açabileceği ücretsiz bir e-posta adresi. Bu, {name} ile bağlantıyı doğrulamaz.',
+    'Download links were observed. Antivirus coverage applies only to the per-file results shown below; unavailable checks do not establish safety. Install apps only from the maker’s official site.': 'İndirme bağlantıları gözlendi. Antivirüs kapsamı yalnızca aşağıdaki dosya sonuçları için geçerlidir; yapılamayan kontroller güvenliği kanıtlamaz. Uygulamaları yalnızca üreticinin resmi sitesinden yükle.',
+    '{n} of its pages show casino or betting content. This is a content category; licensing and site compromise were not verified.': '{n} sayfada kumar veya bahis içeriği var. Bu bir içerik kategorisidir; lisans ve sitenin ele geçirilip geçirilmediği doğrulanmadı.',
+
     # ------------------------------------------------------------ shared: labels
     'DANGEROUS': 'TEHLİKELİ',
     'HIGH RISK': 'YÜKSEK RİSK',

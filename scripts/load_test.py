@@ -85,9 +85,9 @@ def timed(recorder, step, call, ok=lambda status, data: status == 200):
     return status, data
 
 
-def url_scan(base, token, domain, recorder, deadline):
+def url_scan(base, token, domain, recorder, deadline, target=None):
     start = time.monotonic()
-    status, data = timed(recorder, 'url scan: queue', lambda: request(base, '/api/mobile/v1/tools/url', token, {'url': f'https://{domain}/'}),
+    status, data = timed(recorder, 'url scan: queue', lambda: request(base, '/api/mobile/v1/tools/url', token, {'url': target or f'https://{domain}/'}),
                          ok=lambda s, d: s == 202 and isinstance(d, dict) and 'scan_id' in d)
     if status != 202:
         return
@@ -95,21 +95,27 @@ def url_scan(base, token, domain, recorder, deadline):
     while time.monotonic() < deadline:
         time.sleep(3)
         try:
-            _, state = request(base, f'/api/mobile/v1/scans/{scan_id}/status', token, timeout=30)
+            poll_status, state = request(base, f'/api/mobile/v1/scans/{scan_id}/status', token, timeout=30)
         except Exception:
             continue
-        current = (state or {}).get('status')
-        if isinstance(current, str) and current not in ('queued', 'running'):
+        if poll_status != 200 or not isinstance(state, dict):
+            recorder.add('url scan: status', 0, f'HTTP {poll_status}')
+            continue
+        current = state.get('status')
+        if isinstance(current, str) and current not in ('pending', 'queued', 'running'):
             # 'partial' is a finished report with a check missing: counted, not failed.
             seconds = time.monotonic() - start
-            recorder.add('url scan: full report', seconds, f'scan {current}' if current in ('error', 'failed') else None)
+            recorder.add('url scan: full report', seconds, None if current in ('completed', 'partial') else f'scan {current}')
+            if current in ('completed', 'partial'):
+                timed(recorder, 'url scan: result', lambda: request(base, f'/api/mobile/v1/scans/{scan_id}/analysis', token),
+                      ok=lambda s, d: s == 200 and isinstance(d, dict) and isinstance(d.get('plain'), dict))
             if current not in ('completed', 'error', 'failed'):
                 recorder.add(f'  of which {current}', seconds)
             return
     recorder.add('url scan: full report', time.monotonic() - start, 'not finished in time')
 
 
-def user(base, token, domain, recorder, scan_url, deadline, start_gate):
+def user(base, token, domain, recorder, scan_url, deadline, start_gate, target=None):
     start_gate.wait()
     for path in PAGES:
         timed(recorder, 'page ' + path, lambda: request(base, path))
@@ -118,7 +124,7 @@ def user(base, token, domain, recorder, scan_url, deadline, start_gate):
     for name, body in tools:
         timed(recorder, 'tool ' + name, lambda: request(base, f'/api/mobile/v1/tools/{name}', token, body))
     if scan_url:
-        url_scan(base, token, domain, recorder, deadline)
+        url_scan(base, token, domain, recorder, deadline, target)
 
 
 def main(argv=None):
@@ -128,11 +134,22 @@ def main(argv=None):
     parser.add_argument('--domain', help='domain the tools check (default: the host of --base)')
     parser.add_argument('--no-url-scan', action='store_true', help='skip the full URL scans (the heaviest step)')
     parser.add_argument('--timeout', type=int, default=600, help='seconds to wait for every URL scan to finish')
+    parser.add_argument('--target', action='append', default=[], help='repeat for distinct authorized URL fixtures; full scans only')
+    parser.add_argument('--ack-authorized-targets', action='store_true', help='confirm permission for target/domain fixtures outside --base')
     args = parser.parse_args(argv)
     if not 1 <= args.users <= 30:
         parser.error('--users must be between 1 and 30')
     base = args.base.rstrip('/')
     domain = args.domain or urlsplit(base).hostname
+
+    targets = args.target or [f'https://{domain}/']
+    for target in targets:
+        parts = urlsplit(target)
+        if parts.scheme not in ('http', 'https') or not parts.hostname or parts.username or parts.password:
+            parser.error('--target must be an HTTP(S) URL without credentials')
+    if not args.ack_authorized_targets and (domain != urlsplit(base).hostname or any(urlsplit(t).hostname != urlsplit(base).hostname for t in targets)):
+        parser.error('External fixture targets require --ack-authorized-targets')
+    print(f'Workload: {len(set(targets))} distinct URL targets; caches are NOT bypassed. Cold/warm runs must be recorded separately.')
 
     email = input('Account email (an admin account has no daily limits): ').strip()
     password = getpass.getpass('Password (hidden): ')
@@ -151,8 +168,12 @@ def main(argv=None):
     started = time.monotonic()
     try:
         with ThreadPoolExecutor(max_workers=args.users) as pool:
-            for _ in range(args.users):
-                pool.submit(user, base, token, domain, recorder, not args.no_url_scan, started + args.timeout, gate)
+            futures = [pool.submit(user, base, token, domain, recorder, not args.no_url_scan, started + args.timeout, gate, targets[i % len(targets)]) for i in range(args.users)]
+            for future in futures:
+                try:
+                    future.result()
+                except Exception as error:
+                    recorder.add('virtual user', time.monotonic() - started, type(error).__name__)
     finally:
         request(base, '/api/mobile/v1/auth/logout', token, body={})
     elapsed = time.monotonic() - started

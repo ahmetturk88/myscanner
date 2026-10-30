@@ -25,3 +25,6 @@ logs/
 # DB-IP Lite databases, downloaded on the server by scripts/update_dbip.py
 /geoip/*.mmdb
 /geoip/.dbip-*
+
+# Android JS bundle smoke output
+/mobile/dist-smoke/

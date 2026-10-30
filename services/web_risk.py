@@ -63,7 +63,7 @@ def check_web_risk(url, session, key=None):
     if not isinstance(data, dict):
         return {'status': 'unavailable', 'threat_types': [], 'reason': 'invalid_response'}
     threat = data.get('threat')
-    if not threat:
+    if data == {}:
         return {'status': 'not_found', 'threat_types': [], 'reason': None}  # {} means no list holds the URL
     types = threat.get('threatTypes') if isinstance(threat, dict) else None
     types = [t for t in types if t in THREAT_TYPES] if isinstance(types, list) else []
@@ -71,3 +71,16 @@ def check_web_risk(url, session, key=None):
         return {'status': 'unavailable', 'threat_types': [], 'reason': 'invalid_response'}
     return {'status': 'matched', 'threat_types': types, 'reason': None,
             'expire_time': threat.get('expireTime') if isinstance(threat.get('expireTime'), str) else None}
+
+
+def validated_observation(value):
+    """Normalize persisted/injected observations too; malformed data is not a negative match."""
+    if not isinstance(value, dict):
+        return {'status': 'unavailable', 'threat_types': [], 'reason': 'invalid_response'}
+    status, types = value.get('status'), value.get('threat_types')
+    supported = [t for t in types if isinstance(t, str) and t in THREAT_TYPES] if isinstance(types, list) else []
+    if status == 'matched' and supported:
+        return {**value, 'threat_types': supported}
+    if status in ('not_found', 'not_configured', 'unavailable') and not supported:
+        return {**value, 'threat_types': []}
+    return {'status': 'unavailable', 'threat_types': [], 'reason': 'invalid_response'}

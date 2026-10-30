@@ -120,6 +120,19 @@ class CrawlTests(unittest.TestCase):
         self.assertIn('Tehlikeli sitelere bağlantı veriyor', titles)
         self.assertNotIn('It links to dangerous sites', titles)
 
+    def test_crawl_frontier_is_bounded_when_every_page_links_to_new_paths(self):
+        import requests
+        def chain(session, url, deadline):
+            r = requests.Response()
+            r.url, r.status_code, r._content_consumed = url, 200, True
+            r.headers['Content-Type'] = 'text/html'
+            r._content = ('<html>' + ''.join(f'<a href="/p{i}">go</a>' for i in range(600)) + '</html>').encode()
+            return r, [{'url': url, 'status_code': 200}], None
+        with patch('services.site_crawl._robots', return_value=None), patch('services.web_assessment.response_chain', side_effect=chain), patch.object(site_crawl, 'MAX_PENDING', 2):
+            found = site_crawl.crawl('https://our.example/', pause=0, max_pages=25)
+        self.assertEqual(found['stopped'], 'queue_limit')
+        self.assertLessEqual(len(found['pages']), 5)
+
 
 class ShopDetectionTests(unittest.TestCase):
     def test_product_data_marks_a_shop_whose_prices_are_drawn_by_scripts(self):

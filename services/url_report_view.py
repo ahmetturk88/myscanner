@@ -24,7 +24,7 @@ LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
 ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait', 'server_hostname', 'random_name', 'victim_email', 'scheme_in_name', 'login_path'}
 TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'brand_in_subdomain', 'scheme_in_name'}
-PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path', 'brand_in_page', 'gambling_site'}
+PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path', 'brand_in_page'}
 # code: (tone, title, detail). Tones: bad, warn, info.
 REASONS = {
     'urlhaus_match': ('bad', 'Reported for spreading malware', 'URLhaus, a public list run by abuse.ch, lists this link as a malware source.'),
@@ -46,7 +46,7 @@ REASONS = {
     'hidden_iframe': ('warn', 'Hidden content on the page', 'The page loads hidden content, a technique used to track or attack visitors.'),
     'redirect_behavior': ('warn', 'It sends you through several addresses', 'The link redirects several times before reaching the final page.'),
     'content_indicators': ('warn', 'The page shows warning signs', 'The page has a form or wording that scam pages often use.'),
-    'gambling_site': ('warn', 'An online gambling site', 'It offers casino games or betting. In Turkey, betting sites without a licence are illegal, and money paid into them is often never paid out.'),
+    'gambling_site': ('info', 'An online gambling site', 'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.'),
     'scam_content': ('bad', 'It promises free money or prizes', 'The page offers cash or gifts “for everyone”, or shows fake comments from happy winners. This is how prize scams work.'),
     'content_hidden': ('warn', 'The page hid itself from our check', 'It showed our scanner an error or an empty page, but may show something else on your phone. Scam pages do this to avoid security checks.'),
     'risky_tld': ('warn', 'A domain ending often used by scams', 'The address ends in a cheap domain type that scam sites use a lot.'),
@@ -343,7 +343,6 @@ def plain_report(assessment, local, deep, url):
         check('Page content', 'bad', 'Virus found') if codes & {'download_malware', 'page_malware'} else
         check('Page content', 'warn', 'Downloads a program') if 'risky_download' in codes else
         check('Page content', 'bad', 'Scam signs') if 'scam_content' in codes else
-        check('Page content', 'warn', 'Gambling site') if 'gambling_site' in codes else
         check('Page content', 'warn', 'Hidden from us') if 'content_hidden' in codes else
         check('Page content', 'warn', 'Asks for password' if login else 'Warning signs') if codes & PAGE_WARNINGS else
         check('Page content', 'ok', 'Nothing unusual') if assessed('content') else check('Page content', 'na', not_opened),
@@ -353,6 +352,9 @@ def plain_report(assessment, local, deep, url):
         check('Redirects', 'warn', 'Several') if 'redirect_behavior' in codes else
         check('Redirects', 'ok', 'Normal') if assessed('behavior') else check('Redirects', 'na', not_opened),
     ]
+
+    if 'gambling_site' in codes:
+        checks.append(check('Content category', 'info', 'Gambling site'))
 
     share = (f'MyScanner checked this link and found no warning signs: {defang(url)}' if tone == 'safe'
              else f'Warning: MyScanner rates this link as {label.lower()}: {defang(url)}. Don’t open it.' if tone == 'danger'

@@ -49,7 +49,9 @@
     "web": "expo start --web",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "i18n:check": "node scripts/i18n-check.js"
+    "i18n:check": "node scripts/i18n-check.js",
+    "test:report-contract": "node scripts/test-report-contract.cjs",
+    "bundle:android": "expo export --platform android --output-dir dist-smoke"
   },
   "private": true
 }

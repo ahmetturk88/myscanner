@@ -6,6 +6,7 @@ the reports. The viewer's browser only ever loads it from MyScanner, so no
 third party learns which URL was scanned or who looked at it.
 """
 import io
+import json
 import logging
 import os
 import time
@@ -53,11 +54,18 @@ def rendered_text(url, base_url=None):
     if not base_url:
         return None
     try:
-        response = requests.get(f'{base_url.rstrip("/")}/api/v1/rendered-text', params={'url': url},
-                                timeout=CAPTURE_TIMEOUT, allow_redirects=False)
-        if response.status_code != 200 or len(response.content) > 64 * 1024:
-            return None
-        text = response.json().get('text')
+        with requests.get(f'{base_url.rstrip("/")}/api/v1/rendered-text', params={'url': url},
+                          timeout=CAPTURE_TIMEOUT, allow_redirects=False, stream=True) as response:
+            if response.status_code != 200:
+                return None
+            content = bytearray()
+            deadline = time.monotonic() + CAPTURE_TIMEOUT[1]
+            for chunk in response.iter_content(8192):
+                if time.monotonic() > deadline or len(content) + len(chunk) > 64 * 1024:
+                    return None
+                content.extend(chunk)
+            payload = json.loads(content)
+            text = payload.get('text') if isinstance(payload, dict) else None
         return text if isinstance(text, str) else None
     except (requests.RequestException, ValueError, AttributeError):
         return None

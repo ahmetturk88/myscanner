@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 MAX_PAGES = 25
 MAX_DEPTH = 2
+MAX_PENDING = 300
 BUDGET_SECONDS = 45
 PAGE_LIMIT = 1024 * 1024
 TEXT_LIMIT = 300_000
@@ -105,6 +106,7 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
               'contacts': {'phone_links': 0, 'email_links': 0, 'whatsapp_links': 0}, 'stopped': None}
     texts, seen = [], set()
     queue = deque([(start_url, 0)])
+    scheduled = {start_url}
     with PublicHTTPSession(response_limit=PAGE_LIMIT, deadline=deadline) as session:
         session.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': ACCEPT_LANGUAGE})
         robots = _robots(session, origin, deadline)
@@ -188,14 +190,18 @@ def crawl(start_url, budget=BUDGET_SECONDS, max_pages=MAX_PAGES, pause=PAUSE):
                 extension = path.rsplit('.', 1)[-1] if '.' in path.rsplit('/', 1)[-1] else ''
                 if extension in DOWNLOAD_EXTENSIONS:
                     if link not in [d['url'] for d in result['downloads']] and len(result['downloads']) < 20:
-                        result['downloads'].append({'url': link[:500], 'extension': extension, 'found_on': final[:500]})
+                        result['downloads'].append({'url': link, 'extension': extension, 'found_on': final[:500]})
                 elif _registrable(link) == site:
-                    if depth < MAX_DEPTH and link not in seen:
-                        queue.append((link, depth + 1))
+                    if depth < MAX_DEPTH and link not in seen and link not in scheduled:
+                        if len(queue) < MAX_PENDING:
+                            scheduled.add(link)
+                            queue.append((link, depth + 1))
+                        else:
+                            result['stopped'] = 'queue_limit'
                 elif len(result['external']) < MAX_EXTERNAL_HOSTS or host in result['external']:
                     links = result['external'].setdefault(host, [])
                     if link not in links and len(links) < 3:
-                        links.append(link[:500])
+                        links.append(link)
     result['pages_read'] = sum(p.get('status') == 'read' for p in result['pages'])
     result['text'] = ' '.join(texts)[:TEXT_LIMIT]  # used by assess(); dropped before the report is saved
     return result
@@ -245,6 +251,7 @@ def _download(url, scan=None):
 def assess(found, age_days=None, lookup=None, scan=None):
     """(evidence, findings) from a crawl. Findings use web_assessment's (code, severity, title, detail)."""
     from services.file_links import impersonation
+    from services.web_risk import validated_observation
     from services.scam_content import gambling_site
     from services.url_tricks import kit_path
     findings = []
@@ -270,7 +277,7 @@ def assess(found, age_days=None, lookup=None, scan=None):
     listed, statuses = [], []
     for item in (lookalikes + betting + others)[:WEB_RISK_EXTERNAL]:
         try:
-            answer = lookup(item['url'])
+            answer = validated_observation(lookup(item['url']))
         except Exception:
             answer = {'status': 'unavailable'}
         statuses.append(answer.get('status'))
@@ -281,7 +288,7 @@ def assess(found, age_days=None, lookup=None, scan=None):
     listed_pages = []
     for page in pages[1:1 + WEB_RISK_INTERNAL]:
         try:
-            answer = lookup(page['url'])
+            answer = validated_observation(lookup(page['url']))
         except Exception:
             answer = {'status': 'unavailable'}
         statuses.append(answer.get('status'))
@@ -317,10 +324,10 @@ def assess(found, age_days=None, lookup=None, scan=None):
         finding('crawl_lookalike_links', 'warning', 'It links to copies of well-known sites',
                 f'{lookalikes[0]["host"]} uses the name {lookalikes[0]["brand"]} but isn’t its site.')
     if gambling_pages and (len(gambling_pages) < len(pages) or len(pages) == 1):
-        finding('crawl_gambling_pages', 'warning', 'Betting content on its pages',
-                f'{len(gambling_pages)} of its pages show casino or betting content. Hacked sites often carry betting spam.')
+        finding('crawl_gambling_pages', 'info', 'Betting content on its pages',
+                f'{len(gambling_pages)} of its pages show casino or betting content. This is a content category; licensing and site compromise were not verified.')
     if betting:
-        finding('crawl_betting_links', 'warning', 'It links to betting sites',
+        finding('crawl_betting_links', 'info', 'It links to betting sites',
                 f'It links to {len(betting)} betting sites, for example {betting[0]["host"]}.')
     if foreign:
         finding('crawl_foreign_version', 'info', 'We were shown another country’s version',
@@ -330,7 +337,7 @@ def assess(found, age_days=None, lookup=None, scan=None):
                 'It sells online but hides who runs it, or asks for bank transfer only. Fake shops take the money and send nothing.')
     if any(d['extension'] in PROGRAMS for d in found['downloads']) and not infected:
         finding('crawl_offers_programs', 'info', 'It offers programs for download',
-                'Antivirus found nothing in the files we checked. Install apps only from Google Play or the maker’s official site.')
+                'Download links were observed. Antivirus coverage applies only to the per-file results shown below; unavailable checks do not establish safety. Install apps only from the maker’s official site.')
     risk_status = ('matched' if listed or listed_pages else 'unavailable' if 'unavailable' in statuses
                    else 'not_configured' if statuses and all(s == 'not_configured' for s in statuses) else 'checked')
     evidence = {'policy': 'site-crawl-v1', 'pages_read': found.get('pages_read', 0), 'pages': found['pages'],

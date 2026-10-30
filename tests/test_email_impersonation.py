@@ -1,4 +1,4 @@
-"""email-evidence-v4: a copied brand name or a Web Risk listing decides on its own (scam domains set up SPF too)."""
+"""email-evidence-v5: naming signals need review; supported source evidence can escalate."""
 import unittest
 from unittest.mock import patch
 
@@ -28,17 +28,17 @@ def verdict(domain, **kwargs):
 
 
 class NameTests(unittest.TestCase):
-    def test_tricks_in_the_name_are_dangerous_even_when_set_up_properly(self):
+    def test_tricks_in_the_name_require_review_even_when_set_up_properly(self):
         for domain in ('garanti.com.tr.giris-dogrula.com', 'paypa1.com', 'xn--pple-43d.com', 'httpsgaranti-guvenlik.com'):
-            self.assertEqual(verdict(domain, age=900), 'dangerous', domain)
+            self.assertEqual(verdict(domain, age=900), 'review', domain)
 
     def test_a_brand_name_on_a_new_or_cheap_domain(self):
-        self.assertEqual(verdict('ptt-kargo-odeme.com', age=20), 'dangerous')
-        self.assertEqual(verdict('yurticikargo-takip.xyz', age=900), 'dangerous')
+        self.assertEqual(verdict('ptt-kargo-odeme.com', age=20), 'review')
+        self.assertEqual(verdict('yurticikargo-takip.xyz', age=900), 'review')
         self.assertEqual(verdict('ptt-kargo-odeme.com', age=900), 'review')
         self.assertEqual(verdict('ptt-kargo-odeme.com', age=None), 'review')
         self.assertEqual(verdict('hepsiburda.com', age=900), 'review')      # one letter off
-        self.assertEqual(verdict('hepsiburda.com', age=40), 'dangerous')
+        self.assertEqual(verdict('hepsiburda.com', age=40), 'review')
 
     def test_real_and_long_established_domains(self):
         for domain in ('garantibbva.com.tr', 'gmail.com', 'turkiye.gov.tr', 'trendyol.com', 'example.com'):
@@ -64,22 +64,23 @@ class NameTests(unittest.TestCase):
 class LocalPartTests(unittest.TestCase):
     """Real phishing mail (phishing_pot, Oct 2026) puts the disguise before the @."""
 
-    def test_a_bank_or_cargo_name_on_a_free_address_is_dangerous(self):
+    def test_a_bank_or_cargo_name_on_a_free_address_needs_review(self):
         data = report('gmail.com', local='garanti.destek', free=True)
-        self.assertEqual(data['assessment']['verdict'], 'dangerous')
+        self.assertEqual(data['assessment']['verdict'], 'review')
         plain = plain_email_report(data)
-        self.assertEqual(plain['reasons'][0]['title'], 'The name before @ pretends to be a company')
+        self.assertEqual(plain['reasons'][0]['title'], 'A company name appears before @')
         self.assertIn('free email address', plain['reasons'][0]['detail'])
-        self.assertIn('pretends to be Garanti BBVA', plain['summary'])
+        self.assertEqual(plain['tone'], 'caution')
+        self.assertNotIn('scam', plain['summary'])
         turkish = translate_plain(plain, 'tr')
         self.assertIn('ücretsiz bir e-posta adresi', turkish['reasons'][0]['detail'])
-        self.assertIn('Garanti BBVA gibi', turkish['summary'])
+        self.assertEqual(turkish['label'], 'DİKKATLİ OL')
         for local in ('netflixfan', 'ahmet88x', 'john.appleseed'):
             self.assertEqual(report('gmail.com', local=local, free=True)['assessment']['verdict'], 'no_indicators', local)
 
     def test_a_brand_name_before_the_at_on_someone_elses_domain(self):
         self.assertEqual(report('hustle.com.sg', local='paypal-support', age=4000)['assessment']['verdict'], 'review')
-        self.assertEqual(report('fresh-mailer.com', local='paypal-support', age=20)['assessment']['verdict'], 'dangerous')
+        self.assertEqual(report('fresh-mailer.com', local='paypal-support', age=20)['assessment']['verdict'], 'review')
         self.assertEqual(report('garantibbva.com.tr', local='garanti.destek')['assessment']['verdict'], 'no_indicators')
 
     def test_machine_made_sender_names(self):
@@ -92,38 +93,36 @@ class LocalPartTests(unittest.TestCase):
 
 
 class GuardDomainTests(unittest.TestCase):
-    def test_an_old_look_alike_held_by_a_brand_protection_registrar(self):
-        # paypa1.com: 26 years old, MarkMonitor, SPF -all. It is PayPal's own guard domain.
-        data = report('paypa1.com', age=9503, registrar='MarkMonitor Inc.')
-        self.assertEqual(data['assessment']['verdict'], 'review')
-        self.assertEqual(data['assessment']['guard_domain'], 'PayPal')
-        plain = plain_email_report(data)
-        self.assertEqual(plain['tone'], 'caution')
-        self.assertEqual(plain['reasons'][0]['title'], 'Probably a brand’s guard domain')
-        self.assertIn('belongs to PayPal', plain['summary'])
-        self.assertIn(('Copies a brand’s name', 'warn', 'Guard domain'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
-        turkish = translate_plain(plain, 'tr')
-        self.assertIn('PayPal şirketine ait', turkish['summary'])
-        self.assertIn('marka koruma', turkish['reasons'][0]['detail'])
+    def test_registrar_and_age_do_not_prove_ownership_or_suppress_lookalikes(self):
+        for registrar in ('MarkMonitor Inc.', 'Example Registrar', 'CSC Corporate'):
+            data = report('paypa1.com', age=9503, registrar=registrar)
+            self.assertEqual(data['assessment']['verdict'], 'review')
+            self.assertIsNone(data['assessment']['guard_domain'])
+            plain = plain_email_report(data)
+            self.assertEqual(plain['tone'], 'caution')
+            self.assertNotIn('belongs to', plain['summary'])
+            self.assertIn('It copies a well-known name', [r['title'] for r in plain['reasons']])
 
-    def test_a_new_domain_or_an_ordinary_registrar_stays_dangerous(self):
-        self.assertEqual(verdict('paypa1.com', age=9503), 'dangerous')
-        self.assertEqual(report('paypa1.com', age=100, registrar='MarkMonitor Inc.')['assessment']['verdict'], 'dangerous')
+    def test_malformed_source_match_does_not_confirm_a_threat(self):
+        for types in ([], ['unrecognized']):
+            data = report('example.com', web_risk={'status': 'matched', 'threat_types': types})
+            self.assertEqual(data['assessment']['verdict'], 'unknown')
+            self.assertIn('Google Web Risk lookup unavailable', str(data['assessment']['missing_checks']))
+            self.assertFalse(any(r['tone'] == 'bad' for r in plain_email_report(data)['reasons']))
 
 
 class ReportTests(unittest.TestCase):
-    def test_dangerous_report_in_both_languages(self):
+    def test_heuristic_report_in_both_languages(self):
         plain = plain_email_report(report('ptt-kargo-odeme.com', age=20))
-        self.assertEqual((plain['tone'], plain['label']), ('danger', 'DANGEROUS'))
-        self.assertIn('PTT Kargo', plain['summary'])
+        self.assertEqual((plain['tone'], plain['label']), ('caution', 'BE CAREFUL'))
+        self.assertNotIn('as a scam', plain['summary'])
         self.assertEqual(plain['reasons'][0]['title'], 'It copies a well-known name')
         self.assertIn('isn’t one of PTT Kargo’s known domains', plain['reasons'][0]['detail'])
-        self.assertIn(('Copies a brand’s name', 'bad', 'Yes'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
+        self.assertIn(('Copies a brand’s name', 'warn', 'Yes'), [(c['name'], c['state'], c['result']) for c in plain['checks']])
         turkish = translate_plain(plain, 'tr')
-        self.assertEqual(turkish['label'], 'TEHLİKELİ')
+        self.assertEqual(turkish['label'], 'DİKKATLİ OL')
         self.assertIn('PTT Kargo adını kullanıyor', turkish['reasons'][0]['detail'])
-        self.assertIn('dolandırıcılık', turkish['summary'])
-        self.assertIn('dolandırıcılıkta', turkish['share_text'])
+        self.assertNotIn('TEHLİKELİ', turkish['share_text'])
         for action in turkish['actions']:
             self.assertNotIn('Don’t', action)
 

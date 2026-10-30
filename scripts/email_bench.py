@@ -1,12 +1,12 @@
 """Measure the email checker on real company addresses and on scam domains.
 
 Legitimate addresses of banks, cargo companies, shops and mail providers must never
-come out dangerous. Domains taken from a list of phishing links (one per line, the
+raise review/dangerous false alarms. Unknown is inconclusive, never a pass. Domains taken from a list of phishing links (one per line, the
 same file accuracy_check.py reads) stand in for scam sender domains: each becomes
-info@<host> and should be flagged (dangerous or review) or have no domain at all.
+info@<host> and should be flagged (dangerous or review) while dead or invalid domains remain inconclusive.
 A list may also hold sender addresses (one per line, such as the ones --senders prints
 from real phishing emails); each is checked as it is, one per domain.
-Saves nothing and uses no quota. Run it in the web container, which holds the email
+Makes live provider lookups, which may consume provider quota; it saves no credentials. Run it in the web container, which holds the email
 checker's Web Risk key:
     dc exec -T web python scripts/email_bench.py
     dc exec -T web python scripts/email_bench.py - < ~/phish.txt
@@ -31,8 +31,8 @@ LEGIT = [
     'info@kizilay.org.tr', 'iletisim@btk.gov.tr', 'info@itu.edu.tr', 'info@koton.com', 'info@garantiemeklilik.com.tr',
     'someone@gmail.com', 'someone@hotmail.com', 'someone@outlook.com.tr', 'someone@yandex.com.tr', 'someone@icloud.com',
 ]
-LEGIT_OK = {'no_indicators', 'unknown', 'review'}
-SCAM_OK = {'dangerous', 'review', 'no_domain', 'invalid'}  # invalid: an address that can't exist (an emoji ending)
+LEGIT_OK = {'no_indicators'}
+SCAM_OK = {'dangerous', 'review'}  # Dead/invalid addresses are not detected threats.
 
 
 def scam_addresses(path):
@@ -97,23 +97,77 @@ def bench(title, emails, good):
     counts = {}
     for _, verdict, _ in rows:
         counts[verdict] = counts.get(verdict, 0) + 1
+    from scripts.benchmark_metrics import classification_metrics
+    metrics = classification_metrics([('clean' if good == LEGIT_OK else 'threat', verdict) for _, verdict, _ in rows])
+    import json
+    print(json.dumps(metrics, sort_keys=True))
     passed = sum(verdict in good for _, verdict, _ in rows)
     print(f'\n== {title}: {passed} of {len(rows)} as expected ==  ' + '  '.join(f'{k}={v}' for k, v in sorted(counts.items())))
     for email, verdict, web_risk in rows:
         if verdict not in good:
             print(f'   {verdict:<14} web_risk={web_risk:<14} {email}')
-    return passed == len(rows)
+    return bool(rows) and passed == len(rows)
+
+
+def labeled_dataset(path):
+    """JSONL holdout: id, email, label clean|threat, provenance, observed_at.
+
+    Supply independent, consented examples, separate from regression fixtures and
+    threshold tuning. Labels concern the address/domain evidence, not a message
+    body; a forged From header is not proof that the mailbox is malicious.
+    """
+    import json
+    from datetime import date
+    rows, seen = [], set()
+    with open(path, encoding='utf-8') as handle:
+        for number, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            if not isinstance(item, dict) or item.get('label') not in ('clean', 'threat'):
+                raise ValueError(f'Invalid label on line {number}')
+            if not all(isinstance(item.get(k), str) and item[k].strip() for k in ('id', 'email', 'provenance', 'observed_at')):
+                raise ValueError(f'Missing dataset metadata on line {number}')
+            date.fromisoformat(item['observed_at'])
+            identity = item['email'].strip().lower()
+            if item['id'] in seen or identity in seen or '@' not in identity:
+                raise ValueError(f'Duplicate/invalid sample on line {number}')
+            seen.update((item['id'], identity))
+            rows.append(item)
+    if {r['label'] for r in rows} != {'clean', 'threat'}:
+        raise ValueError('Both independent clean and threat samples are required')
+    return rows
+
+
+def benchmark_dataset(path):
+    import json
+    from scripts.benchmark_metrics import classification_metrics
+    samples = labeled_dataset(path)
+    previous_logging = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)  # Provider/checker logs can contain supplied addresses.
+    try:
+        with concurrent.futures.ThreadPoolExecutor(8) as pool:
+            observations = list(pool.map(check, [s['email'] for s in samples]))
+    finally:
+        logging.disable(previous_logging)
+    metrics = classification_metrics([(s['label'], observation[1]) for s, observation in zip(samples, observations)])
+    # Aggregates only: do not print personal addresses from a supplied holdout.
+    print(json.dumps({'mode': 'independently-labeled-email-holdout', 'metrics': metrics}, indent=2))
+    return 1 if metrics['false_positive'] or metrics['false_negative'] else 2 if metrics['inconclusive'] else 0
 
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ['--dataset'] and len(argv) == 2:
+        return benchmark_dataset(argv[1])
     if argv[:1] == ['--senders'] and len(argv) == 2:
         print('\n'.join(senders(argv[1])))
         return 0
     logging.disable(logging.ERROR)
-    clean = bench('Real addresses (must not be dangerous)', LEGIT, LEGIT_OK)
+    clean = bench('Known-domain controls (review counts as a false alarm)', LEGIT, LEGIT_OK)
     if argv:
-        bench('Phishing-site domains (should be flagged)', scam_addresses(argv[0]), SCAM_OK)
+        threats = bench('Phishing-domain proxies (not labeled sender ground truth)', scam_addresses(argv[0]), SCAM_OK)
+        clean = clean and threats
     return 0 if clean else 1
 
 

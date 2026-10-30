@@ -1,5 +1,6 @@
 """Pages drawn by scripts: the text the preview browser saw is read too (url-evidence-v12)."""
 import copy
+import json
 import unittest
 from unittest.mock import patch
 
@@ -12,7 +13,19 @@ QRCO_BLOCK = 'QR Code Generator\nWarning: This URL has been blocked by QR Code G
 
 class FakeResponse:
     def __init__(self, status, payload, size=100):
-        self.status_code, self._payload, self.content = status, payload, b'x' * size
+        self.status_code, self._payload = status, payload
+        self.content = json.dumps(payload).encode() if size == 100 else b'x' * size
+        self.closed = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.closed = True
+
+    def iter_content(self, size):
+        for offset in range(0, len(self.content), size):
+            yield self.content[offset:offset + size]
 
     def json(self):
         return self._payload

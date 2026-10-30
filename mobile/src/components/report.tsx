@@ -14,20 +14,8 @@ import { Button } from '@/components/ui';
 import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 
-/** The plain-language summary every tool returns as `plain` (built on the server). */
-export type Plain = {
-  tone: string; label: string; headline: string; summary: string;
-  url?: { prefix?: string; host?: string; rest?: string };
-  reasons?: { tone: string; title: string; detail: string }[];
-  actions?: string[];
-  checks?: { name: string; state: string; result: string }[];
-  tally?: string; share_text?: string; why_title?: string; checked?: string;
-  /** Why a link report has no page preview; shown in place of the screenshot. */
-  no_preview?: string;
-};
-
-type HeroTone = 'danger' | 'caution' | 'unknown' | 'safe' | 'info';
-type State = 'bad' | 'warn' | 'ok' | 'na' | 'info';
+import { heroTone, state, type Plain, type HeroTone, type State } from '@/lib/report-contract';
+export { hasPlain, reportOf, withoutPlain, type Plain } from '@/lib/report-contract';
 
 const HERO: Record<HeroTone, { color: string; icon: IconName }> = {
   danger: { color: colors.red, icon: 'shieldX' },
@@ -46,29 +34,8 @@ const STATE: Record<State, { color: string; icon: IconName }> = {
 };
 const ORDER: State[] = ['bad', 'warn', 'ok', 'info', 'na'];
 
-const heroTone = (t: unknown): HeroTone => (typeof t === 'string' && t in HERO ? t as HeroTone : 'unknown');
-const state = (s: unknown): State => (typeof s === 'string' && s in STATE ? s as State : 'na');
 const objects = <T,>(v: unknown): T[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : []);
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
-
-/** True when a tool result carries a summary this screen can draw. */
-export function hasPlain(value: any): value is Plain {
-  return !!value && typeof value === 'object' && !Array.isArray(value) && typeof value.headline === 'string';
-}
-
-/**
- * Background jobs (site, subdomains) answer {message, status, result: {…, plain}}: the report
- * is one level down. Returns the object that carries the summary, or the input unchanged.
- */
-export function reportOf(data: any) {
-  return data && !hasPlain(data.plain) && data.result && typeof data.result === 'object' && hasPlain(data.result.plain) ? data.result : data;
-}
-
-/** The evidence below the summary: everything except the summary itself. */
-export function withoutPlain(result: Record<string, unknown>) {
-  const { plain: _plain, ...rest } = result;
-  return rest;
-}
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 

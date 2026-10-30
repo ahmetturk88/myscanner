@@ -62,7 +62,8 @@ def reputation(urls, lookup=None):
     results = []
     for url in dict.fromkeys(u for u in urls if u):
         try:
-            results.append((url, lookup(url)))
+            from services.web_risk import validated_observation
+            results.append((url, validated_observation(lookup(url))))
         except Exception:
             results.append((url, {'status': 'unavailable', 'threat_types': []}))
     matched = [(u, r) for u, r in results if r.get('status') == 'matched']
@@ -73,7 +74,7 @@ def reputation(urls, lookup=None):
         return {'status': 'unavailable', 'threat_types': []}
     if statuses and all(s == 'not_configured' for s in statuses):
         return {'status': 'not_configured', 'threat_types': []}
-    return {'status': 'not_found', 'threat_types': []}
+    return {'status': 'not_found' if statuses and all(s == 'not_found' for s in statuses) else 'unavailable', 'threat_types': []}
 
 
 def assess(start_url, final_url, page_text, inputs, password_form, age_future=None, lookup=None):
@@ -107,8 +108,8 @@ def assess(start_url, final_url, page_text, inputs, password_form, age_future=No
         finding('new_domain', 'warning' if asks or brand else 'info', 'The site is brand new',
                 f'Its domain was registered {age["age_days"]} days ago. Scam shops and fake login pages rarely live longer than a few weeks.')
     if 'gambling' in signals:
-        finding('gambling_site', 'warning', 'An online gambling site',
-                'Unlicensed betting sites are illegal in Turkey and often keep deposits.')
+        finding('gambling_site', 'info', 'An online gambling site',
+                'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.')
     if 'prize_offer' in signals:
         finding('prize_offer', 'warning', 'It promises a prize or a gift',
                 'Prize and free-gift pages are a common way to collect card details.')

@@ -11,14 +11,16 @@ from services.file_pdf_receipts import compact
 
 MAX_TOKEN = 300000
 EXPORT_AGE = 3600
+# Most important first: the budget runs out at the end, so long page lists can't push out the verdict,
+# hosting, email protection or certificate.
 FIELDS = {
-    'site': ('url', 'domain', 'verdict', 'plain', 'analyzed_at', 'structure', 'dns', 'http', 'tls', 'content', 'provider',
-             'trust', 'crawl', 'posture', 'header_observations', 'findings', 'checks', 'assessment', 'discovery',
-             'missing_checks', 'evidence_policy'),
+    'site': ('url', 'domain', 'verdict', 'plain', 'analyzed_at', 'evidence_policy', 'posture', 'trust', 'tls', 'http',
+             'header_observations', 'findings', 'missing_checks', 'crawl', 'dns', 'structure', 'checks', 'assessment',
+             'discovery', 'provider', 'content'),
     'email': ('email', 'domain', 'verdict', 'plain', 'assessment', 'dns', 'blacklist', 'domain_info', 'smtp', 'is_disposable',
               'is_free', 'web_risk', 'name_signals', 'local_signals', 'address_features', 'checked_at'),
 }
-BUDGET = {'site': 90000, 'email': 50000}
+BUDGET = {'site': 150000, 'email': 50000}
 
 
 def _signer(kind, secret):
@@ -29,6 +31,8 @@ def issue_receipt(kind, report, owner, secret):
     selected = {key: report[key] for key in FIELDS[kind] if key in report}
     if kind == 'site' and isinstance(selected.get('crawl'), dict):
         selected['crawl'] = {k: v for k, v in selected['crawl'].items() if k != 'text'}
+    if kind == 'site' and isinstance(selected.get('content'), dict):
+        selected['content'] = {k: v for k, v in selected['content'].items() if k != 'posture'}  # already in 'posture'
     token = _signer(kind, secret).dumps({'owner': str(owner), 'report': compact(selected, [BUDGET[kind]])})
     if len(token) > MAX_TOKEN:
         raise ValueError('Export receipt exceeds limit')

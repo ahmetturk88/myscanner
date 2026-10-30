@@ -46,6 +46,7 @@ HEADER_STATES = {'present': ('Present', 'good'), 'alternative_present': ('Covere
 
 PDF_TR = {
     'WEBSITE SECURITY REPORT': 'WEB SİTESİ GÜVENLİK RAPORU',
+    'Hidden behind a CDN': 'Bir CDN arkasında gizli', 'Pages that didn’t answer': 'Yanıt vermeyen sayfalar',
     'A read-only check of a whole website': 'Bir web sitesinin tamamının salt okunur kontrolü',
     'EMAIL ADDRESS REPORT': 'E-POSTA ADRESİ RAPORU',
     'An evidence-based check of one email address': 'Tek bir e-posta adresinin kanıta dayalı kontrolü',
@@ -139,11 +140,11 @@ def _when(value):
 
 
 def _report_id(prefix, value):
-    """MYS-W-20261030-0915: the kind of report and when the scan ran."""
+    """MYS-W-261030-0915: the kind of report and when the scan ran (fits the cover card)."""
     try:
-        stamp = datetime.fromisoformat(str(value).replace('Z', '+00:00')).strftime('%Y%m%d-%H%M%S')
+        stamp = datetime.fromisoformat(str(value).replace('Z', '+00:00')).strftime('%y%m%d-%H%M')
     except ValueError:
-        stamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
+        stamp = datetime.now(timezone.utc).strftime('%y%m%d-%H%M')
     return f'{prefix}-{stamp}'
 
 
@@ -224,7 +225,7 @@ def _closing(number, t, intro, limits, legend, now):
                                 ('BOTTOMPADDING', (0, 0), (-1, -1), 14)]))
     return (_section(number, 'HOW TO READ THIS REPORT', 'Verdicts and limits', t)
             + [Paragraph(esc(t(intro)), st['body']), Spacer(1, 10), _legend(legend, t), Spacer(1, 12),
-               Paragraph(esc(t(limits)), st['muted']), Spacer(1, 22), KeepTogether([footer])])
+               KeepTogether([Paragraph(esc(t(limits)), st['muted']), Spacer(1, 22), footer])])
 
 
 def _rows_table(header, rows, widths, t):
@@ -283,8 +284,8 @@ def generate_site_report(report, username, lang='en'):
     # 2. Score by area
     st = get_styles()
     bars = [(t(area), score, f'{n} {t("checks")}' if n else t('No checks in this area')) for area, score, n in area_scores(checks_en)]
-    story += _section(2, 'SCORE BY AREA', 'How each part of the site did', t)
-    story.append(KeepTogether([ScoreBars(bars), Spacer(1, 8),
+    story += [CondPageBreak(9 * cm), Spacer(1, 22)]
+    story.append(KeepTogether([SectionHeader(2, t('SCORE BY AREA'), t('How each part of the site did')), Spacer(1, 12), ScoreBars(bars), Spacer(1, 8),
                                Paragraph(esc(t('Area scores summarise the checks above: a fine check counts fully, a note counts most, a warning little. They are not a probability.')), st['muted'])]))
 
     # 3. Technical evidence
@@ -376,12 +377,17 @@ def generate_site_report(report, username, lang='en'):
         rows += [(t(label), t('Found'), 'warn') for label, key in (('Bank transfer only', 'bank_transfer_only'), ('WhatsApp only', 'whatsapp_only'),
                                                                    ('Big discounts', 'big_discounts')) if shop.get(key)]
         story += _table('Online shop details', rows, t)
-    findings = [f for f in _list(report.get('findings')) if isinstance(f, dict) and f.get('title')]
-    if findings:
-        from services.report_i18n import translate
-        story += [SubHeader(t('All observations'), COLORS['accent'], len(findings)),
-                  flag_table([f'{translate(str(f["title"]), lang)} — {translate(str(f.get("detail") or ""), lang)}' for f in findings[:30]], 'info'),
-                  Spacer(1, 16)]
+    # Missing headers are in the headers table; the rest in the page's own words (WEB_FINDINGS) where it has them.
+    from services.report_i18n import translate
+    from services.simple_report_view import WEB_FINDINGS
+    findings = [f for f in _list(report.get('findings')) if isinstance(f, dict) and f.get('title')
+                and not str(f.get('code', '')).startswith('missing_')]
+    lines = []
+    for f in findings[:30]:
+        title, detail = (WEB_FINDINGS[f['code']][1:] if f.get('code') in WEB_FINDINGS else (str(f['title']), str(f.get('detail') or '')))
+        lines.append(f'{translate(title, lang)} — {translate(detail, lang)}')
+    if lines:
+        story += [SubHeader(t('All observations'), COLORS['accent'], len(lines)), flag_table(lines, 'info'), Spacer(1, 16)]
     missing = [m for m in _list(report.get('missing_checks')) if isinstance(m, str)]
     if missing:
         story += [SubHeader(t('Checks that couldn’t run'), COLORS['muted'], len(missing)), flag_table([t(m) for m in missing[:12]], 'info')]

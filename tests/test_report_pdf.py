@@ -119,3 +119,17 @@ def test_routes_refuse_a_receipt_from_someone_else(client=None):
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
     with app.test_client() as web:
         assert web.post('/api/site-report/pdf', json={'receipt': 'x'}).status_code in (302, 401)
+
+
+def test_a_big_site_keeps_its_hosting_and_email_details_in_the_receipt():
+    """Long page lists used to spend the receipt budget before posture: the PDF said "SPF: none"."""
+    result = site_result()
+    result['crawl']['pages'] = [{'url': f'https://shop.example.com/p/{i}', 'status': 'read', 'title': 'x' * 900} for i in range(40)]
+    result['content'] = {'status': 'completed', 'description': 'd' * 1200, 'headings': ['h' * 200] * 10, 'posture': {'big': 'y' * 50000}}
+    result['dns'] = {k: {'values': ['v' * 500] * 16} for k in ('A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME')}
+    report = load_receipt('site', issue_receipt('site', result, '7', SECRET), '7', SECRET)
+    assert report['posture']['mail']['spf'] == 'v=spf1 -all'
+    assert report['posture']['hosting']['network'] == 'Example Hosting'
+    assert 'posture' not in report['content']
+    text = text_of(generate_site_report(report, 'ahmed', lang='tr'))
+    assert 'v=spf1 -all' in text and 'Destination hostname changed' not in text

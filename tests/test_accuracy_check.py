@@ -42,6 +42,20 @@ class GradeTests(unittest.TestCase):
         for script in ('accuracy_check.py', 'tools_check.py', 'email_bench.py', 'file_samples.py'):
             self.assertIn('scripts/' + script, source)
 
+    def test_shipped_scripts_bring_the_scripts_they_import(self):
+        # benchmark_metrics.py was left out once: email_bench.py failed in the container with ModuleNotFoundError.
+        import re
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        dockerfile = open(os.path.join(root, 'Dockerfile.vps'), encoding='utf-8').read()
+        ignore = open(os.path.join(root, '.dockerignore'), encoding='utf-8').read().splitlines()
+        shipped = re.findall(r'scripts/(\w+)\.py', dockerfile.split('./scripts/')[0])
+        for name in shipped:
+            source = open(os.path.join(root, 'scripts', name + '.py'), encoding='utf-8').read()
+            for needed in set(re.findall(r'from scripts\.(\w+) import', source)):
+                with self.subTest(script=name, imports=needed):
+                    self.assertIn(needed, shipped)
+                    self.assertIn(f'!scripts/{needed}.py', ignore)
+
     def test_standard_port_detection(self):
         self.assertTrue(accuracy_check.standard_port('http://a.example/x'))
         self.assertTrue(accuracy_check.standard_port('https://a.example:443/'))

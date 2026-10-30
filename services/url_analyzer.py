@@ -166,6 +166,23 @@ def dns_partial(function):
                     'reason': 'target_dns_unavailable'}
     return check
 
+
+def embedded_urls(url):
+    """Web addresses carried in a link's query (decoded once or twice), in order, without repeats."""
+    from urllib.parse import parse_qsl, unquote
+    try:
+        query = urlparse(url).query
+    except ValueError:
+        return []
+    found = []
+    for _, value in parse_qsl(query, keep_blank_values=False)[:30]:
+        for candidate in (value, unquote(value)):
+            candidate = candidate.strip()
+            if candidate.lower().startswith(('http://', 'https://')) and len(candidate) <= 2048 and candidate not in found:
+                found.append(candidate)
+                break
+    return found[:5]
+
 class URLDeepAnalyzer:
     """
     تحليل عميق وشامل للروابط
@@ -1260,10 +1277,16 @@ class URLDeepAnalyzer:
         # a listed address in the middle of a chain is as bad as at either end.
         hops = [h.get("url") for h in result["behavior"].get("redirect_chain") or [] if isinstance(h, dict)]
         hops = [h for h in dict.fromkeys(hops) if isinstance(h, str) and h not in (url, result["behavior"].get("final_url"))][:5]
+        # An address carried inside the link (?url=…, ?redirect=…) is where an open redirect sends people,
+        # even when the redirect isn't followed during the scan (the site is down, slow or refuses bots).
+        carried = [c for c in embedded_urls(url) if c not in hops and c != result["behavior"].get("final_url")][:3]
         result["chain_reputation"] = []
-        for hop in hops:
+        for hop in hops + carried:
             listed = self.check_urlhaus(hop)
-            result["chain_reputation"].append({"url": hop, "status": listed.get("coverage_status"), "matched": listed.get("is_malicious") is True})
+            row = {"url": hop, "status": listed.get("coverage_status"), "matched": listed.get("is_malicious") is True}
+            if hop in carried:
+                row["carried"] = True
+            result["chain_reputation"].append(row)
 
         # 2b. A redirect to another site: check that site too (url-evidence-v12).
         final = result["behavior"].get("final_url")

@@ -306,6 +306,7 @@ REPORTS_TR = {
     'The antivirus scan found malware in the page itself.': 'Antivirüs taraması sayfanın kendisinde kötü amaçlı yazılım buldu.',
     'The page’s name on a free hosting service is about signing in, verifying or paying, the way phishing pages are named.': 'Sayfanın ücretsiz barındırma hizmetindeki adı giriş yapma, doğrulama ya da ödemeyle ilgili; oltalama sayfaları böyle adlandırılır.',
     'The link redirects to a server on an unusual port, the way malware downloads are often delivered.': 'Bağlantı alışılmadık bir porttaki sunucuya yönlendiriyor; kötü amaçlı yazılım indirmeleri sıklıkla böyle yapılır.',
+    'The link carries an address inside it that URLhaus lists as malware.': 'Bağlantı, URLhaus tarafından kötü amaçlı yazılım olarak listelenen bir adresi içinde taşıyor.',
     'An address the link passes through on the way is listed by URLhaus as malware.': 'Bağlantının yolda geçtiği bir adres URLhaus tarafından kötü amaçlı yazılım olarak listeleniyor.',
     'The link uses a rented server’s default name instead of a website name.': 'Bağlantı bir site adı yerine kiralık bir sunucunun varsayılan adını kullanıyor.',
     'Cloudflare, which serves this site, shows its own warning that the site was reported for phishing.': 'Bu siteyi sunan Cloudflare, sitenin oltalama için bildirildiğine dair kendi uyarısını gösteriyor.',

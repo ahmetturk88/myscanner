@@ -8,7 +8,7 @@ from services.url_scan_coverage import apply_phishing_evidence
 from services.url_tricks import (IMPERSONATED, address_signals, brands_in_text, email_in_link, kit_path, login_path, other_site,
                                  program_in_address, risky_ending)
 
-POLICY_VERSION = 'url-evidence-v14'
+POLICY_VERSION = 'url-evidence-v15'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 # v10: url.vet's own overall verdict is a threshold over signals we already read
 # one by one (and includes a traffic-rank heuristic that flags small, honest
@@ -331,7 +331,9 @@ def _assess(local, deep):
         if risk is not None and all(ends) and ends[0]==ends[1]:
             missing.append(SHORT_UNRESOLVED)
     for hop in deep.get('chain_reputation') or []:
-        if isinstance(hop,dict) and hop.get('matched') is True:
+        if isinstance(hop,dict) and hop.get('matched') is True and hop.get('carried') is True:
+            confirmed=True;signal('reputation','carried_listed',20,'The link carries an address inside it that URLhaus lists as malware.')
+        elif isinstance(hop,dict) and hop.get('matched') is True:
             confirmed=True;signal('reputation','chain_listed',20,'An address the link passes through on the way is listed by URLhaus as malware.')
     osint=mapping(deep.get('osint'))
     if usable(osint) and osint.get('urlhaus') is True:

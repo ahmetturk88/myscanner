@@ -13,6 +13,9 @@ from urllib.parse import urljoin, urlsplit
 POLICY = 'site-posture-v1'
 MAX_SCRIPT_HOSTS = 30
 MAX_COOKIES = 20
+MAIL_DNS_SECONDS = 4
+# Networks that sit in front of the real server: their location says nothing about where the site runs.
+CDN = re.compile(r'cloudflare|akamai|fastly|amazon cloudfront|cloudfront|incapsula|imperva|sucuri|stackpath|bunny|cdn77|edgecast|verizon digital', re.I)
 
 # (name, regex over the page HTML) for platforms that leave a plain mark in the page.
 PLATFORMS = [
@@ -139,6 +142,9 @@ def hosting(dns):
         return {'status': 'unavailable', 'ip': address, 'reason': 'Location lookup failed'}
     if not found:
         return {'status': 'not_configured', 'ip': address}
+    if CDN.search(found.get('org') or ''):
+        return {'status': 'completed', 'ip': address, 'addresses': len(values), 'cdn': True, 'network': found.get('org'),
+                'asn': found.get('asn'), 'source': 'DB-IP Lite'}
     return {'status': 'completed', 'ip': address, 'addresses': len(values), 'country': found.get('country'),
             'country_code': found.get('country_code'), 'city': found.get('city'), 'asn': found.get('asn'),
             'network': found.get('org'), 'source': 'DB-IP Lite'}
@@ -148,13 +154,20 @@ def mail_security(domain, resolve=None):
     """Can someone send email that claims to come from this domain? SPF and DMARC of the registrable domain."""
     from services.email_policy_audit import audit_dmarc, audit_spf
     if resolve is None:
-        from services.web_assessment import dns_records
+        import dns.exception
+        import dns.resolver
 
         def resolve(name, kind):
-            row = dns_records(name, types=(kind,))[kind]
-            if row['status'] == 'unavailable':
-                raise OSError('DNS unavailable')
-            return [v.strip('"').replace('" "', '') for v in row['values']]
+            # Big domains publish long TXT sets that need more than the page check's one-second budget.
+            try:
+                answer = dns.resolver.resolve(name + '.', kind, search=False, lifetime=MAIL_DNS_SECONDS)
+            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+                return []
+            except (dns.exception.DNSException, OSError) as error:
+                raise OSError('DNS unavailable') from error
+            if kind == 'TXT':
+                return [b''.join(record.strings).decode('utf-8', 'replace') for record in answer][:30]
+            return [str(record) for record in answer][:16]
     if not domain:
         return {'status': 'unavailable'}
     try:

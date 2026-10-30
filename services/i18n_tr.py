@@ -854,6 +854,7 @@ TR = {
     '{domain} has no enforced DMARC policy, so scammers can send email that looks like it comes from this site. Be careful with emails claiming to be from it.':
         '{domain} için uygulanan bir DMARC politikası yok; dolandırıcılar bu siteden geliyormuş gibi görünen e-posta gönderebilir. Ondan geldiğini söyleyen e-postalara dikkat et.',
     'Hosted in': 'Barındırıldığı yer',
+    'Behind {name}': '{name} arkasında',
     'Email in its name': 'Onun adına e-posta',
     'Protected': 'Korunuyor',
     'Not protected': 'Korunmuyor',

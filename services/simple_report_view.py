@@ -319,6 +319,7 @@ def plain_web_report(result, source='link'):
         software = [t for t in posture.get('technology') or [] if isinstance(t, dict) and t.get('source') != 'Server']
         outside = posture.get('outside_scripts') if isinstance(posture.get('outside_scripts'), list) else []
         checks += [
+            check('Hosted in', 'info', f'Behind {place.get("network")}'[:60]) if place.get('cdn') and isinstance(place.get('network'), str) else
             check('Hosted in', 'info', where[:60]) if place.get('status') == 'completed' and where else check('Hosted in', 'na', 'Not checked'),
             check('Email in its name', 'ok', 'Protected') if mail.get('protected') is True else
             check('Email in its name', 'info', 'Not protected') if mail.get('status') == 'completed' else check('Email in its name', 'na', 'Not checked'),

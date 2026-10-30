@@ -29,15 +29,15 @@ class SiteReportTests(unittest.TestCase):
         r=self.assess();self.assertEqual(r['assessment']['score'],100);self.assertEqual(r['verdict'],'unknown')
         self.assertIsNone(r['security_score']);self.assertFalse(r['active_scan_performed'])
         self.assertEqual(r['vulnerabilities']['dynamic']['status'],'not_performed')
-        self.assertEqual(r['assessment']['checks_total'],7)  # with the site-crawl-v1 'Site pages' check
+        self.assertEqual(r['assessment']['checks_total'],8)  # with 'Site pages' (site-crawl-v1) and 'Site setup' (site-posture-v1)
     def test_unavailable_source_reduces_coverage_without_safe_verdict(self):
         r=fixture();r['checks'][-1]['status']='unavailable'
         result=self.assess(r,include_provider=True)
-        self.assertEqual(result['assessment']['score'],88);self.assertIn('url.vet',result['missing_checks'])
+        self.assertEqual(result['assessment']['score'],89);self.assertIn('url.vet',result['missing_checks'])
     def test_optional_documents_are_counted_only_when_requested(self):
         with patch('services.site_evidence.discovery_documents',return_value={'robots':{'status':'not_found'},'sitemap':{'status':'unavailable'}}):
             result=self.assess(include_discovery=True)
-        self.assertEqual(result['assessment']['checks_total'],9);self.assertEqual(result['assessment']['score'],89)
+        self.assertEqual(result['assessment']['checks_total'],10);self.assertEqual(result['assessment']['score'],90)
     def test_blocked_http_does_not_request_documents(self):
         r=fixture();r['http']['status']='blocked'
         with patch('services.site_evidence.discovery_documents') as discovery:
@@ -111,7 +111,7 @@ class EndpointTests(unittest.TestCase):
         self.factory.assert_not_called()
         with self.app.app_context(),patch('services.site_analyzer.SiteAnalyzer') as analyzer:
             analyzer.return_value.comprehensive_analysis.return_value={'verdict':'unknown'}
-            job=run_evidence_job(kind,params,1);plain=job['result'].pop('plain')
+            job=run_evidence_job(kind,params,1);plain=job['result'].pop('plain');job['result'].pop('_pdf_receipt')  # signed copy for the PDF
             self.assertEqual(job,{'status':'completed','result':{'verdict':'unknown'}})
             self.assertEqual(plain['tone'],'unknown')  # the plain summary is added in the worker
             analyzer.return_value.comprehensive_analysis.assert_called_once_with('example.com',include_provider=False,include_discovery=True)

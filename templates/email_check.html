@@ -16,7 +16,7 @@
 </div>
 {% endblock %}
 {% block body_extra %}
-<script src="{{ url_for('static', filename='plain_report.js', v='20261029-1') }}"></script>
+<script src="{{ url_for('static', filename='plain_report.js', v='20261030-1') }}"></script>
 <div id="toast" class="toast-notification" role="status"><span id="toast-message"></span><button class="toast-close" type="button" onclick="hideToast()" aria-label="Dismiss notification">×</button></div>
 <script>
 let lastResult = null;
@@ -38,7 +38,9 @@ function status(value){return value===true?'Reported':value===false?'Not reporte
 function rows(values){return values.map(([label,value])=>`<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join('');}
 function renderMain(d){
     // Plain-language summary first; the full evidence stays below in its own section.
-    const plainShown=typeof PlainReport!=='undefined'&&PlainReport.render(node('email-plain'),object(d).plain,{again:{href:'/email-check',label:'Check another address'},feedback:node('email-feedback'),checked:typeof object(d).checked_at==='string'?'Checked '+object(d).checked_at.slice(0,16).replace('T',' ')+' UTC':''});
+    // The PDF is built on the server from a signed copy of this result: same verdict, same wording.
+    async function emailPdf(receipt){const box=node('email-feedback');if(box)box.textContent='Preparing the PDF…';try{const token=document.querySelector('meta[name="csrf-token"]');const response=await fetch('/api/email-report/pdf',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...(token?{'X-CSRFToken':token.content}:{})},body:JSON.stringify({receipt})});if(!response.ok){let message='PDF unavailable. Check the address again.';try{message=(await response.json()).error||message;}catch(e){}throw new Error(message);}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download='myscanner-email-report.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);if(box)box.textContent='PDF downloaded.';}catch(e){if(box)box.textContent=e.message;}}
+    const plainShown=typeof PlainReport!=='undefined'&&PlainReport.render(node('email-plain'),object(d).plain,{again:{href:'/email-check',label:'Check another address'},feedback:node('email-feedback'),...(typeof object(d).pdf_receipt==='string'?{pdf:()=>emailPdf(object(d).pdf_receipt)}:{}),checked:typeof object(d).checked_at==='string'?'Checked '+object(d).checked_at.slice(0,16).replace('T',' ')+' UTC':''});
     if(!plainShown)node('email-plain').hidden=true;
     node('email-tech').open=!plainShown;
     if(typeof ReportSummary!=='undefined')ReportSummary.schedule('email',d,'#email-tech .report-body');

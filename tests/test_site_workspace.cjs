@@ -17,3 +17,15 @@ assert(flattened.every(n=>!String(n.className||'').includes('<')));
 assert(flattened.every(n=>!['img','iframe','script'].includes(n.tagName)));
 assert(toCSV({checks:[{name:'=1+1',status:'unavailable'}]}).includes('"\'=1+1"'));
 console.log('PASS: hostile report content remains text, states are bounded, CSV formulas escaped.');
+// site-posture-v1: the "Site setup" card shows hosting, mail protection, software and outside scripts as text.
+const setupHost=new Element('section');
+render({domain:'shop.example',verdict:'suspicious',assessment:{score:90},checks:[],findings:[],discovery:{},crawl:{policy:'site-crawl-v1',pages_read:2,privacy_notice:true,pages:[]},
+  posture:{policy:'site-posture-v1',hosting:{status:'completed',country:evil,network:'Example Net',asn:64500,ip:'192.0.2.1'},mail:{status:'completed',protected:false,dmarc_policy:'none',spf:evil},
+    technology:[{name:'WordPress',version:'5.2',source:'generator'}],old_software:['WordPress 5.2'],mixed_content:{scripts:1,frames:0,other:2},
+    cookies:[{name:evil,secure:false,httponly:true,samesite:''}],copied_scripts:[{host:evil,brand:'PayPal'}],outside_scripts:[{host:evil,url:evil}]},_pdf_receipt:'signed'},setupHost);
+const setupNodes=[];(function walk(n){setupNodes.push(n);n.children.forEach(walk);})(setupHost);
+const setupTexts=setupNodes.map(n=>n.textContent).filter(Boolean);
+for(const words of ['Site setup','Email in its name','Not protected (DMARC none)','WordPress','Privacy notice (KVKK)','Uses the name PayPal','Download PDF report'])assert(setupTexts.includes(words),words);
+assert(setupNodes.every(n=>!['img','iframe','script'].includes(n.tagName)));
+assert(setupNodes.some(n=>String(n.className||'').includes('warning')&&n.textContent==='warning'));
+console.log('PASS: the site setup card and the PDF button render server evidence as text.');

@@ -419,10 +419,10 @@ def draw_cover(c, ctx):
     # عنوان التقرير
     c.setFillColor(COLORS['white'])
     c.setFont('MS-Bold', 22)
-    c.drawCentredString(cx, PAGE_H - 266, ctx['t']('LINK SECURITY REPORT'))
+    c.drawCentredString(cx, PAGE_H - 266, ctx['t'](ctx.get('title', 'LINK SECURITY REPORT')))
     c.setFillColor(COLORS['muted'])
     c.setFont('MS', 10)
-    c.drawCentredString(cx, PAGE_H - 290, ctx['t']('An evidence-based check of one link'))
+    c.drawCentredString(cx, PAGE_H - 290, ctx['t'](ctx.get('subtitle', 'An evidence-based check of one link')))
 
     # المقياس الدائري
     c.setFillColor(COLORS['surface'])
@@ -439,12 +439,12 @@ def draw_cover(c, ctx):
         c.arc(cx - r, gy - r, cx + r, gy + r, 90 - sweep, sweep)
 
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, gy + 36, ctx['t']('EVIDENCE INDEX'), 'MS-Bold', 8, 2.5)
+    draw_spaced(c, cx, gy + 36, ctx['t'](ctx.get('meter', 'EVIDENCE INDEX')), 'MS-Bold', 8, 2.5)
     c.setFillColor(vcol)
     c.setFont('MS-Bold', 50)
     c.drawCentredString(cx, gy - 16, ctx.get('score_display', str(ctx['trust'])))
     c.setFillColor(COLORS['muted'])
-    draw_spaced(c, cx, gy - 35, ctx['t']('INCOMPLETE' if ctx.get('incomplete') else 'OUT OF 100'), 'MS', 7.5, 2)
+    draw_spaced(c, cx, gy - 35, ctx['t']('INCOMPLETE' if ctx.get('incomplete') else ctx.get('meter_unit', 'OUT OF 100')), 'MS', 7.5, 2)
 
     # شارة الحكم
     label = ctx['vlabel']
@@ -469,7 +469,7 @@ def draw_cover(c, ctx):
     c.setFillColor(accent)
     c.roundRect(bx, ty + 12, 3.5, 42, 1.7, fill=1, stroke=0)
     c.setFillColor(accent)
-    draw_spaced(c, bx + 20, ty + 47, ctx['t']('CHECKED LINK'), 'MS-Bold', 7.5, 2,
+    draw_spaced(c, bx + 20, ty + 47, ctx['t'](ctx.get('target_label', 'CHECKED LINK')), 'MS-Bold', 7.5, 2,
                 align='left')
     c.setFillColor(COLORS['white'])
     c.setFont('MS-Mono', 10)
@@ -519,7 +519,7 @@ def draw_content_page(c, doc, ctx):
     c.setFillColor(COLORS['muted'])
     c.setFont('MS-Mono', 7.5)
     c.drawRightString(PAGE_W - MARGIN, PAGE_H - 30,
-                      f'{ctx["t"]("LINK SECURITY REPORT")}  |  {ctx["report_id"]}')
+                      f'{ctx["t"](ctx.get("title", "LINK SECURITY REPORT"))}  |  {ctx["report_id"]}')
     c.setStrokeColor(COLORS['border'])
     c.setLineWidth(0.6)
     c.line(MARGIN, PAGE_H - 44, PAGE_W - MARGIN, PAGE_H - 44)

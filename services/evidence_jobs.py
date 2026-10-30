@@ -43,6 +43,11 @@ def _site(params, user_id):
         raise ValueError(result['error'])
     from services.simple_report_view import plain_web_report
     result['plain'] = plain_web_report(result, source='site')
+    from services.report_receipts import issue_receipt
+    try:
+        result['_pdf_receipt'] = issue_receipt('site', result, str(user_id), current_app.config['SECRET_KEY'])
+    except (ValueError, TypeError):
+        result['_pdf_receipt'] = None
     return result
 
 

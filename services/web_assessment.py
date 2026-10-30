@@ -202,6 +202,13 @@ class WebAssessment:
                                    'stylesheet_count': len(soup.find_all('link',rel='stylesheet')),
                                    'viewport': str((soup.find('meta',attrs={'name':re.compile('^viewport$',re.I)}) or {}).get('content',''))[:200]}
                         page_text = ' '.join(filter(None, [content['title'], content['description'], soup.get_text(' ', strip=True)[:200000]]))
+                        from services.site_posture import page_observations
+                        try:
+                            set_cookies = response.raw.headers.getlist('Set-Cookie')
+                        except AttributeError:
+                            set_cookies = [headers['Set-Cookie']] if headers.get('Set-Cookie') else []
+                        content['posture'] = page_observations(soup, response.text if len(response.content) <= 1024*1024 else response.content[:1024*1024].decode('utf-8', 'replace'),
+                                                               http['final_url'], headers, set_cookies)
 
                     else:
                         content = {'status': 'not_applicable', 'reason': 'No successful HTML page was returned'}

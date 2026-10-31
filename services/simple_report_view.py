@@ -366,6 +366,15 @@ def plain_subdomain_report(result):
     sources = [s for s in result.get('sources') or [] if isinstance(s, dict)]
     ct = next((s for s in sources if 'Certificate' in str(s.get('name'))), {})
     partial = result.get('assessment_status') != 'completed'
+    if result.get('domain_exists') is False and not found:
+        return {'tone': 'info', 'label': 'NO SUCH DOMAIN', 'headline': 'This domain doesn’t exist',
+                'summary': f'{domain} isn’t registered or has no DNS, so it has no subdomains. Check the spelling.',
+                'url': {'prefix': '', 'host': domain, 'rest': ''}, 'why_title': 'What we found',
+                'reasons': [reason('info', 'The domain doesn’t exist', 'DNS has no record of it, so no name under it can exist either.')],
+                'actions': ['Check the spelling of the domain.',
+                            'If a message or a link used this name, it was made up: treat it as a scam.'],
+                'checks': [check('Domain exists', 'bad', 'No'), check('Subdomains found', 'info', '0')],
+                'tally': f'{checked} names checked' if checked else '', 'share_text': ''}
 
     reasons = []
     if found:

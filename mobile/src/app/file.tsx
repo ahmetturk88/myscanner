@@ -15,7 +15,7 @@ import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
 import { Button, ErrorText } from '@/components/ui';
 import { Working } from '@/components/working';
-import { upload, waitForTask } from '@/lib/api';
+import { openPdf, upload, waitForTask } from '@/lib/api';
 import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
@@ -91,7 +91,8 @@ export default function FileScanner() {
       <ErrorText>{error}</ErrorText>
       {busy ? <Working steps={steps()} status={progress} every={3500} /> : null}
       {result && hasPlain(result.plain) ? (
-        <PlainReport plain={result.plain} haptic again={{ label: t('Check another file'), icon: 'file', onPress: () => { setResult(null); setFile(null); pick(); } }}>
+        <PlainReport plain={result.plain} haptic again={{ label: t('Check another file'), icon: 'file', onPress: () => { setResult(null); setFile(null); pick(); } }}
+          pdf={typeof result._pdf_receipt === 'string' && result._pdf_receipt ? () => openPdf('/reports/file/pdf', { receipt: result._pdf_receipt }) : undefined}>
           <Animated.View entering={enter(6)}><AIPanel tool="file" evidence={result} /></Animated.View>
           <Evidence data={withoutPlain(result)} start={7} />
         </PlainReport>

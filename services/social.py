@@ -8,4 +8,6 @@ SOCIAL_LINKS = [
      'title': 'Follow MyScanner', 'text': 'Scam alerts, security tips and product updates.'},
     {'name': 'WhatsApp channel', 'url': 'https://whatsapp.com/channel/0029Vb9Mor5GOj9eRROdFO0x', 'icon': 'whatsapp', 'profile': True,
      'title': 'Follow the channel', 'text': 'Scam alerts, safety tips and MyScanner news on WhatsApp.'},
+    {'name': 'Instagram', 'url': 'https://www.instagram.com/myscanners_com/', 'icon': 'instagram', 'profile': True,
+     'title': 'Follow on Instagram', 'text': 'Scam examples and security tips in pictures and short videos.'},
 ]

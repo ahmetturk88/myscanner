@@ -30,7 +30,7 @@ CHAT_HISTORY_TURNS = 10
 CONNECT_TIMEOUT = 10
 READ_TIMEOUT = 40
 
-_SENSITIVE_KEY = re.compile(r'password(?!_?length)|passwd|secret|token|cookie|api[_-]?key|authorization|csrf|session|'
+_SENSITIVE_KEY = re.compile(r'password(?!_?length)|passwd|secret|token|receipt|cookie|api[_-]?key|authorization|csrf|session|'
                             r'screenshot|image|base64|thumbnail|favicon|raw_?html|html_?content|body', re.I)
 
 SYSTEM_PROMPT = """You are MyScanner's security assistant. MyScanner is a platform that inspects links, websites, files, email addresses, domains, IP addresses, TLS certificates, subdomains, QR codes and password strength. You help the people who use it understand online risks.

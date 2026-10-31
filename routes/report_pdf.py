@@ -14,6 +14,11 @@ NAMES = {'site': 'myscanner-website-report.pdf', 'email': 'myscanner-email-repor
 def _export(kind):
     from services.report_pdf import generate_email_report, generate_site_report
     from services.site_i18n import current_language
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    try:
+        consume_limit('report-pdf', str(current_user.get_id()), 30, 600)  # building a PDF is heavy work
+    except AuthRateLimited as error:
+        return jsonify(error='Too many PDFs in a short time. Please try again in a few minutes.'), 429, {'Retry-After': str(error.retry_after)}
     data = request.get_json(silent=True)
     try:
         report = load_receipt(kind, data.get('receipt') if isinstance(data, dict) else None,

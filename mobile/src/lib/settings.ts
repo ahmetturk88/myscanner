@@ -22,10 +22,24 @@ export type Settings = {
   backgroundMotion: boolean;
   /** Whether that smoothness check has already run on this phone. */
   motionChecked: boolean;
+  /** Safety reminders three times a day (lib/reminders.ts); off until the user turns them on. */
+  reminders: boolean;
+  /** Whether the reminders card was already shown, so it is offered once. */
+  remindersAsked: boolean;
 };
 
 const KEY = 'myscanner.settings';
-const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0, minBuild: 0, backgroundMotion: true, motionChecked: false };
+const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0, minBuild: 0, backgroundMotion: true, motionChecked: false,
+  reminders: false, remindersAsked: false };
+
+/** The phone's own language on a first start: Turkish phones start in Turkish, every other one in English. */
+function phoneLanguage(): Language {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+  } catch {
+    return 'en';
+  }
+}
 let current: Settings = DEFAULTS;
 /** False until the saved settings have been read (the first screen waits for it). */
 let ready = false;
@@ -41,14 +55,16 @@ export async function loadSettings() {
     current = {
       haptics: typeof saved.haptics === 'boolean' ? saved.haptics : DEFAULTS.haptics,
       evidenceOpen: typeof saved.evidenceOpen === 'boolean' ? saved.evidenceOpen : DEFAULTS.evidenceOpen,
-      language: saved.language === 'tr' ? 'tr' : 'en',
+      language: saved.language === 'tr' || saved.language === 'en' ? saved.language : phoneLanguage(),
       skippedBuild: Number.isInteger(saved.skippedBuild) ? saved.skippedBuild : 0,
       minBuild: Number.isInteger(saved.minBuild) ? saved.minBuild : 0,
       backgroundMotion: typeof saved.backgroundMotion === 'boolean' ? saved.backgroundMotion : DEFAULTS.backgroundMotion,
       motionChecked: saved.motionChecked === true,
+      reminders: saved.reminders === true,
+      remindersAsked: saved.remindersAsked === true,
     };
   } catch {
-    current = DEFAULTS;
+    current = { ...DEFAULTS, language: phoneLanguage() };
   }
   ready = true;
   listeners.forEach((l) => l());

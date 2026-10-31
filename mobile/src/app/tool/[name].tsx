@@ -14,10 +14,16 @@ import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
 import { Button, ErrorText, Field, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
-import { api, waitForTask } from '@/lib/api';
+import { api, openPdf, waitForTask } from '@/lib/api';
 import { t } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
+
+// Website and email reports come with a signed copy the server turns into a PDF.
+function pdfOf(name: string, result: any) {
+  const receipt = name === 'site' ? result?._pdf_receipt : name === 'email' ? result?.pdf_receipt : null;
+  return typeof receipt === 'string' && receipt ? () => openPdf(`/reports/${name}/pdf`, { receipt }) : undefined;
+}
 
 const steps = () => [t('Sending the request securely'), t('Collecting the evidence'), t('Checking available sources'), t('Building your report')];
 
@@ -66,7 +72,7 @@ export default function ToolScreen() {
       </Animated.View>
       {busy ? <Working steps={steps()} status={progress} every={3500} /> : null}
       {result && hasPlain(result.plain) ? (
-        <PlainReport plain={result.plain} haptic plainShare={tool.name !== 'email'}
+        <PlainReport plain={result.plain} haptic plainShare={tool.name !== 'email'} pdf={pdfOf(tool.name, result)}
           again={{ label: t('Check another'), onPress: () => { setResult(null); setValue(''); } }}>
           <Animated.View entering={enter(6)}><AIPanel tool={tool.aiTool} evidence={result} /></Animated.View>
           <Evidence data={withoutPlain(result)} start={7} />

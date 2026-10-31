@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { Platform, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { PressableScale } from '@/components/motion';
@@ -9,6 +9,7 @@ import { Screen } from '@/components/screen';
 import { SITE } from '@/lib/api';
 import * as Haptics from '@/lib/haptics';
 import { lang, t, upper } from '@/lib/i18n';
+import { setReminders } from '@/lib/reminders';
 import { type Language, updateSettings, useSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
 
@@ -90,7 +91,11 @@ export default function SettingsScreen() {
         <Toggle icon="code" label={t('Show technical evidence')} hint={t('Open the full evidence under every report by default.')}
           value={settings.evidenceOpen} onChange={(v) => updateSettings({ evidenceOpen: v })} />
         <Toggle icon="spark" label={t('Animated background')} hint={t('Turns off by itself on phones where it is not smooth.')}
-          value={settings.backgroundMotion} onChange={(v) => updateSettings({ backgroundMotion: v, motionChecked: true })} last />
+          value={settings.backgroundMotion} onChange={(v) => updateSettings({ backgroundMotion: v, motionChecked: true })} last={Platform.OS === 'web'} />
+        {Platform.OS !== 'web' ? (
+          <Toggle icon="bell" label={t('Safety reminders')} hint={t('Three short tips a day: morning, afternoon and evening. Never at night.')}
+            value={settings.reminders} onChange={(v) => { setReminders(v).catch(() => {}); }} last />
+        ) : null}
       </Section>
 
       <Section title={t('About')}>

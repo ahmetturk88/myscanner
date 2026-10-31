@@ -135,15 +135,32 @@
     }
   }
 
-  /** A "Copy" button placed right after an answer. */
+  // Small line icons for the copy button, drawn as SVG elements (no HTML strings).
+  function icon(paths) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    for (const [k, v] of [['viewBox', '0 0 24 24'], ['width', '15'], ['height', '15'], ['fill', 'none'], ['stroke', 'currentColor'],
+                          ['stroke-width', '2'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round'], ['aria-hidden', 'true']]) svg.setAttribute(k, v);
+    for (const d of paths) { const path = document.createElementNS(ns, 'path'); path.setAttribute('d', d); svg.append(path); }
+    return svg;
+  }
+  const COPY_ICON = ['M9 9h10v12H9z', 'M5 15H4V3h12v1'];
+  const DONE_ICON = ['m5 12 5 5 9-10'];
+
+  /** A quiet "Copy" pill after an answer; it turns into "Copied" with a tick for two seconds. */
   function copyButton(text) {
-    const button = el('button', 'ai-copy', 'Copy');
+    const button = el('button', 'ai-copy');
+    const label = el('span', '', 'Copy');
     button.type = 'button';
     button.setAttribute('aria-label', 'Copy answer');
+    button.append(icon(COPY_ICON), label);
+    let timer = null;
     button.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(text); } catch (e) { return; }
-      button.textContent = 'Copied';
-      setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+      button.classList.add('done');
+      button.replaceChildren(icon(DONE_ICON), el('span', '', 'Copied'));
+      clearTimeout(timer);
+      timer = setTimeout(() => { button.classList.remove('done'); button.replaceChildren(icon(COPY_ICON), el('span', '', 'Copy')); }, 2000);
     });
     return button;
   }

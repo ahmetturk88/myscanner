@@ -10,8 +10,6 @@
 .ai-explain,.ai-send{font:600 14px/1 var(--sans,inherit);border-radius:12px;padding:12px 16px;cursor:pointer;border:1px solid #3b5f80;background:#12263a;color:#dff4ff;transition:transform .15s,background .15s,border-color .15s}
 .ai-explain:first-child{background:linear-gradient(135deg,#22d3ee,#2dd4bf);border-color:transparent;color:#06121f}
 .ai-explain:hover:not(:disabled),.ai-send:hover:not(:disabled){transform:translateY(-1px);border-color:#67e8f9}
-.ai-copy{font:600 13px/1 var(--sans,inherit);border:1px solid #3b5f80;background:#12263a;color:#dff4ff;border-radius:10px;padding:9px 12px;cursor:pointer}
-.ai-copy:hover{border-color:#67e8f9;color:#fff}
 .ai-copy-status{font-size:12px;color:#9fb6cd;min-width:82px;align-self:center}
 .ai-explain:disabled,.ai-send:disabled{opacity:.55;cursor:progress}
 .ai-status{min-height:20px;margin:8px 0 0;color:#fcd48a;font-size:13.5px}
@@ -77,5 +75,12 @@
 @media(prefers-reduced-motion:reduce){.ai-typing i,.ai-dock{animation:none}.ai-fab,.ai-fab-hint{transition:none}}
 @media print{.ai-widget{display:none}}
 
-.ai-copy{align-self:flex-start;margin:-2px 0 6px 4px;padding:3px 10px;border-radius:999px;border:1px solid rgba(145,188,220,.22);background:transparent;color:#7f93ad;font:600 12px/1.4 inherit;cursor:pointer}
-.ai-copy:hover{color:#e3f1ff;border-color:rgba(119,220,255,.45)}
+/* The copy pill. "button.ai-copy" inside the panels outranks page-wide button styles (e.g. .ip-workspace button). */
+.ai-panel button.ai-copy,.ai-dock button.ai-copy{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;width:auto;min-height:0;
+  margin:12px 0 2px;padding:6px 12px 6px 10px;border-radius:999px;border:1px solid rgba(145,188,220,.24);background:rgba(18,38,58,.55);
+  color:#9fb6cd;font:600 12.5px/1.2 var(--sans,inherit);letter-spacing:.1px;box-shadow:none;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s}
+.ai-panel button.ai-copy:hover,.ai-dock button.ai-copy:hover{color:#e6f6ff;border-color:rgba(119,220,255,.5);background:rgba(34,211,238,.08);transform:none}
+.ai-panel button.ai-copy:focus-visible,.ai-dock button.ai-copy:focus-visible{outline:2px solid #67e8f9;outline-offset:2px}
+.ai-panel button.ai-copy.done,.ai-dock button.ai-copy.done{color:#5eead4;border-color:rgba(94,234,212,.5);background:rgba(94,234,212,.08)}
+.ai-dock button.ai-copy{margin:-2px 0 6px 4px;padding:4px 10px 4px 8px;font-size:12px}

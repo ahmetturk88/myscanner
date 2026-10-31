@@ -84,8 +84,8 @@
     window.MYSCANNER_AI_USER = {{ (current_user.username if current_user.is_authenticated else '')|tojson }};
     window.MYSCANNER_AI_LOGIN = {{ url_for('login')|tojson }};
     window.MYSCANNER_AI_REGISTER = {{ url_for('register')|tojson }};</script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='ai_assistant.css', v='20261031-1') }}">
-    <script src="{{ url_for('static', filename='ai_assistant.js', v='20261031-2') }}" defer></script>{% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='ai_assistant.css', v='20261031-2') }}">
+    <script src="{{ url_for('static', filename='ai_assistant.js', v='20261031-3') }}" defer></script>{% endif %}
     <link rel="apple-touch-icon" href="{{ url_for('static',filename='brand/myscanner-apple-touch.png',v='20261016') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='icons.css',v='20261031-1') }}">
     <link rel="stylesheet" href="{{ url_for('static',filename='platform_shell.css',v='20261028-1') }}">

@@ -231,6 +231,9 @@ def task(task_id):
 PDF_EXPORTS = {'site': 'report_pdf.download_site_pdf', 'email': 'report_pdf.download_email_pdf',
                'file': 'file_pdf.download_file_pdf'}
 PDF_LINK_SECONDS = 300
+PDF_PENDING_MAX = 200            # links waiting to be opened, across all users: bounds the tmpfs
+PDF_MAX_BYTES = 15 * 1024 * 1024
+PDF_PER_USER = (20, 600)         # PDFs one app user may request per ten minutes
 
 
 def _pdf_folder():
@@ -252,31 +255,50 @@ def _pdf_link(response):
         return response if response.status_code >= 400 else (jsonify(error='This report can’t be exported as a PDF.'), 404)
     response.direct_passthrough = False
     data = response.get_data()
+    if not data.startswith(b'%PDF') or len(data) > PDF_MAX_BYTES:
+        return jsonify(error='This report can’t be exported as a PDF.'), 422
     folder = _pdf_folder()
     now = time.time()
+    pending = 0
     for name in os.listdir(folder):  # links nobody opened
         path = os.path.join(folder, name)
         try:
             if now - os.path.getmtime(path) > PDF_LINK_SECONDS:
                 os.remove(path)
+            else:
+                pending += 1
         except OSError:
             pass
+    if pending >= PDF_PENDING_MAX:
+        return jsonify(error='PDF export is busy right now. Please try again in a few minutes.'), 503, {'Retry-After': '60'}
     token = secrets.token_hex(24)
-    with open(os.path.join(folder, token + '.pdf'), 'wb') as handle:
+    # Created owner-only and exclusively: a token collision or a pre-made file can't be overwritten.
+    descriptor = os.open(os.path.join(folder, token + '.pdf'), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'wb') as handle:
         handle.write(data)
     return jsonify(url=f'/api/mobile/v1/pdf/{token}', expires_in=PDF_LINK_SECONDS)
+
+
+def _pdf_allowance():
+    """None while this user may make another PDF; the 429 answer once they have made too many."""
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    try:
+        consume_limit('mobile-pdf', str(current_user.id), *PDF_PER_USER)
+    except AuthRateLimited as error:
+        return jsonify(error='Too many PDFs in a short time. Please try again in a few minutes.'), 429, {'Retry-After': str(error.retry_after)}
+    return None
 
 
 @mobile_bp.route('/reports/<kind>/pdf', methods=['POST'])
 def report_pdf(kind):
     if kind not in PDF_EXPORTS:
         return jsonify(error='Unknown report'), 404
-    return _pdf_link(_call(PDF_EXPORTS[kind]))
+    return _pdf_allowance() or _pdf_link(_call(PDF_EXPORTS[kind]))
 
 
 @mobile_bp.route('/scans/<int:scan_id>/pdf', methods=['POST'])
 def scan_pdf(scan_id):
-    return _pdf_link(_call('download_pdf', scan_id=scan_id))
+    return _pdf_allowance() or _pdf_link(_call('download_pdf', scan_id=scan_id))
 
 
 @mobile_bp.route('/pdf/<token>')
@@ -302,6 +324,8 @@ def pdf_download(token):
                          download_name='myscanner-report.pdf', max_age=0)
     response.headers['Cache-Control'] = 'private, no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'no-referrer'   # the link must not travel on to another site
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow'
     return response
 
 

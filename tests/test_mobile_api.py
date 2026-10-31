@@ -172,6 +172,30 @@ class MobileApiTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/mobile/v1/reports/admin/pdf', headers=self.auth(token), json={}).status_code, 404)
         self.assertEqual(self.client.get('/api/mobile/v1/pdf/../../etc/passwd').status_code, 404)
 
+    def test_pdf_links_are_limited_per_user_and_in_number(self):
+        import sys
+        from unittest.mock import patch
+        sys.path.insert(0, 'tests')
+        from test_report_pdf import email_result
+        from services.report_receipts import issue_receipt
+        import routes.mobile_api as mobile_api
+        token = self.token()
+        receipt = issue_receipt('email', email_result(), str(self.owner), self.app.config['SECRET_KEY'])
+        post = lambda: self.client.post('/api/mobile/v1/reports/email/pdf', headers=self.auth(token), json={'receipt': receipt})  # noqa: E731
+        with patch.object(mobile_api, 'PDF_PENDING_MAX', 1):
+            first, second = post(), post()
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(second.status_code, 503)  # one link already waiting: the store is full
+            self.client.get(first.json['url'])
+        with patch.object(mobile_api, 'PDF_PER_USER', (1, 600)):
+            self.assertEqual(post().status_code, 429)
+        link = self.client.post('/api/mobile/v1/reports/email/pdf', headers=self.auth(self.token(email='other@example.invalid')),
+                                json={'receipt': issue_receipt('email', email_result(), str(self.other), self.app.config['SECRET_KEY'])})
+        self.assertEqual(link.status_code, 200)
+        pdf = self.client.get(link.json['url'])
+        self.assertEqual(pdf.headers['Referrer-Policy'], 'no-referrer')
+        self.assertIn('noindex', pdf.headers['X-Robots-Tag'])
+
     def test_password_reset_signs_out_every_device(self):
         token = self.token()
         with self.app.app_context():

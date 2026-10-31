@@ -366,8 +366,8 @@ REPORTS_TR = {
     'Sign in to chat': 'Sohbet için giriş yap',
     'AI can make mistakes and cannot scan anything by itself. Never share passwords or personal data. Each answer uses 1 of your 10 daily AI requests.':
         'Yapay zekâ hata yapabilir ve kendi başına hiçbir şeyi tarayamaz. Şifreni ya da kişisel bilgilerini asla paylaşma. Her yanıt günlük 10 yapay zekâ hakkından 1 tanesini kullanır.',
-    'AI can make mistakes and cannot scan anything by itself. It can explain MyScanner and online safety, but it cannot access secrets or administer the platform. Never share passwords or personal data.':
-        'Yapay zekâ hata yapabilir ve kendi başına hiçbir şeyi tarayamaz. MyScanner ve çevrimiçi güvenliği açıklayabilir; ancak gizli bilgilere erişemez veya platformu yönetemez. Şifrelerini ya da kişisel bilgilerini asla paylaşma.',
+    'AI can make mistakes and cannot scan anything by itself. It can explain MyScanner and online safety, but it cannot access secrets or administer the platform. Never share passwords or personal data. Each answer uses 1 of your 10 daily AI requests.':
+        'Yapay zekâ hata yapabilir ve kendi başına hiçbir şeyi tarayamaz. MyScanner ve çevrimiçi güvenliği açıklayabilir; ancak gizli bilgilere erişemez veya platformu yönetemez. Şifrelerini ya da kişisel bilgilerini asla paylaşma. Her yanıt günlük 10 yapay zekâ hakkından 1 tanesini kullanır.',
     "Ask MyScanner's AI about links, messages, scams and account security.": "MyScanner'ın yapay zekâsına bağlantıları, mesajları, dolandırıcılıkları ve hesap güvenliğini sor.",
     'New conversation': 'Yeni sohbet',
     'Start a new conversation': 'Yeni bir sohbet başlat',

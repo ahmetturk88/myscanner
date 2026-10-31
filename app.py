@@ -40,6 +40,7 @@ from services.url_analyzer import URLDeepAnalyzer
 from services.subdomain_finder import SubdomainFinder
 from services.password_analyzer import PasswordAnalyzer
 from services.social import SOCIAL_LINKS
+from services.ai_receipts import with_ai_receipt
 from models import User, Scan
 from models import User, Scan, LogEntry
 from services.ip_analyzer import IPAnalyzer
@@ -1337,6 +1338,7 @@ def email_check():
 @app.route('/api/check-email', methods=['POST'])
 @login_required
 @check_permission('email_check')
+@with_ai_receipt('email')
 def api_check_email():
     app.logger.info(f'[INFO] Email check requested by {current_user.username}')
 
@@ -1447,6 +1449,7 @@ def ip_check():
 @app.route('/api/check-ip', methods=['POST'])
 @login_required
 @check_permission('ip_check')
+@with_ai_receipt('ip')
 def api_check_ip():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get('ip'), str):
@@ -1553,6 +1556,7 @@ def password_check():
 
 @app.route('/api/check-password', methods=['POST'])
 @login_required
+@with_ai_receipt('password')
 def api_check_password():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get('password'), str) or not data['password'].strip() or len(data['password']) > 128:
@@ -1807,6 +1811,7 @@ def domain_lookup():
 @app.route('/api/domain-lookup', methods=['POST'])
 @login_required
 @check_permission('domain_lookup')
+@with_ai_receipt('domain')
 def api_domain_lookup():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get('domain'), str):
@@ -1834,6 +1839,7 @@ def qr_scanner():
 @login_required
 @validate_web_scan_request('url', 'include_provider')
 @check_permission('qr_scan')
+@with_ai_receipt('qr')
 def api_scan_qr_url():
     data = request.get_json(silent=True)
     try:
@@ -1860,6 +1866,7 @@ def ssl_checker():
 @app.route('/api/ssl-checker', methods=['POST'])
 @login_required
 @check_permission('ssl_check')
+@with_ai_receipt('ssl')
 def api_ssl_checker():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get('domain'), str) or not data['domain'].strip() or len(data['domain']) > 2048:
@@ -1909,10 +1916,15 @@ def _owned_ai_context(context_id):
     context = db.session.get(AIContext, context_id)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if (context is None or context.user_id != current_user.id
-            or context.source_kind != 'saved_report'
+            or context.source_kind not in VERIFIED_AI_SOURCES
             or (context.expires_at and context.expires_at <= now)):
         return None
     return context
+
+
+# Where a context's evidence came from: a saved URL scan, or a tool result the server signed
+# (services/ai_receipts.py). Evidence typed or edited in the browser is never accepted.
+VERIFIED_AI_SOURCES = ('saved_report', 'signed_report')
 
 
 def _ai_saved_url_evidence(scan):
@@ -1959,19 +1971,29 @@ def api_ai_create_context():
              .offset(AI_CONTEXTS_PER_USER - 1).with_entities(AIContext.id).all()]
     if stale:
         AIContext.query.filter(AIContext.id.in_(stale)).delete(synchronize_session=False)
-    if (data.get('report_id') is None or data['tool'] != 'url'
-            or isinstance(data.get('report_id'), bool)
-            or not isinstance(data.get('report_id'), int) or data['report_id'] <= 0):
-        return jsonify(error='AI is available only for a saved server-side report'), 409
-    scan = db.session.get(Scan, data['report_id'])
-    if not scan or scan.user_id != current_user.id:
-        return jsonify(error='Report not found'), 404
-    evidence = _ai_saved_url_evidence(scan)
-    if evidence is None:
-        return jsonify(error='This report has no completed evidence for the AI assistant'), 409
-    source_kind = 'saved_report'
-    source_report_id = scan.id
-    evidence_json = ai_assistant.sanitize_evidence(evidence)
+    source_report_id = None
+    if isinstance(data.get('receipt'), str):
+        # Any tool: the evidence the server signed when the tool finished, for this user and tool only.
+        from itsdangerous import BadData
+        from services import ai_receipts
+        try:
+            evidence_json = ai_receipts.load(data['receipt'], data['tool'], current_user.get_id(), app.config['SECRET_KEY'])
+        except BadData:
+            return jsonify(error='This report has expired. Run the check again to ask the AI about it.'), 409
+        source_kind = 'signed_report'
+    elif (data['tool'] == 'url' and isinstance(data.get('report_id'), int)
+          and not isinstance(data.get('report_id'), bool) and data['report_id'] > 0):
+        scan = db.session.get(Scan, data['report_id'])
+        if not scan or scan.user_id != current_user.id:
+            return jsonify(error='Report not found'), 404
+        evidence = _ai_saved_url_evidence(scan)
+        if evidence is None:
+            return jsonify(error='This report has no completed evidence for the AI assistant'), 409
+        source_kind = 'saved_report'
+        source_report_id = scan.id
+        evidence_json = ai_assistant.sanitize_evidence(evidence)
+    else:
+        return jsonify(error='AI is available only for a report made by MyScanner. Update the app or run the check again.'), 409
     context = AIContext(id=str(uuid.uuid4()), user_id=current_user.id, tool=data['tool'],
                         source_kind=source_kind, source_report_id=source_report_id,
                         evidence_hash=hashlib.sha256(evidence_json.encode('utf-8')).hexdigest(),
@@ -2076,7 +2098,7 @@ def api_ai_explain(context_id):
         return {'explanation': explanation, 'cached': False}
 
     return _ai_stream(ai_assistant.explain_stream(context.tool, context.evidence, language,
-                                                  verified=context.source_kind == 'saved_report'), finish,
+                                                  verified=context.source_kind in VERIFIED_AI_SOURCES), finish,
                       f'explanation, {context.tool}')
 
 
@@ -2108,7 +2130,7 @@ def api_ai_chat(context_id):
         return {'answer': answer}
 
     return _ai_stream(ai_assistant.chat_stream(context.tool, context.evidence, history, message,
-                                               verified=context.source_kind == 'saved_report'), finish,
+                                               verified=context.source_kind in VERIFIED_AI_SOURCES), finish,
                       f'chat, {context.tool}')
 
 

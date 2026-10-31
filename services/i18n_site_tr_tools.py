@@ -140,8 +140,8 @@ TOOLS_TR = {
     'Password to assess · 1–128 characters': 'Değerlendirilecek şifre · 1–128 karakter',
     'Assess strength ↗': 'Gücünü değerlendir ↗',
     'Check Pwned Passwords with a hash prefix': "Pwned Passwords'ü hash önekiyle kontrol et",
-    'Your input is sent over HTTPS to MyScanner for processing. It is not saved in the report. Optional breach lookup sends only the first five SHA-1 hash characters to Have I Been Pwned. Avoid entering a real password on shared or untrusted devices.':
-        "Girdiğin değer işlenmek üzere HTTPS ile MyScanner'a gönderilir ve rapora kaydedilmez. İsteğe bağlı sızıntı sorgusu Have I Been Pwned'e yalnızca SHA-1 hash'inin ilk beş karakterini gönderir. Paylaşılan ya da güvenmediğin cihazlarda gerçek şifreni girme.",
+    'Your input is sent over HTTPS to MyScanner for processing. It is not saved in the report. The breach lookup is on by default (untick it to skip) and sends only the first five SHA-1 hash characters to Have I Been Pwned. Avoid entering a real password on shared or untrusted devices.':
+        "Girdiğin değer işlenmek üzere HTTPS ile MyScanner'a gönderilir ve rapora kaydedilmez. Sızıntı sorgusu varsayılan olarak açıktır (atlamak için işareti kaldır) ve Have I Been Pwned'e yalnızca SHA-1 hash'inin ilk beş karakterini gönderir. Paylaşılan ya da güvenmediğin cihazlarda gerçek şifreni girme.",
     'Generate random password': 'Rastgele şifre oluştur',
     'Clear workspace': 'Çalışma alanını temizle',
     'Generator uses browser cryptographic randomness. Generated passwords are not automatically submitted. No copy of your password is included in exported results.':

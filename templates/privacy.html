@@ -79,7 +79,7 @@
         <ul>
           <li><strong>Links and websites</strong> are fetched by our servers from an isolated network, and a page preview is captured in an isolated browser.</li>
           <li><strong>Files</strong> are inspected statically and never executed. The uploaded copy is deleted when the inspection finishes; only the report and file fingerprints (hashes) are kept.</li>
-          <li><strong>Passwords</strong> are analysed for strength and are not stored or included in reports. If you choose the breach check, only the first five characters of the password's SHA-1 hash leave our server (k-anonymity), never the password.</li>
+          <li><strong>Passwords</strong> are analysed for strength and are not stored or included in reports. The breach check is on by default and you can switch it off; it sends only the first five characters of the password's SHA-1 hash from our server (k-anonymity), never the password.</li>
           <li><strong>Email addresses</strong> are checked through DNS records. A direct mail-server check runs only if you tick it, and the receiving mail server then sees the address.</li>
           <li><strong>QR codes</strong> are decoded in your browser, or on your phone by the app. The camera is used only while you scan, and the camera image never leaves your phone; only the decoded text is sent if you choose to inspect it.</li>
         </ul>
@@ -100,7 +100,7 @@
             <tr><td>Phishing databases (e.g. PhishTank)</td><td>Phishing reputation of URLs.</td></tr>
             <tr><td>Google (Web Risk)</td><td>Checks whether a scanned URL, a link found inside a scanned file (up to five per file), a page or link found while checking a website (up to thirteen per check), or the domain of a checked email address, is on Google's lists of phishing, malware and unwanted-software sites. Only the URL or domain is sent, never the file.</td></tr>
             <tr><td>AbuseIPDB</td><td>IP address reputation. Network location comes from the DB-IP Lite database on our own server, so the address is not sent anywhere for it.</td></tr>
-            <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Optional password breach check using a hash prefix only.</td></tr>
+            <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Password breach check (on by default, can be switched off) using a hash prefix only.</td></tr>
             <tr><td>crt.sh, Google Public DNS, registries (RDAP/WHOIS)</td><td>Certificate history, DNS and registration data.</td></tr>
             <tr><td>Google (Gemini API), Groq</td><td>Optional AI explanations, questions about a report and the site-wide AI assistant, only when you ask. They receive the report's findings (with secrets and images removed), your questions and the earlier messages of the same conversation, not your account details. On free service tiers, Google may use this content to improve its products, so do not include personal information in questions.</td></tr>
             <tr><td>Sentry (Functional Software, Inc.)</td><td>Error reports when something on our servers breaks: the error type, message and code location. Request contents, cookies, account details and stored values are not sent, though an error message can name the address being checked.</td></tr>

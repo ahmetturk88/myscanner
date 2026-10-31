@@ -75,5 +75,5 @@ class TemplateTests(unittest.TestCase):
     def test_private_input_assets_and_opt_in(self):
         app=Flask(__name__);app.jinja_loader=ChoiceLoader([DictLoader({'base.html':'{% block head_extra %}{% endblock %}{% block content %}{% endblock %}'}),FileSystemLoader(str(ROOT/'templates'))])
         with app.test_request_context('/'):soup=BeautifulSoup(render_template('password_check.html'),'html.parser')
-        self.assertEqual(soup.select_one('#password-input')['type'],'password');self.assertFalse(soup.select_one('#password-breach').has_attr('checked'))
+        self.assertEqual(soup.select_one('#password-input')['type'],'password');self.assertTrue(soup.select_one('#password-breach').has_attr('checked'))
         self.assertTrue(soup.find('script',src=lambda s:s and s.split('?')[0]=='/static/password_workspace.js'));self.assertFalse(soup.select('[onclick]'))

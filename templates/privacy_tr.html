@@ -74,7 +74,7 @@
             <tr><td>Platformu güvende tutmak: hız sınırları, günlük kullanım hakları, kötüye kullanımın önlenmesi ve incelenmesi</td><td>Meşru menfaat (f); hukuki yükümlülük (ç)</td></tr>
             <tr><td>İletişim mesajlarına ve güvenlik bildirimlerine yanıt vermek</td><td>Meşru menfaat (f); bir hakkın tesisi, kullanılması veya korunması (e)</td></tr>
             <tr><td>Siz istediğinizde raporları yapay zekâ ile açıklamak ve güvenlik sorularınızı yanıtlamak</td><td>Sözleşmenin ifası (c)</td></tr>
-            <tr><td>Siz açtığınızda isteğe bağlı kontroller (ör. posta sunucusu kontrolü, parola sızıntı kontrolü)</td><td>Sözleşmenin ifası (c); gerekli olduğu ölçüde açık rıza</td></tr>
+            <tr><td>Siz açtığınızda isteğe bağlı kontroller (ör. posta sunucusu kontrolü) ve kapatabileceğiniz parola sızıntı kontrolü</td><td>Sözleşmenin ifası (c); gerekli olduğu ölçüde açık rıza</td></tr>
           </tbody>
         </table>
         <p>Verileriniz, açık rıza gerektiren durumlar dışında, yukarıdaki hukuki sebeplere dayanılarak, internet sitesi, Android uygulaması ve e-posta yoluyla elektronik ortamda, otomatik yöntemlerle toplanır. Verilerinizi reklam amacıyla kullanmayız ve kimseye satmayız.</p>
@@ -85,7 +85,7 @@
         <ul>
           <li><strong>Bağlantılar ve web siteleri</strong> sunucularımız tarafından yalıtılmış bir ağdan açılır; sayfa önizlemesi yalıtılmış bir tarayıcıda alınır.</li>
           <li><strong>Dosyalar</strong> statik olarak incelenir, asla çalıştırılmaz. Yüklenen kopya inceleme biter bitmez silinir; yalnızca rapor ve dosyanın parmak izleri (hash) saklanır.</li>
-          <li><strong>Parolalar</strong> güç açısından analiz edilir; saklanmaz ve raporlara eklenmez. Sızıntı kontrolünü seçerseniz sunucumuzdan yalnızca parolanın SHA-1 özetinin ilk beş karakteri çıkar (k-anonimlik), parolanın kendisi asla.</li>
+          <li><strong>Parolalar</strong> güç açısından analiz edilir; saklanmaz ve raporlara eklenmez. Sızıntı kontrolü varsayılan olarak açıktır ve kapatabilirsiniz; sunucumuzdan yalnızca parolanın SHA-1 özetinin ilk beş karakteri çıkar (k-anonimlik), parolanın kendisi asla.</li>
           <li><strong>E-posta adresleri</strong> DNS kayıtlarıyla kontrol edilir. Doğrudan posta sunucusu kontrolü yalnızca siz işaretlerseniz yapılır ve karşı posta sunucusu adresi görür.</li>
           <li><strong>QR kodlar</strong> tarayıcınızda veya uygulamada telefonunuzda çözülür. Kamera yalnızca tarama sırasında kullanılır ve görüntü telefonunuzdan çıkmaz; yalnızca incelemeyi seçerseniz çözülen metin gönderilir.</li>
         </ul>
@@ -106,7 +106,7 @@
             <tr><td>Oltalama veritabanları (ör. PhishTank)</td><td>URL'lerin oltalama itibarı.</td></tr>
             <tr><td>Google (Web Risk)</td><td>Taranan URL'nin, taranan bir dosyanın içinde bulunan bir bağlantının (dosya başına en fazla beş), bir web sitesi kontrol edilirken bulunan bir sayfa ya da bağlantının (kontrol başına en fazla on üç) ya da kontrol edilen e-posta adresinin alan adının Google'ın oltalama, zararlı yazılım ve istenmeyen yazılım listelerinde olup olmadığı. Yalnızca URL ya da alan adı gönderilir, dosyanın kendisi asla gönderilmez.</td></tr>
             <tr><td>AbuseIPDB</td><td>IP adresi itibarı. Ağ konumu kendi sunucumuzdaki DB-IP Lite veritabanından gelir; bunun için adres hiçbir yere gönderilmez.</td></tr>
-            <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Yalnızca özet öneki ile isteğe bağlı parola sızıntı kontrolü.</td></tr>
+            <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Yalnızca özet öneki ile parola sızıntı kontrolü (varsayılan olarak açık, kapatılabilir).</td></tr>
             <tr><td>crt.sh, Google Public DNS, kayıt kuruluşları (RDAP/WHOIS)</td><td>Sertifika geçmişi, DNS ve alan adı kayıt bilgileri.</td></tr>
             <tr><td>Google (Gemini API), Groq</td><td>Yalnızca siz istediğinizde yapay zekâ açıklamaları ve soruların yanıtlanması. Raporun bulgularını (sırlar ve görseller çıkarılmış olarak), sorularınızı ve aynı konuşmadaki önceki mesajları alır; hesap bilgilerinizi almaz. Ücretsiz katmanlarda Google bu içeriği ürünlerini geliştirmek için kullanabilir; bu nedenle sorularınıza kişisel bilgi eklemeyin.</td></tr>
             <tr><td>Sentry (Functional Software, Inc.)</td><td>Sunucularımızda bir hata oluştuğunda hata türü, mesajı ve kod konumu. İstek içerikleri, çerezler, hesap bilgileri ve saklanan değerler gönderilmez; ancak bir hata mesajı kontrol edilen adresi içerebilir.</td></tr>

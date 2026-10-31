@@ -84,10 +84,11 @@ def plain_email_report(report):
         add('warn', 'A throwaway address', 'The domain hands out temporary inboxes that disappear after a while. Spammers and fake accounts use them.')
     if listed:
         add('warn', 'Its mail server is on a spam blocklist', (f'{listed_on} lists' if listed_on else 'A blocklist lists') + ' a server this domain uses. That is about the server, not proof this person is a scammer.')
-    if spf_missing or dmarc_missing:
+    # A domain that doesn't exist can't be spoofed or misconfigured: "not a real address" says it all.
+    if (spf_missing or dmarc_missing) and not no_domain:
         which = 'SPF or DMARC' if spf_missing and dmarc_missing else 'SPF' if spf_missing else 'DMARC'
         add('warn', 'Email from this domain is easy to fake', f'The domain has no {which} protection, so anyone can send mail pretending to be from it.')
-    if broken:
+    if broken and not no_domain:
         add('warn', 'Its anti-spoofing setup has errors', f'The {" and ".join(broken)} record' + ('s are' if len(broken) > 1 else ' is') + ' misconfigured, so fake mail may not be stopped.')
     if age is not None and age < 30:
         add('warn', 'A brand-new domain', f'It was registered {age_text(age)} ago. Scam addresses often use new domains.')

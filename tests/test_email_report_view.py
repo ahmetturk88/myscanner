@@ -71,6 +71,11 @@ class PlainEmailReportTests(unittest.TestCase):
         self.assertEqual((plain['tone'], plain['label']), ('danger', 'NOT A REAL ADDRESS'))
         self.assertEqual(checks(plain), {'Domain exists': ('bad', 'No'), 'Receives email': ('bad', 'No')})
         self.assertIn('typo', plain['actions'][0])
+        # A domain that doesn't exist has no SPF or DMARC, but "easy to fake" would contradict "not a real address".
+        missing = report(email='destek@garanti-bbva-guvenlik.com', domain='garanti-bbva-guvenlik.com',
+                         dns={'domain_status': 'not_found', 'spf': {'status': 'not_found'}, 'dmarc': {'status': 'not_found'}})
+        titles = [r['title'] for r in plain_email_report(missing)['reasons']]
+        self.assertNotIn('Email from this domain is easy to fake', titles)
 
     def test_missing_checks_never_read_as_fine(self):
         plain = plain_email_report(report(blacklist={'coverage_status': 'unavailable'}, domain_info={'error': 'x'}))

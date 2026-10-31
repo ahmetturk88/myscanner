@@ -434,6 +434,7 @@ export const TR: Record<string, string> = {
   "Later": "Sonra",
   "Update": "Güncelle",
   "MyScanner on LinkedIn": "LinkedIn'de MyScanner",
+  "MyScanner on Instagram": "Instagram'da MyScanner",
   "Follow us on WhatsApp": "WhatsApp kanalımızı takip et",
   "This file is empty.": "Bu dosya boş.",
   "The file could not be uploaded. Check your internet and try again.": "Dosya yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.",

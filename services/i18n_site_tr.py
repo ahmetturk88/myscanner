@@ -360,6 +360,8 @@ SITE_TR = {
     'Close': 'Kapat',
     'MyScanner Pro': 'MyScanner Pro',
     'Follow the channel': 'Kanalı takip et',
+    'Follow on Instagram': "Instagram'da takip et",
+    'Scam examples and security tips in pictures and short videos.': 'Görseller ve kısa videolarla dolandırıcılık örnekleri ve güvenlik ipuçları.',
     'Scam alerts, safety tips and MyScanner news on WhatsApp.': 'Dolandırıcılık uyarıları, güvenlik ipuçları ve MyScanner haberleri WhatsApp’ta.',
     'WhatsApp channel': 'WhatsApp kanalı',
     'WhatsApp channel ↗': 'WhatsApp kanalı ↗',

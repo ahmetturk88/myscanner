@@ -27,6 +27,7 @@ function Stat({ label, value, color, icon, index }: { label: string; value?: num
 
 const LINKEDIN = 'https://www.linkedin.com/company/myscanners/';
 const WHATSAPP = 'https://whatsapp.com/channel/0029Vb9Mor5GOj9eRROdFO0x';
+const INSTAGRAM = 'https://www.instagram.com/myscanners_com/';
 
 function Row({ icon, label, onPress, danger, last }: { icon: IconName; label: string; onPress: () => void; danger?: boolean; last?: boolean }) {
   return (
@@ -104,8 +105,9 @@ export default function Account() {
       <Animated.View entering={enter(6)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>
         <Row icon="settings" label={t('Settings')} onPress={() => router.push('/settings')} />
         <Row icon="mail" label={t('Contact and feedback')} onPress={() => open('/contact')} />
-        {/* These open the LinkedIn and WhatsApp apps when they are installed. */}
+        {/* These open the LinkedIn, Instagram and WhatsApp apps when they are installed. */}
         <Row icon="linkedin" label={t('MyScanner on LinkedIn')} onPress={() => Linking.openURL(LINKEDIN).catch(() => {})} />
+        <Row icon="instagram" label={t('MyScanner on Instagram')} onPress={() => Linking.openURL(INSTAGRAM).catch(() => {})} />
         <Row icon="whatsapp" label={t('Follow us on WhatsApp')} onPress={() => Linking.openURL(WHATSAPP).catch(() => {})} last />
       </Animated.View>
       <Animated.View entering={enter(7)} style={[s.card, { paddingVertical: 4, gap: 0 }]}>

@@ -46,6 +46,7 @@ const PATHS: Record<string, React.ReactNode> = {
   copy: <><Rect x="8" y="8" width="12" height="12" rx="2" /><Path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></>,
   noImage: <><Path d="M3 3l18 18" /><Path d="M21 16V6a2 2 0 0 0-2-2H8M4.3 4.4A2 2 0 0 0 3 6v12a2 2 0 0 0 2 2h14" /><Path d="m14 14-3-3-8 8" /></>,
   image: <><Rect x="3" y="4" width="18" height="16" rx="2" /><Circle cx="9" cy="10" r="2" /><Path d="m21 16-5-5-9 9" /></>,
+  instagram: <><Rect x="3" y="3" width="18" height="18" rx="5" /><Circle cx="12" cy="12" r="4" /><Path d="M17.5 6.5v.01" /></>,
   linkedin: <><Rect x="3" y="3" width="18" height="18" rx="4" /><Path d="M8 10.5V16M8 7.6v.1M11.5 16v-5.5M11.5 13a2.5 2.5 0 0 1 5 0v3" /></>,
   whatsapp: <><Path d="M4 20l1.3-3.9A8.5 8.5 0 1 1 8.6 19z" /><Path d="M9 8.6c0 3.2 2.9 6.4 6.4 6.4l1-1.5-2-1-1 .9a5 5 0 0 1-2.3-2.3l.9-1-1-2z" /></>,
   external: <><Path d="M14 4h6v6M20 4l-9 9" /><Path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>,

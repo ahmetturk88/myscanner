@@ -101,7 +101,7 @@ class PasswordEndpointTests(unittest.TestCase):
 class PasswordInterfaceTests(unittest.TestCase):
     def test_optional_lookup_has_disclosure_and_no_clean_claim(self):
         source=(Path(__file__).resolve().parents[1]/'templates/password_check.html').read_text(encoding='utf-8')
-        self.assertIn('id="password-breach"',source);self.assertNotIn('id="password-breach" checked',source);self.assertNotIn('✅ Clean',source);self.assertIn('processing',source)
+        self.assertIn('id="password-breach"',source);self.assertIn('id="password-breach" type="checkbox" checked',source)  # on by default; only a hash prefix leaves the server;self.assertNotIn('✅ Clean',source);self.assertIn('processing',source)
     @unittest.skipUnless(shutil.which('node'),'Node.js is needed for password renderer execution tests')
     def test_renderer_and_export_distinguish_unknown_and_dataset_match(self):
         r=subprocess.run([shutil.which('node'),str(Path(__file__).with_name('test_tool_result_xss.cjs'))],capture_output=True,text=True,encoding='utf-8',check=True)

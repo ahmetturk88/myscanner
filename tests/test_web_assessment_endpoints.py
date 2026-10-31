@@ -44,7 +44,7 @@ class WebEndpointTests(unittest.TestCase):
         with patch('services.subdomain_finder.SubdomainFinder') as finder:
             finder.return_value.find_subdomains.return_value={'schema_version':2,'results':[]}
             result=run_evidence_job(kind,params,self.owner)['result']
-            self.assertEqual(result.pop('plain')['tone'],'info')
+            self.assertEqual(result.pop('plain')['tone'],'info');self.assertIsInstance(result.pop('ai_receipt'),str)  # signed evidence for the AI
             self.assertEqual(result,{'schema_version':2,'results':[]})
             finder.return_value.find_subdomains.assert_called_once_with('example.com',include_ct=False)
 

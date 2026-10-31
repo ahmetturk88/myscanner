@@ -252,7 +252,9 @@ export const api = {
   scanStatus: (id: number) => request<{ id: number; status: string; verdict: string | null }>(`/scans/${id}/status`),
   scan: (id: number) => request(`/scans/${id}`),
   scanAnalysis: (id: number) => request(`/scans/${id}/analysis`),
-  createContext: (tool: string, evidence: unknown) => request<{ id: string }>('/ai/contexts', { body: { tool, evidence } }),
+  /** The assistant reads only server-made evidence: a saved report's number or a tool result's signed receipt. */
+  createContext: (tool: string, source: { report_id: number } | { receipt: string }) =>
+    request<{ id: string }>('/ai/contexts', { body: { tool, ...source } }),
 };
 
 

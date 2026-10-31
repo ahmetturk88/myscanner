@@ -35,6 +35,17 @@ def _user_message(text, fallback):
     return text if isinstance(text, str) and 0 < len(text) <= 200 else fallback
 
 
+def _add_ai_receipt(tool, result, user_id):
+    """Signed evidence the AI assistant accepts for this result (services/ai_receipts.py)."""
+    from services.ai_receipts import FIELD, issue
+    try:
+        receipt = issue(tool, result, str(user_id), current_app.config['SECRET_KEY'])
+    except (ValueError, TypeError):
+        receipt = None
+    if receipt:
+        result[FIELD] = receipt
+
+
 def _site(params, user_id):
     from services.site_analyzer import SiteAnalyzer
     result = SiteAnalyzer().comprehensive_analysis(params['domain'], include_provider=params['include_provider'],
@@ -43,6 +54,7 @@ def _site(params, user_id):
         raise ValueError(result['error'])
     from services.simple_report_view import plain_web_report
     result['plain'] = plain_web_report(result, source='site')
+    _add_ai_receipt('site', result, user_id)
     from services.report_receipts import issue_receipt
     try:
         result['_pdf_receipt'] = issue_receipt('site', result, str(user_id), current_app.config['SECRET_KEY'])
@@ -56,6 +68,7 @@ def _subdomain_discovery(params, user_id):
     from services.simple_report_view import plain_subdomain_report
     result = SubdomainFinder().find_subdomains(params['domain'], include_ct=params['include_ct'])
     result['plain'] = plain_subdomain_report(result)
+    _add_ai_receipt('subdomain', result, user_id)
     return result
 
 
@@ -87,6 +100,7 @@ def _file_scan(params, user_id):
         result['_pdf_receipt'] = issue_file_pdf_receipt(result, str(user_id), current_app.config['SECRET_KEY'])
     except (ValueError, TypeError):
         result['_pdf_receipt'] = None
+    _add_ai_receipt('file', result, user_id)
     return result
 
 

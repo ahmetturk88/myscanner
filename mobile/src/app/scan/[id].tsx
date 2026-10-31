@@ -122,7 +122,7 @@ export default function ScanReport() {
         <PlainReport plain={plain} haptic={fresh} checked={report.date ? t('Checked {time}', { time: ago(report.date) }) : undefined} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
           again={{ label: t('Check another link'), icon: 'link', onPress: () => router.navigate('/') }}
           pdf={() => openPdf(`/scans/${scanId}/pdf`)}>
-          {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" evidence={{ plain, ...evidence }} /></Animated.View> : null}
+          {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" reportId={scanId} evidence={{ plain, ...evidence }} /></Animated.View> : null}
           <Evidence data={withoutPlain(analysis)} start={8} />
           {rescanning ? <Muted center>{t('Starting a fresh scan…')}</Muted> : null}
         </PlainReport>
@@ -142,7 +142,7 @@ export default function ScanReport() {
             <Button label={tone(verdict) === 'safe' ? t('Share') : t('Warn others')} icon="share" onPress={share} flex={1.3} />
             <Button label={t('Rescan')} icon="refresh" kind="secondary" onPress={rescan} busy={rescanning} flex={1} />
           </Animated.View>
-          {evidence ? <Animated.View entering={enter(3)}><AIPanel tool="url" evidence={evidence} /></Animated.View> : null}
+          {evidence ? <Animated.View entering={enter(3)}><AIPanel tool="url" reportId={scanId} evidence={evidence} /></Animated.View> : null}
           {reasons.length ? (
             <View style={{ gap: 10 }}>
               <Text style={{ color: colors.text, fontSize: 21, fontFamily: fonts.bold, letterSpacing: -0.5, marginTop: 6 }}>{t('What we found')}</Text>

@@ -338,6 +338,39 @@ class EndpointTests(unittest.TestCase):
             self.assertEqual(self.post('/api/ai/contexts', {'tool': 'url', 'report_id': self.scan_id}).status_code, 503)
             self.assertEqual(self.post('/api/ai/assistant', {'message': 'hi'}).status_code, 503)
 
+    def test_every_tool_gets_the_ai_through_a_signed_receipt_only(self):
+        from services import ai_receipts
+        self.sign_in(self.owner)
+        secret = self.app.config['SECRET_KEY']
+        result = {'verdict': 'review', 'plain': {'tone': 'caution', 'headline': 'Be careful'}, 'password': 'never-sent'}
+        for tool in ('email', 'site', 'file', 'ip', 'domain', 'ssl', 'subdomain', 'qr', 'password'):
+            receipt = ai_receipts.issue(tool, result, str(self.owner), secret)
+            response = self.post('/api/ai/contexts', {'tool': tool, 'receipt': receipt})
+            self.assertEqual(response.status_code, 201, (tool, response.get_data(as_text=True)))
+            with self.app.app_context():
+                context = db.session.get(AIContext, response.json['id'])
+                self.assertEqual(context.source_kind, 'signed_report')
+                self.assertNotIn('never-sent', context.evidence)  # sanitized before signing
+        email = ai_receipts.issue('email', result, str(self.owner), secret)
+        # Another user's receipt, a receipt for another tool, an edited receipt, and evidence typed in the
+        # browser (what app 0.7.6 sends) are all refused.
+        refused = [{'tool': 'email', 'receipt': ai_receipts.issue('email', result, str(self.other), secret)},
+                   {'tool': 'ip', 'receipt': email},
+                   {'tool': 'email', 'receipt': email[:-3] + 'abc'},
+                   {'tool': 'email', 'evidence': {'verdict': 'safe'}},
+                   {'tool': 'email'}]
+        for payload in refused:
+            self.assertEqual(self.post('/api/ai/contexts', payload).status_code, 409, payload.keys())
+
+    def test_tool_answers_carry_a_receipt_for_their_own_user(self):
+        from services import ai_receipts
+        self.sign_in(self.owner)
+        response = self.post('/api/check-password', {'password': 'Correct horse battery staple 42', 'check_breaches': False})
+        self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+        receipt = response.json['ai_receipt']
+        evidence = ai_receipts.load(receipt, 'password', str(self.owner), self.app.config['SECRET_KEY'])
+        self.assertNotIn('Correct horse', evidence)
+
     def test_each_user_keeps_at_most_fifty_contexts(self):
         self.sign_in(self.owner)
         for _ in range(53):

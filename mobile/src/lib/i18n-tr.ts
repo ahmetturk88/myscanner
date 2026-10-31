@@ -5,6 +5,7 @@
  */
 export const TR: Record<string, string> = {
   "Account": "Hesap",
+  "Run the check again to ask the AI about this report.": "Bu rapor hakkında yapay zekâya sormak için kontrolü yeniden çalıştır.",
   "Safety reminders": "Güvenlik hatırlatmaları",
   "Three short tips a day: morning, afternoon and evening. Never at night.": "Günde üç kısa ipucu: sabah, öğleden sonra ve akşam. Gece asla.",
   "Made on your phone: nothing about you or your scans is in them.": "Telefonunda hazırlanır: içinde sana ya da taramalarına dair hiçbir şey yoktur.",

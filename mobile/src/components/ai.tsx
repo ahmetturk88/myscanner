@@ -160,8 +160,20 @@ export function Bubble({ role, text }: { role: 'user' | 'assistant'; text: strin
   );
 }
 
-/** "Explain this report" plus follow-up questions, for any finished report. */
-export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown }) {
+/** The signed receipt that comes with a tool result (here or one level down), if any. */
+function receiptOf(evidence: unknown): string | null {
+  if (!evidence || typeof evidence !== 'object') return null;
+  const own = (evidence as Record<string, unknown>).ai_receipt;
+  if (typeof own === 'string' && own) return own;
+  for (const value of Object.values(evidence as Record<string, unknown>)) {
+    const nested = value && typeof value === 'object' ? (value as Record<string, unknown>).ai_receipt : null;
+    if (typeof nested === 'string' && nested) return nested;
+  }
+  return null;
+}
+
+/** "Explain this report" plus follow-up questions, for a finished report the server vouches for. */
+export function AIPanel({ tool, evidence, reportId }: { tool: string; evidence: unknown; reportId?: number }) {
   const context = useRef<string | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [explaining, setExplaining] = useState(false);
@@ -171,7 +183,12 @@ export function AIPanel({ tool, evidence }: { tool: string; evidence: unknown })
   const [error, setError] = useState<string | null>(null);
 
   async function ensureContext() {
-    if (!context.current) context.current = (await api.createContext(tool, evidence)).id;
+    if (!context.current) {
+      const receipt = receiptOf(evidence);
+      const source = reportId && reportId > 0 ? { report_id: reportId } : receipt ? { receipt } : null;
+      if (!source) throw new Error(t('Run the check again to ask the AI about this report.'));
+      context.current = (await api.createContext(tool, source)).id;
+    }
     return context.current;
   }
 

@@ -212,8 +212,8 @@
 
   // ------------------------------------------------------------ report panel
 
-  function build(tool, evidence, reportId) {
-    const state = {tool, evidence, reportId: reportId || null, contextId: null};
+  function build(tool, receipt, reportId) {
+    const state = {tool, receipt: receipt || null, reportId: reportId || null, contextId: null};
     const box = el('section', 'ai-panel');
     box.setAttribute('aria-label', 'AI assistant');
     const head = el('div', 'ai-head');
@@ -237,9 +237,10 @@
     const note = el('p', 'ai-note', 'AI can make mistakes. The verdict comes from MyScanner\'s checks, not from the AI. Do not type passwords or personal information. This assistant is restricted to this report.');
     async function ensureContext() {
       if (state.contextId) return state.contextId;
+      // Only server-made evidence: a saved report's number, or the receipt the server signed.
       const payload = {tool: state.tool};
       if (state.reportId) payload.report_id = state.reportId;
-      else payload.evidence = state.evidence;
+      else payload.receipt = state.receipt;
       const created = await stream('/api/ai/contexts', payload, () => {});
       state.contextId = created.id;
       return state.contextId;
@@ -301,15 +302,26 @@
     return box;
   }
 
+  function receiptIn(evidence) {
+    if (!evidence || typeof evidence !== 'object') return null;
+    if (typeof evidence.ai_receipt === 'string') return evidence.ai_receipt;
+    for (const value of Object.values(evidence)) {
+      if (value && typeof value === 'object' && typeof value.ai_receipt === 'string') return value.ai_receipt;
+    }
+    return null;
+  }
+
   /** Show the assistant for a finished report. Replaces any earlier panel on the page. */
   function attach(options) {
-    // Do not offer report AI for client-only evidence. The server must bind it
-    // to a saved report before the model is allowed to see it.
-    if (root.MYSCANNER_AI !== true || !options || !options.mount || !options.reportId) return null;
+    // Report AI only for evidence the server vouches for: a saved report (reportId) or the
+    // signed receipt that comes with every tool result (ai_receipt, here or one level down).
+    if (root.MYSCANNER_AI !== true || !options || !options.mount) return null;
+    const receipt = options.receipt || receiptIn(options.evidence);
+    if (!options.reportId && !receipt) return null;
     const mount = typeof options.mount === 'string' ? document.querySelector(options.mount) : options.mount;
     if (!mount) return null;
     if (panel) panel.remove();
-    panel = build(options.tool, options.evidence, options.reportId);
+    panel = build(options.tool, receipt, options.reportId);
     if (options.after) mount.insertAdjacentElement('afterend', panel);
     else mount.append(panel);
     return panel;
@@ -366,7 +378,7 @@
     const status = el('p', 'ai-status');
     status.setAttribute('role', 'status');
     const {form, input} = chatForm('Ask anything about online safety…', 'Ask the AI assistant');
-    const foot = el('p', 'ai-note', 'AI can make mistakes and cannot scan anything by itself. It can explain MyScanner and online safety, but it cannot access secrets or administer the platform. Never share passwords or personal data.');
+    const foot = el('p', 'ai-note', 'AI can make mistakes and cannot scan anything by itself. It can explain MyScanner and online safety, but it cannot access secrets or administer the platform. Never share passwords or personal data. Each answer uses 1 of your 10 daily AI requests.');
 
     function intro() {
       const box = el('div', 'ai-dock-intro');

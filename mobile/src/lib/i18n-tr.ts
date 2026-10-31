@@ -5,6 +5,8 @@
  */
 export const TR: Record<string, string> = {
   "Account": "Hesap",
+  "Download PDF": "PDF indir",
+  "The PDF could not be prepared.": "PDF hazırlanamadı.",
   "✓ VERIFIED": "✓ DOĞRULANDI",
   "FREE PLAN": "ÜCRETSİZ PLAN",
   "Reports": "Raporlar",

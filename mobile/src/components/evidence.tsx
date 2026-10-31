@@ -11,7 +11,7 @@ import { getSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
 
 // Page markup, images and internal bookkeeping: noise in a phone report, and sometimes megabytes.
-const HIDDEN = /(^|_)(html|base64|screenshot|image|status_url|task_id|csrf)($|_)|^plain$|^result_html$|^schema_version$/i;
+const HIDDEN = /(^|_)(html|base64|screenshot|image|status_url|task_id|csrf|receipt)($|_)|^plain$|^result_html$|^schema_version$/i;
 const PAGE = 20;
 const LONG = 280;
 

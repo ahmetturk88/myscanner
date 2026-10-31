@@ -29,6 +29,7 @@ const PATHS: Record<string, React.ReactNode> = {
   trash: <><Path d="M4 7h16M10 11v6M14 11v6" /><Path d="M6 7l1 13h10l1-13M9 7V4h6v3" /></>,
   shield: <Path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z" />,
   doc: <><Path d="M7 3h7l5 5v13H7z" /><Path d="M10 13h6M10 17h6" /></>,
+  download: <Path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
   close: <Path d="M6 6l12 12M18 6 6 18" />,
   shieldX: <><Path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><Path d="M9.5 9.5l5 5M14.5 9.5l-5 5" /></>,
   shieldCheck: <><Path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><Path d="M8.5 12l2.5 2.5 4.5-5" /></>,

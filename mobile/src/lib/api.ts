@@ -5,7 +5,7 @@
 import Constants from 'expo-constants';
 import { fetch as streamingFetch } from 'expo/fetch';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { t } from '@/lib/i18n';
 import { getSettings } from '@/lib/settings';
@@ -254,3 +254,14 @@ export const api = {
   scanAnalysis: (id: number) => request(`/scans/${id}/analysis`),
   createContext: (tool: string, evidence: unknown) => request<{ id: string }>('/ai/contexts', { body: { tool, evidence } }),
 };
+
+
+/**
+ * Opens a report as a PDF. The server builds it for the signed-in user and answers with a one-time
+ * link that lives a few minutes; the phone's browser downloads and shows it (the app keeps no files).
+ */
+export async function openPdf(path: string, body?: unknown) {
+  const { url } = await request<{ url: string }>(path, { method: 'POST', body: body ?? {} });
+  if (typeof url !== 'string' || !url.startsWith('/api/mobile/v1/pdf/')) throw new ApiError(t('The PDF could not be prepared.'), 500);
+  await Linking.openURL(SITE + url);
+}

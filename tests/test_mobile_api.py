@@ -148,6 +148,30 @@ class MobileApiTests(unittest.TestCase):
         events = [json.loads(line[5:]) for line in response.get_data(as_text=True).splitlines() if line.startswith('data:')]
         self.assertEqual(events[-1], {'done': True, 'answer': 'Use the URL Scanner.'})
 
+    def test_report_pdfs_reach_the_app_as_one_time_links(self):
+        import sys
+        sys.path.insert(0, 'tests')
+        from test_report_pdf import email_result, site_result
+        from services.report_receipts import issue_receipt
+        token = self.token()
+        secret = self.app.config['SECRET_KEY']
+        for kind, result in (('site', site_result()), ('email', email_result())):
+            receipt = issue_receipt(kind, result, str(self.owner), secret)
+            answer = self.client.post(f'/api/mobile/v1/reports/{kind}/pdf', headers=self.auth(token), json={'receipt': receipt})
+            self.assertEqual(answer.status_code, 200, answer.get_data(as_text=True))
+            link = answer.json['url']
+            self.assertRegex(link, r'^/api/mobile/v1/pdf/[0-9a-f]{48}$')
+            pdf = self.client.get(link)  # the browser has no app token: the link is the credential
+            self.assertEqual((pdf.status_code, pdf.mimetype), (200, 'application/pdf'))
+            self.assertTrue(pdf.data.startswith(b'%PDF'))
+            self.assertEqual(self.client.get(link).status_code, 404)  # one time only
+        foreign = issue_receipt('site', site_result(), str(self.other), secret)
+        refused = self.client.post('/api/mobile/v1/reports/site/pdf', headers=self.auth(token), json={'receipt': foreign})
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(self.client.post('/api/mobile/v1/reports/site/pdf', json={'receipt': foreign}).status_code, 401)
+        self.assertEqual(self.client.post('/api/mobile/v1/reports/admin/pdf', headers=self.auth(token), json={}).status_code, 404)
+        self.assertEqual(self.client.get('/api/mobile/v1/pdf/../../etc/passwd').status_code, 404)
+
     def test_password_reset_signs_out_every_device(self):
         token = self.token()
         with self.app.app_context():

@@ -20,7 +20,8 @@ from models import User
 from services import mobile_auth
 
 mobile_bp = Blueprint('mobile', __name__, url_prefix='/api/mobile/v1')
-PUBLIC = {'mobile.login', 'mobile.oauth_start', 'mobile.oauth_exchange', 'mobile.providers', 'mobile.app_version'}
+PUBLIC = {'mobile.login', 'mobile.oauth_start', 'mobile.oauth_exchange', 'mobile.providers', 'mobile.app_version',
+          'mobile.pdf_download'}  # the one-time link itself is the credential
 
 # The app's tool names, mapped to the website endpoints that do the work.
 TOOLS = {
@@ -221,6 +222,87 @@ def scan_screenshot(scan_id):
 @mobile_bp.route('/tasks/<task_id>')
 def task(task_id):
     return _call('task_status', task_id=task_id)
+
+
+# ---------------------------------------------------------------- PDF reports
+# The app has no file storage of its own, so it opens a PDF in the phone's browser. The PDF is built
+# here for the signed-in user (the website's own export routes, so the same receipts and ownership
+# checks), kept for a few minutes under a random one-time link, and deleted when it is fetched.
+PDF_EXPORTS = {'site': 'report_pdf.download_site_pdf', 'email': 'report_pdf.download_email_pdf',
+               'file': 'file_pdf.download_file_pdf'}
+PDF_LINK_SECONDS = 300
+
+
+def _pdf_folder():
+    import os
+    import tempfile
+    folder = os.path.join(tempfile.gettempdir(), 'myscanner-pdf')
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    return folder
+
+
+def _pdf_link(response):
+    """Store the PDF a website export route returned; answer with its one-time link."""
+    import os
+    import secrets
+    import time
+    from flask import make_response
+    response = make_response(response)  # views may return (body, status)
+    if response.mimetype != 'application/pdf' or response.status_code != 200:
+        return response if response.status_code >= 400 else (jsonify(error='This report can’t be exported as a PDF.'), 404)
+    response.direct_passthrough = False
+    data = response.get_data()
+    folder = _pdf_folder()
+    now = time.time()
+    for name in os.listdir(folder):  # links nobody opened
+        path = os.path.join(folder, name)
+        try:
+            if now - os.path.getmtime(path) > PDF_LINK_SECONDS:
+                os.remove(path)
+        except OSError:
+            pass
+    token = secrets.token_hex(24)
+    with open(os.path.join(folder, token + '.pdf'), 'wb') as handle:
+        handle.write(data)
+    return jsonify(url=f'/api/mobile/v1/pdf/{token}', expires_in=PDF_LINK_SECONDS)
+
+
+@mobile_bp.route('/reports/<kind>/pdf', methods=['POST'])
+def report_pdf(kind):
+    if kind not in PDF_EXPORTS:
+        return jsonify(error='Unknown report'), 404
+    return _pdf_link(_call(PDF_EXPORTS[kind]))
+
+
+@mobile_bp.route('/scans/<int:scan_id>/pdf', methods=['POST'])
+def scan_pdf(scan_id):
+    return _pdf_link(_call('download_pdf', scan_id=scan_id))
+
+
+@mobile_bp.route('/pdf/<token>')
+def pdf_download(token):
+    import io
+    import os
+    import re
+    import time
+    from flask import send_file
+    if not re.fullmatch(r'[0-9a-f]{48}', token):
+        return jsonify(error='This link has expired.'), 404
+    path = os.path.join(_pdf_folder(), token + '.pdf')
+    try:
+        fresh = time.time() - os.path.getmtime(path) <= PDF_LINK_SECONDS
+        with open(path, 'rb') as handle:
+            data = handle.read()
+        os.remove(path)
+    except OSError:
+        return jsonify(error='This link has expired.'), 404
+    if not fresh:
+        return jsonify(error='This link has expired.'), 404
+    response = send_file(io.BytesIO(data), mimetype='application/pdf', as_attachment=True,
+                         download_name='myscanner-report.pdf', max_age=0)
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 # ---------------------------------------------------------------- AI assistant

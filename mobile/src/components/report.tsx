@@ -234,10 +234,20 @@ export type ReportProps = {
   checked?: string;
   /** Shown between the summary and the evidence (the AI panel). */
   children?: React.ReactNode;
+  /** Downloads this report as a PDF (only where the server can build one). */
+  pdf?: () => Promise<void>;
 };
 
 /** The full report, drawn natively: verdict, why, what to do, what we checked. */
-export function PlainReport({ plain, again, plainShare, screenshot, haptic, checked, children }: ReportProps) {
+export function PlainReport({ plain, again, plainShare, screenshot, haptic, checked, children, pdf }: ReportProps) {
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  const downloadPdf = () => {
+    if (!pdf || pdfBusy) return;
+    setPdfBusy(true); setPdfError('');
+    pdf().catch((e) => setPdfError(e instanceof Error && e.message ? e.message : t('The PDF could not be prepared.')))
+      .finally(() => setPdfBusy(false));
+  };
   const tone = heroTone(plain.tone);
   useEffect(() => {
     if (!haptic) return;
@@ -272,6 +282,12 @@ export function PlainReport({ plain, again, plainShare, screenshot, haptic, chec
               {!again ? <Text style={{ color: colors.text, fontSize: 15, fontFamily: fonts.bold }}>{shareLabel}</Text> : null}
             </PressableScale>
           ) : null}
+        </Animated.View>
+      ) : null}
+      {pdf ? (
+        <Animated.View entering={enter(after + 1)} style={{ gap: 6 }}>
+          <Button label={t('Download PDF')} icon="download" kind="secondary" busy={pdfBusy} onPress={downloadPdf} />
+          {pdfError ? <Text style={[s.small, { textAlign: 'center', color: colors.red }]}>{pdfError}</Text> : null}
         </Animated.View>
       ) : null}
       <Checks plain={plain} start={after + 2} />

@@ -13,7 +13,7 @@ import { ScoreRing, VerdictPill } from '@/components/result';
 import { Screen } from '@/components/screen';
 import { Button, Chip, ErrorText, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
-import { api, signedImage, SITE } from '@/lib/api';
+import { api, openPdf, signedImage, SITE } from '@/lib/api';
 import { t, upper } from '@/lib/i18n';
 import { startUrlScan } from '@/lib/scan';
 import { ago, colors, fonts, tone, toneStyle } from '@/lib/theme';
@@ -120,7 +120,8 @@ export default function ScanReport() {
       {!report && !error ? <Working steps={STEPS} step={step} /> : null}
       {report && plain ? (
         <PlainReport plain={plain} haptic={fresh} checked={report.date ? t('Checked {time}', { time: ago(report.date) }) : undefined} screenshot={report.screenshot_url ? signedImage(`/scans/${scanId}/screenshot`) : null}
-          again={{ label: t('Check another link'), icon: 'link', onPress: () => router.navigate('/') }}>
+          again={{ label: t('Check another link'), icon: 'link', onPress: () => router.navigate('/') }}
+          pdf={() => openPdf(`/scans/${scanId}/pdf`)}>
           {evidence ? <Animated.View entering={enter(7)}><AIPanel tool="url" evidence={{ plain, ...evidence }} /></Animated.View> : null}
           <Evidence data={withoutPlain(analysis)} start={8} />
           {rescanning ? <Muted center>{t('Starting a fresh scan…')}</Muted> : null}

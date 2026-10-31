@@ -223,9 +223,11 @@ def _closing(number, t, intro, limits, legend, now):
     footer.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), COLORS['card_bg']), ('BOX', (0, 0), (-1, -1), 0.7, COLORS['border']),
                                 ('LINEABOVE', (0, 0), (-1, 0), 2, COLORS['accent']), ('TOPPADDING', (0, 0), (-1, -1), 14),
                                 ('BOTTOMPADDING', (0, 0), (-1, -1), 14)]))
-    return (_section(number, 'HOW TO READ THIS REPORT', 'Verdicts and limits', t)
-            + [Paragraph(esc(t(intro)), st['body']), Spacer(1, 10), _legend(legend, t), Spacer(1, 12),
-               KeepTogether([Paragraph(esc(t(limits)), st['muted']), Spacer(1, 22), footer])])
+    # The whole closing section moves as one block, so no page is left with only the footer.
+    return [CondPageBreak(9 * cm), Spacer(1, 22),
+            KeepTogether([SectionHeader(number, t('HOW TO READ THIS REPORT'), t('Verdicts and limits')), Spacer(1, 12),
+                          Paragraph(esc(t(intro)), st['body']), Spacer(1, 10), _legend(legend, t), Spacer(1, 12),
+                          Paragraph(esc(t(limits)), st['muted']), Spacer(1, 22), footer])]
 
 
 def _rows_table(header, rows, widths, t):
@@ -468,7 +470,9 @@ def generate_email_report(report, username, lang='en'):
         (t('Blocklists'), t('Listed') if listed else t('Not listed') if lists.get('coverage_status') == 'completed' or lists.get('clean_on') else t('Not checked'),
          'bad' if listed else 'good' if lists.get('coverage_status') == 'completed' or lists.get('clean_on') else None),
         (t('Listed on'), ', '.join(listed[:6]), None),
-        (t('Google Web Risk'), t('Listed') if risk.get('status') == 'matched' else t('Not listed') if risk.get('status') == 'not_found' else t('Not checked'),
+        # Free providers (gmail.com…) host everyone's mail: their website's reputation says nothing about one address.
+        (t('Google Web Risk'), t('Listed') if risk.get('status') == 'matched' else t('Not listed') if risk.get('status') == 'not_found'
+         else t('Not applicable') if risk.get('reason') == 'not_applicable' or report.get('is_free') else t('Not checked'),
          'bad' if risk.get('status') == 'matched' else 'good' if risk.get('status') == 'not_found' else None),
         (t('Domain age'), _age(info['age_days'], lang) if isinstance(info.get('age_days'), int) else t('Not published'),
          'warn' if isinstance(info.get('age_days'), int) and info['age_days'] < 90 else None),

@@ -840,6 +840,14 @@ TR = {
     'It hides a malware address inside': 'İçinde bir zararlı yazılım adresi gizliyor',
     'The link carries another address that URLhaus, a public list run by abuse.ch, lists as a malware source. Sites that forward visitors pass people on to it.':
         'Bağlantı, abuse.ch tarafından yürütülen herkese açık URLhaus listesinde zararlı yazılım kaynağı olarak geçen başka bir adres taşıyor. Ziyaretçileri yönlendiren siteler insanları bu adrese gönderir.',
+    'NO SUCH DOMAIN': 'BÖYLE BİR ALAN ADI YOK',
+    'This domain doesn’t exist': 'Bu alan adı mevcut değil',
+    '{domain} isn’t registered or has no DNS, so it has no subdomains. Check the spelling.':
+        '{domain} kayıtlı değil ya da DNS kaydı yok, bu yüzden alt alan adı da yok. Yazımı kontrol et.',
+    'The domain doesn’t exist': 'Alan adı mevcut değil',
+    'DNS has no record of it, so no name under it can exist either.': "DNS'te kaydı yok, bu yüzden altında hiçbir ad da olamaz.",
+    'Check the spelling of the domain.': 'Alan adının yazımını kontrol et.',
+    'If a message or a link used this name, it was made up: treat it as a scam.': 'Bir mesaj ya da bağlantı bu adı kullandıysa, ad uydurulmuştur: dolandırıcılık say.',
     # Website setup (site-posture-v1)
     'It loads code from a copied address': 'Kopya bir adresten kod yüklüyor',
     'A script comes from {host}, which uses the name {brand} but isn’t its site. Card-stealing code hides like this.':

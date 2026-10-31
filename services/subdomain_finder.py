@@ -235,6 +235,11 @@ class SubdomainFinder:
                 break
         selected = [(host,candidates[host]) for host in selected_hosts[:max_subdomains]]
         wildcard = self.wildcard_probe(domain, deadline)
+        # The domain itself: an unregistered name has no subdomains, and the report should say that first.
+        apex = dns_records(domain, ('SOA', 'NS'), deadline)
+        statuses = [r.get('status') for r in apex.values()]
+        domain_exists = (False if statuses and all(st == 'not_found' for st in statuses)
+                         else None if all(st == 'unavailable' for st in statuses) else True)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             rows = list(executor.map(lambda item: self.resolve_candidate(item, domain, deadline, wildcard), selected))
         found = [r for r in rows if r['exists']]
@@ -248,7 +253,7 @@ class SubdomainFinder:
         unresolved = [r for r in rows if not r['dns_complete']]
         partial = bool(unresolved or any(s['status'] in ('unavailable','partial') for s in sources) or wildcard['status']=='partial' or len(candidates)>len(selected) or len(found)>20 or any(r['http']['status'] not in ('completed','blocked') for r in found))
         coverage = discovery_coverage(rows, found, sources, wildcard)
-        return {'schema_version':3, 'verification_coverage':coverage, 'domain':domain, 'assessment_status':'partial' if partial else 'completed',
+        return {'schema_version':3, 'verification_coverage':coverage, 'domain':domain, 'domain_exists':domain_exists, 'assessment_status':'partial' if partial else 'completed',
                 'analyzed_at':datetime.now(timezone.utc).isoformat(), 'duration_seconds':round(time.monotonic()-start,2),
                 'total_checked':sum(r['dns_complete'] for r in rows), 'candidates_selected':len(selected), 'candidates_available':len(candidates),
                 'total_found':len(found), 'active_count':len(groups['active']), 'redirect_count':len(groups['redirects']), 'inactive_count':0,

@@ -72,3 +72,20 @@ class WorkspaceTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class MissingDomainTests(unittest.TestCase):
+    def test_a_domain_that_does_not_exist_says_so_first(self):
+        from services.simple_report_view import plain_subdomain_report
+
+        def nxdomain(host, types, deadline):
+            return {k: {'status': 'not_found', 'values': []} for k in types}
+        f = SubdomainFinder(); f.COMMON_SUBDOMAINS = ['www', 'mail']
+        with patch('services.subdomain_finder.dns_records', side_effect=nxdomain), patch.object(f, 'probe_web', side_effect=lambda r, d: r):
+            r = f.find_subdomains('garanti-bbva-guvenlik.com', include_ct=False)
+        self.assertIs(r['domain_exists'], False)
+        plain = plain_subdomain_report(r)
+        self.assertEqual((plain['label'], plain['headline']), ('NO SUCH DOMAIN', 'This domain doesn’t exist'))
+        self.assertIn('garanti-bbva-guvenlik.com', plain['summary'])
+        with patch('services.subdomain_finder.dns_records', side_effect=records), patch.object(f, 'probe_web', side_effect=lambda r, d: r):
+            self.assertIs(f.find_subdomains('example.com', include_ct=False)['domain_exists'], True)

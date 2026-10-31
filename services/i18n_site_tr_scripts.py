@@ -702,6 +702,10 @@ SCRIPTS_TR = {
     'Valid from': 'Başlangıç',
     'Valid until': 'Bitiş',
     'Whole days remaining': 'Kalan tam gün',
+    'Passed': 'Geçti',
+    'Failed': 'Başarısız',
+    'Couldn’t check': 'Kontrol edilemedi',
+    'Blocked': 'Engellendi',
     'Lifetime is not a security grade. An automatically renewed certificate may have a short remaining lifetime.': 'Geçerlilik süresi bir güvenlik notu değildir. Otomatik yenilenen bir sertifikanın kalan süresi kısa olabilir.',
     'Negotiated connection': 'Kurulan bağlantı',
     'TLS protocol': 'TLS protokolü',
@@ -857,6 +861,8 @@ SCRIPTS_TR = {
 
 # Script text with a number or name inside: (pattern, replacement), merged into SITE_TR_PATTERNS.
 SCRIPTS_TR_PATTERNS = [
+    (r'^Expired (\d+) days ago$', r'\1 gün önce sona erdi'),
+    (r'^(\d+) days$', r'\1 gün'),
     (r'^Script from (.+)$', r'\1 adresinden betik'),
     (r'^Uses the name (.+)$', r'\1 adını kullanıyor'),
     (r'^Seen in (.+)$', r'\1 içinde görüldü'),

@@ -4,7 +4,7 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
-<script src="{{ url_for('static', filename='pages.js', v='20261014-1') }}" defer></script>
+<script src="{{ url_for('static', filename='pages.js', v='20261031-1') }}" defer></script>
 {% include "scams/_style.html" %}
 <script type="application/ld+json">{{ {'@context': 'https://schema.org', '@type': 'Article', 'headline': g.title, 'description': g.description,
   'inLanguage': lang, 'url': site_url + url_for('scam_guide', slug=guide.slug) + ('?lang=tr' if lang == 'tr' else ''),

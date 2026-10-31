@@ -35,9 +35,12 @@
 
   const watched = document.querySelectorAll('.pg-reveal, .pg-timeline, [data-console], .pg-stats, [data-meters]');
   if ('IntersectionObserver' in window && !reduced) {
+    // Shown once 18% of it is in view, or once it fills a fifth of the screen: a very tall card
+    // (a scan history with 100 rows) can never be 18% visible and would otherwise stay hidden.
     const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-      if (entry.isIntersecting) { activate(entry.target); observer.unobserve(entry.target); }
-    }), {threshold: 0.18, rootMargin: '0px 0px -40px 0px'});
+      const enough = entry.intersectionRatio >= 0.18 || entry.intersectionRect.height >= window.innerHeight * 0.2;
+      if (entry.isIntersecting && enough) { activate(entry.target); observer.unobserve(entry.target); }
+    }), {threshold: [0, 0.05, 0.1, 0.18], rootMargin: '0px 0px -40px 0px'});
     watched.forEach(el => observer.observe(el));
   } else {
     watched.forEach(activate);

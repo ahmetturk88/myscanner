@@ -1907,9 +1907,29 @@ def _owned_ai_context(context_id):
     if not isinstance(context_id, str) or len(context_id) != 36:
         return None
     context = db.session.get(AIContext, context_id)
-    if context is None or context.user_id != current_user.id:
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if (context is None or context.user_id != current_user.id
+            or context.source_kind != 'saved_report'
+            or (context.expires_at and context.expires_at <= now)):
         return None
     return context
+
+
+def _ai_saved_url_evidence(scan):
+    """Build report evidence from the server-owned URL scan, never from the browser."""
+    try:
+        raw = json.loads(scan.raw_report or '{}')
+    except (TypeError, ValueError):
+        raw = {}
+    if not isinstance(raw, dict) or not raw:
+        return None
+    if isinstance(raw.get('local_analysis'), dict) and isinstance(raw.get('deep_analysis'), dict):
+        from services.url_assessment import saved_assessment
+        raw['aggregate_assessment'] = saved_assessment(raw, raw['local_analysis'], raw['deep_analysis'])
+    raw['scan'] = {'id': scan.id, 'url': scan.url, 'status': scan.status,
+                   'verdict': scan.verdict, 'security_score': getattr(scan, 'security_score', None),
+                   'date': scan.date_posted.strftime('%Y-%m-%d %H:%M:%S') if scan.date_posted else None}
+    return {'scan': raw.pop('scan'), 'analysis': raw}
 
 
 def _ai_json(value, default):
@@ -1930,17 +1950,33 @@ def api_ai_create_context():
     if (request.content_length or 0) > 1024 * 1024:
         return jsonify(error='This report is too large for the AI assistant.'), 413
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or data.get('tool') not in ai_assistant.TOOLS or not isinstance(data.get('evidence'), (dict, list)):
+    if not isinstance(data, dict) or data.get('tool') not in ai_assistant.TOOLS:
         return jsonify(error='Invalid AI request'), 400
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     # Retention: contexts expire after 30 days and each user keeps the newest 50.
-    AIContext.query.filter(AIContext.created_at < now - timedelta(days=AI_CONTEXT_DAYS)).delete(synchronize_session=False)
+    AIContext.query.filter(AIContext.expires_at <= now).delete(synchronize_session=False)
     stale = [row.id for row in AIContext.query.filter_by(user_id=current_user.id).order_by(AIContext.created_at.desc())
              .offset(AI_CONTEXTS_PER_USER - 1).with_entities(AIContext.id).all()]
     if stale:
         AIContext.query.filter(AIContext.id.in_(stale)).delete(synchronize_session=False)
+    if (data.get('report_id') is None or data['tool'] != 'url'
+            or isinstance(data.get('report_id'), bool)
+            or not isinstance(data.get('report_id'), int) or data['report_id'] <= 0):
+        return jsonify(error='AI is available only for a saved server-side report'), 409
+    scan = db.session.get(Scan, data['report_id'])
+    if not scan or scan.user_id != current_user.id:
+        return jsonify(error='Report not found'), 404
+    evidence = _ai_saved_url_evidence(scan)
+    if evidence is None:
+        return jsonify(error='This report has no completed evidence for the AI assistant'), 409
+    source_kind = 'saved_report'
+    source_report_id = scan.id
+    evidence_json = ai_assistant.sanitize_evidence(evidence)
     context = AIContext(id=str(uuid.uuid4()), user_id=current_user.id, tool=data['tool'],
-                        evidence=ai_assistant.sanitize_evidence(data['evidence']), explanations='{}', chat='[]', created_at=now)
+                        source_kind=source_kind, source_report_id=source_report_id,
+                        evidence_hash=hashlib.sha256(evidence_json.encode('utf-8')).hexdigest(),
+                        evidence=evidence_json, explanations='{}', chat='[]', created_at=now,
+                        expires_at=now + timedelta(days=AI_CONTEXT_DAYS))
     db.session.add(context)
     db.session.commit()
     return jsonify(id=context.id), 201
@@ -1952,7 +1988,8 @@ def api_ai_get_context(context_id):
     context = _owned_ai_context(context_id)
     if context is None:
         return jsonify(error='Not found'), 404
-    return jsonify(tool=context.tool, explanations=_ai_json(context.explanations, {}), chat=_ai_json(context.chat, []))
+    return jsonify(tool=context.tool, source_kind=context.source_kind,
+                   explanations=_ai_json(context.explanations, {}), chat=_ai_json(context.chat, []))
 
 
 AI_UNAVAILABLE = 'The AI assistant could not answer right now. Your allowance was not used. Please try again in a minute.'
@@ -2038,7 +2075,8 @@ def api_ai_explain(context_id):
             db.session.commit()
         return {'explanation': explanation, 'cached': False}
 
-    return _ai_stream(ai_assistant.explain_stream(context.tool, context.evidence, language), finish,
+    return _ai_stream(ai_assistant.explain_stream(context.tool, context.evidence, language,
+                                                  verified=context.source_kind == 'saved_report'), finish,
                       f'explanation, {context.tool}')
 
 
@@ -2069,7 +2107,8 @@ def api_ai_chat(context_id):
             db.session.commit()
         return {'answer': answer}
 
-    return _ai_stream(ai_assistant.chat_stream(context.tool, context.evidence, history, message), finish,
+    return _ai_stream(ai_assistant.chat_stream(context.tool, context.evidence, history, message,
+                                               verified=context.source_kind == 'saved_report'), finish,
                       f'chat, {context.tool}')
 
 
@@ -2098,7 +2137,12 @@ def api_ai_general():
             raise ValueError('empty answer')
         return {'answer': answer}
 
-    return _ai_stream(ai_assistant.general_stream(history, message), finish, 'general chat')
+    # Only the explicitly public address is exposed to AI; never leak the
+    # internal contact routing address or any other environment secret.
+    public_contact_email = os.getenv('CONTACT_PUBLIC_EMAIL', 'info@myscanners.com').strip()
+    if not re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+', public_contact_email):
+        public_contact_email = None
+    return _ai_stream(ai_assistant.general_stream(history, message, public_contact_email), finish, 'general chat')
 
 
 @app.route('/api/url-analysis/<int:scan_id>')
@@ -2185,8 +2229,3 @@ def api_url_analyze():
 # ================================================================
 if __name__ == '__main__':
     app.run(debug=app.config["DEBUG"])
-
-
-
-
-

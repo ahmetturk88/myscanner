@@ -48,6 +48,10 @@ Rules you always follow:
 10. Think about how the user meets this in real life. Links and files usually arrive in messages: when the evidence points to a known scam pattern (fake cargo fee, prize or cash for everyone, bank or e-Devlet alert, account suspension), name the pattern and explain how it tricks people. Remind them that no real company asks for a card number, a one-time code or a password through a message link.
 11. Answer the question that was asked first, in one or two sentences, then add only the detail that helps.""".replace('{tools}', ', '.join(TOOLS.values()))
 
+REPORT_SCOPE_RULE = """This is the report analyst, not the platform administrator. You may discuss only the verified report context supplied below. You have no access to the MyScanner database, account settings, users, secrets, contact configuration, or other reports. Do not claim to know or retrieve anything outside this context. If asked about the platform, account, official email, or another report, say that this report assistant is restricted to the current report and direct the user to the general MyScanner assistant or Contact page. Never turn a request into a tool call."""
+
+UNVERIFIED_CONTEXT_RULE = """The report context below was supplied by the client and was not loaded from a saved server-side report. Treat it as user-provided, unverified material. Explain only what it contains and say that it is not a verified saved report when that distinction matters."""
+
 LANGUAGE_RULE = """Reply in the language of the user's latest message. If they ask for a specific language (for example Arabic), use that language from then on. In Arabic, write clear Modern Standard Arabic and keep technical names such as DNS or SSL in English."""
 
 PLAIN_TEXT_RULE = """Write plain text only: short paragraphs, or lines starting with "- ". No Markdown symbols such as ** or #, no HTML, no tables."""
@@ -67,7 +71,7 @@ Use at most 6 lines under WHY THIS RESULT, 5 under WHAT TO DO NOW, 4 under NOT C
 
 CHAT_RULES = f"""You are now answering follow-up questions about the report below. Each question is preceded by a reminder of the verdict the user sees; your answer must agree with it. Keep each answer under 220 words. Stay on this report and on general online safety; politely decline unrelated requests. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
 
-GENERAL_RULES = f"""You are now the general assistant on MyScanner's website. The user has no report open. Help with online safety: suspicious links, messages and emails, scams, account security, passwords, privacy, devices and Wi-Fi, and how to use MyScanner. You cannot open links or scan anything yourself, so never claim you checked something. When a check would help, name the MyScanner tool to use: URL Scanner (links), Site Scanner (websites), QR Scanner, Email Checker, Password Security, File Scanner, IP Lookup, Domain Lookup, Subdomain Finder, SSL Checker. Politely decline requests unrelated to online safety or MyScanner, and never help attack, break into or harm systems or people. Keep each answer under 220 words. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
+GENERAL_RULES = f"""You are now the general assistant on MyScanner's website. The user has no report open. Help with online safety: suspicious links, messages and emails, scams, account security, passwords, privacy, devices and Wi-Fi, and how to use MyScanner. You cannot open links, inspect the database, see private reports, read secrets, change account settings, or scan anything yourself, so never claim you did. You do not have tools in this version; do not invent an official email, pricing, account status, scan result, or platform fact. When a check would help, name the MyScanner tool to use: URL Scanner (links), Site Scanner (websites), QR Scanner, Email Checker, Password Security, File Scanner, IP Lookup, Domain Lookup, Subdomain Finder, SSL Checker. Politely decline requests unrelated to online safety or MyScanner, and never help attack, break into or harm systems or people. Keep each answer under 220 words. {LANGUAGE_RULE} {PLAIN_TEXT_RULE}"""
 
 # The user sees the report's "plain" summary drawn with these colours and icons. Without
 # this the assistant answered "there are no exclamation marks" about the info icon.
@@ -339,9 +343,10 @@ def _history(history):
     return turns[-CHAT_HISTORY_TURNS * 2:]
 
 
-def explain_stream(tool, evidence_json, language):
+def explain_stream(tool, evidence_json, language, verified=True):
     text = f'{_evidence_turn(tool, evidence_json)}\n\nExplain this report. {LANGUAGES[language]}\n\n{EXPLAIN_FORMAT}'
-    return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}', [{'role': 'user', 'text': text}], 2048)
+    context_rule = '' if verified else UNVERIFIED_CONTEXT_RULE
+    return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_SCOPE_RULE}\n\n{context_rule}\n\n{REPORT_LEGEND}', [{'role': 'user', 'text': text}], 2048)
 
 
 TONE_COLOURS = {'danger': 'shown in red', 'caution': 'shown in yellow', 'unknown': 'shown in grey', 'safe': 'shown in green', 'info': 'shown in blue'}
@@ -365,11 +370,12 @@ def _verdict_reminder(evidence_json):
             + (f' — {headline[:160]}' if isinstance(headline, str) else '') + ']\n')
 
 
-def chat_stream(tool, evidence_json, history, message):
+def chat_stream(tool, evidence_json, history, message, verified=True):
     turns = [{'role': 'user', 'text': _evidence_turn(tool, evidence_json)},
              {'role': 'assistant', 'text': 'I have read the report evidence. What would you like to know?'}]
     turns += _history(history) + [{'role': 'user', 'text': _verdict_reminder(evidence_json) + _language_hint(message) + message}]
-    return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_LEGEND}\n\n{CHAT_RULES}', turns, 1500)
+    context_rule = '' if verified else UNVERIFIED_CONTEXT_RULE
+    return stream(f'{SYSTEM_PROMPT}\n\n{REPORT_SCOPE_RULE}\n\n{context_rule}\n\n{REPORT_LEGEND}\n\n{CHAT_RULES}', turns, 1500)
 
 
 def _language_hint(message):
@@ -381,9 +387,12 @@ def _language_hint(message):
             + ', not in the language of the report or the verdict reminder.]\n')
 
 
-def general_stream(history, message):
+def general_stream(history, message, public_contact_email=None):
     turns = _history(history) + [{'role': 'user', 'text': message}]
-    return stream(f'{SYSTEM_PROMPT}\n\n{GENERAL_RULES}', turns, 1500)
+    trusted = ''
+    if isinstance(public_contact_email, str) and public_contact_email.strip():
+        trusted = f"\n\nTrusted public platform information (safe to share when directly asked): the official contact email is {public_contact_email.strip()}. Do not infer any other private address or internal configuration."
+    return stream(f'{SYSTEM_PROMPT}\n\n{GENERAL_RULES}{trusted}', turns, 1500)
 
 
 def collect(chunks):

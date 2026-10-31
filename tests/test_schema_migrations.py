@@ -11,6 +11,7 @@ from alembic.migration import MigrationContext
 from services.schema_migrations import application_metadata, upgrade_database
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_HEAD = 'f7c1e8a9b2d3'
 
 class MigrationTests(unittest.TestCase):
     def setUp(self):
@@ -24,7 +25,7 @@ class MigrationTests(unittest.TestCase):
         upgrade_database(self.engine)
         with self.engine.connect() as connection:
             self.assertEqual(compare_metadata(MigrationContext.configure(connection), self.metadata), [])
-            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), 'a9c4e2f7b1d3')
+            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), CURRENT_HEAD)
     def test_unversioned_legacy_preserves_large_unicode_report_and_user(self):
         self.metadata.create_all(self.engine)
         report = '{"report":"' + 'تقرير <literal>' * 10000 + '"}'
@@ -43,7 +44,7 @@ class MigrationTests(unittest.TestCase):
             connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('5594693f7fdb')")
         upgrade_database(self.engine)
         with self.engine.connect() as connection:
-            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), 'a9c4e2f7b1d3')
+            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), CURRENT_HEAD)
     def test_old_string_report_storage_is_widened_without_data_loss(self):
         legacy = sa.MetaData()
         for table in self.metadata.sorted_tables:
@@ -85,7 +86,7 @@ class MigrationTests(unittest.TestCase):
         self.assertIn('ai_context', inspector.get_table_names())
         with self.engine.connect() as connection:
             self.assertEqual(connection.execute(sa.text('select count(*) from user')).scalar(), 1)
-            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), 'a9c4e2f7b1d3')
+            self.assertEqual(connection.execute(sa.text('select version_num from alembic_version')).scalar(), CURRENT_HEAD)
     def test_unknown_revision_does_not_stamp_or_change_schema(self):
         with self.engine.begin() as connection:
             connection.exec_driver_sql('CREATE TABLE alembic_version (version_num VARCHAR(32))')
@@ -96,7 +97,7 @@ class MigrationTests(unittest.TestCase):
     def test_head_with_missing_tables_is_rejected(self):
         with self.engine.begin() as connection:
             connection.exec_driver_sql('CREATE TABLE alembic_version (version_num VARCHAR(32))')
-            connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('a9c4e2f7b1d3')")
+            connection.exec_driver_sql(f"INSERT INTO alembic_version VALUES ('{CURRENT_HEAD}')")
         with self.assertRaisesRegex(RuntimeError, 'revision'):
             upgrade_database(self.engine)
     def test_web_import_does_not_access_database(self):

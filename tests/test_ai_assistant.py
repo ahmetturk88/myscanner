@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from extensions import db
-from models import AIContext, User
+from models import AIContext, Scan, User
 from services import ai_assistant
 import test_task_ownership
 
@@ -233,6 +233,10 @@ class EndpointTests(unittest.TestCase):
                 db.session.add(user)
             db.session.commit()
             self.owner, self.other = (User.query.filter_by(username=n).one().id for n in ('owner', 'other'))
+            scan = Scan(url='https://example.com/login', status='complete', verdict='malicious',
+                        raw_report=json.dumps({'local_analysis': {'password': 'x'}, 'deep_analysis': {}}),
+                        user_id=self.owner)
+            db.session.add(scan); db.session.commit(); self.scan_id = scan.id
         self.client = self.app.test_client()
         enabled = patch.object(ai_assistant, 'providers', return_value=PROVIDERS[:1]);enabled.start();self.addCleanup(enabled.stop)
 
@@ -251,7 +255,7 @@ class EndpointTests(unittest.TestCase):
             return db.session.get(User, self.owner).ai_assistant_remaining
 
     def create(self, evidence=None):
-        response = self.post('/api/ai/contexts', {'tool': 'url', 'evidence': evidence or {'verdict': 'malicious', 'password': 'x'}})
+        response = self.post('/api/ai/contexts', {'tool': 'url', 'report_id': self.scan_id})
         self.assertEqual(response.status_code, 201, response.get_data(as_text=True))
         return response.json['id']
 
@@ -326,17 +330,18 @@ class EndpointTests(unittest.TestCase):
 
     def test_invalid_input_or_missing_provider_is_rejected(self):
         self.sign_in(self.owner)
-        for payload in ({'tool': 'admin', 'evidence': {}}, {'tool': 'url', 'evidence': 'text'}, []):
-            self.assertEqual(self.post('/api/ai/contexts', payload).status_code, 400)
-        self.assertEqual(self.post('/api/ai/contexts', {'tool': 'password', 'evidence': {'score': 40}}).status_code, 201)
+        self.assertEqual(self.post('/api/ai/contexts', {'tool': 'admin', 'report_id': self.scan_id}).status_code, 400)
+        self.assertEqual(self.post('/api/ai/contexts', {'tool': 'url', 'report_id': 'text'}).status_code, 409)
+        self.assertEqual(self.post('/api/ai/contexts', []).status_code, 400)
+        self.assertEqual(self.post('/api/ai/contexts', {'tool': 'password', 'report_id': self.scan_id}).status_code, 409)
         with patch.object(ai_assistant, 'providers', return_value=[]):
-            self.assertEqual(self.post('/api/ai/contexts', {'tool': 'url', 'evidence': {}}).status_code, 503)
+            self.assertEqual(self.post('/api/ai/contexts', {'tool': 'url', 'report_id': self.scan_id}).status_code, 503)
             self.assertEqual(self.post('/api/ai/assistant', {'message': 'hi'}).status_code, 503)
 
     def test_each_user_keeps_at_most_fifty_contexts(self):
         self.sign_in(self.owner)
         for _ in range(53):
-            self.create({'n': 1})
+            self.create()
         with self.app.app_context():
             self.assertEqual(AIContext.query.filter_by(user_id=self.owner).count(), 50)
 

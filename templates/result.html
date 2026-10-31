@@ -664,7 +664,7 @@ function renderResult(scanData, analysisData) {
   const plainShown=renderPlain(analysisData?.plain,scanData);
   document.getElementById('tech-evidence').hidden=false;
     if(typeof ReportSummary!=='undefined')ReportSummary.schedule('url',{scan:scanData,analysis:analysisData},'#verdict-area');
-    if(window.AIAssistant)AIAssistant.attach(plainShown?{tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#plain-report .rp-ai'}:{tool:'url',evidence:{scan:scanData,analysis:analysisData},mount:'#deep-analysis-section',after:true});
+    if(window.AIAssistant)AIAssistant.attach(plainShown?{tool:'url',reportId:scanData?.id,mount:'#plain-report .rp-ai'}:{tool:'url',reportId:scanData?.id,mount:'#deep-analysis-section',after:true});
   if(!plainShown)document.getElementById('tech-evidence').open=true;
   document.getElementById('loading-area').style.display = 'none';
   const verdictArea = document.getElementById('verdict-area');
@@ -908,4 +908,3 @@ window.addEventListener('load', function() {
 });
 </script>
 {% endblock %}
-

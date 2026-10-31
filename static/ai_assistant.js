@@ -212,8 +212,8 @@
 
   // ------------------------------------------------------------ report panel
 
-  function build(tool, evidence) {
-    const state = {tool, evidence, contextId: null};
+  function build(tool, evidence, reportId) {
+    const state = {tool, evidence, reportId: reportId || null, contextId: null};
     const box = el('section', 'ai-panel');
     box.setAttribute('aria-label', 'AI assistant');
     const head = el('div', 'ai-head');
@@ -234,11 +234,13 @@
     const {form, input} = chatForm('Ask about this report…', 'Ask the AI assistant about this report');
     chat.append(el('h4', 'ai-chat-title', 'Ask a follow-up question'), log, form);
 
-    const note = el('p', 'ai-note', 'AI can make mistakes. The verdict comes from MyScanner\'s checks, not from the AI. Do not type passwords or personal information. Report evidence is sent to our AI provider to generate answers.');
-
+    const note = el('p', 'ai-note', 'AI can make mistakes. The verdict comes from MyScanner\'s checks, not from the AI. Do not type passwords or personal information. This assistant is restricted to this report.');
     async function ensureContext() {
       if (state.contextId) return state.contextId;
-      const created = await stream('/api/ai/contexts', {tool: state.tool, evidence: state.evidence}, () => {});
+      const payload = {tool: state.tool};
+      if (state.reportId) payload.report_id = state.reportId;
+      else payload.evidence = state.evidence;
+      const created = await stream('/api/ai/contexts', payload, () => {});
       state.contextId = created.id;
       return state.contextId;
     }
@@ -301,11 +303,13 @@
 
   /** Show the assistant for a finished report. Replaces any earlier panel on the page. */
   function attach(options) {
-    if (root.MYSCANNER_AI !== true || !options || !options.mount || !options.evidence) return null;
+    // Do not offer report AI for client-only evidence. The server must bind it
+    // to a saved report before the model is allowed to see it.
+    if (root.MYSCANNER_AI !== true || !options || !options.mount || !options.reportId) return null;
     const mount = typeof options.mount === 'string' ? document.querySelector(options.mount) : options.mount;
     if (!mount) return null;
     if (panel) panel.remove();
-    panel = build(options.tool, options.evidence);
+    panel = build(options.tool, options.evidence, options.reportId);
     if (options.after) mount.insertAdjacentElement('afterend', panel);
     else mount.append(panel);
     return panel;
@@ -362,7 +366,7 @@
     const status = el('p', 'ai-status');
     status.setAttribute('role', 'status');
     const {form, input} = chatForm('Ask anything about online safety…', 'Ask the AI assistant');
-    const foot = el('p', 'ai-note', 'AI can make mistakes and cannot scan anything by itself. Never share passwords or personal data. Each answer uses 1 of your 10 daily AI requests.');
+    const foot = el('p', 'ai-note', 'AI can make mistakes and cannot scan anything by itself. It can explain MyScanner and online safety, but it cannot access secrets or administer the platform. Never share passwords or personal data.');
 
     function intro() {
       const box = el('div', 'ai-dock-intro');

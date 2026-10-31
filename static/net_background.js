@@ -12,7 +12,7 @@
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
   const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const CELL = 44, TAIL = 64, ARRIVE = 1.6, GLINT = 8, SHINE = 1.8;
+  const CELL = 44, TAIL = 30, ARRIVE = 1.6, GLINT = 8, SHINE = 1.8;
   const CYAN = '119,220,255', TEAL = '94,234,212', RED = '251,113,133';
   let width = 0, height = 0, cols = 0, rows = 0, ratio = 1;
   let layer = null, layerUrl = '', routes = [], packets = [], glints = [], frame = 0, last = 0, clock = 0;
@@ -49,7 +49,7 @@
   }
 
   function packet(r, index, count) {
-    const travel = r.total / rand(48, 78);
+    const travel = r.total / rand(28, 46);  // pixels per second: a calm glide, not a dash
     const period = travel + ARRIVE + rand(3, 9);
     // Spread the start times so only a few packets move at any moment.
     return { route: r, travel, period, offset: (index / count) * period + rand(0, 2), seed: index * 7919, base: Math.random() < 0.35 ? TEAL : CYAN };

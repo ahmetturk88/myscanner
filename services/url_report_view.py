@@ -27,6 +27,7 @@ TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'bra
 PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path', 'brand_in_page', 'gambling_site'}
 # code: (tone, title, detail). Tones: bad, warn, info.
 REASONS = {
+    'domain_missing': ('info', 'This address doesn’t exist', 'No website uses this name: the internet’s address book (DNS) has no entry for it, so nothing opens.'),
     'urlhaus_match': ('bad', 'Reported for spreading malware', 'URLhaus, a public list run by abuse.ch, lists this link as a malware source.'),
     'web_risk_malware': ('bad', 'Google lists it as malware', 'Google Web Risk lists this link as spreading malware.'),
     'web_risk_unwanted_software': ('bad', 'Google lists it as unwanted software', 'Google Web Risk lists this link as spreading unwanted software.'),
@@ -186,6 +187,10 @@ def plain_report(assessment, local, deep, url):
     copied = imitated(local, deep)
     tricks = {d.get('code'): d for d in assessment.get('address_details') or [] if isinstance(d, dict)}
     real_host = url_parts(url)['host']
+    gone = 'domain_missing' in found
+    # "Valid HTTPS" only when a certificate was really checked, not because the address starts with https.
+    cert_ok = any(mapping(mapping(source).get('ssl')).get('valid') is True
+                  or mapping(mapping(mapping(source).get('urlvet')).get('ssl_info')).get('chain_valid') is True for source in (local, deep))
 
     reasons = []
     rank = {'bad': 0, 'warn': 1, 'info': 2}
@@ -245,7 +250,7 @@ def plain_report(assessment, local, deep, url):
         good = []
         if assessed('reputation') and not LISTED & set(found):
             good.append({'tone': 'ok', 'title': 'Not on any threat list', 'detail': 'None of the malware and phishing lists we checked include this link.'})
-        if assessed('transport') and not {'tls_invalid', 'no_https'} & set(found):
+        if cert_ok and not {'tls_invalid', 'no_https'} & set(found):
             good.append({'tone': 'ok', 'title': 'Secure connection', 'detail': 'The site uses HTTPS with a valid certificate, so what you send is encrypted.'})
         if age is not None and age >= 730:
             good.append({'tone': 'ok', 'title': 'A long-established site', 'detail': f'The address was registered {age_text(age)} ago.'})
@@ -262,7 +267,9 @@ def plain_report(assessment, local, deep, url):
     if len(warnings) >= 3:
         reasons = warnings  # minor notes stay in the technical evidence
     if verdict == 'unknown':
-        if reputation_only:
+        if gone:
+            pass  # "This address doesn’t exist" already says why
+        elif reputation_only:
             reasons.insert(0, {'tone': 'na', 'title': 'We didn’t open the page', 'detail': 'It uses an unusual port, so only its reputation was checked.'})
         elif unresolved:
             reasons.insert(0, {'tone': 'warn', 'title': 'We couldn’t see where it leads', 'detail': 'The short-link service showed its own page instead of sending us on, so the real destination wasn’t checked.'})
@@ -304,6 +311,12 @@ def plain_report(assessment, local, deep, url):
         actions = ['Don’t enter passwords or card details on this page.',
                    f'To reach {brand}, type its address yourself or use its official app.' if brand else 'Open important sites by typing the address yourself, not from links in messages.',
                    'Not sure? Ask the sender through another app or a phone call.']
+    elif tone == 'unknown' and gone:
+        label, headline = 'NOT FOUND', 'This address doesn’t exist'
+        summary = 'No website uses this name, so the link opens nothing. It may be mistyped, or a scam site that was already taken down.'
+        actions = ['Check the spelling of the address.',
+                   'Got it in a message? Don’t trust the sender’s other links either.',
+                   'To reach a company, type its address yourself or use its official app.']
     elif tone == 'unknown':
         summary = ('It uses an unusual port, so we only checked its reputation and didn’t open the page.' if reputation_only
                    else 'It’s a short link, and we couldn’t see the page it really leads to. Don’t trust it yet.' if unresolved
@@ -323,7 +336,7 @@ def plain_report(assessment, local, deep, url):
 
     def check(name, state, result):
         return {'name': name, 'state': state, 'result': result}
-    not_opened = 'Not opened' if reputation_only else 'Not checked'
+    not_opened = 'Not opened' if reputation_only else 'No site' if gone else 'Not checked'
     reputation = mapping(components.get('reputation'))
     checks = [
         check('Threat lists', 'bad', 'Listed') if codes & LISTED else
@@ -331,7 +344,8 @@ def plain_report(assessment, local, deep, url):
         check('Threat lists', 'ok', 'Not listed') if reputation.get('status') == 'assessed' else check('Threat lists', 'na', 'Not checked'),
         check('Secure connection', 'bad', 'Invalid certificate') if 'tls_invalid' in codes else
         check('Secure connection', 'warn', 'No HTTPS') if 'no_https' in codes else
-        check('Secure connection', 'ok', 'Valid HTTPS') if assessed('transport') else check('Secure connection', 'na', 'Not checked'),
+        check('Secure connection', 'na', 'No site') if gone else
+        check('Secure connection', 'ok', 'Valid HTTPS') if cert_ok else check('Secure connection', 'na', 'Not checked'),
         check('Look-alike or fake brand', 'bad', 'Fake address') if codes & TRICKS - {'userinfo_trick', 'encoded_ip', 'encoded_host'} or mapping(tricks.get('lookalike_name')).get('strong') is True else
         check('Look-alike or fake brand', 'warn', brand if 'brand_mismatch' in codes and brand else copied if 'typosquatting' in codes and copied else 'Possible') if codes & LOOK_ALIKE else
         check('Look-alike or fake brand', 'ok', 'None') if assessed('identity') else check('Look-alike or fake brand', 'na', 'Not checked'),
@@ -340,7 +354,7 @@ def plain_report(assessment, local, deep, url):
         check('Suspicious address', 'info', 'Short link') if 'shortener' in codes else
         check('Suspicious address', 'ok', 'None') if assessed('identity') else check('Suspicious address', 'na', 'Not checked'),
         check('Site age', 'warn' if age < 90 else 'ok', age_text(age)) if age is not None else
-        check('Site age', 'warn', 'Risk signs') if 'domain_history' in codes else check('Site age', 'na', 'Not available'),
+        check('Site age', 'warn', 'Risk signs') if 'domain_history' in codes else check('Site age', 'na', 'No site' if gone else 'Not available'),
         check('Page content', 'bad', 'Virus found') if codes & {'download_malware', 'page_malware'} else
         check('Page content', 'warn', 'Downloads a program') if 'risky_download' in codes else
         check('Page content', 'bad', 'Scam signs') if 'scam_content' in codes else
@@ -358,6 +372,7 @@ def plain_report(assessment, local, deep, url):
     share = (f'MyScanner checked this link and found no warning signs: {defang(url)}' if tone == 'safe'
              else f'Warning: MyScanner rates this link as {label.lower()}: {defang(url)}. Don’t open it.' if tone == 'danger'
              else f'Careful: MyScanner found warning signs on this link: {defang(url)}' if tone == 'caution'
+             else f'MyScanner found that this link leads nowhere: the site doesn’t exist: {defang(url)}' if gone
              else f'MyScanner couldn’t fully check this link: {defang(url)}')
     return {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,
             'url': url_parts(url), 'reasons': reasons, 'actions': actions, 'checks': checks, 'tally': tally(checks),

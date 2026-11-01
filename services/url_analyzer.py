@@ -154,6 +154,30 @@ def is_ip_host(host):
         return False
 
 
+def host_dns_status(host, lifetime=4):
+    """'not_found' only when DNS itself answers that the name doesn't exist (NXDOMAIN).
+
+    A timeout or a failing DNS server stays 'unknown': we never call a real site
+    missing because a lookup was slow.
+    """
+    if not host or is_ip_host(host):
+        return 'unknown'
+    resolver = dns.resolver.Resolver()
+    resolver.lifetime = lifetime
+    name = host.rstrip('.')
+    for kind in ('A', 'AAAA'):
+        try:
+            resolver.resolve(name, kind)
+            return 'found'
+        except dns.resolver.NXDOMAIN:
+            return 'not_found'
+        except dns.resolver.NoAnswer:
+            continue
+        except Exception:
+            return 'unknown'
+    return 'found'  # the name exists but has no web address
+
+
 def dns_partial(function):
     """Retain other evidence on DNS failure; policy rejections still abort."""
     from functools import wraps
@@ -1121,11 +1145,13 @@ class URLDeepAnalyzer:
         logger.info(f"🔍 Starting quick URL analysis for: {url}")
         self.session.set_deadline(time.monotonic() + QUICK_BUDGET)
 
+        unresolved = False
         try:
             url = validate_public_url(url).url
         except TargetResolutionError:
             # Syntax only here; every target connection still validates and pins public IPs.
             url = normalize_url(url)
+            unresolved = True
 
         parsed = urlparse(url)
         domain = parsed.hostname
@@ -1140,6 +1166,8 @@ class URLDeepAnalyzer:
             "security_headers": self.check_security_headers(url),
             "is_shortened": parsed.netloc in self.SHORTENED_DOMAINS or looks_like_short_link(url)
         }
+        if unresolved:
+            results["host_dns"] = {"status": host_dns_status(domain)}
 
         # حساب درجة الأمان الكلية
         security_score = 100
@@ -1230,11 +1258,13 @@ class URLDeepAnalyzer:
         logger.info(f"🚀 Starting deep URL analysis for: {url}")
         self.session.set_deadline(time.monotonic() + DEEP_BUDGET)
 
+        unresolved = False
         try:
             url = validate_public_url(url).url
         except TargetResolutionError:
             # Syntax only here; every target connection still validates and pins public IPs.
             url = normalize_url(url)
+            unresolved = True
 
         # التحقق من cache
         cached_result = self._get_cached_result(url)
@@ -1263,6 +1293,9 @@ class URLDeepAnalyzer:
             "summary": {},
             "recommendations": []
         }
+
+        if unresolved:
+            result["host_dns"] = {"status": host_dns_status(result["domain"])}
 
         # 1. تحليل السلوك
         result["behavior"] = self.analyze_behavior(url)

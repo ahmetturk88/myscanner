@@ -177,6 +177,51 @@ function Row({ name, value, field }: { name: string; value: Node; field?: string
   );
 }
 
+type Score = { value: number; label: string; note: string; coverage: boolean };
+// Server labels, each translated with a literal string.
+const LABELS: Record<string, () => string> = {
+  'Evidence index': () => t('Evidence index'), 'Source coverage': () => t('Source coverage'),
+  'Metadata coverage': () => t('Metadata coverage'), 'Inspection coverage': () => t('Inspection coverage'),
+  'Observation coverage': () => t('Observation coverage'), 'Local heuristic index': () => t('Local heuristic index'),
+  'Overall assessment index': () => t('Overall assessment index'), 'Completion index': () => t('Completion index'),
+};
+const COVERAGE = /coverage|completion/i;
+const pct = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100 ? Math.round(v) : null);
+
+/** The same number the website shows above each tool's technical evidence, with what it means. */
+export function evidenceScore(data: Record<string, unknown>): Score | null {
+  const strength = isObject(data.local_strength) ? pct(data.local_strength.score) : null;
+  if (strength !== null) return { value: strength, label: t('Strength index'), note: t('How hard the password is to guess. Higher is stronger.'), coverage: false };
+  const url = isObject(data.aggregate_assessment) ? data.aggregate_assessment : null;
+  const a = url ?? (isObject(data.assessment) ? data.assessment : isObject(data.verification_coverage) ? data.verification_coverage : null);
+  const value = a ? pct(a.score) : null;
+  if (!a || value === null) return null;
+  const named = typeof a.label === 'string' && LABELS[a.label] ? a.label
+    : isObject(data.verification_coverage) && a === data.verification_coverage ? 'Completion index'
+    : typeof data.email === 'string' ? 'Overall assessment index'
+    : typeof data.filename === 'string' ? 'Local heuristic index' : 'Evidence index';
+  const coverage = COVERAGE.test(named);
+  return { value, label: LABELS[named](), coverage,
+    note: coverage ? t('How many checks returned an answer. Coverage is not a safety score.') : t('Warning signs and missing checks lower it. It is not a probability of safety.') };
+}
+
+function ScoreMeter({ score }: { score: Score }) {
+  const color = score.coverage ? colors.cyan : score.value >= 75 ? colors.green : score.value >= 40 ? colors.amber : colors.red;
+  const fill = useSharedValue(0);
+  useEffect(() => { fill.value = withTiming(score.value, { duration: 900 }); }, [score.value, fill]);
+  const bar = useAnimatedStyle(() => ({ width: `${fill.value}%` }));
+  return (
+    <View style={st.score} accessibilityLabel={`${score.label}: ${score.value}/100`}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        <Text style={st.scoreLabel}>{score.label.toUpperCase()}</Text>
+        <Text style={{ color, fontFamily: fonts.bold, fontSize: 24 }}>{score.value}<Text style={{ color: colors.faint, fontSize: 13, fontFamily: fonts.regular }}>/100</Text></Text>
+      </View>
+      <View style={st.track}><Animated.View style={[st.fill, { backgroundColor: color }, bar]} /></View>
+      <Text style={st.scoreNote}>{score.note}</Text>
+    </View>
+  );
+}
+
 /** Everything the check collected, browsable in the app. Closed until asked for. */
 export function Evidence({ data, start = 0, title = t('Full technical evidence') }: { data: Record<string, unknown> | null | undefined; start?: number; title?: string }) {
   const [open, setOpen] = useState(() => getSettings().evidenceOpen);
@@ -187,6 +232,7 @@ export function Evidence({ data, start = 0, title = t('Full technical evidence')
   if (!isObject(data)) return null;
   const sections = entries(data);
   if (!sections.length) return null;
+  const score = evidenceScore(data);
 
   async function copy() {
     const clean = JSON.stringify(data, (k, v) => (k && HIDDEN.test(k) ? undefined : v), 2);
@@ -206,6 +252,7 @@ export function Evidence({ data, start = 0, title = t('Full technical evidence')
         </View>
         <Animated.View style={chevron}><Icon name="chevron" size={18} color={colors.soft} stroke={2.4} /></Animated.View>
       </PressableScale>
+      {score ? <ScoreMeter score={score} /> : null}
       {open ? (
         <Animated.View entering={FadeIn.duration(300)} style={{ gap: 4 }}>
           <Pressable onPress={copy} style={({ pressed }) => [st.copy, pressed && { opacity: 0.7 }]}>
@@ -235,4 +282,9 @@ const st = StyleSheet.create({
   chip: { paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8, backgroundColor: 'rgba(19,36,58,.9)', borderWidth: 1, borderColor: colors.line },
   chipText: { color: colors.soft, fontSize: 12.5, fontFamily: fonts.mono },
   more: { alignSelf: 'flex-start', paddingVertical: 9, paddingHorizontal: 4 },
+  score: { gap: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: 'rgba(16,27,43,.82)' },
+  scoreLabel: { flex: 1, color: colors.soft, fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.6 },
+  scoreNote: { color: colors.faint, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  track: { height: 6, borderRadius: 6, overflow: 'hidden', backgroundColor: 'rgba(145,188,220,.14)' },
+  fill: { height: '100%', borderRadius: 6 },
 });

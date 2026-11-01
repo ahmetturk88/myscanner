@@ -336,6 +336,20 @@ TR = {
         'MyScanner bu bağlantıyı tam olarak kontrol edemedi: {url}. Bağlantıları ücretsiz kontrol et: https://myscanners.com',
     'MyScanner found no warning signs on this link: {url}. Check links free at https://myscanners.com':
         'MyScanner bu bağlantıda uyarı işareti bulmadı: {url}. Bağlantıları ücretsiz kontrol et: https://myscanners.com',
+    # v16: a site name that doesn't exist in DNS
+    'This address doesn’t exist': 'Bu adres mevcut değil',
+    'No website uses this name: the internet’s address book (DNS) has no entry for it, so nothing opens.':
+        'Bu adı kullanan bir web sitesi yok: internetin adres defteri (DNS) bu ad için kayıt içermiyor, bu yüzden hiçbir şey açılmıyor.',
+    'NOT FOUND': 'BULUNAMADI',
+    'No website uses this name, so the link opens nothing. It may be mistyped, or a scam site that was already taken down.':
+        'Bu adı kullanan bir web sitesi yok, yani bağlantı hiçbir şey açmıyor. Yanlış yazılmış olabilir ya da zaten kapatılmış bir dolandırıcılık sitesi olabilir.',
+    'Check the spelling of the address.': 'Adresin yazımını kontrol et.',
+    'Got it in a message? Don’t trust the sender’s other links either.': 'Bir mesajla mı geldi? Gönderenin diğer bağlantılarına da güvenme.',
+    'To reach a company, type its address yourself or use its official app.': 'Bir şirkete ulaşmak için adresini kendin yaz ya da resmi uygulamasını kullan.',
+    'No site': 'Site yok',
+    "The site name does not exist in DNS, so there is no page to open or check.": "Site adı DNS'te yok, bu yüzden açılacak ya da kontrol edilecek bir sayfa yok.",
+    'MyScanner found that this link leads nowhere: the site doesn’t exist: {url}. Check links free at https://myscanners.com':
+        'MyScanner bu bağlantının hiçbir yere açılmadığını buldu: site mevcut değil: {url}. Bağlantıları ücretsiz kontrol et: https://myscanners.com',
 
     # ------------------------------------------------------------ password (simple_report_view)
     'It uses common words or names': 'Yaygın kelimeler ya da isimler içeriyor',

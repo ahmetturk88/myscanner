@@ -8,7 +8,7 @@ from services.url_scan_coverage import apply_phishing_evidence
 from services.url_tricks import (IMPERSONATED, address_signals, brands_in_text, email_in_link, kit_path, login_path, other_site,
                                  program_in_address, risky_ending)
 
-POLICY_VERSION = 'url-evidence-v15'
+POLICY_VERSION = 'url-evidence-v16'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 # v10: url.vet's own overall verdict is a threshold over signals we already read
 # one by one (and includes a traffic-rank heuristic that flags small, honest
@@ -23,6 +23,8 @@ TRANSPORT_WARNINGS = {'tls_invalid', 'no_https'}
 # anyone can submit any URL, but a pending report plus a look-alike or
 # impersonation signal is how new phishing pages usually appear.
 CORROBORATING = {'typosquatting','homoglyph','punycode','brand_mismatch','hidden_iframe','ip_url','domain_randomness','domain_history'}
+# v16: DNS answered that the site's name doesn't exist (NXDOMAIN), so there is no page to check.
+DOMAIN_MISSING = 'The site name does not exist in DNS, so there is no page to open or check.'
 NOT_VISITED = 'The page was not visited because the address uses a port other than 80 or 443; only its reputation was checked.'
 UNVERIFIED_REPORT = 'A community phishing database has an unconfirmed report for this URL; reviewers have not confirmed it.'
 # v11: signals that are weak alone but together describe a throwaway scam site.
@@ -409,6 +411,10 @@ def _assess(local, deep):
         deep_link=parts.path not in ('','/') or bool(parts.query)
     except ValueError:
         deep_link=False
+    # v16: a name DNS says doesn't exist: nothing opens, so nothing can be called safe.
+    missing_domain=any(mapping(mapping(d).get('host_dns')).get('status')=='not_found' for d in (local,deep))
+    if missing_domain:
+        signal('identity','domain_missing',0,DOMAIN_MISSING)
     if established:
         # v12: app stores, shops and news sites show other companies' brands all
         # the time; on an established site that is not impersonation.
@@ -474,6 +480,7 @@ def _assess(local, deep):
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):
         verdict=escalated
         score=min(score if score is not None else 100,35 if verdict=='high_risk' else 60)
+    if missing_domain and verdict=='harmless':verdict='unknown'
     if verdict in ('suspicious','high_risk') and 'provider_flag' in weak:
         provider_note=False  # url.vet's rating counted as one of the signs
     # Coverage deductions are separate from threat evidence. Missing categories
@@ -495,6 +502,9 @@ def _assess(local, deep):
     if local.get('reputation_only') is True:
         # One plain reason replaces the page checks that were never meant to run (v8).
         missing=[NOT_VISITED]+[m for m in missing if m.startswith('URLhaus')]
+    elif missing_domain:
+        # One plain reason replaces the page checks that had nothing to visit (v16).
+        missing=[DOMAIN_MISSING]+[m for m in missing if m.startswith('URLhaus')]
     return {'policy_version':POLICY_VERSION,'score':final_score,
             'coverage_penalty':coverage_penalty,'coverage_deductions':coverage_deductions,
             'evidence_score':score,'verdict':verdict,
@@ -505,6 +515,7 @@ def _assess(local, deep):
             'threat_override':bool(confirmed),
             'provider_note':PROVIDER_NOTE if provider_note else None,
             'address_details':details,
+            'domain_exists':False if missing_domain else None,
             'warning':'Heuristic evidence index, not a probability or a guarantee of safety.'}
 
 

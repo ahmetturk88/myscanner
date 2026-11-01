@@ -154,3 +154,71 @@ class PolicyTenTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MissingDomainTests(unittest.TestCase):
+    """A made-up address (fhehhe.com) says it doesn't exist instead of "some checks couldn't run"."""
+
+    def scan(self, url='https://fhehhe.com/', urlhaus=False):
+        # What a scan records when DNS answers NXDOMAIN: no certificate, no page, no redirects, no WHOIS.
+        local = {'url': url, 'structure': {'is_https': True, 'contains_ip': False}, 'phishing': {'risk_score': 0},
+                 'ssl': {'status': 'unavailable', 'reason': 'target_dns_unavailable'},
+                 'security_headers': {'status': 'unavailable', 'reason': 'target_dns_unavailable'},
+                 'host_dns': {'status': 'not_found'}}
+        deep = {'url': url, 'structure': {'is_https': True}, 'host_dns': {'status': 'not_found'},
+                'page_content': {'content_risk_score': 0}, 'behavior': {'error': 'dns'}, 'whois': {'error': 'not found'},
+                'osint': {'urlhaus': urlhaus, 'urlhaus_status': 'matched' if urlhaus else 'not_found'}}
+        assessment = assess_url(local, deep)
+        return assessment, plain_report(assessment, local, deep, url)
+
+    def test_says_the_address_does_not_exist(self):
+        assessment, plain = self.scan()
+        self.assertEqual(assessment['verdict'], 'unknown')
+        self.assertIs(assessment['domain_exists'], False)
+        self.assertEqual((plain['tone'], plain['label'], plain['headline']), ('unknown', 'NOT FOUND', 'This address doesn’t exist'))
+        self.assertEqual(plain['reasons'][0]['title'], 'This address doesn’t exist')
+        self.assertNotIn('Some checks couldn’t run', [r['title'] for r in plain['reasons']])
+        checks = {c['name']: (c['state'], c['result']) for c in plain['checks']}
+        self.assertEqual(checks['Secure connection'], ('na', 'No site'))  # never "Valid HTTPS" for a site that isn't there
+        self.assertEqual(checks['Page content'], ('na', 'No site'))
+        self.assertEqual(checks['Redirects'], ('na', 'No site'))
+        self.assertIn('leads nowhere', plain['share_text'])
+
+    def test_a_listed_dead_link_stays_dangerous(self):
+        assessment, plain = self.scan(urlhaus=True)
+        self.assertEqual(assessment['verdict'], 'malicious')
+        self.assertEqual(plain['tone'], 'danger')
+
+    def test_turkish(self):
+        from services.report_i18n import translate_plain
+        plain = translate_plain(self.scan()[1], 'tr')
+        self.assertEqual((plain['label'], plain['headline']), ('BULUNAMADI', 'Bu adres mevcut değil'))
+        self.assertIn('Adresin yazımını kontrol et.', plain['actions'])
+
+
+class CertificateTests(unittest.TestCase):
+    def test_https_address_without_a_checked_certificate_is_not_valid_https(self):
+        local, deep = evidence()
+        for source in (local, deep):
+            source.pop('ssl')
+            source['urlvet'] = {**source['urlvet'], 'ssl_info': {}}
+        assessment = assess_url(local, deep)
+        checks = {c['name']: (c['state'], c['result']) for c in plain_report(assessment, local, deep, 'https://example.org/')['checks']}
+        self.assertEqual(checks['Secure connection'], ('na', 'Not checked'))
+
+    def test_checked_certificate_is_valid_https(self):
+        _, plain = report()
+        self.assertIn(('ok', 'Valid HTTPS'), [(c['state'], c['result']) for c in plain['checks'] if c['name'] == 'Secure connection'])
+
+
+class HostDnsTests(unittest.TestCase):
+    def test_only_nxdomain_counts_as_missing(self):
+        from unittest import mock
+        import dns.resolver
+        from services import url_analyzer
+        cases = [(dns.resolver.NXDOMAIN(), 'not_found'), (dns.resolver.LifetimeTimeout(), 'unknown'),
+                 (dns.resolver.NoNameservers(), 'unknown'), (None, 'found')]
+        for error, expected in cases:
+            with mock.patch.object(dns.resolver.Resolver, 'resolve', side_effect=error if error else None, return_value=['192.0.2.1']):
+                self.assertEqual(url_analyzer.host_dns_status('fhehhe.com'), expected)
+        self.assertEqual(url_analyzer.host_dns_status('192.0.2.1'), 'unknown')

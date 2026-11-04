@@ -4,7 +4,7 @@ The workspace is website-only (never in the mobile app) and open to pilot
 accounts. Every change is a CSRF-protected POST; domains are scoped to the
 owner's workspace, so nobody can see or change another company's records.
 """
-from flask import Blueprint, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
 from services import business, business_page
@@ -61,11 +61,12 @@ def panel():
     if blocked:
         return blocked
     from models import BusinessDomain
+    from services.business_monitor import domain_view
     domains = BusinessDomain.query.filter_by(workspace_id=workspace.id).order_by(BusinessDomain.created_at).all()
     notice = session.pop(NOTICE, None)
+    views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None) for d in domains]
     response = render_template('business_panel.html', t=text, lang=lang, workspace=workspace,
-                               domains=[business.serialize(d) for d in domains], notice=notice,
-                               limit=business.DOMAINS_PER_WORKSPACE)
+                               domains=views, notice=notice, limit=business.DOMAINS_PER_WORKSPACE)
     return response, 200, {'Cache-Control': 'private, no-store'}
 
 
@@ -110,6 +111,30 @@ def verify_domain(domain_id):
     except business.BusinessError as error:
         return _back('error:' + str(error))
     return _back('verified_flash')
+
+
+@business_bp.route('/isletme/panel/domains/<int:domain_id>/check', methods=['POST'])
+@login_required
+def check_now(domain_id):
+    workspace, blocked = _workspace_or_redirect()
+    if blocked:
+        return blocked
+    domain = business.owned_domain(workspace, domain_id)
+    if domain is None or domain.verified_at is None:
+        abort(404)
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    try:
+        consume_limit('business-check-day', str(current_user.id), 5, 86400)
+    except AuthRateLimited:
+        return _back('error:check_limit')
+    try:
+        from celery_app import celery, require_broker
+        require_broker(celery)
+        celery.send_task('business_check_now', args=[domain.id])
+    except Exception:
+        current_app.logger.exception('Business check could not be queued')
+        return _back('error:check_unavailable')
+    return _back('check_queued')
 
 
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/remove', methods=['POST'])

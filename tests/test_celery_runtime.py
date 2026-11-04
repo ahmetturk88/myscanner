@@ -44,14 +44,16 @@ class CeleryConfigurationTests(unittest.TestCase):
         for name in SCAN_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'scans')
         for name in TIP_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'tip')
         for name in BULK_TASKS:self.assertEqual(c['task_routes'][name]['queue'],'bulk')
-        self.assertEqual(set(BULK_TASKS),{'batch_scan_task','bulk_email_task'})
+        self.assertEqual(set(BULK_TASKS),{'batch_scan_task','bulk_email_task','business_monitor_due','business_check_now'})
     def test_schedule_uses_registered_tip_routes_and_has_no_quota_reset(self):
-        c=celery_settings({});self.assertEqual(len(c['beat_schedule']),5)
+        c=celery_settings({});self.assertEqual(len(c['beat_schedule']),6)
         for name,entry in c['beat_schedule'].items():
             if name == 'expire-url-scan-jobs':
                 self.assertEqual(entry['task'],'expire_url_scan_jobs');self.assertEqual(entry['options']['queue'],'scans');self.assertEqual(entry['schedule'],60)
             elif name == 'prune-url-screenshots-daily':
                 self.assertEqual(entry['task'],'prune_url_screenshots');self.assertEqual(entry['options']['queue'],'scans');self.assertEqual(entry['schedule'],86400)
+            elif name == 'business-monitor-due':
+                self.assertEqual(entry['task'],'business_monitor_due');self.assertEqual(entry['options']['queue'],'bulk');self.assertEqual(entry['schedule'],900)
             else:self.assertIn(entry['task'],TIP_TASKS);self.assertEqual(entry['options']['queue'],'tip')
         self.assertEqual(c['beat_schedule']['fetch-ioc-sources-hourly']['schedule'],3600)
         self.assertEqual(c['beat_schedule']['misp-pull-daily']['kwargs'],{'days_back':7})

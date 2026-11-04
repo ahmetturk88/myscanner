@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ t.panel_title }} · MyScanner{% endblock %}
+
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261031-1') }}" defer></script>
+<style>
+  .bzp-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px;margin:20px 0 34px}
+  .bzp-head p{max-width:680px;margin-top:12px}
+  .bzp-notice{margin:0 0 22px;padding:14px 18px;border-radius:14px;border:1px solid rgba(94,234,212,.35);background:rgba(94,234,212,.08);color:#d1fae5}
+  .bzp-notice.error{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.08);color:#fde68a}
+  .bzp-add{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+  .bzp-add input{flex:1 1 260px}
+  .bzp-domain{display:grid;gap:18px}
+  .bzp-domain-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+  .bzp-domain-head h3{display:flex;align-items:center;gap:12px;font-size:22px}
+  .bzp-state{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font:600 13px var(--sans)}
+  .bzp-state.ok{color:#bbf7d0;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.35)}
+  .bzp-state.wait{color:#fde68a;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.4)}
+  .bzp-record{display:grid;grid-template-columns:110px 1fr auto;gap:10px 14px;align-items:center;padding:16px;border-radius:14px;border:1px solid var(--line);background:rgba(6,12,22,.6)}
+  .bzp-record dt{font:600 13px var(--mono);color:var(--dim)}
+  .bzp-record dd{margin:0;font:14px var(--mono);color:#e3f1ff;overflow-wrap:anywhere}
+  .bzp-copy{border:1px solid var(--line-strong);background:#13243a;color:#e3f1ff;border-radius:10px;padding:7px 12px;font:600 13px var(--sans);cursor:pointer}
+  .bzp-actions{display:flex;flex-wrap:wrap;gap:10px}
+  .bzp-meta{font:13px var(--mono);color:var(--dim)}
+  .bzp-next{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:10px}
+  .bzp-next li{display:flex;gap:12px;color:var(--soft)}.bzp-next .pg-ic{color:var(--violet)}
+  @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <header class="bzp-head pg-reveal">
+    <div>
+      <span class="pg-eyebrow"><span class="pg-live"></span>MyScanner İşletme · {{ workspace.name }}</span>
+      <h1 style="font-size:clamp(34px,4.6vw,56px);margin-top:18px">{{ t.panel_title }} <span class="pg-pill" style="vertical-align:middle;font-size:14px">{{ t.pilot_badge }}</span></h1>
+      <p>{{ t.panel_lead }}</p>
+    </div>
+  </header>
+
+  {% if notice %}
+    {% if notice.startswith('error:') %}
+    <p class="bzp-notice error" role="alert">{{ t.errors.get(notice[6:], t.errors.dns_unavailable) }}</p>
+    {% elif notice in t %}
+    <p class="bzp-notice" role="status">{{ t[notice] }}</p>
+    {% endif %}
+  {% endif %}
+
+  <section class="pg-card glow pg-reveal">
+    <h3>{{ t.add_title }}</h3>
+    <form class="bzp-add" method="post" action="{{ url_for('business.add_domain') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input class="pg-input" type="text" name="domain" maxlength="253" required placeholder="{{ t.add_placeholder }}" aria-label="{{ t.add_title }}" {{ 'disabled' if domains|length >= limit }}>
+      <button class="pg-btn primary" type="submit" {{ 'disabled' if domains|length >= limit }}>{{ t.add_button }}</button>
+    </form>
+    {% if domains|length >= limit %}<p class="bzp-meta" style="margin-top:10px">{{ t.errors.limit }}</p>{% endif %}
+  </section>
+
+  <section style="margin-top:34px">
+    <h2 class="pg-reveal" style="font-size:clamp(24px,2.6vw,32px);margin-bottom:18px">{{ t.domains_title }}</h2>
+    {% if not domains %}<div class="pg-card pg-reveal"><p>{{ t.empty }}</p></div>{% endif %}
+    <div style="display:grid;gap:18px">
+    {% for d in domains %}
+      <article class="pg-card glow bzp-domain pg-reveal">
+        <div class="bzp-domain-head">
+          <h3><span class="pg-ic ic-globe"></span>{{ d.domain }}</h3>
+          {% if d.verified %}<span class="bzp-state ok"><span class="pg-ic ic-check"></span>{{ t.verified }}</span>
+          {% else %}<span class="bzp-state wait"><span class="pg-ic ic-clock"></span>{{ t.pending }}</span>{% endif %}
+        </div>
+        {% if d.verified %}
+          <p>{{ t.verified_note }}</p>
+        {% else %}
+          <div>
+            <strong>{{ t.step_title }}</strong>
+            <p style="margin-top:6px">{{ t.step_lead }}</p>
+          </div>
+          <dl class="bzp-record">
+            <dt>{{ t.type }}</dt><dd>TXT</dd><span></span>
+            <dt>{{ t.name }}</dt><dd>{{ d.record_name }}</dd><button type="button" class="bzp-copy" data-copy="{{ d.record_name }}">{{ t.copy_button }}</button>
+            <dt>{{ t.value }}</dt><dd>{{ d.record_value }}</dd><button type="button" class="bzp-copy" data-copy="{{ d.record_value }}">{{ t.copy_button }}</button>
+          </dl>
+          <p class="bzp-meta">{{ t.hint }}</p>
+        {% endif %}
+        <div class="bzp-actions">
+          {% if not d.verified %}
+          <form method="post" action="{{ url_for('business.verify_domain', domain_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn primary" type="submit"><span class="pg-ic ic-refresh"></span>{{ t.check }}</button></form>
+          {% endif %}
+          <form method="post" action="{{ url_for('business.remove_domain', domain_id=d.id) }}" data-confirm="{{ t.remove_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn danger" type="submit">{{ t.remove }}</button></form>
+        </div>
+        {% if d.last_checked_at %}<p class="bzp-meta">{{ t.checked }}: {{ d.last_checked_at.strftime('%Y-%m-%d %H:%M') }} UTC</p>{% endif %}
+      </article>
+    {% endfor %}
+    </div>
+  </section>
+
+  <section class="pg-card pg-reveal" style="margin-top:34px">
+    <h3>{{ t.next_title }}</h3>
+    <ul class="bzp-next">{% for item in t.next %}<li><span class="pg-ic ic-spark"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+  </section>
+</div>
+<script>
+document.querySelectorAll('.bzp-copy').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var label = button.textContent;
+    navigator.clipboard.writeText(button.dataset.copy).then(function () {
+      button.textContent = {{ t.copied | tojson }};
+      setTimeout(function () { button.textContent = label; }, 1800);
+    });
+  });
+});
+document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+  form.addEventListener('submit', function (event) { if (!window.confirm(form.dataset.confirm)) event.preventDefault(); });
+});
+</script>
+{% endblock %}

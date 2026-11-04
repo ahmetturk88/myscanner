@@ -34,7 +34,40 @@ class BusinessDomain(db.Model):
     created_at      = db.Column(db.DateTime, nullable=False, default=_now)
     verified_at     = db.Column(db.DateTime, nullable=True)
     last_checked_at = db.Column(db.DateTime, nullable=True)
+    monitored_at    = db.Column(db.DateTime, nullable=True)   # last daily monitoring run
+    weekly_at       = db.Column(db.DateTime, nullable=True)   # last weekly site inspection
+    proof_misses    = db.Column(db.Integer, nullable=False, default=0)  # daily runs in a row without our TXT record
     __table_args__ = (db.UniqueConstraint('workspace_id', 'domain', name='uq_business_domain_workspace_domain'),)
+
+
+class BusinessSnapshot(db.Model):
+    """One monitoring run of one domain: each check's state and facts (JSON), and the resulting score."""
+    __tablename__ = 'business_snapshot'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    domain_id  = db.Column(db.Integer, db.ForeignKey('business_domain.id', ondelete='CASCADE'), nullable=False, index=True)
+    kind       = db.Column(db.String(10), nullable=False, default='daily')  # daily, weekly
+    created_at = db.Column(db.DateTime, nullable=False, default=_now, index=True)
+    score      = db.Column(db.Integer, nullable=True)
+    results    = db.Column(db.Text, nullable=False)
+
+
+class BusinessEvent(db.Model):
+    """Something that changed between two runs (a new problem, a fix, a renewed certificate…).
+
+    The text is not stored: a code and its parameters are rendered in the reader's language.
+    notified_at is set when an alert about it has been sent.
+    """
+    __tablename__ = 'business_event'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    domain_id   = db.Column(db.Integer, db.ForeignKey('business_domain.id', ondelete='CASCADE'), nullable=False, index=True)
+    snapshot_id = db.Column(db.Integer, db.ForeignKey('business_snapshot.id', ondelete='CASCADE'), nullable=True)
+    created_at  = db.Column(db.DateTime, nullable=False, default=_now, index=True)
+    code        = db.Column(db.String(40), nullable=False)
+    severity    = db.Column(db.String(8), nullable=False, default='info')  # info, warn, bad, good
+    params      = db.Column(db.Text, nullable=False, default='{}')
+    notified_at = db.Column(db.DateTime, nullable=True)
 
 
 class BusinessLead(db.Model):

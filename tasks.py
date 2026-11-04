@@ -393,3 +393,36 @@ def initialize_tip_sources(self):
     except Exception as e:
         return {'status': 'failed', 'error': str(e)}
 
+
+
+@celery.task(name='business_monitor_due', soft_time_limit=1500, time_limit=1560)
+def business_monitor_due():
+    """MyScanner İşletme: run the daily checks of every verified domain that is due (oldest first)."""
+    from app import app
+    from services.business_monitor import due_domains, run_domain
+    done = 0
+    with app.app_context():
+        for domain in due_domains():
+            try:
+                run_domain(domain)
+                done += 1
+            except Exception:
+                from extensions import db
+                db.session.rollback()
+                app.logger.exception('Business monitoring failed for domain #%s', domain.id)
+    return {'checked': done}
+
+
+@celery.task(name='business_check_now', soft_time_limit=240, time_limit=270)
+def business_check_now(domain_id):
+    """A run the owner asked for from the workspace."""
+    from app import app
+    from extensions import db
+    from models import BusinessDomain
+    from services.business_monitor import run_domain
+    with app.app_context():
+        domain = db.session.get(BusinessDomain, int(domain_id))
+        if domain is None or domain.verified_at is None:
+            return {'status': 'skipped'}
+        run_domain(domain)
+        return {'status': 'done'}

@@ -26,6 +26,24 @@
   .bzp-meta{font:13px var(--mono);color:var(--dim)}
   .bzp-next{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:10px}
   .bzp-next li{display:flex;gap:12px;color:var(--soft)}.bzp-next .pg-ic{color:var(--violet)}
+  .bzm{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start;padding:18px;border-radius:18px;border:1px solid var(--line);background:rgba(6,12,22,.5)}
+  .bzm-score{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;min-width:150px}
+  .bzm-ring{--p:0;--c:var(--teal);width:118px;height:118px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),rgba(145,188,220,.14) 0);position:relative}
+  .bzm-ring.mid{--c:var(--amber)}.bzm-ring.low{--c:var(--rose)}
+  .bzm-ring:after{content:'';position:absolute;inset:11px;border-radius:50%;background:#0b1424}
+  .bzm-ring span{position:relative;z-index:1;font:700 32px var(--sans);letter-spacing:-.03em;color:#e7f7ff}
+  .bzm-rows{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .bzm-rows li{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(14,26,43,.7)}
+  .bzm-rows strong{font-size:15px;color:var(--ink)}.bzm-rows small{font:13px var(--mono);color:var(--dim);text-align:right}
+  .bzm-dot{width:11px;height:11px;border-radius:50%;background:var(--dim)}
+  .bzm-rows .ok .bzm-dot{background:var(--green);box-shadow:0 0 0 4px rgba(74,222,128,.12)}
+  .bzm-rows .warn{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.05)}.bzm-rows .warn .bzm-dot{background:var(--amber)}.bzm-rows .warn small{color:#fde68a}
+  .bzm-rows .bad{border-color:rgba(251,113,133,.45);background:rgba(251,113,133,.06)}.bzm-rows .bad .bzm-dot{background:var(--rose)}.bzm-rows .bad small{color:#fecdd3}
+  .bzm-events{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+  .bzm-events li{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:10px 14px;border-left:3px solid var(--line-strong);background:rgba(14,26,43,.55);border-radius:0 10px 10px 0;color:var(--soft);font-size:14.5px;line-height:1.55}
+  .bzm-events .warn{border-left-color:var(--amber)}.bzm-events .bad{border-left-color:var(--rose)}.bzm-events .good{border-left-color:var(--green)}.bzm-events .info{border-left-color:var(--cyan)}
+  .bzm-when{font:12.5px var(--mono);color:var(--dim);padding-top:2px}
+  @media (max-width:760px){.bzm{grid-template-columns:1fr}.bzm-rows li{grid-template-columns:auto 1fr}.bzm-rows small{grid-column:2;text-align:left}.bzm-events li{grid-template-columns:1fr}}
   @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}}
 </style>
 {% endblock %}
@@ -72,7 +90,27 @@
           {% else %}<span class="bzp-state wait"><span class="pg-ic ic-clock"></span>{{ t.pending }}</span>{% endif %}
         </div>
         {% if d.verified %}
+          {% set m = d.monitor %}
+          {% if m and m.rows %}
+          <div class="bzm">
+            <div class="bzm-score">
+              {% set sc = m.score if m.score is not none else 0 %}
+              <div class="bzm-ring {{ 'good' if sc >= 80 else 'mid' if sc >= 50 else 'low' }}" style="--p:{{ sc }}"><span>{{ m.score if m.score is not none else '—' }}</span></div>
+              <div><strong>{{ t.score_label }}</strong><p class="bzp-meta" style="margin-top:6px">{{ t.last_run }}: {{ m.last_run.strftime('%Y-%m-%d %H:%M') }} UTC</p>
+                {% if m.score is none %}<p class="bzp-meta">{{ t.score_none }}</p>{% endif %}</div>
+            </div>
+            <ul class="bzm-rows">{% for name, state, value in m.rows %}<li class="{{ state }}"><span class="bzm-dot"></span><strong>{{ name }}</strong><small>{{ value }}</small></li>{% endfor %}</ul>
+          </div>
+          <div>
+            <strong>{{ t.events_title }}</strong>
+            {% if m.events %}
+            <ol class="bzm-events">{% for e in m.events %}<li class="{{ e.severity }}"><span class="bzm-when">{{ e.at.strftime('%d.%m %H:%M') }}</span><span>{{ e.text }}</span></li>{% endfor %}</ol>
+            {% else %}<p class="bzp-meta" style="margin-top:8px">{{ t.events_empty }}</p>{% endif %}
+          </div>
+          {% else %}
           <p>{{ t.verified_note }}</p>
+          <p class="bzp-meta">{{ t.never_run }}</p>
+          {% endif %}
         {% else %}
           <div>
             <strong>{{ t.step_title }}</strong>
@@ -86,6 +124,9 @@
           <p class="bzp-meta">{{ t.hint }}</p>
         {% endif %}
         <div class="bzp-actions">
+          {% if d.verified %}
+          <form method="post" action="{{ url_for('business.check_now', domain_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn" type="submit"><span class="pg-ic ic-refresh"></span>{{ t.check_now }}</button></form>
+          {% endif %}
           {% if not d.verified %}
           <form method="post" action="{{ url_for('business.verify_domain', domain_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn primary" type="submit"><span class="pg-ic ic-refresh"></span>{{ t.check }}</button></form>
           {% endif %}

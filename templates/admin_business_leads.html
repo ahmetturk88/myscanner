@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Business pre-registrations{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div style="max-width:900px;margin:40px auto;padding:0 16px">
+  <h1>MyScanner İşletme · pre-registrations</h1>
+  <p>Total: <b>{{ stats.total }}</b>{% for sector, count in stats.by_sector %} · {{ sectors.get(sector, sector) }}: <b>{{ count }}</b>{% endfor %}</p>
+  <p style="opacity:.75">Share <code>/isletme?utm_source=instagram</code> (or linkedin, whatsapp…) to see where people come from. Pilot workspaces open for addresses listed in <code>BUSINESS_PILOT_EMAILS</code>.</p>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr><th style="text-align:left">Date (UTC)</th><th style="text-align:left">Email</th><th style="text-align:left">Website</th><th style="text-align:left">Sector</th><th style="text-align:left">Source</th><th>Lang</th></tr></thead>
+    <tbody>
+    {% for lead in stats.latest %}<tr style="border-top:1px solid rgba(145,188,220,.2)"><td>{{ lead.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ lead.email }}</td><td>{{ lead.website or '—' }}</td><td>{{ sectors.get(lead.sector, lead.sector) }}</td><td>{{ lead.source }}</td><td style="text-align:center">{{ lead.lang }}</td></tr>
+    {% else %}<tr><td colspan="6">No pre-registrations yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

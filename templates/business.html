@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{{ t.title }}{% endblock %}
+{% block description %}{{ t.description }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<script src="{{ url_for('static', filename='pages.js', v='20261031-1') }}" defer></script>
+<style>
+  .bz-demo{border-radius:24px;border:1px solid var(--line-strong);background:linear-gradient(160deg,#0f1b2c,#070d18);box-shadow:0 40px 120px -40px rgba(0,160,255,.5);overflow:hidden;position:relative}
+  .bz-demo-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);font:600 13px var(--mono);color:var(--dim)}
+  .bz-demo-head b{color:var(--cyan);font-weight:600;letter-spacing:.12em}
+  .bz-score{display:flex;align-items:center;gap:22px;padding:22px 22px 8px}
+  .bz-ring{--p:86;width:112px;height:112px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:conic-gradient(var(--teal) calc(var(--p)*1%),rgba(145,188,220,.14) 0);position:relative}
+  .bz-ring:after{content:'';position:absolute;inset:10px;border-radius:50%;background:#0b1424}
+  .bz-ring span{position:relative;z-index:1;font:700 30px var(--sans);letter-spacing:-.03em;color:#e7f7ff}
+  .bz-score h3{font-size:19px;margin:0 0 6px}.bz-score p{font-size:14px;margin:0}
+  .bz-rows{padding:10px 22px 22px;display:grid;gap:10px}
+  .bz-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(14,26,43,.7);opacity:0;transform:translateY(8px);animation:bz-in .6s ease forwards}
+  .bz-row:nth-child(2){animation-delay:.25s}.bz-row:nth-child(3){animation-delay:.5s}.bz-row:nth-child(4){animation-delay:.75s}
+  @keyframes bz-in{to{opacity:1;transform:none}}
+  .bz-dot{width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(74,222,128,.12)}
+  .bz-dot.warn{background:var(--amber);box-shadow:0 0 0 5px rgba(251,191,36,.14);animation:bz-pulse 1.6s ease-in-out infinite}
+  @keyframes bz-pulse{50%{box-shadow:0 0 0 9px rgba(251,191,36,.05)}}
+  .bz-row strong{font-size:15px;color:var(--ink)}.bz-row small{font:13px var(--mono);color:var(--dim);text-align:right}
+  .bz-row.warn{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.06)}.bz-row.warn small{color:#fde68a}
+  .bz-tag{position:absolute;top:14px;right:16px}
+  .bz-problem h3{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+  .bz-problem .pg-ic{color:var(--rose)}
+  .bz-feature h3{display:flex;gap:12px;align-items:center;font-size:19px;margin-bottom:12px}
+  .bz-feature .pg-ic{color:var(--cyan)}
+  .bz-steps{counter-reset:s;display:grid;gap:16px}
+  .bz-steps li{list-style:none;display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;padding:22px;border-radius:18px;border:1px solid var(--line);background:var(--panel)}
+  .bz-steps li:before{counter-increment:s;content:counter(s);width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:700 17px var(--sans);color:#05202d;background:linear-gradient(120deg,#7fe1ff,#5eead4)}
+  .bz-price{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center}
+  .bz-amount{font:800 64px var(--sans);letter-spacing:-.04em;line-height:1;color:#e3f1ff}
+  .bz-amount small{font-size:18px;font-weight:600;color:var(--soft);margin-left:8px}
+  .bz-list{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+  .bz-list li{display:flex;gap:12px;align-items:flex-start;color:var(--soft);line-height:1.55}
+  .bz-list .pg-ic{color:var(--green);flex-shrink:0;margin-top:3px}
+  .bz-honest .pg-ic{color:var(--cyan)}
+  .bz-form{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+  .bz-form .full{grid-column:1/-1}
+  .bz-form select{width:100%}
+  .bz-consent{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.6;color:var(--soft)}
+  .bz-consent input{margin-top:4px;width:18px;height:18px;accent-color:#5eead4;flex-shrink:0}
+  .bz-outcome{margin:14px 0 0;padding:14px 16px;border-radius:12px;border:1px solid rgba(94,234,212,.35);background:rgba(94,234,212,.08);color:#d1fae5}
+  .bz-outcome.error{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.08);color:#fde68a}
+  .bz-section{margin-top:96px}
+  .bz-section>header{margin-bottom:30px}
+  .bz-section>header p{margin-top:12px;max-width:720px}
+  @media (max-width:900px){.pg-hero{grid-template-columns:1fr;gap:40px}.bz-price{grid-template-columns:1fr}.bz-form{grid-template-columns:1fr}.pg-grid-3{grid-template-columns:1fr}}
+  @media (max-width:560px){.bz-amount{font-size:52px}.bz-row{grid-template-columns:auto 1fr}.bz-row small{grid-column:2;text-align:left}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+
+  <section class="pg-hero">
+    <div class="pg-reveal">
+      <span class="pg-eyebrow"><span class="pg-live"></span>{{ t.eyebrow }}</span>
+      <h1>{{ t.heading | safe }}</h1>
+      <p class="pg-lead">{{ t.lead }}</p>
+      <div class="pg-actions" style="display:flex;flex-wrap:wrap;gap:12px">
+        {% if panel %}<a class="pg-btn primary" href="{{ url_for('business.panel') }}">{{ t.cta_panel }} →</a>{% endif %}
+        <a class="pg-btn {{ '' if panel else 'primary' }}" href="#notify">{{ t.cta }} →</a>
+      </div>
+      <div class="pg-hero-meta">{% for item in t.trust %}<span class="pg-pill"><span class="pg-ic ic-check"></span>{{ item }}</span>{% endfor %}</div>
+    </div>
+    <div class="pg-reveal" aria-label="{{ t.demo_label }}">
+      <div class="bz-demo">
+        <div class="pg-scanbeam" aria-hidden="true"></div>
+        <div class="bz-demo-head"><b>MYSCANNER · İŞLETME</b><span class="pg-badge" style="white-space:nowrap">{{ t.demo_label }}</span></div>
+        <div class="bz-score">
+          <div class="bz-ring" style="--p:86"><span>86</span></div>
+          <div><h3>{{ t.demo_score }}</h3><p>magazam.com</p></div>
+        </div>
+        <div class="bz-rows">
+          {% for tone, name, value in t.demo_rows %}
+          <div class="bz-row {{ tone }}"><span class="bz-dot {{ tone }}"></span><strong>{{ name }}</strong><small>{{ value }}</small></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bz-section">
+    <header class="pg-reveal"><h2>{{ t.problem_title }}</h2></header>
+    <div class="pg-grid-3">
+      {% for name, detail in t.problems %}
+      <article class="pg-card glow bz-problem pg-reveal"><h3><span class="pg-ic {{ ['ic-target','ic-clock','ic-mail'][loop.index0] }}"></span>{{ name }}</h3><p>{{ detail }}</p></article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="bz-section">
+    <header class="pg-reveal"><h2>{{ t.features_title }}</h2><p><span class="pg-pill muted">{{ t.coming }}</span></p></header>
+    <div class="pg-grid-3">
+      {% set icons = {'watch': 'ic-globe', 'lookalike': 'ic-eye', 'mail': 'ic-mail', 'expiry': 'ic-calendar', 'alerts': 'ic-zap', 'report': 'ic-file'} %}
+      {% for key in ('watch', 'lookalike', 'mail', 'expiry', 'alerts', 'report') %}
+      <article class="pg-card glow bz-feature pg-reveal"><h3><span class="pg-ic {{ icons[key] }}"></span>{{ t.features[key][0] }}</h3><p>{{ t.features[key][1] }}</p></article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="bz-section">
+    <header class="pg-reveal"><h2>{{ t.how_title }}</h2></header>
+    <ol class="bz-steps" style="padding:0;margin:0">{% for item in t.how %}<li class="pg-reveal"><p style="margin:8px 0 0">{{ item }}</p></li>{% endfor %}</ol>
+  </section>
+
+  <section class="bz-section">
+    <header class="pg-reveal"><h2>{{ t.price_title }}</h2></header>
+    <div class="pg-card glow pg-reveal bz-price">
+      <div>
+        <h3>{{ t.price_name }}</h3>
+        <div class="bz-amount" style="margin:14px 0 10px">{{ t.price }}<small>{{ t.price_period }}</small></div>
+        <p>{{ t.price_note }}</p>
+      </div>
+      <ul class="bz-list">{% for item in t.price_items %}<li><span class="pg-ic ic-check"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+    </div>
+  </section>
+
+  <section class="bz-section">
+    <header class="pg-reveal"><h2>{{ t.honest_title }}</h2></header>
+    <ul class="bz-list bz-honest pg-reveal">{% for item in t.honest %}<li><span class="pg-ic ic-shield"></span><span>{{ item }}</span></li>{% endfor %}</ul>
+  </section>
+
+  <section class="bz-section" id="notify">
+    <div class="pg-card glow pg-reveal">
+      <h2 style="font-size:clamp(26px,3vw,36px)">{{ t.form_title }}</h2>
+      <p style="margin-top:10px">{{ t.form_lead }}</p>
+      {% if outcome in ('added', 'already') %}
+      <p class="bz-outcome" role="status">{{ t.thanks if outcome == 'added' else t.already }}</p>
+      {% else %}
+      <form class="bz-form" method="post" action="{{ url_for('business.landing') }}#notify">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden"><label for="company_url">Leave this field empty</label><input type="text" name="company_url" id="company_url" tabindex="-1" autocomplete="off"></div>
+        <div class="pg-field"><label for="bz-email">{{ t.email_label }}</label><input class="pg-input" type="email" name="email" id="bz-email" autocomplete="email" maxlength="254" required placeholder="you@company.com" value="{{ form.email or (current_user.email if current_user.is_authenticated else '') }}"></div>
+        <div class="pg-field"><label for="bz-site">{{ t.website_label }}</label><input class="pg-input" type="text" name="website" id="bz-site" maxlength="253" placeholder="{{ t.website_placeholder }}" value="{{ form.website or '' }}" autocomplete="url"></div>
+        <div class="pg-field full"><label for="bz-sector">{{ t.sector_label }}</label>
+          <select class="pg-input" name="sector" id="bz-sector">{% for key, label in t.sectors.items() %}<option value="{{ key }}" {{ 'selected' if form.sector == key }}>{{ label }}</option>{% endfor %}</select></div>
+        <label class="bz-consent full"><input type="checkbox" name="consent" value="yes" required><span>{{ t.consent }}</span></label>
+        <div class="full"><button class="pg-btn primary" type="submit">{{ t.submit }} →</button></div>
+      </form>
+      {% if outcome == 'invalid' %}<p class="bz-outcome error" role="alert">{{ t.invalid }}</p>{% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="bz-section">
+    <header class="pg-reveal" style="text-align:center"><h2>{{ t.faq_title }}</h2></header>
+    <div class="pg-faq">{% for q, a in t.faq %}<details class="pg-reveal"><summary>{{ q }}</summary><p>{{ a }}</p></details>{% endfor %}</div>
+  </section>
+</div>
+{% endblock %}

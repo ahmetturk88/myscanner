@@ -314,6 +314,8 @@ from routes.file_pdf import file_pdf_bp
 app.register_blueprint(file_pdf_bp)
 from routes.report_pdf import report_pdf_bp
 app.register_blueprint(report_pdf_bp)
+from routes.business import business_bp
+app.register_blueprint(business_bp)
 
 # Mobile app API: authorised only by app tokens in the Authorization header,
 # never by the session cookie, so the cookie-based CSRF check does not apply.

@@ -63,3 +63,22 @@ the free use is fine while the service is free; before charging for this plan bo
 or these sources are switched off for paying workspaces (`MYSCANNER_DISABLED_SOURCES`).
 
 Migration `c3f9a2e6b8d4` adds the two tables and three columns on `business_domain`.
+
+# Stage 3: alerts and the weekly site inspection
+
+**Alerts** (`services/business_alerts.py`) go only to the workspace owner's verified email, in the workspace's
+language (`alert_lang`), and each event is emailed once (`notified_at`; a failed send leaves it pending).
+- **Instant** (`instant_alerts`, on by default): right after the run that found them, every `bad` event and the
+  quiet changes attackers cause: changed DNS records, registrar or SPF/DMARC, a missing ownership record.
+- **Daily digest** (`daily_digest`, on by default): everything not sent yet from the last 7 days, at most once per
+  23 hours and only between 09:00 and 21:00 Türkiye time; no email when nothing happened. Beat:
+  `business-send-digests` every 30 minutes.
+- Every value in the HTML email is escaped; the email links to the workspace.
+
+**Weekly site inspection**: `business-weekly-due` (hourly, at most 3 domains per run, bulk queue) runs the public,
+passive website check (the same as /site-scanner, without the provider or discovery options) for verified domains
+whose last inspection is older than 7 days. New warning reasons become `site_issue` events, resolved ones
+`site_issue_fixed`. Titles are stored in English and translated with the site's report catalog when shown.
+
+Migration `d5a1c7e3f9b2` adds `alert_lang`, `instant_alerts`, `daily_digest`, `last_digest_at` to `business_workspace`.
+The workspace has an alert settings card (CSRF-protected POST `/isletme/panel/settings`).

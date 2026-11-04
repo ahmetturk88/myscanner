@@ -137,6 +137,21 @@ def check_now(domain_id):
     return _back('check_queued')
 
 
+@business_bp.route('/isletme/panel/settings', methods=['POST'])
+@login_required
+def save_settings():
+    workspace, blocked = _workspace_or_redirect()
+    if blocked:
+        return blocked
+    lang = request.form.get('alert_lang')
+    workspace.alert_lang = lang if lang in ('tr', 'en') else 'tr'
+    workspace.instant_alerts = request.form.get('instant_alerts') == 'on'
+    workspace.daily_digest = request.form.get('daily_digest') == 'on'
+    from extensions import db
+    db.session.commit()
+    return _back('saved_flash')
+
+
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/remove', methods=['POST'])
 @login_required
 def remove_domain(domain_id):

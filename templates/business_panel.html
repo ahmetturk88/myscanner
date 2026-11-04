@@ -43,6 +43,12 @@
   .bzm-events li{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:10px 14px;border-left:3px solid var(--line-strong);background:rgba(14,26,43,.55);border-radius:0 10px 10px 0;color:var(--soft);font-size:14.5px;line-height:1.55}
   .bzm-events .warn{border-left-color:var(--amber)}.bzm-events .bad{border-left-color:var(--rose)}.bzm-events .good{border-left-color:var(--green)}.bzm-events .info{border-left-color:var(--cyan)}
   .bzm-when{font:12.5px var(--mono);color:var(--dim);padding-top:2px}
+  .bzs{display:grid;gap:12px;margin-top:16px}
+  .bzs-row{display:flex;gap:12px;align-items:flex-start;color:var(--soft);line-height:1.55}
+  .bzs-row input{width:20px;height:20px;accent-color:#5eead4;margin-top:2px;flex-shrink:0}
+  .bzs-line{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:6px}
+  .bzs-line label{font:600 14.5px var(--sans);color:#d7e6f6}
+  .bzs-line select{width:auto;min-width:160px}
   @media (max-width:760px){.bzm{grid-template-columns:1fr}.bzm-rows li{grid-template-columns:auto 1fr}.bzm-rows small{grid-column:2;text-align:left}.bzm-events li{grid-template-columns:1fr}}
   @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}}
 </style>
@@ -136,6 +142,19 @@
       </article>
     {% endfor %}
     </div>
+  </section>
+
+  <section class="pg-card pg-reveal" style="margin-top:34px">
+    <h3>{{ t.settings_title }}</h3>
+    <p class="bzp-meta" style="margin-top:8px">{{ t.settings_lead.format(email=current_user.email) }}</p>
+    <form class="bzs" method="post" action="{{ url_for('business.save_settings') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="bzs-row"><input type="checkbox" name="instant_alerts" {{ 'checked' if workspace.instant_alerts }}><span>{{ t.instant_label }}</span></label>
+      <label class="bzs-row"><input type="checkbox" name="daily_digest" {{ 'checked' if workspace.daily_digest }}><span>{{ t.digest_label }}</span></label>
+      <div class="bzs-line"><label for="bzs-lang">{{ t.settings_lang }}</label>
+        <select class="pg-input" name="alert_lang" id="bzs-lang"><option value="tr" {{ 'selected' if workspace.alert_lang == 'tr' }}>Türkçe</option><option value="en" {{ 'selected' if workspace.alert_lang == 'en' }}>English</option></select>
+        <button class="pg-btn primary" type="submit">{{ t.save }}</button></div>
+    </form>
   </section>
 
   <section class="pg-card pg-reveal" style="margin-top:34px">

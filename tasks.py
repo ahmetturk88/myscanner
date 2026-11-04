@@ -402,9 +402,11 @@ def business_monitor_due():
     from services.business_monitor import due_domains, run_domain
     done = 0
     with app.app_context():
+        from services.business_alerts import send_instant
         for domain in due_domains():
             try:
                 run_domain(domain)
+                send_instant(domain)
                 done += 1
             except Exception:
                 from extensions import db
@@ -425,4 +427,43 @@ def business_check_now(domain_id):
         if domain is None or domain.verified_at is None:
             return {'status': 'skipped'}
         run_domain(domain)
+        from services.business_alerts import send_instant
+        send_instant(domain)
         return {'status': 'done'}
+
+
+@celery.task(name='business_weekly_due', soft_time_limit=1500, time_limit=1560)
+def business_weekly_due():
+    """MyScanner İşletme: the weekly full site inspection, a few domains per hour."""
+    from app import app
+    from extensions import db
+    from services.business_alerts import send_instant
+    from services.business_monitor import run_weekly, weekly_due
+    done = 0
+    with app.app_context():
+        for domain in weekly_due():
+            try:
+                run_weekly(domain)
+                send_instant(domain)
+                done += 1
+            except Exception:
+                db.session.rollback()
+                app.logger.exception('Weekly site inspection failed for domain #%s', domain.id)
+    return {'inspected': done}
+
+
+@celery.task(name='business_send_digests', soft_time_limit=600, time_limit=630)
+def business_send_digests():
+    """MyScanner İşletme: the daily summaries that are due."""
+    from app import app
+    from extensions import db
+    from services.business_alerts import digests_due, send_digest
+    sent = 0
+    with app.app_context():
+        for workspace in digests_due():
+            try:
+                sent += 1 if send_digest(workspace) else 0
+            except Exception:
+                db.session.rollback()
+                app.logger.exception('Business digest failed for workspace #%s', workspace.id)
+    return {'sent': sent}

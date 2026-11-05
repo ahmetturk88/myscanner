@@ -23,6 +23,20 @@ class Outbox:
         return self.ok
 
 
+class DeploymentTests(unittest.TestCase):
+    def test_the_bulk_worker_can_send_email(self):
+        # Every business task runs on the bulk queue; without the email key the alerts silently stayed pending.
+        import yaml
+        from pathlib import Path
+        compose = yaml.safe_load((Path(__file__).resolve().parents[1] / 'compose.vps.yml').read_text())
+        bulk = compose['services']['bulk-worker']
+        self.assertIn('resend_api_key', bulk['secrets'])
+        self.assertEqual(bulk['environment']['RESEND_API_KEY_FILE'], '/run/secrets/resend_api_key')
+        self.assertIn('BASE_URL', bulk['environment'])
+        for name in ('worker', 'tip-worker', 'beat'):
+            self.assertNotIn('resend_api_key', compose['services'][name].get('secrets', []))
+
+
 class AlertTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

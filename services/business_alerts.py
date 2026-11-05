@@ -14,7 +14,8 @@ from html import escape
 
 from extensions import db
 
-URGENT_CODES = {'dns_changed', 'registrar_changed', 'mail_changed', 'proof_missing', 'proof_lost'}
+URGENT_CODES = {'dns_changed', 'registrar_changed', 'mail_changed', 'proof_missing', 'proof_lost',
+                'lookalike_found', 'lookalike_live'}
 DIGEST_EVERY = timedelta(hours=23)
 DIGEST_HOURS_UTC = range(6, 18)  # 09:00 to 20:59 in Türkiye (UTC+3)
 TONES = {'bad': '#fb7185', 'warn': '#fbbf24', 'good': '#4ade80', 'info': '#77dcff'}

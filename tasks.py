@@ -467,3 +467,23 @@ def business_send_digests():
                 db.session.rollback()
                 app.logger.exception('Business digest failed for workspace #%s', workspace.id)
     return {'sent': sent}
+
+
+@celery.task(name='business_lookalike_due', soft_time_limit=1500, time_limit=1560)
+def business_lookalike_due():
+    """MyScanner İşletme: the daily look-alike watch, a few domains per hour."""
+    from app import app
+    from extensions import db
+    from services.business_alerts import send_instant
+    from services.business_lookalike import lookalike_due, run_lookalikes
+    done = 0
+    with app.app_context():
+        for domain in lookalike_due():
+            try:
+                run_lookalikes(domain)
+                send_instant(domain)
+                done += 1
+            except Exception:
+                db.session.rollback()
+                app.logger.exception('Look-alike watch failed for domain #%s', domain.id)
+    return {'watched': done}

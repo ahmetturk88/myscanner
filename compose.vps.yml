@@ -148,6 +148,13 @@ services:
       start_period: 30s
   bulk-worker:
     <<: *app
+    environment:
+      <<: *environment
+      # MyScanner İşletme instant alerts, daily digests and monthly report emails are sent from this worker.
+      RESEND_API_KEY_FILE: /run/secrets/resend_api_key
+      FROM_EMAIL: ${FROM_EMAIL:-info@myscanners.com}
+      BASE_URL: https://${SITE_DOMAIN:-localhost}
+    secrets: [db_app_password, redis_password, session_key, resend_api_key]
     command: [bulk-worker]
     restart: unless-stopped
     depends_on:

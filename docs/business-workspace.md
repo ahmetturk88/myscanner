@@ -136,3 +136,20 @@ read from DNS and RDAP (the site is never opened), at most 12 lookups per run, n
   fake-site steps).
 - In alert emails and the monthly PDF, look-alike names are written defanged (`magazam-giris[.]com`): mail apps and PDF
   viewers turn bare domain names into links, and an imitation must never become a clickable link from us.
+
+# Business+ 1: uptime (availability) monitoring
+
+`services/business_uptime.py`, beat `business-uptime-due` every 5 minutes (bulk queue, `expires` 280 s so a busy worker
+never builds a backlog). Each run fetches the home page of every verified domain once through the public-network
+session (HTTPS; plain HTTP only when HTTPS cannot connect; at most 64 KB read; nothing submitted).
+- Down = timeout, refused/broken connection or a 5xx answer; any other answer (also a firewall's 4xx) means up.
+- Two failures in a row open an outage (`site_down`, bad); the first success after it closes it (`site_up`, with the
+  minutes). Both are instant alerts. A single slow answer never alerts.
+- A control address (Google / Cloudflare) is asked first; when even that fails, our own network is down and the run
+  concludes nothing.
+- Daily counts (`business_uptime_day`: checks, answers, total response time) give the 30-day percentage and average
+  response time shown in the workspace and the monthly PDF (below 99% it becomes a to-do item).
+- The bulk worker runs one task at a time: during a long look-alike or weekly run, uptime checks wait (the outage is
+  still detected, a few minutes later).
+
+Migration `c7e1f4a8b2d6`: uptime columns on `business_domain`, table `business_uptime_day`.

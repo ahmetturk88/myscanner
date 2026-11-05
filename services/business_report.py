@@ -31,6 +31,9 @@ ACTIONS = {
     ('reputation', 'bad'): '{domain} is on a threat list: have the site checked for malware and ask your hosting company for help.',
     ('ownership', 'warn'): 'Keep the _myscanner TXT record of {domain}: without it, monitoring pauses.',
 }
+UPTIME_GOAL = 99.0
+UPTIME_ACTION = '{domain} was reachable only {percent}% of the time this month: ask your hosting company about the outages.'
+UPTIME_ACTION_TR = '{domain} bu ay zamanın yalnızca %{percent} kadarında erişilebilirdi: kesintileri barındırma firmanıza sorun.'
 LOOKALIKE_ACTION = 'Review the look-alike name {name}: warn your customers and report it to USOM and its registrar.'
 
 WORDS_TR = {
@@ -61,6 +64,7 @@ WORDS_TR = {
     '50–79: something should be fixed soon.': '50–79: yakında düzeltilmesi gereken bir şey var.',
     'Below 50: a serious problem needs action now.': '50 altı: hemen ilgilenilmesi gereken ciddi bir sorun var.',
     'PERIOD': 'DÖNEM', 'STATUS': 'DURUM',
+    'Availability (last 30 days)': 'Erişilebilirlik (son 30 gün)', 'average response': 'ortalama yanıt',
 }
 ACTIONS_TR = {
     ('tls', 'bad'): '{domain} SSL sertifikasını hemen düzeltin veya yenileyin: ziyaretçiler güvenlik uyarısı görüyor.',
@@ -125,9 +129,11 @@ def domain_data(domain_row, text, since, until):
     looks = BusinessLookalike.query.filter_by(domain_id=domain_row.id, status='open', resolves=True).all()
     looks.sort(key=lambda r: (order.get(r.risk, 3), r.name))
     scores = [s.score for s in snapshots if s.score is not None]
+    from services.business_uptime import summary as uptime_summary
     return {'domain': domain_row.domain, 'results': results, 'rows': check_rows(results, text) if latest else [],
             'average': round(sum(scores) / len(scores)) if scores else None, 'runs': len(snapshots),
-            'weeks': sorted(weeks.items()), 'events': lines, 'lookalikes': looks}
+            'weeks': sorted(weeks.items()), 'events': lines, 'lookalikes': looks,
+            'uptime': uptime_summary(domain_row.id, days=(until - since).days or 30, now=until)}
 
 
 def actions_for(domains, lang):
@@ -140,9 +146,19 @@ def actions_for(domains, lang):
                 template = table.get((check, (item or {}).get('state')))
                 if template and item.get('state') == severity:
                     todo.append(template.format(domain=data['domain']))
+    uptime = UPTIME_ACTION_TR if lang == 'tr' else UPTIME_ACTION
+    for data in domains:
+        percent = (data.get('uptime') or {}).get('percent')
+        if percent is not None and percent < UPTIME_GOAL:
+            todo.append(uptime.format(domain=data['domain'], percent=_percent(percent, lang)))
     for data in domains:
         todo += [look.format(name=defang(row.name)) for row in data['lookalikes'] if row.risk == 'high']
     return todo[:12]
+
+
+def _percent(value, lang):
+    shown = f'{value:.2f}'.rstrip('0').rstrip('.')
+    return shown.replace('.', ',') if lang == 'tr' else shown
 
 
 def generate_business_report(workspace, lang='tr', now=None):
@@ -188,6 +204,12 @@ def generate_business_report(workspace, lang='tr', now=None):
     for number, data in enumerate(domains, start=2):
         story += [CondPageBreak(9 * cm), Spacer(1, 22),
                   SectionHeader(number, data['domain'].upper(), t('Daily automatic checks of a verified domain')), Spacer(1, 12)]
+        up = data.get('uptime') or {}
+        if up.get('percent') is not None:
+            line = t('Availability (last 30 days)') + ': ' + ('%' + _percent(up['percent'], lang) if lang == 'tr' else _percent(up['percent'], lang) + '%')
+            if up.get('avg_ms') is not None:
+                line += f" · {t('average response')} {up['avg_ms']} ms"
+            story += [Paragraph(esc(line), st['body']), Spacer(1, 10)]
         if data['rows']:
             checks = [{'name': name, 'state': state, 'result': value} for name, state, value in data['rows']]
             story += [KeepTogether([SubHeader(t('Current checks'), COLORS['accent']), checks_table(checks, t)]), Spacer(1, 16)]

@@ -60,7 +60,26 @@ class BusinessDomain(db.Model):
     proof_misses    = db.Column(db.Integer, nullable=False, default=0)  # daily runs in a row without our TXT record
     lookalike_at     = db.Column(db.DateTime, nullable=True)            # last look-alike watch run
     lookalike_cursor = db.Column(db.Integer, nullable=False, default=0)  # where the next batch of candidate names starts
+    # Uptime: the site is fetched every few minutes; two failures in a row make it "down".
+    up_state        = db.Column(db.String(5), nullable=True)    # up, down (None until the first check)
+    up_checked_at   = db.Column(db.DateTime, nullable=True)
+    up_fails        = db.Column(db.Integer, nullable=False, default=0)
+    down_since      = db.Column(db.DateTime, nullable=True)     # first failed check of the current outage
+    up_ms           = db.Column(db.Integer, nullable=True)      # last response time
     __table_args__ = (db.UniqueConstraint('workspace_id', 'domain', name='uq_business_domain_workspace_domain'),)
+
+
+class BusinessUptimeDay(db.Model):
+    """One day of uptime checks of one domain (UTC days): how many, how many answered, total response time."""
+    __tablename__ = 'business_uptime_day'
+
+    id        = db.Column(db.Integer, primary_key=True)
+    domain_id = db.Column(db.Integer, db.ForeignKey('business_domain.id', ondelete='CASCADE'), nullable=False, index=True)
+    day       = db.Column(db.Date, nullable=False)
+    checks    = db.Column(db.Integer, nullable=False, default=0)
+    ups       = db.Column(db.Integer, nullable=False, default=0)
+    total_ms  = db.Column(db.Integer, nullable=False, default=0)
+    __table_args__ = (db.UniqueConstraint('domain_id', 'day', name='uq_business_uptime_day'),)
 
 
 class BusinessSnapshot(db.Model):

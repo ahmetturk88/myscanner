@@ -125,3 +125,12 @@ time, once a month per workspace (`last_report_month`): a short note with a link
 report data travels by email). Workspaces without a verified domain are skipped for that month.
 
 Migration `f2c6e9a4b7d1`: `business_member`, and `last_report_month` on `business_workspace`.
+
+**Telling your own names from imitations** (migration `a4d9c3e7f1b5`): each recorded look-alike also gets public facts,
+read from DNS and RDAP (the site is never opened), at most 12 lookups per run, new names first, older names later:
+- a hint when it shares **all** name servers, an IP address or a mail server with the watched domain: shown as "might be
+  yours: … A hint, not proof" (customers of the same provider can share them);
+- the registration date and registrar; a name registered in the last 30 days moves up one risk step;
+- the owner can press **This is mine** (status `mine`): no more alerts, listed separately as "marked as yours";
+- a "Is this name mine?" help list (check the registrar's domain list, ask the agency, then dismiss or follow the
+  fake-site steps).

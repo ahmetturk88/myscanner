@@ -52,6 +52,9 @@
   .bzl-risk{margin-left:10px;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--soft)}
   .bzl-list li.high .bzl-risk{color:#fecdd3;border-color:rgba(251,113,133,.6)}.bzl-list li.medium .bzl-risk{color:#fde68a;border-color:rgba(251,191,36,.6)}
   .bzl-list small{display:block;margin-top:5px;color:var(--dim);font-size:13px}
+  .bzl-new{color:#fecdd3 !important;font-weight:600}
+  .bzl-hint{color:#bbf7d0 !important}
+  .bzl-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
   .bzl-steps{margin-top:12px;color:var(--soft)}.bzl-steps summary{cursor:pointer;font-weight:600;color:#d7e6f6}.bzl-steps ol{margin:10px 0 0 20px;display:grid;gap:6px}
   .bzs{display:grid;gap:12px;margin-top:16px}
   .bzs-row{display:flex;gap:12px;align-items:flex-start;color:var(--soft);line-height:1.55}
@@ -144,11 +147,18 @@
             <ul class="bzl-list">{% for l in d.lookalikes %}
               <li class="{{ l.risk }}"><div><span class="bzl-name">{{ l.name }}</span>
                 <span class="bzl-risk">{{ t.risk_names[l.risk] }}</span>
-                <small>{{ t.look_live if l.live else t.look_dns }}{% if l.title %} · “{{ l.title[:80] }}”{% endif %} · {{ t.look_first }}: {{ l.first_seen.strftime('%d.%m.%Y') }}</small></div>
-                {% if role == 'owner' %}<form method="post" action="{{ url_for('business.dismiss_lookalike', lookalike_id=l.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_dismiss }}</button></form>{% endif %}</li>
+                <small>{{ t.look_live if l.live else t.look_dns }}{% if l.title %} · “{{ l.title[:80] }}”{% endif %} · {{ t.look_first }}: {{ l.first_seen.strftime('%d.%m.%Y') }}{% if l.registered %} · {{ t.look_registered }}: {{ l.registered.strftime('%d.%m.%Y') }}{% endif %}{% if l.registrar %} · {{ l.registrar[:60] }}{% endif %}</small>
+                {% if l.id in new_names %}<small class="bzl-new">{{ t.look_new.format(days=(today - l.registered).days) }}</small>{% endif %}
+                {% if l.hint in t.look_hints %}<small class="bzl-hint">{{ t.look_hints[l.hint].format(value=l.hint_value or '') }}</small>{% endif %}</div>
+                {% if role == 'owner' %}<div class="bzl-actions">
+                  <form method="post" action="{{ url_for('business.mine_lookalike', lookalike_id=l.id) }}" data-confirm="{{ t.look_mine_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_mine }}</button></form>
+                  <form method="post" action="{{ url_for('business.dismiss_lookalike', lookalike_id=l.id) }}" data-confirm="{{ t.look_dismiss_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_dismiss }}</button></form>
+                </div>{% endif %}</li>
             {% endfor %}</ul>
+            <details class="bzl-steps"><summary>{{ t.look_help_title }}</summary><ol>{% for step in t.look_help %}<li>{{ step }}</li>{% endfor %}</ol></details>
             <details class="bzl-steps"><summary>{{ t.look_steps_title }}</summary><ol>{% for step in t.look_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
             {% else %}<p class="bzp-meta" style="margin-top:8px">{{ t.look_empty if d.lookalike_ran else t.look_pending }}</p>{% endif %}
+            {% if d.mine %}<p class="bzp-meta" style="margin-top:10px">{{ t.look_mine_title }}: {{ d.mine | map(attribute='name') | join(', ') }}</p>{% endif %}
           </div>
         {% else %}
           <div>

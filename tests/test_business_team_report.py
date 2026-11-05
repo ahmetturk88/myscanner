@@ -122,6 +122,11 @@ class TeamTests(unittest.TestCase):
 
     # ------------------------------------------------------------------ routes
 
+    def test_the_sign_in_prompt_is_translated(self):
+        # An invitation link opened while signed out lands on the sign-in page with this message.
+        from services.i18n_site_tr import SITE_TR
+        self.assertEqual(SITE_TR['Please log in to access this page.'], 'Bu sayfayı görmek için giriş yapın.')
+
     def test_owner_invites_by_email_and_the_colleague_joins(self):
         owner = self.client_for(self.owner)
         outbox = Outbox()
@@ -159,6 +164,7 @@ class TeamTests(unittest.TestCase):
                           (f'/isletme/panel/domains/{self.domain.id}/verify', {}),
                           (f'/isletme/panel/domains/{self.domain.id}/remove', {}),
                           (f'/isletme/panel/lookalikes/{look.id}/dismiss', {}),
+                          (f'/isletme/panel/lookalikes/{look.id}/mine', {}),
                           ('/isletme/panel/settings', {'alert_lang': 'en'}),
                           ('/isletme/panel/members', {'email': 'x@team.invalid'}),
                           (f'/isletme/panel/members/{member.id}/remove', {})):
@@ -213,7 +219,7 @@ class TeamTests(unittest.TestCase):
 
         pdf = report.generate_business_report(self.workspace, 'tr', now=T0)
         text = ''.join(page.extract_text() for page in PdfReader(io.BytesIO(pdf.getvalue())).pages)
-        for expected in ('AYLIK GÜVENLİK RAPORU', 'Yapılacaklar', 'magazam-giris.com', 'Hafta hafta durum', 'yüksek'):
+        for expected in ('AYLIK GÜVENLİK RAPORU', 'Yapılacaklar', 'magazam-giris.com', 'Hafta hafta durum', 'yüksek', 'DÖNEM'):
             self.assertIn(expected, text)
         self.assertTrue(report.generate_business_report(self.workspace, 'en', now=T0).getvalue().startswith(b'%PDF'))
 

@@ -7,6 +7,7 @@ Text without an entry stays in English, so a missing translation never breaks a 
 SITE_TR = {
     'Casino or betting content. We didn’t verify a licence; unlicensed betting is illegal in Turkey and deposits are often never paid out.': 'Kumar veya bahis içeriği. Lisansını doğrulamadık; lisanssız bahis Türkiye\'de yasa dışıdır ve yatırılan para çoğu zaman geri ödenmez.',
     'Casino or betting content was observed. Licensing, legality and payment reliability were not verified; this category alone is not phishing or malware evidence.': 'Kumar veya bahis içeriği gözlendi. Lisans, yasallık ve ödeme güvenilirliği doğrulanmadı; bu kategori tek başına kimlik avı veya zararlı yazılım kanıtı değildir.',
+    'Please log in to access this page.': 'Bu sayfayı görmek için giriş yapın.',
     # ------------------------------------------------------------ shell: navigation
     'Skip to content': 'İçeriğe geç',
     'Primary navigation': 'Ana menü',

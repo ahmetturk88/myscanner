@@ -14,6 +14,13 @@ page is read once (bounded, through the public-network session; nothing is
 submitted) to judge the risk: high when it shows the brand or asks for a
 password or card, medium when it is a live site, low when it only exists in DNS.
 New names and names that go live become events; the owner can dismiss a name.
+
+To help the owner tell their own names from imitations, each recorded name also
+gets public facts (DNS records and RDAP registration; the site is not opened):
+a hint when it shares name servers, an address or a mail server with the watched
+domain ("might be yours"), the registration date and the registrar. A name
+registered in the last 30 days counts as riskier. The owner can mark a name as
+theirs ("mine"), which stops alerts about it.
 """
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -36,6 +43,8 @@ NEIGHBOURS = {'q': 'wa', 'w': 'qes', 'e': 'wrd', 'r': 'etf', 't': 'ryg', 'y': 't
 LOOKS = {'o': '0', 'l': '1', 'i': '1', 'e': '3', 'a': '4', 's': '5', 'm': 'rn', 'w': 'vv', 'b': '8'}
 BATCH = 120
 EVERY = timedelta(hours=23)
+FACTS_PER_RUN = 12          # registration lookups per run (new names first, then older names without facts)
+NEW_REGISTRATION = timedelta(days=30)
 LABEL = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$')
 TITLE = re.compile(rb'<title[^>]*>(.*?)</title>', re.I | re.S)
 PASSWORD = re.compile(rb'type\s*=\s*["\']?password', re.I)
@@ -158,13 +167,76 @@ def probe_inspect(name, label):
     return {'live': False, 'title': '', 'brand': False, 'asks': False}
 
 
-PROBES = {'resolve': probe_resolve, 'ct': probe_ct, 'inspect': probe_inspect}
+def probe_records(name):
+    from services.business_monitor import probe_dns
+    return probe_dns(name)
 
 
-def risk_of(info):
+def probe_registration(name):
+    from services.business_monitor import probe_registration as registration
+    return registration(name)
+
+
+PROBES = {'resolve': probe_resolve, 'ct': probe_ct, 'inspect': probe_inspect, 'records': probe_records,
+          'registration': probe_registration}
+
+
+def risk_of(info, new=False):
+    """low / medium / high; a name registered in the last 30 days moves up one step."""
     if not info.get('live'):
-        return 'low'
-    return 'high' if info.get('brand') or info.get('asks') else 'medium'
+        level = 'low'
+    else:
+        level = 'high' if info.get('brand') or info.get('asks') else 'medium'
+    return {'low': 'medium', 'medium': 'high'}.get(level, level) if new else level
+
+
+def _mx_hosts(values):
+    return {str(v).split()[-1].rstrip('.').lower() for v in values or [] if str(v).strip()}
+
+
+def ownership_hint(own, theirs):
+    """('ns' | 'ip' | 'mx', shared value) when a name shares infrastructure with the watched domain, else (None, None).
+
+    Only a hint: other customers of the same provider can share it too.
+    """
+    if not isinstance(own, dict) or not isinstance(theirs, dict):
+        return None, None
+    own_ns, their_ns = set(own.get('NS') or []), set(theirs.get('NS') or [])
+    if own_ns and own_ns == their_ns:
+        return 'ns', ', '.join(sorted(own_ns))[:255]
+    shared_ip = (set(own.get('A') or []) | set(own.get('AAAA') or [])) & (set(theirs.get('A') or []) | set(theirs.get('AAAA') or []))
+    if shared_ip:
+        return 'ip', ', '.join(sorted(shared_ip))[:255]
+    shared_mx = _mx_hosts(own.get('MX')) & _mx_hosts(theirs.get('MX'))
+    if shared_mx:
+        return 'mx', ', '.join(sorted(shared_mx))[:255]
+    return None, None
+
+
+def _registered(value):
+    try:
+        return datetime.fromisoformat(str(value)[:10]).date() if value else None
+    except ValueError:
+        return None
+
+
+def add_facts(row, probes, own_records, now):
+    """Fill the hint, registration date and registrar of one name. False when nothing could be read."""
+    records = _safe(probes['records'], row.name)
+    registration = _safe(probes['registration'], row.name)
+    if records is None and not isinstance(registration, dict):
+        return False
+    row.hint, row.hint_value = ownership_hint(own_records, records)
+    if isinstance(registration, dict):
+        row.registered = _registered(registration.get('created'))
+        registrar = registration.get('registrar')
+        row.registrar = registrar.strip()[:120] if isinstance(registrar, str) and registrar.strip() else None
+    row.facts_at = now
+    return True
+
+
+def is_new(row, now):
+    return row.registered is not None and now.date() - row.registered <= NEW_REGISTRATION
 
 
 # ------------------------------------------------------------------ one run
@@ -190,6 +262,8 @@ def run_lookalikes(domain_row, probes=None, now=None):
     except Exception:
         pass  # the certificate index is a bonus; a failure only means fewer names this run
     known = {row.name: row for row in BusinessLookalike.query.filter_by(domain_id=domain_row.id).all()}
+    own_records = _safe(probes['records'], own)
+    facts_left = FACTS_PER_RUN
     names = list(sources)
     with ThreadPoolExecutor(max_workers=8) as pool_exec:
         answers = dict(zip(names, pool_exec.map(lambda n: _safe(probes['resolve'], n), names)))
@@ -206,7 +280,11 @@ def run_lookalikes(domain_row, probes=None, now=None):
         if row is None:
             info = _safe(probes['inspect'], name, label) or {'live': False}
             row = BusinessLookalike(domain_id=domain_row.id, name=name, source=sources[name], first_seen=now, last_seen=now,
-                                    resolves=True, live=bool(info.get('live')), risk=risk_of(info), title=(info.get('title') or None))
+                                    resolves=True, live=bool(info.get('live')), title=(info.get('title') or None))
+            if facts_left > 0:
+                facts_left -= 1
+                add_facts(row, probes, own_records, now)
+            row.risk = risk_of(info, is_new(row, now))
             db.session.add(row)
             found.append(('lookalike_found', 'bad' if row.risk == 'high' else 'warn', {'name': name, 'risk': row.risk}))
             continue
@@ -214,8 +292,17 @@ def run_lookalikes(domain_row, probes=None, now=None):
         if row.status == 'open' and not row.live and now - row.first_seen >= timedelta(days=1):
             info = _safe(probes['inspect'], name, label) or {'live': False}
             if info.get('live'):
-                row.live, row.risk, row.title = True, risk_of(info), (info.get('title') or row.title)
+                row.live, row.risk, row.title = True, risk_of(info, is_new(row, now)), (info.get('title') or row.title)
                 found.append(('lookalike_live', 'bad', {'name': name, 'risk': row.risk}))
+    # Names recorded before facts existed (or whose lookup failed) get them a few at a time.
+    for row in sorted(known.values(), key=lambda r: r.first_seen):
+        if facts_left <= 0:
+            break
+        if row.facts_at is None and row.status == 'open' and row.resolves:
+            facts_left -= 1
+            if add_facts(row, probes, own_records, now) and is_new(row, now):
+                bumped = {'low': 'medium', 'medium': 'high'}.get(row.risk, row.risk)
+                row.risk = bumped
     for code, severity, params in found:
         db.session.add(BusinessEvent(domain_id=domain_row.id, created_at=now, code=code, severity=severity,
                                      params=json.dumps(params, ensure_ascii=False, sort_keys=True)))
@@ -239,6 +326,11 @@ def lookalike_due(now=None, limit=5):
         (BusinessDomain.lookalike_at.is_(None)) | (BusinessDomain.lookalike_at <= now - EVERY)).all()
     rows.sort(key=lambda d: d.lookalike_at or datetime.min)
     return rows[:limit]
+
+
+def mine_lookalikes(domain_id):
+    from models import BusinessLookalike
+    return BusinessLookalike.query.filter_by(domain_id=domain_id, status='mine').order_by(BusinessLookalike.name).all()
 
 
 def open_lookalikes(domain_id, limit=20):

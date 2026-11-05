@@ -43,6 +43,16 @@
   .bzm-events li{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:10px 14px;border-left:3px solid var(--line-strong);background:rgba(14,26,43,.55);border-radius:0 10px 10px 0;color:var(--soft);font-size:14.5px;line-height:1.55}
   .bzm-events .warn{border-left-color:var(--amber)}.bzm-events .bad{border-left-color:var(--rose)}.bzm-events .good{border-left-color:var(--green)}.bzm-events .info{border-left-color:var(--cyan)}
   .bzm-when{font:12.5px var(--mono);color:var(--dim);padding-top:2px}
+  .bzl{padding-top:6px;border-top:1px solid var(--line)}
+  .bzl-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+  .bzl-list li{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(14,26,43,.7)}
+  .bzl-list li.high{border-color:rgba(251,113,133,.5);background:rgba(251,113,133,.07)}
+  .bzl-list li.medium{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)}
+  .bzl-name{font:600 15px var(--mono);color:#e3f1ff;overflow-wrap:anywhere}
+  .bzl-risk{margin-left:10px;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--soft)}
+  .bzl-list li.high .bzl-risk{color:#fecdd3;border-color:rgba(251,113,133,.6)}.bzl-list li.medium .bzl-risk{color:#fde68a;border-color:rgba(251,191,36,.6)}
+  .bzl-list small{display:block;margin-top:5px;color:var(--dim);font-size:13px}
+  .bzl-steps{margin-top:12px;color:var(--soft)}.bzl-steps summary{cursor:pointer;font-weight:600;color:#d7e6f6}.bzl-steps ol{margin:10px 0 0 20px;display:grid;gap:6px}
   .bzs{display:grid;gap:12px;margin-top:16px}
   .bzs-row{display:flex;gap:12px;align-items:flex-start;color:var(--soft);line-height:1.55}
   .bzs-row input{width:20px;height:20px;accent-color:#5eead4;margin-top:2px;flex-shrink:0}
@@ -117,6 +127,19 @@
           <p>{{ t.verified_note }}</p>
           <p class="bzp-meta">{{ t.never_run }}</p>
           {% endif %}
+          <div class="bzl">
+            <strong>{{ t.look_title }}</strong>
+            <p class="bzp-meta" style="margin-top:6px">{{ t.look_lead }}</p>
+            {% if d.lookalikes %}
+            <ul class="bzl-list">{% for l in d.lookalikes %}
+              <li class="{{ l.risk }}"><div><span class="bzl-name">{{ l.name }}</span>
+                <span class="bzl-risk">{{ t.risk_names[l.risk] }}</span>
+                <small>{{ t.look_live if l.live else t.look_dns }}{% if l.title %} · “{{ l.title[:80] }}”{% endif %} · {{ t.look_first }}: {{ l.first_seen.strftime('%d.%m.%Y') }}</small></div>
+                <form method="post" action="{{ url_for('business.dismiss_lookalike', lookalike_id=l.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_dismiss }}</button></form></li>
+            {% endfor %}</ul>
+            <details class="bzl-steps"><summary>{{ t.look_steps_title }}</summary><ol>{% for step in t.look_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
+            {% else %}<p class="bzp-meta" style="margin-top:8px">{{ t.look_empty if d.lookalike_ran else t.look_pending }}</p>{% endif %}
+          </div>
         {% else %}
           <div>
             <strong>{{ t.step_title }}</strong>

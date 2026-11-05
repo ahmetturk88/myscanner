@@ -82,3 +82,23 @@ whose last inspection is older than 7 days. New warning reasons become `site_iss
 
 Migration `d5a1c7e3f9b2` adds `alert_lang`, `instant_alerts`, `daily_digest`, `last_digest_at` to `business_workspace`.
 The workspace has an alert settings card (CSRF-protected POST `/isletme/panel/settings`).
+
+# Stage 4: look-alike (impersonation) watch
+
+`services/business_lookalike.py`, beat `business-lookalike-due` (hourly, at most 5 domains per run, each domain about
+once a day, bulk queue).
+- **Generated candidates** (about 400 for a typical name): the same name under other endings (.com, .net, .com.tr,
+  .shop, .xyz…), typos of the name (missing, doubled, swapped or neighbouring-key letters, inserted hyphen, look-alike
+  digits such as 0/o, 1/l, rn/m), and the name joined with words scams use (giris, odeme, destek, kampanya, login…).
+  Each run resolves the next 120 in DNS (8 in parallel, 3 s budget each), so the whole list is covered every few days.
+- **Certificate Transparency** (crt.sh, `%name%`, bounded to 4 MB and 3000 rows): registrable names whose name carries
+  the brand, also written with look-alike letters. Switched off with the existing `crtsh` source switch.
+- A name that resolves is recorded once (`business_lookalike`). Its home page is read once through the public-network
+  session (1 MB, nothing submitted): **high** risk when it shows the brand or asks for a password or card, **medium**
+  when it is a live site, **low** when it only exists in DNS. A recorded name that later goes live is read again.
+- DNS errors and an unavailable certificate index conclude nothing. New names (`lookalike_found`) and names that go
+  live (`lookalike_live`) are events and **instant alerts**. The workspace lists open names as plain text (never as
+  links), with the page title, a "dismiss" button (workspace-scoped, 404 otherwise) and response steps (warn
+  customers, report to USOM, abuse report to the registrar, trademark advice).
+
+Migration `e8b4d2f6a1c9`: `business_lookalike`, and `lookalike_at` / `lookalike_cursor` on `business_domain`.

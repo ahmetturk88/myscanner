@@ -11,7 +11,7 @@ from alembic.migration import MigrationContext
 from services.schema_migrations import application_metadata, upgrade_database
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT_HEAD = 'd5a1c7e3f9b2'
+CURRENT_HEAD = 'e8b4d2f6a1c9'
 
 class MigrationTests(unittest.TestCase):
     def setUp(self):

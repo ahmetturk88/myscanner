@@ -64,7 +64,10 @@ def panel():
     from services.business_monitor import domain_view
     domains = BusinessDomain.query.filter_by(workspace_id=workspace.id).order_by(BusinessDomain.created_at).all()
     notice = session.pop(NOTICE, None)
-    views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None) for d in domains]
+    from services.business_lookalike import open_lookalikes
+    views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None,
+                  lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None)
+             for d in domains]
     response = render_template('business_panel.html', t=text, lang=lang, workspace=workspace,
                                domains=views, notice=notice, limit=business.DOMAINS_PER_WORKSPACE)
     return response, 200, {'Cache-Control': 'private, no-store'}
@@ -135,6 +138,23 @@ def check_now(domain_id):
         current_app.logger.exception('Business check could not be queued')
         return _back('error:check_unavailable')
     return _back('check_queued')
+
+
+@business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/dismiss', methods=['POST'])
+@login_required
+def dismiss_lookalike(lookalike_id):
+    workspace, blocked = _workspace_or_redirect()
+    if blocked:
+        return blocked
+    from extensions import db
+    from models import BusinessDomain, BusinessLookalike
+    row = (BusinessLookalike.query.join(BusinessDomain, BusinessDomain.id == BusinessLookalike.domain_id)
+           .filter(BusinessLookalike.id == lookalike_id, BusinessDomain.workspace_id == workspace.id).first())
+    if row is None:
+        abort(404)
+    row.status = 'dismissed'
+    db.session.commit()
+    return _back('look_dismissed_flash')
 
 
 @business_bp.route('/isletme/panel/settings', methods=['POST'])

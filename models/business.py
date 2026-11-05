@@ -42,6 +42,8 @@ class BusinessDomain(db.Model):
     monitored_at    = db.Column(db.DateTime, nullable=True)   # last daily monitoring run
     weekly_at       = db.Column(db.DateTime, nullable=True)   # last weekly site inspection
     proof_misses    = db.Column(db.Integer, nullable=False, default=0)  # daily runs in a row without our TXT record
+    lookalike_at     = db.Column(db.DateTime, nullable=True)            # last look-alike watch run
+    lookalike_cursor = db.Column(db.Integer, nullable=False, default=0)  # where the next batch of candidate names starts
     __table_args__ = (db.UniqueConstraint('workspace_id', 'domain', name='uq_business_domain_workspace_domain'),)
 
 
@@ -73,6 +75,24 @@ class BusinessEvent(db.Model):
     severity    = db.Column(db.String(8), nullable=False, default='info')  # info, warn, bad, good
     params      = db.Column(db.Text, nullable=False, default='{}')
     notified_at = db.Column(db.DateTime, nullable=True)
+
+
+class BusinessLookalike(db.Model):
+    """A registered name that looks like a watched domain (typo, other ending, brand + word, or seen in certificates)."""
+    __tablename__ = 'business_lookalike'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    domain_id  = db.Column(db.Integer, db.ForeignKey('business_domain.id', ondelete='CASCADE'), nullable=False, index=True)
+    name       = db.Column(db.String(253), nullable=False)
+    source     = db.Column(db.String(8), nullable=False, default='typo')   # typo, ct
+    first_seen = db.Column(db.DateTime, nullable=False, default=_now)
+    last_seen  = db.Column(db.DateTime, nullable=False, default=_now)
+    resolves   = db.Column(db.Boolean, nullable=False, default=True)
+    live       = db.Column(db.Boolean, nullable=False, default=False)     # answers on the web
+    risk       = db.Column(db.String(8), nullable=False, default='low')   # low, medium, high
+    title      = db.Column(db.String(200), nullable=True)
+    status     = db.Column(db.String(10), nullable=False, default='open') # open, dismissed
+    __table_args__ = (db.UniqueConstraint('domain_id', 'name', name='uq_business_lookalike_domain_name'),)
 
 
 class BusinessLead(db.Model):

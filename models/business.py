@@ -153,6 +153,13 @@ class BusinessLookalike(db.Model):
     registered = db.Column(db.Date, nullable=True)
     registrar  = db.Column(db.String(120), nullable=True)
     facts_at   = db.Column(db.DateTime, nullable=True)
+    # Takedown help: where to report it (public RDAP abuse contacts), and when the owner reported it.
+    host_ip         = db.Column(db.String(45), nullable=True)
+    host_org        = db.Column(db.String(120), nullable=True)
+    abuse_registrar = db.Column(db.String(254), nullable=True)
+    abuse_host      = db.Column(db.String(254), nullable=True)
+    abuse_at        = db.Column(db.DateTime, nullable=True)
+    reported_at     = db.Column(db.DateTime, nullable=True)
     __table_args__ = (db.UniqueConstraint('domain_id', 'name', name='uq_business_lookalike_domain_name'),)
 
 

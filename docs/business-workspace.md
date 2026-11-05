@@ -175,3 +175,21 @@ Setup on the server (once):
 4. Add `TELEGRAM_BOT_USERNAME=<name>` to `.env.vps.rehearsal`, then `dc up -d web bulk-worker`.
 
 Migration `d3a8f6b1c9e2`: `business_chat`, `business_setting`.
+
+# Business+ 3: takedown assistant
+
+`services/business_takedown.py`, page `/isletme/panel/lookalikes/<id>/takedown` ("Report" on each look-alike; owner and
+members may open it, 30 per hour; `no-store`, `no-referrer`).
+- Evidence: registration date, first seen, registrar, hosting IP and network owner, page title, risk. The abuse
+  contacts of the registrar and of the hosting network come from public RDAP (`rdap.org`, followed to the registry);
+  read at most once a day per name. The fake site itself is never opened here.
+- Ready-to-send reports, most direct first: email to the registrar's abuse desk, email to the hosting provider's
+  abuse desk, Cloudflare's abuse form (when the name is on Cloudflare), USOM, Google Safe Browsing. Emails open in the
+  owner's own mail app (`mailto:`); MyScanner never sends reports in the customer's name. Texts are in English for
+  international desks and Turkish for USOM, with every address defanged (`hxxps://name[.]com/`). The plain address is
+  shown only in a read-only field for pasting into forms, never as a link.
+- "I reported it" (owner) stores the date; the daily look-alike watch sends `lookalike_gone` when the name disappears
+  from DNS (any open name, reported or not).
+- The styled confirmation dialog is shared by all business pages (`templates/_business_confirm.html`).
+
+Migration `e9b2d7c4a1f3`: host and abuse-contact columns and `reported_at` on `business_lookalike`.

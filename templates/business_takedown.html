@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ t.td_title }} · MyScanner{% endblock %}
+
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+<style>
+  .td{max-width:980px;margin:0 auto}
+  .td-head h1{font-size:clamp(28px,3.8vw,44px);margin:14px 0 10px}
+  .td-name{font:700 clamp(18px,2.4vw,24px) var(--mono);color:#fecdd3;overflow-wrap:anywhere}
+  .td-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px;margin-top:14px}
+  .td-facts div{padding:10px 0;border-bottom:1px solid var(--line)}
+  .td-facts dt{font:12.5px var(--mono);color:var(--dim)}
+  .td-facts dd{margin:4px 0 0;color:#e3f1ff;overflow-wrap:anywhere}
+  .td-address{width:100%;margin-top:8px;font:14px var(--mono)}
+  .td-step{display:grid;gap:12px}
+  .td-step h3{display:flex;align-items:center;gap:10px;font-size:19px}
+  .td-step .td-n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:rgba(119,220,255,.15);color:#77dcff;font:700 14px var(--mono)}
+  .td-step textarea{width:100%;min-height:150px;font:13px/1.55 var(--mono);resize:vertical}
+  .td-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .td-to{font:14px var(--mono);color:#e3f1ff;overflow-wrap:anywhere}
+  .td-caution{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07);color:#fde68a}
+  @media (max-width:640px){.td-facts{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+  <div class="td">
+    <header class="td-head">
+      <span class="pg-eyebrow">MyScanner İşletme · {{ domain.domain }}</span>
+      <h1>{{ t.td_title }}</h1>
+      <p class="td-name">{{ row.name }}</p>
+      <p style="margin-top:10px">{{ t.td_lead }}</p>
+    </header>
+
+    <section class="pg-card glow" style="margin-top:26px">
+      <h3>{{ t.td_facts }}</h3>
+      <dl class="td-facts">
+        <div><dt>{{ t.td_registered }}</dt><dd>{{ row.registered.strftime('%d.%m.%Y') if row.registered else t.td_unknown }}</dd></div>
+        <div><dt>{{ t.td_first }}</dt><dd>{{ row.first_seen.strftime('%d.%m.%Y') }}</dd></div>
+        <div><dt>{{ t.td_registrar }}</dt><dd>{{ row.registrar or t.td_unknown }}</dd></div>
+        <div><dt>{{ t.td_abuse_registrar }}</dt><dd>{{ row.abuse_registrar or t.td_unknown }}</dd></div>
+        <div><dt>{{ t.td_host }}</dt><dd>{{ row.host_ip or t.td_unknown }}{% if row.host_org %} · {{ row.host_org }}{% endif %}</dd></div>
+        <div><dt>{{ t.td_abuse_host }}</dt><dd>{{ row.abuse_host or t.td_unknown }}</dd></div>
+        {% if row.title %}<div><dt>{{ t.td_page_title }}</dt><dd>“{{ row.title[:120] }}”</dd></div>{% endif %}
+        <div><dt>Risk</dt><dd>{{ t.risk_names.get(row.risk, row.risk) }}</dd></div>
+      </dl>
+      <label class="bzp-meta" for="td-address" style="display:block;margin-top:16px">{{ t.td_address }}</label>
+      <input class="pg-input td-address" id="td-address" type="text" readonly value="{{ url }}">
+    </section>
+
+    <h2 style="font-size:clamp(22px,2.6vw,30px);margin:34px 0 16px">{{ t.td_steps }}</h2>
+    <div style="display:grid;gap:16px">
+      {% for item in items %}
+      {% set target = t.td_targets[item.key] %}
+      <section class="pg-card td-step">
+        <h3><span class="td-n">{{ loop.index }}</span>{{ target[0] }}</h3>
+        <p class="bzp-meta">{{ target[1] }}</p>
+        {% if item.to %}<p class="td-to">{{ item.to }}</p>{% endif %}
+        <div class="td-row">
+          {% if item.mailto %}<a class="pg-btn primary" href="{{ item.mailto }}">{{ t.td_open_mail }}</a>{% endif %}
+          {% if item.link %}<a class="pg-btn primary" href="{{ item.link }}" target="_blank" rel="noopener noreferrer">{{ t.td_open_form }} ↗</a>{% endif %}
+          <button type="button" class="pg-btn" data-copy-from="td-subject-{{ loop.index }}">{{ t.td_copy }}: {{ t.td_subject }}</button>
+          <button type="button" class="pg-btn" data-copy-from="td-body-{{ loop.index }}">{{ t.td_copy }}: {{ t.td_body }}</button>
+        </div>
+        <input type="hidden" id="td-subject-{{ loop.index }}" value="{{ item.subject }}">
+        <label class="bzp-meta" for="td-body-{{ loop.index }}">{{ t.td_body }}</label>
+        <textarea class="pg-input" id="td-body-{{ loop.index }}" readonly>{{ item.body }}</textarea>
+      </section>
+      {% endfor %}
+    </div>
+
+    <section class="pg-card td-caution" style="margin-top:22px">
+      <p>{{ t.td_after }}</p>
+      <div class="td-row" style="margin-top:14px">
+        {% if role == 'owner' %}
+        <form method="post" action="{{ url_for('business.lookalike_reported', lookalike_id=row.id) }}" data-confirm="{{ t.td_mark_confirm }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="pg-btn primary" type="submit">{{ t.td_mark }}</button>
+        </form>
+        {% endif %}
+        <a class="pg-btn" href="{{ url_for('business.panel', lang=lang) }}">{{ t.td_back }}</a>
+      </div>
+    </section>
+  </div>
+</div>
+{% include '_business_confirm.html' %}
+<script>
+document.querySelectorAll('[data-copy-from]').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var source = document.getElementById(button.dataset.copyFrom);
+    var label = button.textContent;
+    navigator.clipboard.writeText(source.value).then(function () {
+      button.textContent = {{ t.copied | tojson }};
+      setTimeout(function () { button.textContent = label; }, 1600);
+    });
+  });
+});
+</script>
+{% endblock %}

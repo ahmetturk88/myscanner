@@ -89,7 +89,7 @@
       <section class="rp-hero"><div class="rp-ring">${SVG(HERO[tone], 42, 1.8)}</div>
         <div class="rp-hero-copy"><span class="rp-label">${esc(plain.label)}</span><${opts.h1 ? 'h1' : 'h2'} class="rp-headline">${esc(plain.headline)}</${opts.h1 ? 'h1' : 'h2'}><p>${esc(plain.summary)}</p>
         <div class="rp-url">${esc(target.prefix)}<b>${esc(target.host)}</b>${esc(target.rest)}</div><span class="rp-when">${esc(checked)}</span></div></section>
-      <div class="rp-pair">${reasons ? `<section class="rp-why"><h2>${esc(typeof plain.why_title === 'string' ? plain.why_title : 'Why we think so')}</h2><ul>${reasons}</ul></section>` : ''}
+      <div class="rp-pair">${reasons ? `<section class="rp-card rp-why"><h2>${esc(typeof plain.why_title === 'string' ? plain.why_title : 'Why we think so')}</h2><ul>${reasons}</ul></section>` : ''}
       <section class="rp-card rp-do"><h2>${tone === 'safe' ? 'Good to know' : 'What to do'}</h2><ol>${actions}</ol></section></div>
       ${opts.buttons === false ? '' : `<div class="rp-buttons">${buttons}${pdfButton}</div>`}<div class="rp-ai"></div></div>
     <aside class="rp-side"><section class="rp-card rp-checks"><div class="rp-head"><h2>What we checked</h2><span>${esc(plain.tally)}</span></div><ul>${checks}</ul></section>${preview}${opts.buttons === false ? '' : nextCard(again.href, tone)}

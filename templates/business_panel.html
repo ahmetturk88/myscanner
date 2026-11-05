@@ -68,6 +68,13 @@
   .bzt-list li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(14,26,43,.7)}
   .bzt-email{font:600 14.5px var(--mono);color:#e3f1ff;overflow-wrap:anywhere}
   .bzt-side{display:flex;align-items:center;gap:10px}
+  .bzc{position:fixed;inset:0;margin:auto;height:fit-content;border:0;padding:0;background:transparent;max-width:min(460px,calc(100vw - 32px));width:100%}
+  .bzc::backdrop{background:rgba(3,8,16,.72);backdrop-filter:blur(4px)}
+  .bzc-box{padding:24px 24px 20px;border-radius:20px;border:1px solid var(--line-strong);background:linear-gradient(160deg,#10203a,#0a1424);box-shadow:0 30px 90px -30px rgba(0,0,0,.8);color:var(--ink)}
+  .bzc-box h3{display:flex;align-items:center;gap:10px;font-size:19px;margin:0}
+  .bzc-box h3 .pg-ic{color:var(--amber)}
+  .bzc-text{margin:12px 0 20px;color:var(--soft);line-height:1.6}
+  .bzc-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   @media (max-width:760px){.bzm{grid-template-columns:1fr}.bzm-rows li{grid-template-columns:auto 1fr}.bzm-rows small{grid-column:2;text-align:left}.bzm-events li{grid-template-columns:1fr}}
   @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}}
 </style>
@@ -235,6 +242,13 @@
     <ul class="bzp-next">{% for item in t.next %}<li><span class="pg-ic ic-spark"></span><span>{{ item }}</span></li>{% endfor %}</ul>
   </section>
 </div>
+<dialog class="bzc" id="bz-confirm" aria-labelledby="bzc-title">
+  <div class="bzc-box">
+    <h3 id="bzc-title"><span class="pg-ic ic-alert"></span>{{ t.confirm_title }}</h3>
+    <p class="bzc-text"></p>
+    <div class="bzc-actions"><button type="button" class="pg-btn bzc-no">{{ t.confirm_no }}</button><button type="button" class="pg-btn primary bzc-yes">{{ t.confirm_yes }}</button></div>
+  </div>
+</dialog>
 <script>
 document.querySelectorAll('.bzp-copy').forEach(function (button) {
   button.addEventListener('click', function () {
@@ -245,8 +259,30 @@ document.querySelectorAll('.bzp-copy').forEach(function (button) {
     });
   });
 });
-document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-  form.addEventListener('submit', function (event) { if (!window.confirm(form.dataset.confirm)) event.preventDefault(); });
-});
+(function () {
+  // One styled confirmation for every action that asks first (the browser's own box shows the site address as its title).
+  var dialog = document.getElementById('bz-confirm');
+  var pending = null;
+  document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      if (form.dataset.confirmed === '1' || !dialog || typeof dialog.showModal !== 'function') {
+        if (!dialog && !window.confirm(form.dataset.confirm)) event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      pending = form;
+      dialog.querySelector('.bzc-text').textContent = form.dataset.confirm;
+      dialog.showModal();
+      dialog.querySelector('.bzc-yes').focus();
+    });
+  });
+  if (!dialog) return;
+  dialog.querySelector('.bzc-yes').addEventListener('click', function () {
+    dialog.close();
+    if (pending) { pending.dataset.confirmed = '1'; pending.requestSubmit ? pending.requestSubmit() : pending.submit(); }
+  });
+  dialog.querySelector('.bzc-no').addEventListener('click', function () { pending = null; dialog.close(); });
+  dialog.addEventListener('click', function (event) { if (event.target === dialog) { pending = null; dialog.close(); } });
+})();
 </script>
 {% endblock %}

@@ -178,6 +178,20 @@ class WatchTests(unittest.TestCase):
         db.session.refresh(old)
         self.assertEqual((old.facts_at, old.risk), (stamp, 'high'))  # read once, raised once
 
+    def test_check_now_fills_missing_facts(self):
+        db.session.add_all([
+            BusinessLookalike(domain_id=self.domain.id, name='magazam.org', source='ct', first_seen=T0, last_seen=T0,
+                              resolves=True, live=True, risk='medium'),
+            BusinessLookalike(domain_id=self.domain.id, name='magazam.net', source='typo', first_seen=T0, last_seen=T0,
+                              resolves=True, live=False, risk='low', status='dismissed')])
+        db.session.commit()
+        probes = self.probes(set(), records={'magazam.org': dict(self.OWN)},
+                             registration={'magazam.org': {'created': '2018-01-02', 'registrar': 'Some Registrar'}})
+        self.assertEqual(look.fill_missing_facts(self.domain, probes, now=T0), 1)  # the dismissed name is left alone
+        row = BusinessLookalike.query.filter_by(name='magazam.org').one()
+        self.assertEqual((row.hint, row.registrar, row.registered.year, row.risk), ('ns', 'Some Registrar', 2018, 'medium'))
+        self.assertEqual(look.fill_missing_facts(self.domain, probes, now=T0), 0)  # read once
+
     def test_owner_marks_a_name_as_theirs(self):
         look.run_lookalikes(self.domain, self.probes({'magazam.com', 'magazam.net'}, records={'magazam.com': dict(self.OWN)}), now=T0)
         rows = {r.name: r for r in BusinessLookalike.query.all()}

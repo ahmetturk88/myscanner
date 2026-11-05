@@ -295,14 +295,7 @@ def run_lookalikes(domain_row, probes=None, now=None):
                 row.live, row.risk, row.title = True, risk_of(info, is_new(row, now)), (info.get('title') or row.title)
                 found.append(('lookalike_live', 'bad', {'name': name, 'risk': row.risk}))
     # Names recorded before facts existed (or whose lookup failed) get them a few at a time.
-    for row in sorted(known.values(), key=lambda r: r.first_seen):
-        if facts_left <= 0:
-            break
-        if row.facts_at is None and row.status == 'open' and row.resolves:
-            facts_left -= 1
-            if add_facts(row, probes, own_records, now) and is_new(row, now):
-                bumped = {'low': 'medium', 'medium': 'high'}.get(row.risk, row.risk)
-                row.risk = bumped
+    _backfill(known.values(), probes, own_records, now, facts_left)
     for code, severity, params in found:
         db.session.add(BusinessEvent(domain_id=domain_row.id, created_at=now, code=code, severity=severity,
                                      params=json.dumps(params, ensure_ascii=False, sort_keys=True)))
@@ -310,6 +303,32 @@ def run_lookalikes(domain_row, probes=None, now=None):
     domain_row.lookalike_at = now
     db.session.commit()
     return found
+
+
+def _backfill(rows, probes, own_records, now, limit):
+    done = 0
+    for row in sorted(rows, key=lambda r: r.first_seen):
+        if done >= limit:
+            break
+        if row.facts_at is None and row.status == 'open' and row.resolves:
+            done += 1
+            if add_facts(row, probes, own_records, now) and is_new(row, now):
+                row.risk = {'low': 'medium', 'medium': 'high'}.get(row.risk, row.risk)
+    return done
+
+
+def fill_missing_facts(domain_row, probes=None, now=None):
+    """Facts for open names that have none yet (used by "check now"). Returns how many names were looked up."""
+    from models import BusinessLookalike
+    probes = {**PROBES, **(probes or {})}
+    now = now or _now()
+    rows = BusinessLookalike.query.filter_by(domain_id=domain_row.id, status='open', facts_at=None).all()
+    if not rows:
+        return 0
+    own = split_host(domain_row.domain)[1]
+    done = _backfill(rows, probes, _safe(probes['records'], own), now, FACTS_PER_RUN)
+    db.session.commit()
+    return done
 
 
 def _safe(function, *args):

@@ -76,7 +76,14 @@
   .bzc-text{margin:12px 0 20px;color:#c9d8ea;font-size:15.5px;line-height:1.6}
   .bzc-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   @media (max-width:760px){.bzm{grid-template-columns:1fr}.bzm-rows li{grid-template-columns:auto 1fr}.bzm-rows small{grid-column:2;text-align:left}.bzm-events li{grid-template-columns:1fr}}
-  @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}}
+  @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}
+    /* Phones: look-alike actions go under the name (left), clear of the floating assistant button. */
+    .bzl-list li{flex-direction:column;align-items:stretch;gap:12px}
+    .bzl-actions{justify-content:flex-start}
+    .bzl-actions .bzp-copy{white-space:nowrap}
+    .bzm{padding:14px;gap:18px}
+    .bzm-rows li{padding:10px 12px}
+    .bzp-domain .bzp-actions{padding-bottom:56px}}
 </style>
 {% endblock %}
 

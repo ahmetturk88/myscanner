@@ -275,6 +275,8 @@ def run_lookalikes(domain_row, probes=None, now=None):
             continue  # DNS did not answer: no conclusion either way
         if not addresses:
             if row is not None:
+                if row.resolves and row.status == 'open':  # it no longer exists in DNS: a takedown worked, or it lapsed
+                    found.append(('lookalike_gone', 'good', {'name': name}))
                 row.resolves = False
             continue
         if row is None:

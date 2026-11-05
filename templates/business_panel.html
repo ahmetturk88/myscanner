@@ -62,6 +62,8 @@
   .bzl-list li.high .bzl-risk{color:#fecdd3;border-color:rgba(251,113,133,.6)}.bzl-list li.medium .bzl-risk{color:#fde68a;border-color:rgba(251,191,36,.6)}
   .bzl-list small{display:block;margin-top:5px;color:var(--dim);font-size:13px}
   .bzl-new{color:#fecdd3 !important;font-weight:600}
+  .bzl-reported{color:#a5f3fc !important}
+  .bzl-report{text-decoration:none;border-color:rgba(251,113,133,.5);color:#fecdd3}
   .bzl-hint{color:#bbf7d0 !important}
   .bzl-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
   .bzl-steps{margin-top:12px;color:var(--soft)}.bzl-steps summary{cursor:pointer;font-weight:600;color:#d7e6f6}.bzl-steps ol{margin:10px 0 0 20px;display:grid;gap:6px}
@@ -77,13 +79,6 @@
   .bzt-list li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(14,26,43,.7)}
   .bzt-email{font:600 14.5px var(--mono);color:#e3f1ff;overflow-wrap:anywhere}
   .bzt-side{display:flex;align-items:center;gap:10px}
-  .bzc{position:fixed;inset:0;margin:auto;height:fit-content;border:0;padding:0;background:transparent;max-width:min(460px,calc(100vw - 32px));width:100%}
-  .bzc::backdrop{background:rgba(3,8,16,.72);backdrop-filter:blur(4px)}
-  .bzc-box{padding:24px 24px 20px;border-radius:20px;border:1px solid rgba(119,220,255,.28);background:linear-gradient(160deg,#10203a,#0a1424);box-shadow:0 30px 90px -30px rgba(0,0,0,.8);color:#eef6ff}
-  .bzc-box h3{display:flex;align-items:center;gap:10px;font-size:19px;margin:0;color:#eef6ff}
-  .bzc-box h3 .pg-ic{color:#fbbf24}
-  .bzc-text{margin:12px 0 20px;color:#c9d8ea;font-size:15.5px;line-height:1.6}
-  .bzc-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   @media (max-width:760px){.bzm{grid-template-columns:1fr}.bzm-rows li{grid-template-columns:auto 1fr}.bzm-rows small{grid-column:2;text-align:left}.bzm-events li{grid-template-columns:1fr}}
   @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}
     /* Phones: look-alike actions go under the name (left), clear of the floating assistant button. */
@@ -180,11 +175,13 @@
                 <span class="bzl-risk">{{ t.risk_names[l.risk] }}</span>
                 <small>{{ t.look_live if l.live else t.look_dns }}{% if l.title %} · “{{ l.title[:80] }}”{% endif %} · {{ t.look_first }}: {{ l.first_seen.strftime('%d.%m.%Y') }}{% if l.registered %} · {{ t.look_registered }}: {{ l.registered.strftime('%d.%m.%Y') }}{% endif %}{% if l.registrar %} · {{ l.registrar[:60] }}{% endif %}</small>
                 {% if l.id in new_names %}<small class="bzl-new">{{ t.look_new.format(days=(today - l.registered).days) }}</small>{% endif %}
-                {% if l.hint in t.look_hints %}<small class="bzl-hint">{{ t.look_hints[l.hint].format(value=l.hint_value or '') }}</small>{% endif %}</div>
-                {% if role == 'owner' %}<div class="bzl-actions">
+                {% if l.hint in t.look_hints %}<small class="bzl-hint">{{ t.look_hints[l.hint].format(value=l.hint_value or '') }}</small>{% endif %}
+                {% if l.reported_at %}<small class="bzl-reported">{{ t.td_reported_on.format(date=l.reported_at.strftime('%d.%m.%Y')) }}</small>{% endif %}</div>
+                <div class="bzl-actions"><a class="bzp-copy bzl-report" href="{{ url_for('business.takedown', lookalike_id=l.id, lang=lang) }}">{{ t.td_report_button }}</a>
+                {% if role == 'owner' %}
                   <form method="post" action="{{ url_for('business.mine_lookalike', lookalike_id=l.id) }}" data-confirm="{{ t.look_mine_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_mine }}</button></form>
                   <form method="post" action="{{ url_for('business.dismiss_lookalike', lookalike_id=l.id) }}" data-confirm="{{ t.look_dismiss_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_dismiss }}</button></form>
-                </div>{% endif %}</li>
+                {% endif %}</div></li>
             {% endfor %}</ul>
             <details class="bzl-steps"><summary>{{ t.look_help_title }}</summary><ol>{% for step in t.look_help %}<li>{{ step }}</li>{% endfor %}</ol></details>
             <details class="bzl-steps"><summary>{{ t.look_steps_title }}</summary><ol>{% for step in t.look_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
@@ -284,13 +281,7 @@
     <ul class="bzp-next">{% for item in t.next %}<li><span class="pg-ic ic-spark"></span><span>{{ item }}</span></li>{% endfor %}</ul>
   </section>
 </div>
-<dialog class="bzc" id="bz-confirm" aria-labelledby="bzc-title">
-  <div class="bzc-box">
-    <h3 id="bzc-title"><span class="pg-ic ic-alert"></span>{{ t.confirm_title }}</h3>
-    <p class="bzc-text"></p>
-    <div class="bzc-actions"><button type="button" class="pg-btn bzc-no">{{ t.confirm_no }}</button><button type="button" class="pg-btn primary bzc-yes">{{ t.confirm_yes }}</button></div>
-  </div>
-</dialog>
+{% include '_business_confirm.html' %}
 <script>
 document.querySelectorAll('.bzp-copy').forEach(function (button) {
   button.addEventListener('click', function () {
@@ -301,30 +292,5 @@ document.querySelectorAll('.bzp-copy').forEach(function (button) {
     });
   });
 });
-(function () {
-  // One styled confirmation for every action that asks first (the browser's own box shows the site address as its title).
-  var dialog = document.getElementById('bz-confirm');
-  var pending = null;
-  document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-    form.addEventListener('submit', function (event) {
-      if (form.dataset.confirmed === '1' || !dialog || typeof dialog.showModal !== 'function') {
-        if (!dialog && !window.confirm(form.dataset.confirm)) event.preventDefault();
-        return;
-      }
-      event.preventDefault();
-      pending = form;
-      dialog.querySelector('.bzc-text').textContent = form.dataset.confirm;
-      dialog.showModal();
-      dialog.querySelector('.bzc-yes').focus();
-    });
-  });
-  if (!dialog) return;
-  dialog.querySelector('.bzc-yes').addEventListener('click', function () {
-    dialog.close();
-    if (pending) { pending.dataset.confirmed = '1'; pending.requestSubmit ? pending.requestSubmit() : pending.submit(); }
-  });
-  dialog.querySelector('.bzc-no').addEventListener('click', function () { pending = null; dialog.close(); });
-  dialog.addEventListener('click', function (event) { if (event.target === dialog) { pending = null; dialog.close(); } });
-})();
 </script>
 {% endblock %}

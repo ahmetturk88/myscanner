@@ -168,6 +168,56 @@ def mine_lookalike(lookalike_id):
     return _mark_lookalike(lookalike_id, 'mine', 'look_mine_flash')
 
 
+def _workspace_lookalike(workspace, lookalike_id):
+    from models import BusinessDomain, BusinessLookalike
+    return (BusinessLookalike.query.join(BusinessDomain, BusinessDomain.id == BusinessLookalike.domain_id)
+            .filter(BusinessLookalike.id == lookalike_id, BusinessDomain.workspace_id == workspace.id).first())
+
+
+@business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/takedown')
+@login_required
+def takedown(lookalike_id):
+    """Evidence and ready-to-send reports for one look-alike (owner and members may look; the fake is never opened)."""
+    lang, text = _text()
+    workspace, role, blocked = _access()
+    if blocked:
+        return blocked
+    row = _workspace_lookalike(workspace, lookalike_id)
+    if row is None:
+        abort(404)
+    from extensions import db
+    from models import BusinessDomain, User
+    from services import business_takedown
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    try:
+        consume_limit('business-takedown-hour', str(current_user.id), 30, 3600)
+    except AuthRateLimited:
+        return _back('error:rate_limited')
+    records = business_takedown.gather(row)
+    domain = db.session.get(BusinessDomain, row.domain_id)
+    owner = db.session.get(User, workspace.owner_id)
+    items = business_takedown.reports(row, domain.domain, workspace.name, getattr(owner, 'email', ''), records, lang)
+    page = render_template('business_takedown.html', t=text, lang=lang, row=row, domain=domain, role=role, items=items,
+                           url='https://' + row.name + '/')
+    return page, 200, {'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer'}
+
+
+@business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/reported', methods=['POST'])
+@login_required
+def lookalike_reported(lookalike_id):
+    workspace, _, blocked = _access(owner_only=True)
+    if blocked:
+        return blocked
+    row = _workspace_lookalike(workspace, lookalike_id)
+    if row is None:
+        abort(404)
+    from datetime import datetime, timezone
+    from extensions import db
+    row.reported_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.session.commit()
+    return _back('td_reported_flash')
+
+
 def _mark_lookalike(lookalike_id, status, notice):
     """Owner only; the name must belong to one of this workspace's domains (404 otherwise)."""
     workspace, _, blocked = _access(owner_only=True)

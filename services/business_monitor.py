@@ -152,6 +152,10 @@ def read_blocklist(report):
         return result('bad', lists=listed, ip=report['queried_ips'][0])
     if report.get('coverage_status') == 'completed':
         return result('ok', ip=report['queried_ips'][0])
+    clean = [s for s in report.get('clean_on') or [] if isinstance(s, str)]
+    if clean:  # some lists answered "not listed", others could not be asked (Spamhaus refuses public resolvers)
+        missing = [s for s in report.get('unavailable_on') or [] if isinstance(s, str)]
+        return result('ok', ip=report['queried_ips'][0], clean=len(clean), total=len(clean) + len(missing))
     return result('na', ip=report['queried_ips'][0])
 
 
@@ -338,6 +342,8 @@ def check_rows(results, text):
             records = item.get('records') or {}
             facts['count'] = len(records.get('A') or []) + len(records.get('AAAA') or [])
             value = values[f'dns_{state}']
+        elif key == 'blocklist' and state == 'ok' and item.get('total'):
+            value = values['blocklist_partial']
         elif key in ('blocklist', 'reputation') and isinstance(item.get('lists'), list):
             facts['lists'] = ', '.join(item['lists'])
             value = values[f'{key}_{state}']

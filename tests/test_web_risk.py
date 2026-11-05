@@ -83,7 +83,7 @@ class SecretTests(unittest.TestCase):
     def test_only_the_app_containers_receive_the_key(self):
         # The worker checks scanned links; the web app checks an email address's domain.
         source = (ROOT / 'compose.urlvet.yml').read_text()
-        self.assertEqual(source.count('WEB_RISK_API_KEY_FILE: /run/secrets/web_risk_api_key'), 2)
+        self.assertEqual(source.count('WEB_RISK_API_KEY_FILE: /run/secrets/web_risk_api_key'), 3)  # web, worker, bulk-worker (business threat lists)
         web = source[source.index('  web:'):source.index('  worker:')]
         worker = source[source.index('  worker:'):source.index('  urlvet:')]
         self.assertIn('web_risk_api_key', web)

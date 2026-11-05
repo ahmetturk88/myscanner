@@ -49,8 +49,8 @@ queued as `business_check_now`).
 | Domain expiry | registry RDAP (`domain_analyzer`) | / < 30 days / < 7 days |
 | DNS | A, AAAA, MX, NS | has an address / — / no address |
 | Email protection | SPF and DMARC (`site_posture.mail_security`) | DMARC quarantine/reject / weak / neither |
-| Blocklists | the email check's DNSBLs on the site's first IPv4 | not listed / — / listed |
-| Threat lists | Google Web Risk, URLhaus | not listed / — / listed |
+| Blocklists | the email check's DNSBLs on the site's first IPv4 | not listed (also when only some lists answered: Spamhaus refuses public resolvers; the row says how many answered) / — / listed |
+| Threat lists | Google Web Risk, URLhaus (keys mounted in bulk-worker by `compose.urlvet.yml`) | not listed / — / listed |
 
 A check that cannot run is `na`, never `ok`. The score is 100 minus fixed deductions for warn/bad states and is
 withheld when fewer than three checks answered. Each run is stored as a `business_snapshot`; comparing it with the

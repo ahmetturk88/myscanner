@@ -153,3 +153,25 @@ session (HTTPS; plain HTTP only when HTTPS cannot connect; at most 64 KB read; n
   still detected, a few minutes later).
 
 Migration `c7e1f4a8b2d6`: uptime columns on `business_domain`, table `business_uptime_day`.
+
+# Business+ 2: Telegram alerts
+
+`services/business_telegram.py`. Instant alerts (the same ones as the instant email) also go to Telegram for people
+who linked a chat; digests and the monthly report stay in email.
+- **Linking without a phone number**: "Link Telegram" (owner or member, 10 per hour) creates a one-time code valid
+  for 15 minutes and opens `t.me/<bot>?start=<code>`. Pressing Start links that private chat. Groups and channels are
+  never linked. `/stop` in the bot or "Unlink" in the workspace removes it.
+- **Nothing listens on our site**: beat `business-telegram-poll` (every 60 s, bulk queue) reads new messages with
+  `getUpdates`; the update offset is kept in `business_setting`.
+- **Recipients**: the owner and accepted members with alerts on, verified accounts only, each chat once.
+  Look-alike names are defanged and link previews are off.
+- **Secret**: the bot token is only in the bulk worker (`TELEGRAM_BOT_TOKEN_FILE`), never logged (errors are logged
+  without request details). The public bot name (`TELEGRAM_BOT_USERNAME`) shows the card in the workspace.
+
+Setup on the server (once):
+1. In Telegram, talk to @BotFather: `/newbot`, choose a name ending in `bot`.
+2. `python3 scripts/init_vps_stack.py` (creates the empty secret file; existing secrets are kept).
+3. `python3 scripts/configure_telegram.py` (hidden prompt; prints only the bot's public name).
+4. Add `TELEGRAM_BOT_USERNAME=<name>` to `.env.vps.rehearsal`, then `dc up -d web bulk-worker`.
+
+Migration `d3a8f6b1c9e2`: `business_chat`, `business_setting`.

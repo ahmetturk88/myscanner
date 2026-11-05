@@ -225,6 +225,24 @@
     </div>
   </section>
 
+  {% if telegram_bot %}
+  <section class="pg-card pg-reveal" id="telegram" style="margin-top:34px">
+    <div class="bzr">
+      <div><h3>{{ t.tg_title }}</h3>
+        <p class="bzp-meta" style="margin-top:8px">{{ t.tg_lead }}</p>
+        {% if telegram_chat and telegram_chat.chat_id %}<p class="bzp-state ok" style="margin-top:12px">{{ t.tg_linked.format(when=telegram_chat.linked_at.strftime('%d.%m.%Y')) }}</p>
+        {% elif telegram_chat and telegram_chat.code %}<p class="bzp-meta" style="margin-top:10px">{{ t.tg_waiting }}</p>{% endif %}</div>
+      <div class="bzp-actions">
+        {% if telegram_chat and telegram_chat.chat_id %}
+        <form method="post" action="{{ url_for('business.telegram_unlink') }}" data-confirm="{{ t.tg_unlink_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn" type="submit">{{ t.tg_unlink }}</button></form>
+        {% else %}
+        <form method="post" action="{{ url_for('business.telegram_link') }}" target="_blank"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn primary" type="submit"><span class="pg-ic ic-send"></span>{{ t.tg_link }}</button></form>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <section class="pg-card pg-reveal" id="team" style="margin-top:34px">
     <h3>{{ t.team_title }}</h3>
     <p class="bzp-meta" style="margin-top:8px">{{ t.team_lead }}</p>

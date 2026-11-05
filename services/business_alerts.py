@@ -132,7 +132,7 @@ def _groups(events, text):
     return groups
 
 
-def send_instant(domain_row, sender=None, now=None):
+def send_instant(domain_row, sender=None, now=None, telegram=None):
     """Email the not-yet-sent urgent events of one domain. Returns how many events were sent."""
     from models import BusinessEvent, BusinessWorkspace
     from services.business_page import CONTENT
@@ -150,6 +150,11 @@ def send_instant(domain_row, sender=None, now=None):
     subject, plain, html = build_email(text, workspace.name, groups, 'instant')
     if not _send_all(to, subject, plain, html, sender):
         return 0  # left unsent: the digest or the next run tries again
+    try:  # the same alert on Telegram for people who linked a chat; email stays the record
+        from services.business_telegram import send_alert
+        send_alert(workspace, text, groups, _panel_url(), call=telegram)
+    except Exception:
+        pass
     stamp = now or _now()
     for event in pending:
         event.notified_at = stamp

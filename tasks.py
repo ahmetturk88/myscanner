@@ -495,6 +495,31 @@ def business_lookalike_due():
     return {'watched': done}
 
 
+@celery.task(name='business_uptime_due', soft_time_limit=200, time_limit=230, expires=280)
+def business_uptime_due():
+    """MyScanner İşletme: is each verified site up? Every 5 minutes; alerts on outages and recoveries."""
+    from app import app
+    from extensions import db
+    from services.business_alerts import send_instant
+    from services.business_uptime import due_domains, run_uptime
+    with app.app_context():
+        domains = due_domains()
+        try:
+            found = run_uptime(domains)
+        except Exception:
+            db.session.rollback()
+            app.logger.exception('Uptime run failed')
+            return {'checked': 0}
+        for domain in domains:
+            if domain.id in found:
+                try:
+                    send_instant(domain)
+                except Exception:
+                    db.session.rollback()
+                    app.logger.exception('Uptime alert failed for domain #%s', domain.id)
+        return {'checked': len(domains), 'changed': len(found)}
+
+
 @celery.task(name='business_monthly_reports', soft_time_limit=600, time_limit=630)
 def business_monthly_reports():
     """MyScanner İşletme: tell each team that its monthly report is ready (start of the month)."""

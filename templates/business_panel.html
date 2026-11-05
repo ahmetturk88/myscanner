@@ -44,6 +44,15 @@
   .bzm-events .warn{border-left-color:var(--amber)}.bzm-events .bad{border-left-color:var(--rose)}.bzm-events .good{border-left-color:var(--green)}.bzm-events .info{border-left-color:var(--cyan)}
   .bzm-when{font:12.5px var(--mono);color:var(--dim);padding-top:2px}
   .bzl{padding-top:6px;border-top:1px solid var(--line)}
+  .bzu{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-radius:14px;border:1px solid rgba(74,222,128,.35);background:rgba(74,222,128,.06)}
+  .bzu strong{color:#dcfce7;font-size:15px}.bzu small{font:13px var(--mono);color:var(--dim)}
+  .bzu-dot{width:11px;height:11px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(74,222,128,.15)}
+  .bzu.down{border-color:rgba(251,113,133,.55);background:rgba(251,113,133,.08)}.bzu.down strong{color:#fecdd3}
+  .bzu.down .bzu-dot{background:var(--rose);box-shadow:0 0 0 4px rgba(251,113,133,.18);animation:bzu-pulse 1.6s infinite}
+  .bzu.wait{border-color:var(--line);background:rgba(14,26,43,.6)}.bzu.wait strong{color:var(--soft)}.bzu.wait .bzu-dot{background:var(--dim);box-shadow:none}
+  .bzu-note{flex-basis:100%}
+  @keyframes bzu-pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.bzu.down .bzu-dot{animation:none}}
   .bzl-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
   .bzl-list li{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(14,26,43,.7)}
   .bzl-list li.high{border-color:rgba(251,113,133,.5);background:rgba(251,113,133,.07)}
@@ -133,6 +142,14 @@
           {% else %}<span class="bzp-state wait"><span class="pg-ic ic-clock"></span>{{ t.pending }}</span>{% endif %}
         </div>
         {% if d.verified %}
+          {% set u = d.uptime %}
+          <div class="bzu {{ u.state or 'wait' }}" role="status">
+            <span class="bzu-dot"></span>
+            <strong>{{ t.uptime_title }}: {{ t.uptime_down if u.state == 'down' else t.uptime_up if u.state == 'up' else '…' }}</strong>
+            {% if u.since %}<small>{{ t.uptime_since.format(when=u.since.strftime('%d.%m %H:%M')) }}</small>{% endif %}
+            {% if u.percent is not none and u.avg_ms is not none %}<small>{{ t.uptime_stats.format(percent=u.percent, ms=u.avg_ms) }}</small>{% endif %}
+            <small class="bzu-note">{{ t.uptime_every if u.state else t.uptime_pending }}</small>
+          </div>
           {% set m = d.monitor %}
           {% if m and m.rows %}
           <div class="bzm">

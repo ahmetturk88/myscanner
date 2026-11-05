@@ -69,9 +69,11 @@ def panel():
     domains = BusinessDomain.query.filter_by(workspace_id=workspace.id).order_by(BusinessDomain.created_at).all()
     notice = session.pop(NOTICE, None)
     from services.business_lookalike import is_new, mine_lookalikes, open_lookalikes
+    from services.business_uptime import view as uptime_view
     views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None,
                   lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None,
-                  mine=mine_lookalikes(d.id) if d.verified_at else [])
+                  mine=mine_lookalikes(d.id) if d.verified_at else [],
+                  uptime=uptime_view(d, text) if d.verified_at else None)
              for d in domains]
     from datetime import datetime, timezone
     today = datetime.now(timezone.utc).replace(tzinfo=None)

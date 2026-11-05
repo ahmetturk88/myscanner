@@ -360,6 +360,10 @@ def event_line(event, text):
     params = {k: v for k, v in (event.get('params') or {}).items() if v is not None}
     if isinstance(params.get('risk'), str):
         params['risk'] = text.get('risk_names', {}).get(params['risk'], params['risk'])
+    if event.get('code') == 'site_down' and isinstance(params.get('reason'), str):
+        params['reason'] = text.get('down_reasons', {}).get(params['reason'], params['reason'])
+        if params.get('status'):
+            params['reason'] = f"{params['reason']} (HTTP {params['status']})"
     if isinstance(params.get('title'), str) and text.get('lang') == 'tr':
         from services.report_i18n import translate  # site findings are stored in English, as the site check writes them
         params['title'] = translate(params['title'], 'tr')

@@ -7,9 +7,9 @@ from .verified_target import VerifiedTarget
 from .ai_context import AIContext
 from .api_token import ApiToken
 from .pro_interest import ProInterest
-from .business import BusinessWorkspace, BusinessDomain, BusinessLead, BusinessSnapshot, BusinessEvent, BusinessLookalike, BusinessMember
+from .business import BusinessWorkspace, BusinessDomain, BusinessLead, BusinessSnapshot, BusinessEvent, BusinessLookalike, BusinessMember, BusinessUptimeDay
 from models.vulnerability import VulnerabilityScan, Vulnerability, ScanConfig
 __all__ = [
-    'User', 'Scan', 'LogEntry', 'AsyncScanTask', 'AuthRateLimit', 'VerifiedTarget', 'AIContext', 'ApiToken', 'ProInterest', 'BusinessWorkspace', 'BusinessDomain', 'BusinessLead', 'BusinessSnapshot', 'BusinessEvent', 'BusinessLookalike', 'BusinessMember',
+    'User', 'Scan', 'LogEntry', 'AsyncScanTask', 'AuthRateLimit', 'VerifiedTarget', 'AIContext', 'ApiToken', 'ProInterest', 'BusinessWorkspace', 'BusinessDomain', 'BusinessLead', 'BusinessSnapshot', 'BusinessEvent', 'BusinessLookalike', 'BusinessMember', 'BusinessUptimeDay',
     'IoCEntry', 'IoCSource', 'IoCMatch', 'TIPFeedLog'
 ]

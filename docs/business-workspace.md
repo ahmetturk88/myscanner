@@ -33,7 +33,7 @@ while the Play production review is open).
 
 ## Next stages
 2. Monitoring engine (scheduled SSL/domain expiry, blocklists, DNS/SPF/DMARC changes, weekly site posture).
-3. Alerts (email, severity, dedupe, digest). 4. Look-alike / impersonation watch. 5. Monthly PDF, team members.
+3. Alerts (email, severity, dedupe, digest). 4. Look-alike / impersonation watch. 5. Monthly PDF, team members (all done, see below).
 
 # Stage 2: monitoring engine
 
@@ -102,3 +102,26 @@ once a day, bulk queue).
   customers, report to USOM, abuse report to the registrar, trademark advice).
 
 Migration `e8b4d2f6a1c9`: `business_lookalike`, and `lookalike_at` / `lookalike_cursor` on `business_domain`.
+
+# Stage 5: team members and the monthly report
+
+**Team** (`business_member`): the owner invites up to 4 colleagues by email (five people in all). The invitation email
+links to `/isletme/davet/<token>` (random 256-bit token, `no-store`, `no-referrer`). It is accepted only while signed in
+with the **same, verified** email address; any other account gets 403, an unknown token 404. Members do not need to be
+pilot accounts.
+- Roles: the owner changes everything; members see the workspace, press "check now" and download the report. Every
+  changing route (domains, settings, dismiss, team) answers 403 to a member. Removing a member ends their access at once.
+- Alerts (instant, digest, monthly) go to the owner and to accepted members whose alerts are on, verified addresses only,
+  each address once.
+- Limits: 20 invitations per owner per day; re-inviting a pending address re-sends the same invitation.
+
+**Monthly PDF** (`services/business_report.py`, GET `/isletme/panel/report.pdf`, 10 per account per hour, `?lang=tr|en`):
+the last 30 days from stored data only (nothing is scanned): average status, number of changes, open look-alikes, a
+"what to do" list built from current warnings/problems and high-risk look-alikes, then per verified domain the current
+checks, the status week by week, the changes and the open look-alikes, and how to read the report.
+
+**Monthly email**: beat `business-monthly-reports` (hourly, bulk queue) on days 1–3 of the month, 09:00–21:00 Türkiye
+time, once a month per workspace (`last_report_month`): a short note with a link to the workspace (no attachment, so no
+report data travels by email). Workspaces without a verified domain are skipped for that month.
+
+Migration `f2c6e9a4b7d1`: `business_member`, and `last_report_month` on `business_workspace`.

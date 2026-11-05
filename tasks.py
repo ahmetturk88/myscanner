@@ -487,3 +487,20 @@ def business_lookalike_due():
                 db.session.rollback()
                 app.logger.exception('Look-alike watch failed for domain #%s', domain.id)
     return {'watched': done}
+
+
+@celery.task(name='business_monthly_reports', soft_time_limit=600, time_limit=630)
+def business_monthly_reports():
+    """MyScanner İşletme: tell each team that its monthly report is ready (start of the month)."""
+    from app import app
+    from extensions import db
+    from services.business_report import reports_due, send_monthly
+    sent = 0
+    with app.app_context():
+        for workspace in reports_due():
+            try:
+                sent += send_monthly(workspace)
+            except Exception:
+                db.session.rollback()
+                app.logger.exception('Monthly report email failed for workspace #%s', workspace.id)
+    return {'emails': sent}

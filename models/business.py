@@ -27,6 +27,22 @@ class BusinessWorkspace(db.Model):
     instant_alerts = db.Column(db.Boolean, nullable=False, default=True)   # an email right after a serious change
     daily_digest   = db.Column(db.Boolean, nullable=False, default=True)   # one summary a day when anything changed
     last_digest_at = db.Column(db.DateTime, nullable=True)
+    last_report_month = db.Column(db.String(7), nullable=True)            # YYYY-MM of the last monthly report email
+
+
+class BusinessMember(db.Model):
+    """A teammate invited to a workspace by email. Active once the invited address accepts while signed in."""
+    __tablename__ = 'business_member'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    workspace_id = db.Column(db.Integer, db.ForeignKey('business_workspace.id', ondelete='CASCADE'), nullable=False, index=True)
+    email        = db.Column(db.String(254), nullable=False)
+    user_id      = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=True, index=True)
+    token        = db.Column(db.String(64), nullable=False, unique=True)
+    alerts       = db.Column(db.Boolean, nullable=False, default=True)
+    created_at   = db.Column(db.DateTime, nullable=False, default=_now)
+    accepted_at  = db.Column(db.DateTime, nullable=True)
+    __table_args__ = (db.UniqueConstraint('workspace_id', 'email', name='uq_business_member_workspace_email'),)
 
 
 class BusinessDomain(db.Model):

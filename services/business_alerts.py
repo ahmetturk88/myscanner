@@ -5,7 +5,8 @@ quiet ones attackers cause: changed DNS, registrar or email settings, a missing
 ownership record) go out right after the run that found them, if the workspace
 wants instant alerts. Everything else waits for the daily digest, sent between
 09:00 and 21:00 Turkish time, only when something happened. Alerts go to the
-owner's verified email only, in the workspace's language.
+owner and the accepted team members who want them (verified emails only), in the
+workspace's language.
 """
 import json
 import os
@@ -30,12 +31,24 @@ def is_urgent(event):
     return event.severity == 'bad' or event.code in URGENT_CODES
 
 
-def _recipient(workspace):
-    from models import User
-    owner = db.session.get(User, workspace.owner_id)
-    if owner is None or not owner.email or getattr(owner, 'is_verified', False) is not True:
-        return None
-    return owner.email
+def _recipients(workspace):
+    """The owner and the teammates who accepted and want alerts; verified addresses only."""
+    from models import BusinessMember, User
+    people = [db.session.get(User, workspace.owner_id)]
+    for member in BusinessMember.query.filter(BusinessMember.workspace_id == workspace.id, BusinessMember.alerts.is_(True),
+                                              BusinessMember.accepted_at.isnot(None)).all():
+        people.append(db.session.get(User, member.user_id) if member.user_id else None)
+    seen, emails = set(), []
+    for person in people:
+        email = (getattr(person, 'email', '') or '').strip()
+        if email and getattr(person, 'is_verified', False) is True and email.lower() not in seen:
+            seen.add(email.lower())
+            emails.append(email)
+    return emails
+
+
+def _send_all(recipients, subject, plain, html, sender):
+    return sum(1 for to in recipients if _send(to, subject, plain, html, sender))
 
 
 def _send(to, subject, text, html, sender=None):
@@ -118,7 +131,7 @@ def send_instant(domain_row, sender=None, now=None):
     workspace = db.session.get(BusinessWorkspace, domain_row.workspace_id)
     if workspace is None or not workspace.instant_alerts:
         return 0
-    to = _recipient(workspace)
+    to = _recipients(workspace)
     pending = [e for e in BusinessEvent.query.filter_by(domain_id=domain_row.id, notified_at=None).all() if is_urgent(e)]
     if not to or not pending:
         return 0
@@ -127,7 +140,7 @@ def send_instant(domain_row, sender=None, now=None):
     if not groups:
         return 0
     subject, plain, html = build_email(text, workspace.name, groups, 'instant')
-    if not _send(to, subject, plain, html, sender):
+    if not _send_all(to, subject, plain, html, sender):
         return 0  # left unsent: the digest or the next run tries again
     stamp = now or _now()
     for event in pending:
@@ -150,7 +163,7 @@ def send_digest(workspace, sender=None, now=None):
     from models import BusinessDomain, BusinessEvent
     from services.business_page import CONTENT
     now = now or _now()
-    to = _recipient(workspace)
+    to = _recipients(workspace)
     domain_ids = [d.id for d in BusinessDomain.query.filter_by(workspace_id=workspace.id).all()]
     if not to or not domain_ids:
         return 0
@@ -163,7 +176,7 @@ def send_digest(workspace, sender=None, now=None):
     if not groups:
         return 0
     subject, plain, html = build_email(text, workspace.name, groups, 'digest')
-    if not _send(to, subject, plain, html, sender):
+    if not _send_all(to, subject, plain, html, sender):
         return 0
     for event in pending:
         event.notified_at = now

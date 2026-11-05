@@ -69,7 +69,7 @@ class CSRFProtectionTests(unittest.TestCase):
             for method in sorted(rule.methods & {'POST', 'PUT', 'DELETE', 'PATCH'}):
                 url = str(rule)
                 import re
-                url = re.sub(r'<(?:[^:>]+:)?([^>]+)>', lambda m: '1' if m[1] in ['user_id','scan_id','ioc_id','source_id','domain_id','lookalike_id'] else 'csrf-scan', url)
+                url = re.sub(r'<(?:[^:>]+:)?([^>]+)>', lambda m: '1' if m[1] in ['user_id','scan_id','ioc_id','source_id','domain_id','lookalike_id','member_id'] else 'csrf-scan', url)
                 with self.subTest(url=url, method=method):
                     result = self.client.open(url, method=method, json={})
                     if url == '/api/mobile/v1/auth/login':

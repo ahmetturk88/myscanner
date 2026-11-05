@@ -598,6 +598,13 @@ SCRIPTS_TR = {
     'Expiry window': 'Bitiş süresi',
     'Nameservers': 'Ad sunucuları',
     'Unavailable / not published': 'Yok / yayınlanmamış',
+    'Registration data is available.': 'Kayıt bilgileri mevcut.',
+    'The registry returned no registration record for this name.': 'Kayıt kuruluşu bu ad için bir kayıt döndürmedi.',
+    'Registration data could not be retrieved; this does not mean the domain is unregistered.': 'Kayıt bilgileri alınamadı; bu, alan adının kayıtsız olduğu anlamına gelmez.',
+    'These observations do not establish that the domain is safe.': 'Bu gözlemler alan adının güvenli olduğunu kanıtlamaz.',
+    'The domain does not exist in DNS (NXDOMAIN) for any record type.': 'Alan adı DNS\'te hiçbir kayıt türü için yok (NXDOMAIN).',
+    'No website or mail server can be reached at this name.': 'Bu adda ulaşılabilecek bir web sitesi veya e-posta sunucusu yok.',
+    'Check the spelling of the domain.': 'Alan adının yazımını kontrol et.',
     'Lookup could not be completed.': 'Sorgu tamamlanamadı.',
 
     # ------------------------------------------------------------ QR payloads and workspace
@@ -875,6 +882,9 @@ SCRIPTS_TR_PATTERNS = [
     (r'^(\d+) seconds$', r'\1 saniye'),
     (r'^(\d+) / (\d+) selected checks completed\. Coverage is not safety\.$', r'Seçilen \2 kontrolden \1 tanesi tamamlandı. Kapsam güvenlik değildir.'),
     (r'^Observed (.+) · Registration source: (.+)$', r'Gözlem \1 · Kayıt kaynağı: \2'),
+    (r'^Metadata lookup for (.+)\.$', r'\1 için meta veri sorgusu.'),
+    (r'^(\d+) of 8 metadata checks returned usable responses\.$', r'8 meta veri kontrolünden \1 tanesi kullanılabilir yanıt döndürdü.'),
+    (r'^(\d+) DNS observations were returned; absence and outages are distinguished\.$', r'\1 DNS gözlemi döndü; kaydın olmaması ile erişilememesi ayrı tutulur.'),
     (r'^DNS checks with gaps \((\d+)\)$', r'Boşluklu DNS kontrolleri (\1)'),
     (r'^The observed file format is (.+); this describes its structure, not its safety\.$', r'Gözlenen dosya biçimi: \1. Bu, dosyanın güvenliğini değil yapısını anlatır.'),
     (r'^The evidence index is (\d+)/100, with (\d+) coverage points deducted\. It is not a probability of safety\.$',

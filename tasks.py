@@ -450,6 +450,12 @@ def business_weekly_due():
         for domain in weekly_due():
             try:
                 run_weekly(domain)
+                try:  # the KVKK / legal pages checklist rides along with the weekly inspection
+                    from services.business_compliance import run_compliance
+                    run_compliance(domain)
+                except Exception:
+                    db.session.rollback()
+                    app.logger.exception('KVKK checklist failed for domain #%s', domain.id)
                 send_instant(domain)
                 done += 1
             except Exception:

@@ -70,11 +70,13 @@ def panel():
     notice = session.pop(NOTICE, None)
     from services.business_lookalike import is_new, mine_lookalikes, open_lookalikes
     from services.business_uptime import view as uptime_view
+    from services.business_compliance import view as kvkk_view
     from services.business_telegram import bot_username, chat_for
     views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None,
                   lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None,
                   mine=mine_lookalikes(d.id) if d.verified_at else [],
-                  uptime=uptime_view(d, text) if d.verified_at else None)
+                  uptime=uptime_view(d, text) if d.verified_at else None,
+                  kvkk=kvkk_view(d.id, text) if d.verified_at else None)
              for d in domains]
     from datetime import datetime, timezone
     today = datetime.now(timezone.utc).replace(tzinfo=None)

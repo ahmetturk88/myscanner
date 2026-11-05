@@ -360,6 +360,8 @@ def event_line(event, text):
     params = {k: v for k, v in (event.get('params') or {}).items() if v is not None}
     if isinstance(params.get('risk'), str):
         params['risk'] = text.get('risk_names', {}).get(params['risk'], params['risk'])
+    if event.get('code', '').startswith('kvkk') and isinstance(params.get('item'), str):
+        params['item'] = text.get('kvkk_names', {}).get(params['item'], params['item'])
     if event.get('code') == 'site_down' and isinstance(params.get('reason'), str):
         params['reason'] = text.get('down_reasons', {}).get(params['reason'], params['reason'])
         if params.get('status'):

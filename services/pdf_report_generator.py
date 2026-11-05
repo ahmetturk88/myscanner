@@ -480,7 +480,7 @@ def draw_cover(c, ctx):
     gap = 10
     mw = (bw - 2 * gap) / 3
     meta = [
-        (ctx['t']('SCANNED'), ctx['scanned']),
+        (ctx['t'](ctx.get('scanned_label', 'SCANNED')), ctx['scanned']),
         (ctx['t']('REPORT ID'), ctx['report_id']),
         (ctx['t']('PREPARED FOR'), ctx['username']),
     ]

@@ -59,7 +59,7 @@ WORDS_TR = {
     '80–100: the checks found no important problem.': '80–100: kontrollerde önemli bir sorun bulunmadı.',
     '50–79: something should be fixed soon.': '50–79: yakında düzeltilmesi gereken bir şey var.',
     'Below 50: a serious problem needs action now.': '50 altı: hemen ilgilenilmesi gereken ciddi bir sorun var.',
-    'PERIOD': 'DÖNEM',
+    'PERIOD': 'DÖNEM', 'STATUS': 'DURUM',
 }
 ACTIONS_TR = {
     ('tls', 'bad'): '{domain} SSL sertifikasını hemen düzeltin veya yenileyin: ziyaretçiler güvenlik uyarısı görüyor.',
@@ -161,7 +161,7 @@ def generate_business_report(workspace, lang='tr', now=None):
     period = f'{since:%d.%m}–{now:%d.%m.%Y}'
     report_id = f'MYS-B-{now:%y%m%d}-{workspace.id}'
     ctx = {'t': t, 'title': 'MONTHLY SECURITY REPORT', 'subtitle': 'Your domains and brand, last 30 days',
-           'meter': 'AVERAGE STATUS', 'meter_unit': 'OUT OF 100', 'target_label': 'WORKSPACE', 'incomplete': average is None,
+           'meter': 'STATUS', 'meter_unit': 'OUT OF 100', 'scanned_label': 'PERIOD', 'target_label': 'WORKSPACE', 'incomplete': average is None,
            'trust': average or 0, 'score_display': str(average) if average is not None else 'N/A', 'vcolor': vcol,
            'vlabel': t(label), 'url': ', '.join(d['domain'] for d in domains) or str(workspace.name),
            'scanned': period, 'report_id': report_id, 'username': str(workspace.name)}

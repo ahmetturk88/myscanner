@@ -68,16 +68,20 @@ def panel():
     from services.business_monitor import domain_view
     domains = BusinessDomain.query.filter_by(workspace_id=workspace.id).order_by(BusinessDomain.created_at).all()
     notice = session.pop(NOTICE, None)
-    from services.business_lookalike import open_lookalikes
+    from services.business_lookalike import is_new, mine_lookalikes, open_lookalikes
     views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None,
-                  lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None)
+                  lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None,
+                  mine=mine_lookalikes(d.id) if d.verified_at else [])
              for d in domains]
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).replace(tzinfo=None)
+    new_names = {row.id for view in views for row in view['lookalikes'] if is_new(row, today)}
     from extensions import db
     owner = db.session.get(User, workspace.owner_id)
     response = render_template('business_panel.html', t=text, lang=lang, workspace=workspace, role=role,
                                domains=views, notice=notice, limit=business.DOMAINS_PER_WORKSPACE,
                                team=business.members(workspace), owner_email=getattr(owner, 'email', ''),
-                               team_limit=business.MEMBERS_PER_WORKSPACE)
+                               team_limit=business.MEMBERS_PER_WORKSPACE, new_names=new_names, today=today.date())
     return response, 200, {'Cache-Control': 'private, no-store'}
 
 
@@ -151,6 +155,17 @@ def check_now(domain_id):
 @business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/dismiss', methods=['POST'])
 @login_required
 def dismiss_lookalike(lookalike_id):
+    return _mark_lookalike(lookalike_id, 'dismissed', 'look_dismissed_flash')
+
+
+@business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/mine', methods=['POST'])
+@login_required
+def mine_lookalike(lookalike_id):
+    return _mark_lookalike(lookalike_id, 'mine', 'look_mine_flash')
+
+
+def _mark_lookalike(lookalike_id, status, notice):
+    """Owner only; the name must belong to one of this workspace's domains (404 otherwise)."""
     workspace, _, blocked = _access(owner_only=True)
     if blocked:
         return blocked
@@ -160,9 +175,9 @@ def dismiss_lookalike(lookalike_id):
            .filter(BusinessLookalike.id == lookalike_id, BusinessDomain.workspace_id == workspace.id).first())
     if row is None:
         abort(404)
-    row.status = 'dismissed'
+    row.status = status
     db.session.commit()
-    return _back('look_dismissed_flash')
+    return _back(notice)
 
 
 @business_bp.route('/isletme/panel/settings', methods=['POST'])

@@ -107,7 +107,13 @@ class BusinessLookalike(db.Model):
     live       = db.Column(db.Boolean, nullable=False, default=False)     # answers on the web
     risk       = db.Column(db.String(8), nullable=False, default='low')   # low, medium, high
     title      = db.Column(db.String(200), nullable=True)
-    status     = db.Column(db.String(10), nullable=False, default='open') # open, dismissed
+    status     = db.Column(db.String(10), nullable=False, default='open') # open, dismissed, mine
+    # Public facts that help the owner tell their own names from imitations (DNS and RDAP; the site is never opened).
+    hint       = db.Column(db.String(8), nullable=True)      # ns, ip, mx: shares that with the watched domain
+    hint_value = db.Column(db.String(255), nullable=True)
+    registered = db.Column(db.Date, nullable=True)
+    registrar  = db.Column(db.String(120), nullable=True)
+    facts_at   = db.Column(db.DateTime, nullable=True)
     __table_args__ = (db.UniqueConstraint('domain_id', 'name', name='uq_business_lookalike_domain_name'),)
 
 

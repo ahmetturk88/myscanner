@@ -45,6 +45,13 @@ class ReadingTests(unittest.TestCase):
         self.assertEqual(monitor.read_dns({'A': [], 'AAAA': []})['state'], 'bad')
         self.assertEqual(monitor.read_blocklist({'queried_ips': ['1.2.3.4'], 'blacklisted_on': ['zen.spamhaus.org']})['state'], 'bad')
         self.assertEqual(monitor.read_blocklist({'queried_ips': ['1.2.3.4'], 'blacklisted_on': [], 'coverage_status': 'partial'})['state'], 'na')
+        # Spamhaus refuses public resolvers: the lists that did answer still count, and the reader sees how many.
+        partial = monitor.read_blocklist({'queried_ips': ['1.2.3.4'], 'blacklisted_on': [], 'coverage_status': 'partial',
+                                          'clean_on': ['bl.spamcop.net'], 'unavailable_on': ['zen.spamhaus.org']})
+        self.assertEqual((partial['state'], partial['clean'], partial['total']), ('ok', 1, 2))
+        from services.business_page import CONTENT
+        row = dict((name, value) for name, _, value in monitor.check_rows({'blocklist': partial}, CONTENT['tr']))
+        self.assertEqual(row['Kara listeler'], 'Listede yok (1/2 liste yanıt verdi)')
         self.assertEqual(monitor.read_reputation({'web_risk': {'status': 'matched'}, 'urlhaus': {}})['lists'], ['Google Web Risk'])
         self.assertEqual(monitor.read_reputation({'web_risk': {'status': 'unavailable'}, 'urlhaus': {}})['state'], 'na')
 

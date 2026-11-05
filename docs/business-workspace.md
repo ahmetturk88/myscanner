@@ -134,3 +134,5 @@ read from DNS and RDAP (the site is never opened), at most 12 lookups per run, n
 - the owner can press **This is mine** (status `mine`): no more alerts, listed separately as "marked as yours";
 - a "Is this name mine?" help list (check the registrar's domain list, ask the agency, then dismiss or follow the
   fake-site steps).
+- In alert emails and the monthly PDF, look-alike names are written defanged (`magazam-giris[.]com`): mail apps and PDF
+  viewers turn bare domain names into links, and an imitation must never become a clickable link from us.

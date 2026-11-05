@@ -22,7 +22,7 @@ SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'prune_url_screenshots', 
 # Multi-item jobs run on their own queue so one batch cannot delay single scans.
 BULK_TASKS = ('batch_scan_task', 'bulk_email_task', 'business_monitor_due', 'business_check_now',
               'business_weekly_due', 'business_send_digests', 'business_lookalike_due',
-              'business_monthly_reports', 'business_uptime_due')
+              'business_monthly_reports', 'business_uptime_due', 'business_telegram_poll')
 TIP_TASKS = ('fetch_ioc_source_task', 'fetch_all_ioc_sources', 'cleanup_expired_iocs',
              'misp_pull_task', 'misp_push_task', 'initialize_tip_sources')
 
@@ -89,6 +89,7 @@ def celery_settings(environ=None):
             'business-lookalike-due': {'task': 'business_lookalike_due', 'schedule': 3600, 'options': {'queue': 'bulk'}},
             'business-monthly-reports': {'task': 'business_monthly_reports', 'schedule': 3600, 'options': {'queue': 'bulk'}},
             'business-uptime-due': {'task': 'business_uptime_due', 'schedule': 300, 'options': {'queue': 'bulk', 'expires': 280}},
+            'business-telegram-poll': {'task': 'business_telegram_poll', 'schedule': 60, 'options': {'queue': 'bulk', 'expires': 55}},
             'misp-pull-daily': {'task': 'misp_pull_task', 'schedule': 86400, 'kwargs': {'days_back': 7}, 'options': {'queue': 'tip'}},
         },
         'worker_prefetch_multiplier': 1,

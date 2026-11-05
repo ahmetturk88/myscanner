@@ -107,6 +107,8 @@ services:
       AI_GEMINI_MODEL: ${AI_GEMINI_MODEL:-gemini-flash-latest}
       AI_GROQ_MODEL: ${AI_GROQ_MODEL:-openai/gpt-oss-120b}
       AI_GEMINI_THINKING_BUDGET: ${AI_GEMINI_THINKING_BUDGET:-0}
+      # The public name of the Telegram bot (no secret): shows the "Link Telegram" card when set.
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key, google_client_secret, github_client_secret, resend_api_key, gemini_api_key, groq_api_key]
     command: [web]
     restart: unless-stopped
@@ -154,7 +156,10 @@ services:
       RESEND_API_KEY_FILE: /run/secrets/resend_api_key
       FROM_EMAIL: ${FROM_EMAIL:-info@myscanners.com}
       BASE_URL: https://${SITE_DOMAIN:-localhost}
-    secrets: [db_app_password, redis_password, session_key, resend_api_key]
+      # Telegram alerts: the bot token stays in this worker only (scripts/configure_telegram.py).
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+    secrets: [db_app_password, redis_password, session_key, resend_api_key, telegram_bot_token]
     command: [bulk-worker]
     restart: unless-stopped
     depends_on:
@@ -240,3 +245,4 @@ secrets:
   resend_api_key: {file: '${SECRET_DIRECTORY:?Prepare secrets}/resend_api_key'}
   gemini_api_key: {file: '${SECRET_DIRECTORY:?Prepare secrets}/gemini_api_key'}
   groq_api_key: {file: '${SECRET_DIRECTORY:?Prepare secrets}/groq_api_key'}
+  telegram_bot_token: {file: '${SECRET_DIRECTORY:?Prepare secrets}/telegram_bot_token'}

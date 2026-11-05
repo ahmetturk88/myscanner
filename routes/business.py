@@ -70,6 +70,7 @@ def panel():
     notice = session.pop(NOTICE, None)
     from services.business_lookalike import is_new, mine_lookalikes, open_lookalikes
     from services.business_uptime import view as uptime_view
+    from services.business_telegram import bot_username, chat_for
     views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None,
                   lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None,
                   mine=mine_lookalikes(d.id) if d.verified_at else [],
@@ -83,7 +84,8 @@ def panel():
     response = render_template('business_panel.html', t=text, lang=lang, workspace=workspace, role=role,
                                domains=views, notice=notice, limit=business.DOMAINS_PER_WORKSPACE,
                                team=business.members(workspace), owner_email=getattr(owner, 'email', ''),
-                               team_limit=business.MEMBERS_PER_WORKSPACE, new_names=new_names, today=today.date())
+                               team_limit=business.MEMBERS_PER_WORKSPACE, new_names=new_names, today=today.date(),
+                               telegram_bot=bot_username(), telegram_chat=chat_for(current_user.id))
     return response, 200, {'Cache-Control': 'private, no-store'}
 
 
@@ -275,6 +277,38 @@ def remove_member(member_id):
     db.session.delete(member)
     db.session.commit()
     return _back('member_removed_flash')
+
+
+# ------------------------------------------------------------------ Telegram
+
+@business_bp.route('/isletme/panel/telegram/link', methods=['POST'])
+@login_required
+def telegram_link():
+    """Owner or member: a one-time code, then straight to the bot (each person links their own chat)."""
+    _, _, blocked = _access()
+    if blocked:
+        return blocked
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    from services.business_telegram import start_link
+    try:
+        consume_limit('business-telegram-link', str(current_user.id), 10, 3600)
+    except AuthRateLimited:
+        return _back('error:rate_limited')
+    link = start_link(current_user)
+    if link is None:
+        abort(404)
+    return redirect(link)
+
+
+@business_bp.route('/isletme/panel/telegram/unlink', methods=['POST'])
+@login_required
+def telegram_unlink():
+    _, _, blocked = _access()
+    if blocked:
+        return blocked
+    from services.business_telegram import unlink
+    unlink(current_user.id)
+    return _back('telegram_unlinked_flash')
 
 
 # ------------------------------------------------------------------ monthly report

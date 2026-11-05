@@ -69,6 +69,26 @@ class BusinessDomain(db.Model):
     __table_args__ = (db.UniqueConstraint('workspace_id', 'domain', name='uq_business_domain_workspace_domain'),)
 
 
+class BusinessChat(db.Model):
+    """A person's Telegram chat for instant alerts, linked with a one-time code (the phone number is never asked)."""
+    __tablename__ = 'business_chat'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    user_id      = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, unique=True)
+    chat_id      = db.Column(db.BigInteger, nullable=True, index=True)
+    code         = db.Column(db.String(40), nullable=True, unique=True)
+    code_expires = db.Column(db.DateTime, nullable=True)
+    linked_at    = db.Column(db.DateTime, nullable=True)
+
+
+class BusinessSetting(db.Model):
+    """Small service state that must survive restarts (e.g. the Telegram update offset)."""
+    __tablename__ = 'business_setting'
+
+    key   = db.Column(db.String(40), primary_key=True)
+    value = db.Column(db.String(255), nullable=False)
+
+
 class BusinessUptimeDay(db.Model):
     """One day of uptime checks of one domain (UTC days): how many, how many answered, total response time."""
     __tablename__ = 'business_uptime_day'

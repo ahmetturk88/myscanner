@@ -520,6 +520,23 @@ def business_uptime_due():
         return {'checked': len(domains), 'changed': len(found)}
 
 
+@celery.task(name='business_telegram_poll', soft_time_limit=40, time_limit=50, expires=55)
+def business_telegram_poll():
+    """MyScanner İşletme: link Telegram chats that pressed Start with a valid code; handle /stop."""
+    from app import app
+    from extensions import db
+    from services.business_telegram import bot_token, poll
+    if not bot_token():
+        return {'handled': 0, 'configured': False}
+    with app.app_context():
+        try:
+            return {'handled': poll()}
+        except Exception:
+            db.session.rollback()
+            app.logger.error('Telegram poll failed')  # no traceback: request details can carry the bot token
+            return {'handled': 0}
+
+
 @celery.task(name='business_monthly_reports', soft_time_limit=600, time_limit=630)
 def business_monthly_reports():
     """MyScanner İşletme: tell each team that its monthly report is ready (start of the month)."""

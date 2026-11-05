@@ -22,6 +22,11 @@ class BusinessWorkspace(db.Model):
     name       = db.Column(db.String(80), nullable=False)
     status     = db.Column(db.String(12), nullable=False, default='pilot')  # pilot, active, paused
     created_at = db.Column(db.DateTime, nullable=False, default=_now)
+    # Alerts go to the owner's verified email.
+    alert_lang     = db.Column(db.String(2), nullable=False, default='tr')
+    instant_alerts = db.Column(db.Boolean, nullable=False, default=True)   # an email right after a serious change
+    daily_digest   = db.Column(db.Boolean, nullable=False, default=True)   # one summary a day when anything changed
+    last_digest_at = db.Column(db.DateTime, nullable=True)
 
 
 class BusinessDomain(db.Model):

@@ -20,7 +20,8 @@ if not production_mode(os.environ):
 SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'prune_url_screenshots', 'scan_site_task', 'scan_file_task',
               'scan_large_file_task', 'sandbox_file_task', 'evidence_job_task')
 # Multi-item jobs run on their own queue so one batch cannot delay single scans.
-BULK_TASKS = ('batch_scan_task', 'bulk_email_task', 'business_monitor_due', 'business_check_now')
+BULK_TASKS = ('batch_scan_task', 'bulk_email_task', 'business_monitor_due', 'business_check_now',
+              'business_weekly_due', 'business_send_digests')
 TIP_TASKS = ('fetch_ioc_source_task', 'fetch_all_ioc_sources', 'cleanup_expired_iocs',
              'misp_pull_task', 'misp_push_task', 'initialize_tip_sources')
 
@@ -82,6 +83,8 @@ def celery_settings(environ=None):
             'cleanup-expired-iocs-daily': {'task': 'cleanup_expired_iocs', 'schedule': 86400, 'options': {'queue': 'tip'}},
             # MyScanner İşletme: due domains are picked every 15 minutes, so daily checks spread over the day.
             'business-monitor-due': {'task': 'business_monitor_due', 'schedule': 900, 'options': {'queue': 'bulk'}},
+            'business-weekly-due': {'task': 'business_weekly_due', 'schedule': 3600, 'options': {'queue': 'bulk'}},
+            'business-send-digests': {'task': 'business_send_digests', 'schedule': 1800, 'options': {'queue': 'bulk'}},
             'misp-pull-daily': {'task': 'misp_pull_task', 'schedule': 86400, 'kwargs': {'days_back': 7}, 'options': {'queue': 'tip'}},
         },
         'worker_prefetch_multiplier': 1,

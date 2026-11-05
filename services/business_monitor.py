@@ -351,7 +351,11 @@ def event_line(event, text):
     template = text['events'].get(event['code'])
     if template is None:
         return None
-    return template.format_map(_Keep({k: v for k, v in (event.get('params') or {}).items() if v is not None}))
+    params = {k: v for k, v in (event.get('params') or {}).items() if v is not None}
+    if isinstance(params.get('title'), str) and text.get('lang') == 'tr':
+        from services.report_i18n import translate  # site findings are stored in English, as the site check writes them
+        params['title'] = translate(params['title'], 'tr')
+    return template.format_map(_Keep(params))
 
 
 def domain_view(domain_row, text):
@@ -361,3 +365,70 @@ def domain_view(domain_row, text):
     events = [dict(e, text=event_line(e, text)) for e in recent_events(domain_row.id)]
     return {'score': snapshot.score if snapshot else None, 'last_run': snapshot.created_at if snapshot else None,
             'rows': check_rows(results, text) if snapshot else [], 'events': [e for e in events if e['text']]}
+
+
+# ------------------------------------------------------------------ weekly full site inspection
+
+WEEKLY = timedelta(days=7)
+
+
+def probe_site(domain):
+    """The public website check (passive: no attack traffic), as on /site-scanner."""
+    from services.simple_report_view import plain_web_report
+    from services.site_analyzer import SiteAnalyzer
+    report = SiteAnalyzer().comprehensive_analysis(domain, include_provider=False, include_discovery=False)
+    if report.get('error'):
+        raise ValueError('site check failed')
+    return plain_web_report(report, source='site')
+
+
+def read_site(plain):
+    """The plain report's warning reasons, by title (English, as stored by the site check)."""
+    if not isinstance(plain, dict) or not plain.get('tone'):
+        return result('na')
+    issues = sorted({r['title'] for r in plain.get('reasons') or []
+                     if isinstance(r, dict) and r.get('tone') in ('bad', 'warn') and isinstance(r.get('title'), str)})[:20]
+    state = 'bad' if plain.get('tone') == 'danger' else 'warn' if issues else 'ok'
+    return result(state, verdict=plain.get('tone'), issues=issues)
+
+
+def run_weekly(domain_row, probe=None, now=None):
+    """The weekly site inspection; new and resolved issues become events. Returns the snapshot or None."""
+    from models import BusinessEvent, BusinessSnapshot
+    now = now or _now()
+    if domain_row.verified_at is None:
+        return None
+    try:
+        current = read_site((probe or probe_site)(domain_row.domain))
+    except Exception:
+        current = result('na')
+    previous_row = latest_snapshot(domain_row.id, kind='weekly')
+    previous = json.loads(previous_row.results).get('site') if previous_row else None
+    snapshot = BusinessSnapshot(domain_id=domain_row.id, kind='weekly', created_at=now, score=None,
+                                results=json.dumps({'site': current}, ensure_ascii=False, sort_keys=True))
+    db.session.add(snapshot)
+    db.session.flush()
+    found = []
+    if current['state'] != 'na':
+        before = set((previous or {}).get('issues') or []) if previous and previous.get('state') != 'na' else set()
+        after = set(current.get('issues') or [])
+        for title in sorted(after - before):
+            found.append(('site_issue', 'bad' if current['state'] == 'bad' else 'warn', {'title': title}))
+        if previous and previous.get('state') != 'na':
+            for title in sorted(before - after):
+                found.append(('site_issue_fixed', 'good', {'title': title}))
+    for code, severity, params in found:
+        db.session.add(BusinessEvent(domain_id=domain_row.id, snapshot_id=snapshot.id, created_at=now, code=code,
+                                     severity=severity, params=json.dumps(params, ensure_ascii=False, sort_keys=True)))
+    domain_row.weekly_at = now
+    db.session.commit()
+    return snapshot
+
+
+def weekly_due(now=None, limit=3):
+    from models import BusinessDomain
+    now = now or _now()
+    rows = BusinessDomain.query.filter(BusinessDomain.verified_at.isnot(None), BusinessDomain.monitored_at.isnot(None)).filter(
+        (BusinessDomain.weekly_at.is_(None)) | (BusinessDomain.weekly_at <= now - WEEKLY)).all()
+    rows.sort(key=lambda d: d.weekly_at or datetime.min)
+    return rows[:limit]

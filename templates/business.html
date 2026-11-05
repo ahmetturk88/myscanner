@@ -3,6 +3,8 @@
 {% block description %}{{ t.description }}{% endblock %}
 
 {% block head_extra %}
+{# Hidden until the planned pilot opens: not linked from the site and not indexed. #}
+<meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
 <script src="{{ url_for('static', filename='pages.js', v='20261031-1') }}" defer></script>
 <style>
@@ -97,8 +99,9 @@
   <section class="bz-section">
     <header class="pg-reveal"><h2>{{ t.features_title }}</h2><p><span class="pg-pill muted">{{ t.coming }}</span></p></header>
     <div class="pg-grid-3">
-      {% set icons = {'watch': 'ic-globe', 'lookalike': 'ic-eye', 'mail': 'ic-mail', 'expiry': 'ic-calendar', 'alerts': 'ic-zap', 'report': 'ic-file'} %}
-      {% for key in ('watch', 'lookalike', 'mail', 'expiry', 'alerts', 'report') %}
+      {% set icons = {'watch': 'ic-globe', 'lookalike': 'ic-eye', 'takeover': 'ic-alert', 'mail': 'ic-mail', 'expiry': 'ic-calendar',
+                      'alerts': 'ic-zap', 'report': 'ic-file', 'team': 'ic-user', 'score': 'ic-gauge'} %}
+      {% for key in t.features %}
       <article class="pg-card glow bz-feature pg-reveal"><h3><span class="pg-ic {{ icons[key] }}"></span>{{ t.features[key][0] }}</h3><p>{{ t.features[key][1] }}</p></article>
       {% endfor %}
     </div>

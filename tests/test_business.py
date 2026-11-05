@@ -54,6 +54,12 @@ class BusinessTests(unittest.TestCase):
         english = self.client.get('/isletme?lang=en').get_data(as_text=True)
         self.assertIn('Free during the pilot', english)
         self.assertEqual(self.client.get('/business').status_code, 302)
+        # Hidden until the planned pilot: not indexed, every feature listed, nothing described as still coming.
+        self.assertIn('<meta name="robots" content="noindex, nofollow">', turkish)
+        for key in business_page.FEATURES:
+            self.assertIn(business_page.CONTENT['tr']['features'][key][0], turkish)
+        self.assertNotIn('adım adım', turkish)
+        self.assertNotIn('step by step', english)
         for lang in ('en', 'tr'):
             text = business_page.CONTENT[lang]
             self.assertEqual(set(text), set(business_page.CONTENT['tr']))

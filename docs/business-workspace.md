@@ -193,3 +193,18 @@ members may open it, 30 per hour; `no-store`, `no-referrer`).
 - The styled confirmation dialog is shared by all business pages (`templates/_business_confirm.html`).
 
 Migration `e9b2d7c4a1f3`: host and abuse-contact columns and `reported_at` on `business_lookalike`.
+
+# Business+ 4: KVKK and legal pages checklist
+
+`services/business_compliance.py`, run with the weekly site inspection (`business_weekly_due`). It reads the home page
+and up to six of the site's **own** pages it links to whose address or link text looks legal (KVKK, gizlilik, çerez,
+iletişim, iade, mesafeli satış…). Public pages only, 1 MB each, nothing submitted; snapshot kind `kvkk`.
+- Items: KVKK notice, privacy policy, cookie policy, cookie consent (a consent tool, or tracking code without one:
+  Google Analytics, Meta Pixel, Hotjar, Yandex Metrica, Clarity, TikTok), contact details, forms that post over http.
+- Online shops (cart words and prices) also get: distance-selling contract / pre-information form, returns and
+  withdrawal terms, MERSİS / tax number, ETBİS.
+- A footer link named "KVKK" does not count by itself: the linked page (read as well) must show the notice.
+- The first run is quiet; later runs report items that disappear (`kvkk_missing`) or appear (`kvkk_fixed`). A site
+  that does not answer concludes nothing.
+- Shown on each domain in the workspace and in the monthly PDF (missing items become to-do lines). Always worded as a
+  checklist, not legal advice.

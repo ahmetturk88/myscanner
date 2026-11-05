@@ -31,6 +31,8 @@ ACTIONS = {
     ('reputation', 'bad'): '{domain} is on a threat list: have the site checked for malware and ask your hosting company for help.',
     ('ownership', 'warn'): 'Keep the _myscanner TXT record of {domain}: without it, monitoring pauses.',
 }
+KVKK_ACTION = '{domain}: “{item}” needs attention on your site; have it prepared or fixed (ask an expert for the legal texts).'
+KVKK_ACTION_TR = '{domain}: sitenizde “{item}” ilgilenilmesi gereken durumda; hazırlatın veya düzeltin (yasal metinler için bir uzmana danışın).'
 UPTIME_GOAL = 99.0
 UPTIME_ACTION = '{domain} was reachable only {percent}% of the time this month: ask your hosting company about the outages.'
 UPTIME_ACTION_TR = '{domain} bu ay zamanın yalnızca %{percent} kadarında erişilebilirdi: kesintileri barındırma firmanıza sorun.'
@@ -65,6 +67,8 @@ WORDS_TR = {
     'Below 50: a serious problem needs action now.': '50 altı: hemen ilgilenilmesi gereken ciddi bir sorun var.',
     'PERIOD': 'DÖNEM', 'STATUS': 'DURUM',
     'Availability (last 30 days)': 'Erişilebilirlik (son 30 gün)', 'average response': 'ortalama yanıt',
+    'KVKK and legal pages': 'KVKK ve yasal sayfalar',
+    'A checklist of what the public pages show, not legal advice.': 'Herkese açık sayfaların gösterdiklerinin kontrol listesidir, hukuki görüş değildir.',
 }
 ACTIONS_TR = {
     ('tls', 'bad'): '{domain} SSL sertifikasını hemen düzeltin veya yenileyin: ziyaretçiler güvenlik uyarısı görüyor.',
@@ -129,11 +133,13 @@ def domain_data(domain_row, text, since, until):
     looks = BusinessLookalike.query.filter_by(domain_id=domain_row.id, status='open', resolves=True).all()
     looks.sort(key=lambda r: (order.get(r.risk, 3), r.name))
     scores = [s.score for s in snapshots if s.score is not None]
+    from services.business_compliance import view as kvkk_view
     from services.business_uptime import summary as uptime_summary
     return {'domain': domain_row.domain, 'results': results, 'rows': check_rows(results, text) if latest else [],
             'average': round(sum(scores) / len(scores)) if scores else None, 'runs': len(snapshots),
             'weeks': sorted(weeks.items()), 'events': lines, 'lookalikes': looks,
-            'uptime': uptime_summary(domain_row.id, days=(until - since).days or 30, now=until)}
+            'uptime': uptime_summary(domain_row.id, days=(until - since).days or 30, now=until),
+            'kvkk': kvkk_view(domain_row.id, text)}
 
 
 def actions_for(domains, lang):
@@ -146,6 +152,11 @@ def actions_for(domains, lang):
                 template = table.get((check, (item or {}).get('state')))
                 if template and item.get('state') == severity:
                     todo.append(template.format(domain=data['domain']))
+    legal = KVKK_ACTION_TR if lang == 'tr' else KVKK_ACTION
+    for data in domains:
+        for name, state, _ in ((data.get('kvkk') or {}).get('rows') or []):
+            if state in ('warn', 'bad'):
+                todo.append(legal.format(domain=data['domain'], item=name))
     uptime = UPTIME_ACTION_TR if lang == 'tr' else UPTIME_ACTION
     for data in domains:
         percent = (data.get('uptime') or {}).get('percent')
@@ -215,6 +226,11 @@ def generate_business_report(workspace, lang='tr', now=None):
             story += [KeepTogether([SubHeader(t('Current checks'), COLORS['accent']), checks_table(checks, t)]), Spacer(1, 16)]
         else:
             story += [Paragraph(esc(t('No monitoring run in this period yet.')), st['muted']), Spacer(1, 12)]
+        legal = data.get('kvkk')
+        if legal and legal.get('rows'):
+            checks = [{'name': name, 'state': state, 'result': value} for name, state, value in legal['rows']]
+            story += [KeepTogether([SubHeader(t('KVKK and legal pages'), COLORS['accent']), checks_table(checks, t)]),
+                      Paragraph(esc(t('A checklist of what the public pages show, not legal advice.')), st['muted']), Spacer(1, 16)]
         if data['weeks']:
             weekly = []
             for start, scores in data['weeks']:

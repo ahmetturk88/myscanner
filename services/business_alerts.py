@@ -108,12 +108,20 @@ MyScanner · <a href="mailto:info@myscanners.com" style="color:#8fd9f2">info@mys
     return subject, '\n'.join(lines), html
 
 
+def defang(name):
+    """magazam-giris[.]com: mail apps turn bare domain names into links; an imitation must never become one."""
+    return str(name).replace('.', '[.]')
+
+
 def _groups(events, text):
     from models import BusinessDomain
     from services.business_monitor import event_line, latest_snapshot
     by_domain = {}
     for event in sorted(events, key=lambda e: (ORDER.get(e.severity, 9), e.created_at)):
-        line = event_line({'code': event.code, 'params': json.loads(event.params or '{}')}, text)
+        params = json.loads(event.params or '{}')
+        if event.code.startswith('lookalike') and isinstance(params.get('name'), str):
+            params['name'] = defang(params['name'])
+        line = event_line({'code': event.code, 'params': params}, text)
         if line:
             by_domain.setdefault(event.domain_id, []).append((event.severity, line, event.created_at))
     groups = []

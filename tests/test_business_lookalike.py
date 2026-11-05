@@ -225,7 +225,12 @@ class WatchTests(unittest.TestCase):
         sent = []
         business_alerts.send_instant(self.domain, sender=lambda *a: sent.append(a) or True, now=T0)
         self.assertEqual(len(sent), 1)
-        self.assertIn('magazam.com', sent[0][2])
+        # The imitation is written defanged, so no mail app can turn it into a clickable link.
+        self.assertIn('magazam[.]com', sent[0][2])
+        self.assertIn('magazam[.]com', sent[0][3])
+        self.assertNotIn('magazam.com ', sent[0][2])
+        self.assertNotIn('magazam.com (', sent[0][2])
+        self.assertNotIn('magazam.com (', sent[0][3])
 
 
 if __name__ == '__main__':

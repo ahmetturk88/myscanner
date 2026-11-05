@@ -13,6 +13,7 @@ from reportlab.platypus import CondPageBreak, KeepTogether, Paragraph, Spacer
 
 from services.pdf_report_generator import (COLORS, TONE_COLORS, SectionHeader, StatCards, SubHeader, checks_table, esc,
                                            get_styles, numbered_table)
+from services.business_alerts import defang
 from services.report_pdf import _closing, _document, _rows_table, _t
 
 PERIOD = timedelta(days=30)
@@ -114,7 +115,10 @@ def domain_data(domain_row, text, since, until):
               .order_by(BusinessEvent.created_at.desc(), BusinessEvent.id.desc()).all())
     lines = []
     for event in events:
-        line = event_line({'code': event.code, 'params': json.loads(event.params or '{}')}, text)
+        params = json.loads(event.params or '{}')
+        if event.code.startswith('lookalike') and isinstance(params.get('name'), str):
+            params['name'] = defang(params['name'])  # PDF viewers turn bare domain names into links
+        line = event_line({'code': event.code, 'params': params}, text)
         if line:
             lines.append((event.created_at, event.severity, line))
     order = {'high': 0, 'medium': 1, 'low': 2}
@@ -137,7 +141,7 @@ def actions_for(domains, lang):
                 if template and item.get('state') == severity:
                     todo.append(template.format(domain=data['domain']))
     for data in domains:
-        todo += [look.format(name=row.name) for row in data['lookalikes'] if row.risk == 'high']
+        todo += [look.format(name=defang(row.name)) for row in data['lookalikes'] if row.risk == 'high']
     return todo[:12]
 
 
@@ -208,7 +212,7 @@ def generate_business_report(workspace, lang='tr', now=None):
                                len(data['lookalikes']) or None))
         if data['lookalikes']:
             story.append(_rows_table(('NAME', 'RISK', 'WEBSITE', 'FIRST SEEN'),
-                                     [(row.name, text['risk_names'].get(row.risk, row.risk), t('Yes') if row.live else t('No'),
+                                     [(defang(row.name), text['risk_names'].get(row.risk, row.risk), t('Yes') if row.live else t('No'),
                                        row.first_seen.strftime('%d.%m.%Y')) for row in data['lookalikes'][:15]],
                                      (0.44, 0.18, 0.16, 0.22), t))
         else:

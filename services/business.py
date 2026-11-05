@@ -179,3 +179,70 @@ def lead_stats():
     rows = db.session.query(BusinessLead.sector, func.count()).group_by(BusinessLead.sector).all()
     latest = BusinessLead.query.order_by(BusinessLead.created_at.desc()).limit(50).all()
     return {'total': sum(count for _, count in rows), 'by_sector': sorted(rows, key=lambda row: -row[1]), 'latest': latest}
+
+
+# ------------------------------------------------------------------ team
+
+MEMBERS_PER_WORKSPACE = 4  # plus the owner: five people
+
+
+def access(user, environ=None):
+    """(workspace, 'owner' | 'member') for this account, or (None, None).
+
+    Pilot accounts own a workspace; anyone else gets in only through an accepted invitation.
+    """
+    from models import BusinessMember, BusinessWorkspace
+    if not getattr(user, 'is_authenticated', False):
+        return None, None
+    if pilot_allowed(user, environ):
+        return workspace_for(user, create=True), 'owner'
+    member = (BusinessMember.query.filter(BusinessMember.user_id == user.id, BusinessMember.accepted_at.isnot(None))
+              .order_by(BusinessMember.accepted_at).first())
+    if member is None:
+        return None, None
+    workspace = db.session.get(BusinessWorkspace, member.workspace_id)
+    return (workspace, 'member') if workspace else (None, None)
+
+
+def invite(workspace, owner, value):
+    """A pending invitation for an email. Raises BusinessError('bad_email' | 'self' | 'team_full')."""
+    from models import BusinessMember
+    email = normalize_email(value)
+    if email is None:
+        raise BusinessError('bad_email')
+    if email == (owner.email or '').strip().lower():
+        raise BusinessError('self')
+    existing = BusinessMember.query.filter_by(workspace_id=workspace.id, email=email).first()
+    if existing is not None:
+        return existing
+    if BusinessMember.query.filter_by(workspace_id=workspace.id).count() >= MEMBERS_PER_WORKSPACE:
+        raise BusinessError('team_full')
+    member = BusinessMember(workspace_id=workspace.id, email=email, token=secrets.token_urlsafe(32))
+    db.session.add(member)
+    db.session.commit()
+    return member
+
+
+def accept(token, user):
+    """Accept an invitation while signed in with the invited, verified address. Returns an outcome code."""
+    from models import BusinessMember
+    if not isinstance(token, str) or not 20 <= len(token) <= 64:
+        return 'invalid'
+    member = BusinessMember.query.filter_by(token=token).first()
+    if member is None:
+        return 'invalid'
+    if getattr(user, 'is_verified', False) is not True:
+        return 'unverified'
+    if (user.email or '').strip().lower() != member.email:
+        return 'wrong_account'
+    if member.accepted_at is None:
+        member.user_id, member.accepted_at = user.id, _now()
+        db.session.commit()
+    elif member.user_id != user.id:
+        return 'invalid'
+    return 'accepted'
+
+
+def members(workspace):
+    from models import BusinessMember
+    return BusinessMember.query.filter_by(workspace_id=workspace.id).order_by(BusinessMember.created_at).all()

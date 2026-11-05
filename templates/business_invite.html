@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ t.invite_page_title }} · MyScanner{% endblock %}
+
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
+{% endblock %}
+
+{% block content %}
+<div class="pg">
+  <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
+  <section class="pg-card glow" style="max-width:640px;margin:60px auto">
+    <span class="pg-eyebrow">MyScanner İşletme</span>
+    <h1 style="font-size:clamp(28px,3.6vw,40px);margin-top:16px">{{ t.invite_page_title }}</h1>
+    <p role="alert" style="margin-top:14px">{{ message }}</p>
+    <p style="margin-top:22px"><a class="pg-btn" href="{{ url_for('business.landing') }}">{{ t.invite_back }}</a></p>
+  </section>
+</div>
+{% endblock %}

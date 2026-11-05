@@ -59,6 +59,12 @@
   .bzs-line{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:6px}
   .bzs-line label{font:600 14.5px var(--sans);color:#d7e6f6}
   .bzs-line select{width:auto;min-width:160px}
+  .bzr{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px}
+  .bzr p{max-width:640px}
+  .bzt-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+  .bzt-list li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(14,26,43,.7)}
+  .bzt-email{font:600 14.5px var(--mono);color:#e3f1ff;overflow-wrap:anywhere}
+  .bzt-side{display:flex;align-items:center;gap:10px}
   @media (max-width:760px){.bzm{grid-template-columns:1fr}.bzm-rows li{grid-template-columns:auto 1fr}.bzm-rows small{grid-column:2;text-align:left}.bzm-events li{grid-template-columns:1fr}}
   @media (max-width:640px){.bzp-record{grid-template-columns:1fr}.bzp-record .bzp-copy{justify-self:start}}
 </style>
@@ -84,6 +90,9 @@
     {% endif %}
   {% endif %}
 
+  {% if role == 'member' %}<p class="bzp-notice" role="note">{{ t.team_member_note }}</p>{% endif %}
+
+  {% if role == 'owner' %}
   <section class="pg-card glow pg-reveal">
     <h3>{{ t.add_title }}</h3>
     <form class="bzp-add" method="post" action="{{ url_for('business.add_domain') }}">
@@ -93,6 +102,7 @@
     </form>
     {% if domains|length >= limit %}<p class="bzp-meta" style="margin-top:10px">{{ t.errors.limit }}</p>{% endif %}
   </section>
+  {% endif %}
 
   <section style="margin-top:34px">
     <h2 class="pg-reveal" style="font-size:clamp(24px,2.6vw,32px);margin-bottom:18px">{{ t.domains_title }}</h2>
@@ -135,7 +145,7 @@
               <li class="{{ l.risk }}"><div><span class="bzl-name">{{ l.name }}</span>
                 <span class="bzl-risk">{{ t.risk_names[l.risk] }}</span>
                 <small>{{ t.look_live if l.live else t.look_dns }}{% if l.title %} · “{{ l.title[:80] }}”{% endif %} · {{ t.look_first }}: {{ l.first_seen.strftime('%d.%m.%Y') }}</small></div>
-                <form method="post" action="{{ url_for('business.dismiss_lookalike', lookalike_id=l.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_dismiss }}</button></form></li>
+                {% if role == 'owner' %}<form method="post" action="{{ url_for('business.dismiss_lookalike', lookalike_id=l.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.look_dismiss }}</button></form>{% endif %}</li>
             {% endfor %}</ul>
             <details class="bzl-steps"><summary>{{ t.look_steps_title }}</summary><ol>{% for step in t.look_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
             {% else %}<p class="bzp-meta" style="margin-top:8px">{{ t.look_empty if d.lookalike_ran else t.look_pending }}</p>{% endif %}
@@ -156,10 +166,10 @@
           {% if d.verified %}
           <form method="post" action="{{ url_for('business.check_now', domain_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn" type="submit"><span class="pg-ic ic-refresh"></span>{{ t.check_now }}</button></form>
           {% endif %}
-          {% if not d.verified %}
+          {% if not d.verified and role == 'owner' %}
           <form method="post" action="{{ url_for('business.verify_domain', domain_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn primary" type="submit"><span class="pg-ic ic-refresh"></span>{{ t.check }}</button></form>
           {% endif %}
-          <form method="post" action="{{ url_for('business.remove_domain', domain_id=d.id) }}" data-confirm="{{ t.remove_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn danger" type="submit">{{ t.remove }}</button></form>
+          {% if role == 'owner' %}<form method="post" action="{{ url_for('business.remove_domain', domain_id=d.id) }}" data-confirm="{{ t.remove_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pg-btn danger" type="submit">{{ t.remove }}</button></form>{% endif %}
         </div>
         {% if d.last_checked_at %}<p class="bzp-meta">{{ t.checked }}: {{ d.last_checked_at.strftime('%Y-%m-%d %H:%M') }} UTC</p>{% endif %}
       </article>
@@ -167,6 +177,35 @@
     </div>
   </section>
 
+  <section class="pg-card glow pg-reveal" id="report" style="margin-top:34px">
+    <div class="bzr">
+      <div><h3>{{ t.report_title }}</h3><p class="bzp-meta" style="margin-top:8px">{{ t.report_lead }}</p></div>
+      <a class="pg-btn primary" href="{{ url_for('business.monthly_report', lang=lang) }}"><span class="pg-ic ic-file"></span>{{ t.report_button }}</a>
+    </div>
+  </section>
+
+  <section class="pg-card pg-reveal" id="team" style="margin-top:34px">
+    <h3>{{ t.team_title }}</h3>
+    <p class="bzp-meta" style="margin-top:8px">{{ t.team_lead }}</p>
+    <ul class="bzt-list">
+      <li><span class="bzt-email">{{ owner_email }}</span><span class="bzp-state ok">{{ t.team_owner }}</span></li>
+      {% for m in team %}
+      <li><span class="bzt-email">{{ m.email }}</span>
+        <span class="bzt-side">{% if m.accepted_at %}<span class="bzp-state ok">{{ t.team_joined }}</span>{% else %}<span class="bzp-state wait">{{ t.team_pending }}</span>{% endif %}
+        {% if role == 'owner' %}<form method="post" action="{{ url_for('business.remove_member', member_id=m.id) }}" data-confirm="{{ t.team_remove_confirm }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bzp-copy" type="submit">{{ t.team_remove }}</button></form>{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% if role == 'owner' %}
+    <form class="bzp-add" method="post" action="{{ url_for('business.invite_member') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input class="pg-input" type="email" name="email" maxlength="254" required placeholder="{{ t.team_placeholder }}" aria-label="{{ t.team_invite }}" {{ 'disabled' if team|length >= team_limit }}>
+      <button class="pg-btn primary" type="submit" {{ 'disabled' if team|length >= team_limit }}>{{ t.team_invite }}</button>
+    </form>
+    {% if team|length >= team_limit %}<p class="bzp-meta" style="margin-top:10px">{{ t.errors.team_full }}</p>{% endif %}
+    {% endif %}
+  </section>
+
+  {% if role == 'owner' %}
   <section class="pg-card pg-reveal" style="margin-top:34px">
     <h3>{{ t.settings_title }}</h3>
     <p class="bzp-meta" style="margin-top:8px">{{ t.settings_lead.format(email=current_user.email) }}</p>
@@ -179,6 +218,7 @@
         <button class="pg-btn primary" type="submit">{{ t.save }}</button></div>
     </form>
   </section>
+  {% endif %}
 
   <section class="pg-card pg-reveal" style="margin-top:34px">
     <h3>{{ t.next_title }}</h3>

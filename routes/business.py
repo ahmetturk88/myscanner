@@ -46,21 +46,25 @@ def english_alias():
     return redirect(url_for('business.landing', lang='en'))
 
 
-def _workspace_or_redirect():
-    if not business.pilot_allowed(current_user):
+def _access(owner_only=False):
+    """(workspace, role, None) or (None, None, response). Members may look; only the owner changes things."""
+    workspace, role = business.access(current_user)
+    if workspace is None:
         session[NOTICE] = 'not_pilot'
-        return None, redirect(url_for('business.landing') + '#notify')
-    return business.workspace_for(current_user, create=True), None
+        return None, None, redirect(url_for('business.landing') + '#notify')
+    if owner_only and role != 'owner':
+        abort(403)
+    return workspace, role, None
 
 
 @business_bp.route('/isletme/panel')
 @login_required
 def panel():
     lang, text = _text()
-    workspace, blocked = _workspace_or_redirect()
+    workspace, role, blocked = _access()
     if blocked:
         return blocked
-    from models import BusinessDomain
+    from models import BusinessDomain, User
     from services.business_monitor import domain_view
     domains = BusinessDomain.query.filter_by(workspace_id=workspace.id).order_by(BusinessDomain.created_at).all()
     notice = session.pop(NOTICE, None)
@@ -68,8 +72,12 @@ def panel():
     views = [dict(business.serialize(d), monitor=domain_view(d, text) if d.verified_at else None,
                   lookalikes=open_lookalikes(d.id) if d.verified_at else [], lookalike_ran=d.lookalike_at is not None)
              for d in domains]
-    response = render_template('business_panel.html', t=text, lang=lang, workspace=workspace,
-                               domains=views, notice=notice, limit=business.DOMAINS_PER_WORKSPACE)
+    from extensions import db
+    owner = db.session.get(User, workspace.owner_id)
+    response = render_template('business_panel.html', t=text, lang=lang, workspace=workspace, role=role,
+                               domains=views, notice=notice, limit=business.DOMAINS_PER_WORKSPACE,
+                               team=business.members(workspace), owner_email=getattr(owner, 'email', ''),
+                               team_limit=business.MEMBERS_PER_WORKSPACE)
     return response, 200, {'Cache-Control': 'private, no-store'}
 
 
@@ -81,7 +89,7 @@ def _back(notice):
 @business_bp.route('/isletme/panel/domains', methods=['POST'])
 @login_required
 def add_domain():
-    workspace, blocked = _workspace_or_redirect()
+    workspace, _, blocked = _access(owner_only=True)
     if blocked:
         return blocked
     from services.auth_rate_limit import AuthRateLimited, consume_limit
@@ -98,7 +106,7 @@ def add_domain():
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/verify', methods=['POST'])
 @login_required
 def verify_domain(domain_id):
-    workspace, blocked = _workspace_or_redirect()
+    workspace, _, blocked = _access(owner_only=True)
     if blocked:
         return blocked
     domain = business.owned_domain(workspace, domain_id)
@@ -119,7 +127,7 @@ def verify_domain(domain_id):
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/check', methods=['POST'])
 @login_required
 def check_now(domain_id):
-    workspace, blocked = _workspace_or_redirect()
+    workspace, _, blocked = _access()
     if blocked:
         return blocked
     domain = business.owned_domain(workspace, domain_id)
@@ -143,7 +151,7 @@ def check_now(domain_id):
 @business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/dismiss', methods=['POST'])
 @login_required
 def dismiss_lookalike(lookalike_id):
-    workspace, blocked = _workspace_or_redirect()
+    workspace, _, blocked = _access(owner_only=True)
     if blocked:
         return blocked
     from extensions import db
@@ -160,7 +168,7 @@ def dismiss_lookalike(lookalike_id):
 @business_bp.route('/isletme/panel/settings', methods=['POST'])
 @login_required
 def save_settings():
-    workspace, blocked = _workspace_or_redirect()
+    workspace, _, blocked = _access(owner_only=True)
     if blocked:
         return blocked
     lang = request.form.get('alert_lang')
@@ -175,7 +183,7 @@ def save_settings():
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/remove', methods=['POST'])
 @login_required
 def remove_domain(domain_id):
-    workspace, blocked = _workspace_or_redirect()
+    workspace, _, blocked = _access(owner_only=True)
     if blocked:
         return blocked
     domain = business.owned_domain(workspace, domain_id)
@@ -183,6 +191,96 @@ def remove_domain(domain_id):
         abort(404)
     business.remove_domain(domain)
     return _back('removed_flash')
+
+
+# ------------------------------------------------------------------ team
+
+@business_bp.route('/isletme/panel/members', methods=['POST'])
+@login_required
+def invite_member():
+    workspace, _, blocked = _access(owner_only=True)
+    if blocked:
+        return blocked
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    try:
+        consume_limit('business-invite-day', str(current_user.id), 20, 86400)
+        member = business.invite(workspace, current_user, request.form.get('email', ''))
+    except AuthRateLimited:
+        return _back('error:invite_limit')
+    except business.BusinessError as error:
+        return _back('error:' + str(error))
+    if member.accepted_at is not None:
+        return _back('invited_flash')
+    return _back('invited_flash' if _send_invitation(workspace, member) else 'invite_mail_failed')
+
+
+def _send_invitation(workspace, member):
+    import os
+    from services.email_templates import action_email
+    words = (business_page.CONTENT.get(workspace.alert_lang) or business_page.CONTENT['tr'])['invite_mail']
+    owner = current_user.email or current_user.username
+    paragraphs = [p.format(owner=owner, workspace=workspace.name) for p in words['paragraphs']]
+    link = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/') + url_for('business.accept_invitation', token=member.token)
+    html, plain = action_email(words['title'], words['greeting'], paragraphs, words['button'], link, words['note'])
+    try:
+        from app import send_email
+        return bool(send_email(member.email, words['subject'], plain, html))
+    except Exception:
+        current_app.logger.exception('Business invitation email failed')
+        return False
+
+
+@business_bp.route('/isletme/davet/<token>')
+@login_required
+def accept_invitation(token):
+    lang, text = _text()
+    outcome = business.accept(token, current_user)
+    if outcome == 'accepted':
+        response = _back('joined_flash')
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        return response
+    page = render_template('business_invite.html', t=text, lang=lang, message=text['invite_outcomes'][outcome])
+    # The token is in the address: keep it out of caches and Referer headers.
+    return page, 404 if outcome == 'invalid' else 403, {'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer'}
+
+
+@business_bp.route('/isletme/panel/members/<int:member_id>/remove', methods=['POST'])
+@login_required
+def remove_member(member_id):
+    workspace, _, blocked = _access(owner_only=True)
+    if blocked:
+        return blocked
+    from extensions import db
+    from models import BusinessMember
+    member = BusinessMember.query.filter_by(id=member_id, workspace_id=workspace.id).first()
+    if member is None:
+        abort(404)
+    db.session.delete(member)
+    db.session.commit()
+    return _back('member_removed_flash')
+
+
+# ------------------------------------------------------------------ monthly report
+
+@business_bp.route('/isletme/panel/report.pdf')
+@login_required
+def monthly_report():
+    workspace, _, blocked = _access()
+    if blocked:
+        return blocked
+    from flask import send_file
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    from services.business_report import generate_business_report
+    try:
+        consume_limit('business-report-hour', str(current_user.id), 10, 3600)
+    except AuthRateLimited:
+        return _back('error:report_limit')
+    lang = current_language()
+    pdf = generate_business_report(workspace, lang)
+    response = send_file(pdf, mimetype='application/pdf', as_attachment=True,
+                         download_name=f'myscanner-isletme-{workspace.id}.pdf')
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @business_bp.route('/admin/business-leads')

@@ -427,6 +427,12 @@ def business_check_now(domain_id):
         if domain is None or domain.verified_at is None:
             return {'status': 'skipped'}
         run_domain(domain)
+        try:  # names found before their facts were read (or whose lookup failed) get them now
+            from services.business_lookalike import fill_missing_facts
+            fill_missing_facts(domain)
+        except Exception:
+            db.session.rollback()
+            app.logger.exception('Look-alike facts failed for domain #%s', domain.id)
         from services.business_alerts import send_instant
         send_instant(domain)
         return {'status': 'done'}

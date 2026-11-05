@@ -247,6 +247,9 @@ CONTENT = {
                       'Yeşil “Size ait olabilir” notu, adın sizin alan adınızla aynı ad sunucularını, IP adresini veya e-posta sunucusunu kullandığını gösterir. Aynı firmanın başka bir müşterisi de olabilir; kayıt firmanızda kontrol edin.',
                       'Ajansınız, web tasarımcınız veya bir çalışanınız sizin adınıza almış olabilir; onlara sorun.',
                       'Sizin değilse ve yeni kaydedilmişse ya da giriş sayfası varsa dikkatli olun: “Sahte bir site bulursanız” adımlarını izleyin. Bir başkasının zararsız projesiyse “Yoksay”a basın.'],
+        'confirm_title': 'Emin misiniz?',
+        'confirm_yes': 'Evet, devam et',
+        'confirm_no': 'Vazgeç',
         'risk_names': {'high': 'yüksek', 'medium': 'orta', 'low': 'düşük'},
         'errors': {
             'bad_domain': 'Şirket sitenizi girin, örneğin magazam.com.',
@@ -502,6 +505,9 @@ CONTENT = {
                       'The green “Might be yours” note means the name uses the same name servers, IP address or mail server as your domain. Another customer of the same provider can share them too; check with your registrar.',
                       'Your agency, web designer or an employee may have registered it for you; ask them.',
                       'If it isn’t yours and was registered recently or shows a login page, be careful: follow “If you find a fake site”. If it is someone else’s harmless project, press “Dismiss”.'],
+        'confirm_title': 'Are you sure?',
+        'confirm_yes': 'Yes, continue',
+        'confirm_no': 'Cancel',
         'risk_names': {'high': 'high', 'medium': 'medium', 'low': 'low'},
         'errors': {
             'bad_domain': 'Enter your company website, for example myshop.com.',

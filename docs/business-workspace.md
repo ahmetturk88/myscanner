@@ -208,3 +208,21 @@ iletişim, iade, mesafeli satış…). Public pages only, 1 MB each, nothing sub
   that does not answer concludes nothing.
 - Shown on each domain in the workspace and in the monthly PDF (missing items become to-do lines). Always worded as a
   checklist, not legal advice.
+
+# Business+ roadmap: where we paused (2026-11-06)
+
+Done and merged: 1 uptime monitoring, 2 Telegram alerts, 3 takedown assistant, 4 KVKK / legal pages checklist.
+
+Next, in this order:
+5. **Exposed sensitive files** (replaces "open ports"). Shodan InternetDB is free for non-commercial use only, and a
+   real port scan would mean opening the worker's egress firewall beyond 80/443/43/25, so neither is used. Instead,
+   weekly and only for verified domains, about 12 GET requests over HTTPS: `/.env`, `/.git/config`, `/.git/HEAD`,
+   `backup.zip`, `backup.sql`, `db.sql`, `phpinfo.php`, `/server-status`, `/phpmyadmin/`. Read at most 4 KB, confirm by
+   content (KEY=value, `[core]`, `ref: refs/`, SQL, zip magic, page title) so soft-404 pages never alarm, never store
+   the content, urgent alert with fix steps. Waiting for the owner's "OK" before building.
+6. **Visual fake-page detection**: compare a live look-alike's screenshot with the customer's own site (isolated
+   browser already used by the link scanner); a copied design raises the risk to high.
+7. **Agency mode**: one agency account manages many client workspaces (resale channel).
+
+Before testing all of them together: configure the Telegram bot (`docs` above), enable Google Web Risk, then deploy
+with `git pull --ff-only && python3 scripts/init_vps_stack.py && dc up -d --build`.

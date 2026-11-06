@@ -456,6 +456,12 @@ def business_weekly_due():
                 except Exception:
                     db.session.rollback()
                     app.logger.exception('KVKK checklist failed for domain #%s', domain.id)
+                try:  # files that should never be public (.env, .git, backups…)
+                    from services.business_exposure import run_exposure
+                    run_exposure(domain)
+                except Exception:
+                    db.session.rollback()
+                    app.logger.exception('Exposure check failed for domain #%s', domain.id)
                 send_instant(domain)
                 done += 1
             except Exception:

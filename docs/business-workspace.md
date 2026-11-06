@@ -211,7 +211,8 @@ iletişim, iade, mesafeli satış…). Public pages only, 1 MB each, nothing sub
 
 # Business+ roadmap: where we paused (2026-11-06)
 
-Done and merged: 1 uptime monitoring, 2 Telegram alerts, 3 takedown assistant, 4 KVKK / legal pages checklist.
+Done and merged: 1 uptime monitoring, 2 Telegram alerts, 3 takedown assistant, 4 KVKK / legal pages checklist,
+5 exposed sensitive files (see its section below).
 
 Next, in this order:
 5. **Exposed sensitive files** (replaces "open ports"). Shodan InternetDB is free for non-commercial use only, and a
@@ -219,10 +220,26 @@ Next, in this order:
    weekly and only for verified domains, about 12 GET requests over HTTPS: `/.env`, `/.git/config`, `/.git/HEAD`,
    `backup.zip`, `backup.sql`, `db.sql`, `phpinfo.php`, `/server-status`, `/phpmyadmin/`. Read at most 4 KB, confirm by
    content (KEY=value, `[core]`, `ref: refs/`, SQL, zip magic, page title) so soft-404 pages never alarm, never store
-   the content, urgent alert with fix steps. Waiting for the owner's "OK" before building.
+   the content, urgent alert with fix steps. Approved and built.
 6. **Visual fake-page detection**: compare a live look-alike's screenshot with the customer's own site (isolated
    browser already used by the link scanner); a copied design raises the risk to high.
 7. **Agency mode**: one agency account manages many client workspaces (resale channel).
 
 Before testing all of them together: configure the Telegram bot (`docs` above), enable Google Web Risk, then deploy
 with `git pull --ff-only && python3 scripts/init_vps_stack.py && dc up -d --build`.
+
+# Business+ 5: exposed sensitive files
+
+`services/business_exposure.py`, run with the weekly site inspection, verified domains only. About 17 GET requests over
+HTTPS on a fixed list: `/.env`, `/.git/config`, `/.git/HEAD`, `/backup.sql`, `/db.sql`, `/dump.sql`, `/database.sql`,
+`/backup.zip`, `/site.zip`, `/www.zip`, `/wp-config.php.bak`, `/wp-config.php~`, `/phpinfo.php`, `/info.php`,
+`/server-status`, `/phpmyadmin/`, `/.DS_Store`. Redirects are not followed and at most 4 KB is read.
+- A path counts only when its content proves it (KEY=value lines and no HTML for `.env`, `[core]` for `.git/config`,
+  `ref: refs/` for `HEAD`, SQL statements, zip magic bytes, `DB_PASSWORD` + `define(`, phpinfo / Apache status /
+  phpMyAdmin markers, `Bud1`). A random address is asked first; an answer identical to it is ignored, so sites that
+  answer 200 for everything never alarm. One proof per finding; its other paths are not asked.
+- File contents are never stored, only which path answered.
+- `exposure_found` (bad for .env, .git, dumps, archives, WordPress config backups; warn for the rest) is an instant
+  alert even on the first run; `exposure_fixed` when it is gone. Workspace card and monthly PDF (first on the to-do list),
+  each with a fix step.
+- Stays on 443 (the egress firewall is unchanged). Not a penetration test: no logins, nothing written.

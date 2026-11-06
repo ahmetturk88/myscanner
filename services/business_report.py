@@ -67,7 +67,7 @@ WORDS_TR = {
     'Below 50: a serious problem needs action now.': '50 altı: hemen ilgilenilmesi gereken ciddi bir sorun var.',
     'PERIOD': 'DÖNEM', 'STATUS': 'DURUM',
     'Availability (last 30 days)': 'Erişilebilirlik (son 30 gün)', 'average response': 'ortalama yanıt',
-    'KVKK and legal pages': 'KVKK ve yasal sayfalar',
+    'KVKK and legal pages': 'KVKK ve yasal sayfalar', 'Exposed files': 'Açıkta kalan dosyalar', 'none found': 'bulunmadı',
     'A checklist of what the public pages show, not legal advice.': 'Herkese açık sayfaların gösterdiklerinin kontrol listesidir, hukuki görüş değildir.',
 }
 ACTIONS_TR = {
@@ -134,12 +134,13 @@ def domain_data(domain_row, text, since, until):
     looks.sort(key=lambda r: (order.get(r.risk, 3), r.name))
     scores = [s.score for s in snapshots if s.score is not None]
     from services.business_compliance import view as kvkk_view
+    from services.business_exposure import view as exposure_view
     from services.business_uptime import summary as uptime_summary
     return {'domain': domain_row.domain, 'results': results, 'rows': check_rows(results, text) if latest else [],
             'average': round(sum(scores) / len(scores)) if scores else None, 'runs': len(snapshots),
             'weeks': sorted(weeks.items()), 'events': lines, 'lookalikes': looks,
             'uptime': uptime_summary(domain_row.id, days=(until - since).days or 30, now=until),
-            'kvkk': kvkk_view(domain_row.id, text)}
+            'kvkk': kvkk_view(domain_row.id, text), 'exposure': exposure_view(domain_row.id, text)}
 
 
 def actions_for(domains, lang):
@@ -152,6 +153,10 @@ def actions_for(domains, lang):
                 template = table.get((check, (item or {}).get('state')))
                 if template and item.get('state') == severity:
                     todo.append(template.format(domain=data['domain']))
+    # Exposed files lead the list: a public .env or database dump is the most urgent thing in the report.
+    exposed = [f"{data['domain']}{item['path']}: {item['fix']}" for severity in ('bad', 'warn') for data in domains
+               for item in ((data.get('exposure') or {}).get('items') or []) if item['state'] == severity]
+    todo[:0] = exposed
     legal = KVKK_ACTION_TR if lang == 'tr' else KVKK_ACTION
     for data in domains:
         for name, state, _ in ((data.get('kvkk') or {}).get('rows') or []):
@@ -226,6 +231,12 @@ def generate_business_report(workspace, lang='tr', now=None):
             story += [KeepTogether([SubHeader(t('Current checks'), COLORS['accent']), checks_table(checks, t)]), Spacer(1, 16)]
         else:
             story += [Paragraph(esc(t('No monitoring run in this period yet.')), st['muted']), Spacer(1, 12)]
+        exposed = data.get('exposure')
+        if exposed and exposed.get('items'):
+            checks = [{'name': f"{item['name']} ({item['path']})", 'state': item['state'], 'result': item['fix']} for item in exposed['items']]
+            story += [KeepTogether([SubHeader(t('Exposed files'), COLORS['red']), checks_table(checks, t)]), Spacer(1, 16)]
+        elif exposed:
+            story += [Paragraph(esc(t('Exposed files') + ': ' + t('none found')), st['body']), Spacer(1, 10)]
         legal = data.get('kvkk')
         if legal and legal.get('rows'):
             checks = [{'name': name, 'state': state, 'result': value} for name, state, value in legal['rows']]

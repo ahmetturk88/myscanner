@@ -45,6 +45,7 @@
   .bzm-when{font:12.5px var(--mono);color:var(--dim);padding-top:2px}
   .bzl,.bzk{padding-top:6px;border-top:1px solid var(--line)}
   .bzm-rows .info .bzm-dot{background:var(--cyan)}
+  .bzm-rows code{font:12.5px var(--mono);color:#fecdd3;margin-left:6px}
   .bzu{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-radius:14px;border:1px solid rgba(74,222,128,.35);background:rgba(74,222,128,.06)}
   .bzu strong{color:#dcfce7;font-size:15px}.bzu small{font:13px var(--mono);color:var(--dim)}
   .bzu-dot{width:11px;height:11px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(74,222,128,.15)}
@@ -167,6 +168,14 @@
           <p>{{ t.verified_note }}</p>
           <p class="bzp-meta">{{ t.never_run }}</p>
           {% endif %}
+          <div class="bzk">
+            <strong>{{ t.exposure_title }}</strong>
+            {% set x = d.exposure %}
+            {% if x and x['items'] %}
+            <ul class="bzm-rows" style="margin-top:10px">{% for item in x['items'] %}<li class="{{ item.state }}"><span class="bzm-dot"></span><strong>{{ item.name }} <code>{{ item.path }}</code></strong><small>{{ item.fix }}</small></li>{% endfor %}</ul>
+            {% elif x %}<p class="bzp-meta" style="margin-top:6px">{{ t.exposure_none.format(count=x.checked, when=x.when.strftime('%d.%m.%Y')) }}</p>
+            {% else %}<p class="bzp-meta" style="margin-top:6px">{{ t.exposure_pending }}</p>{% endif %}
+          </div>
           <div class="bzk">
             <strong>{{ t.kvkk_title }}</strong>
             {% if d.kvkk %}

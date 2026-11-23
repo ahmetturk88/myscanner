@@ -1,4 +1,3 @@
-import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -11,6 +10,7 @@ import { Button, ErrorText, Field } from '@/components/ui';
 import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { lang, t } from '@/lib/i18n';
+import { openLink } from '@/lib/open-link';
 import { colors, fonts } from '@/lib/theme';
 
 /** The website's sign-in page: the brand panel, then the sign-in form. */
@@ -35,7 +35,7 @@ export default function Login() {
     try { await signInWith(provider); } catch (e: any) { setError(e.message); } finally { setProviderBusy(null); }
   }
 
-  const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}${path.includes('?') ? '&' : '?'}lang=${lang()}`);
+  const open = (path: string) => openLink(`${SITE}${path}${path.includes('?') ? '&' : '?'}lang=${lang()}`);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

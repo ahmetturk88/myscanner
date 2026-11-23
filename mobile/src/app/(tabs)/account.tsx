@@ -1,7 +1,6 @@
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -12,6 +11,7 @@ import { Screen } from '@/components/screen';
 import { api, SITE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { lang, t, upper } from '@/lib/i18n';
+import { openLink } from '@/lib/open-link';
 import { colors, fonts, gradients, tone } from '@/lib/theme';
 
 function Stat({ label, value, color, icon, index }: { label: string; value?: number; color: string; icon: IconName; index: number }) {
@@ -50,7 +50,7 @@ export default function Account() {
   ]), [refresh]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   if (!user) return null;
-  const open = (path: string) => WebBrowser.openBrowserAsync(`${SITE}${path}${path.includes('?') ? '&' : '?'}lang=${lang()}`);
+  const open = (path: string) => openLink(`${SITE}${path}${path.includes('?') ? '&' : '?'}lang=${lang()}`);
   const count = (level: string) => scans?.filter((x) => tone(x.verdict) === level).length;
 
   return (

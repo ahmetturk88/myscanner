@@ -1,6 +1,5 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { Platform, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
@@ -9,6 +8,7 @@ import { Screen } from '@/components/screen';
 import { SITE } from '@/lib/api';
 import * as Haptics from '@/lib/haptics';
 import { lang, t, upper } from '@/lib/i18n';
+import { openLink } from '@/lib/open-link';
 import { setReminders } from '@/lib/reminders';
 import { type Language, updateSettings, useSettings } from '@/lib/settings';
 import { colors, fonts } from '@/lib/theme';
@@ -52,7 +52,7 @@ function Toggle({ icon, label, hint, value, onChange, last }: { icon: IconName; 
 function Link({ icon, label, path, last }: { icon: IconName; label: string; path: string; last?: boolean }) {
   // Open the page in the app's language (the Turkish privacy page is the KVKK notice).
   return (
-    <PressableScale scale={0.98} onPress={() => WebBrowser.openBrowserAsync(`${SITE}${path}?lang=${lang()}`)} style={[s.row, !last && s.line]}>
+    <PressableScale scale={0.98} onPress={() => openLink(`${SITE}${path}?lang=${lang()}`)} style={[s.row, !last && s.line]}>
       <View style={s.icon}><Icon name={icon} size={17} color={colors.cyan} /></View>
       <Text style={[s.label, { flex: 1 }]}>{label}</Text>
       <Icon name="external" size={15} color={colors.faint} />

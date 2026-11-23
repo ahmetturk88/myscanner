@@ -9,6 +9,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { ApiError, SITE } from '@/lib/api';
 import { t } from '@/lib/i18n';
+import { isNoBrowser } from '@/lib/open-link';
 
 const toBase64Url = (base64: string) => base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -25,7 +26,13 @@ export async function providerSignIn(provider: string) {
   const challenge = toBase64Url(await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, { encoding: Crypto.CryptoEncoding.BASE64 }));
   const redirect = Linking.createURL('auth');
   const start = `${SITE}/api/mobile/v1/auth/oauth/${provider}?redirect=${encodeURIComponent(redirect)}&challenge=${challenge}`;
-  const result = await WebBrowser.openAuthSessionAsync(start, redirect);
+  let result: WebBrowser.WebBrowserAuthSessionResult;
+  try {
+    result = await WebBrowser.openAuthSessionAsync(start, redirect);
+  } catch (error) {
+    if (isNoBrowser(error)) throw new ApiError(t('Google and GitHub sign-in need a web browser on your phone. Install or turn one on (for example Chrome), or sign in with your email and password.'), 0);
+    throw error;
+  }
   if (result.type !== 'success') throw new ApiError(t('Sign-in was cancelled.'), 0);
   const { queryParams } = Linking.parse(result.url);
   const error = queryParams?.error;

@@ -29,6 +29,35 @@ def delete_account(user_id):
         model.query.filter_by(user_id=user_id).delete(synchronize_session=False)
     LogEntry.query.filter((LogEntry.user_id == user_id) | (LogEntry.username == username)).delete(synchronize_session=False)
     ProInterest.query.filter((ProInterest.user_id == user_id) | (ProInterest.email == (user.email or '').strip().lower())).delete(synchronize_session=False)
+    _delete_business_data(user_id, (user.email or '').strip().lower())
     db.session.delete(user)
     db.session.commit()
     return True
+
+
+def _delete_business_data(user_id, email):
+    """Owned workspaces with everything under them, memberships, invitations, Telegram link and pilot sign-up.
+
+    The database cascades these too; deleting them here keeps the result the same on every database.
+    """
+    from models import (BusinessChat, BusinessDomain, BusinessEvent, BusinessLead, BusinessLookalike, BusinessMember,
+                        BusinessSnapshot, BusinessUptimeDay, BusinessWorkspace)
+    workspaces = [row.id for row in BusinessWorkspace.query.filter_by(owner_id=user_id).with_entities(BusinessWorkspace.id)]
+    if workspaces:
+        domains = [row.id for row in BusinessDomain.query.filter(BusinessDomain.workspace_id.in_(workspaces))
+                   .with_entities(BusinessDomain.id)]
+        if domains:
+            for model in (BusinessEvent, BusinessLookalike, BusinessUptimeDay, BusinessSnapshot):
+                model.query.filter(model.domain_id.in_(domains)).delete(synchronize_session=False)
+            BusinessDomain.query.filter(BusinessDomain.id.in_(domains)).delete(synchronize_session=False)
+        BusinessMember.query.filter(BusinessMember.workspace_id.in_(workspaces)).delete(synchronize_session=False)
+        BusinessWorkspace.query.filter(BusinessWorkspace.id.in_(workspaces)).delete(synchronize_session=False)
+    member = BusinessMember.user_id == user_id
+    if email:
+        member = member | (BusinessMember.email == email)
+    BusinessMember.query.filter(member).delete(synchronize_session=False)
+    BusinessChat.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    lead = BusinessLead.user_id == user_id
+    if email:
+        lead = lead | (BusinessLead.email == email)
+    BusinessLead.query.filter(lead).delete(synchronize_session=False)

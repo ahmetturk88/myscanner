@@ -9,7 +9,7 @@
 
 {% set sections = [
   ('summary','Kısaca'),('who','Veri sorumlusu'),('collect','İşlenen kişisel veriler'),('use','Amaçlar ve hukuki sebepler'),
-  ('scans','Taradıklarınıza ne olur'),('third','Aktarım ve hizmet sağlayıcılar'),('cookies','Çerezler ve depolama'),
+  ('scans','Taradıklarınıza ne olur'),('business','İşletme izleme'),('third','Aktarım ve hizmet sağlayıcılar'),('cookies','Çerezler ve depolama'),
   ('retention','Saklama süreleri'),('rights','KVKK kapsamındaki haklarınız'),('apply','Başvuru yöntemi'),('security','Veri güvenliği'),
   ('children','Çocuklar'),('changes','Değişiklikler'),('contact','İletişim')
 ] %}
@@ -23,7 +23,7 @@
     <h1>Verileriniz, <em>açık ve anlaşılır.</em></h1>
     <p class="pg-lead" style="font-size:18px">MyScanner'ı kanıt göstermek için kurduk, veri toplamak için değil. Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) 10. maddesi uyarınca hangi verileri, neden işlediğimizi, kimlere aktardığımızı ve haklarınızı açıklar.</p>
     <div class="legal-meta">
-      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Yürürlük: 23 Ekim 2026</span>
+      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Yürürlük: 24 Kasım 2026</span>
       <span class="pg-chip"><span class="pg-ic ic-clock"></span>Yaklaşık 9 dakikalık okuma</span>
       <button class="pg-mini" type="button" data-print style="margin:0"><span class="pg-ic ic-file"></span><span>Yazdır veya PDF olarak kaydet</span></button>
     </div>
@@ -92,22 +92,36 @@
         <p>Lütfen paylaşma yetkiniz olmayan içerikleri (ör. gizli belgeler veya sır içeren bağlantılar) taramayın.</p>
       </section>
 
+      <section id="business">
+        <h2><span>06</span>İşletme izleme (pilot)</h2>
+        <p>MyScanner İşletme, bir şirketin kendi web sitesini ve markasını izler. Yalnızca davetle katılınan bir pilottur; aşağıdakiler yalnızca siz veya ekibiniz kullanıyorsanız geçerlidir.</p>
+        <ul>
+          <li><strong>Sakladıklarımız:</strong> çalışma alanının adı, eklediğiniz alan adları ve doğrulama belirteçleri, ekip üyelerinizin e-posta adresleri (henüz kabul edilmemiş davetler dahil), uyarı ayarlarınız ve Telegram'ı bağlarsanız Telegram sohbetinizin sayısal kimliği. Telefon numaranızı asla istemeyiz.</li>
+          <li><strong>Yalnızca size ait olduğunu doğruladığınız alan adları</strong> kontrol edilir. Haftalık olarak herkese açık DNS ve e-posta güvenliği kayıtları, TLS sertifikası ve kara liste durumu, KVKK ve yasal sayfalar kontrolü için birkaç herkese açık sayfası (ana sayfa ve sitenin kendi yasal sayfalarından en fazla altısı) ve herkese açık olmaması gereken dosyaları bulmak için iyi bilinen yaklaşık 17 adres (ör. <code>/.env</code> veya <code>/.git/config</code>) okunur. Bu adreslerde en fazla 4 KB okunur, içerik asla saklanmaz (yalnızca hangi adresin yanıt verdiği) ve hiçbir zaman giriş denenmez. Sitenin açık olup olmadığını izlemek için ana sayfa ayrıca 5 dakikada bir istenir.</li>
+          <li><strong>Benzer alan adları:</strong> herkese açık Sertifika Şeffaflığı kayıtlarında ve DNS'te sizinkine benzeyen adları ararız; bulduklarımızın herkese açık kayıt ve barındırma bilgilerine (RDAP) bakarak kötüye kullanım iletişim adreslerini gösteririz. Onlarla asla iletişime geçmeyiz; kaldırma bildirimleri, sizin kendi e-postanızdan göndereceğiniz taslaklardır.</li>
+          <li><strong>Sonuçlar</strong> (kontrol kayıtları, değişiklikler, erişilebilirlik sayıları ve benzer alan adları listesi) çalışma alanının sahibi ve üyeleri tarafından görülebilir; uyarılar ve aylık rapor için kullanılır.</li>
+          <li><strong>Uyarılar</strong> Resend üzerinden e-postayla ve bağlarsanız Telegram üzerinden gönderilir. Telegram uyarısı alan adını ve değişikliği içerir; Telegram'ın ilettiği mesajlara Telegram'ın kendi gizlilik politikası uygulanır. Durdurmak için bota <code>/stop</code> yazın veya bağlantıyı çalışma alanından kaldırın.</li>
+          <li><strong>Pilot ön kayıt listesi:</strong> işletme sayfasında bıraktığınız e-posta, web sitesi ve sektör yalnızca pilotla ilgili sizinle iletişim kurmak için kullanılır.</li>
+        </ul>
+      </section>
+
       <section id="third">
-        <h2><span>06</span>Aktarım ve hizmet sağlayıcılar</h2>
+        <h2><span>07</span>Aktarım ve hizmet sağlayıcılar</h2>
         <p>Bazı kontroller, incelenen öğenin kendisini (ör. bir URL, alan adı, IP adresi veya dosya özeti) dış bir hizmete gönderir. Bu hizmetler hesap bilgilerinizi almaz. Hizmeti sunabilmek için kişisel verileriniz aşağıdaki hizmet sağlayıcılara aktarılabilir:</p>
         <table class="legal-table">
           <thead><tr><th>Sağlayıcı</th><th>Amaç</th></tr></thead>
           <tbody>
             <tr><td>netcup GmbH (Almanya)</td><td>AB'de sunucu barındırma.</td></tr>
             <tr><td>Cloudflare</td><td>Alan adı hizmeti, adreslerimize gelen e-postaların yönlendirilmesi ve şifreli veritabanı yedeklerinin saklanması (şifreyi çözecek anahtar yalnızca bizdedir).</td></tr>
-            <tr><td>Resend</td><td>Hesap e-postalarının gönderimi (doğrulama, parola sıfırlama, bildirimler).</td></tr>
+            <tr><td>Resend</td><td>Hesap e-postalarının (doğrulama, parola sıfırlama, bildirimler) ve işletme izleme uyarıları ile aylık raporların gönderimi.</td></tr>
+            <tr><td>Telegram</td><td>Yalnızca bir Telegram sohbeti bağlarsanız işletme izleme uyarıları. Telegram uyarı metnini alır.</td></tr>
             <tr><td>Google, GitHub</td><td>İsteğe bağlı sosyal giriş.</td></tr>
             <tr><td>abuse.ch (URLhaus, MalwareBazaar)</td><td>URL ve dosya özetleri için itibar sorguları.</td></tr>
             <tr><td>Oltalama veritabanları (ör. PhishTank)</td><td>URL'lerin oltalama itibarı.</td></tr>
             <tr><td>Google (Web Risk)</td><td>Taranan URL'nin, taranan bir dosyanın içinde bulunan bir bağlantının (dosya başına en fazla beş), bir web sitesi kontrol edilirken bulunan bir sayfa ya da bağlantının (kontrol başına en fazla on üç) ya da kontrol edilen e-posta adresinin alan adının Google'ın oltalama, zararlı yazılım ve istenmeyen yazılım listelerinde olup olmadığı. Yalnızca URL ya da alan adı gönderilir, dosyanın kendisi asla gönderilmez.</td></tr>
             <tr><td>AbuseIPDB</td><td>IP adresi itibarı. Ağ konumu kendi sunucumuzdaki DB-IP Lite veritabanından gelir; bunun için adres hiçbir yere gönderilmez.</td></tr>
             <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Yalnızca özet öneki ile parola sızıntı kontrolü (varsayılan olarak açık, kapatılabilir).</td></tr>
-            <tr><td>crt.sh, Google Public DNS, kayıt kuruluşları (RDAP/WHOIS)</td><td>Sertifika geçmişi, DNS ve alan adı kayıt bilgileri.</td></tr>
+            <tr><td>crt.sh, Google Public DNS, kayıt kuruluşları (RDAP/WHOIS, rdap.org)</td><td>Sertifika geçmişi, DNS ve alan adı kayıt bilgileri; işletme izlemesinde benzer alan adı araması dahil.</td></tr>
             <tr><td>Google (Gemini API), Groq</td><td>Yalnızca siz istediğinizde yapay zekâ açıklamaları ve soruların yanıtlanması. Raporun bulgularını (sırlar ve görseller çıkarılmış olarak), sorularınızı ve aynı konuşmadaki önceki mesajları alır; hesap bilgilerinizi almaz. Ücretsiz katmanlarda Google bu içeriği ürünlerini geliştirmek için kullanabilir; bu nedenle sorularınıza kişisel bilgi eklemeyin.</td></tr>
             <tr><td>Sentry (Functional Software, Inc.)</td><td>Sunucularımızda bir hata oluştuğunda hata türü, mesajı ve kod konumu. İstek içerikleri, çerezler, hesap bilgileri ve saklanan değerler gönderilmez; ancak bir hata mesajı kontrol edilen adresi içerebilir.</td></tr>
             <tr><td>Google Fonts, cdnjs</td><td>Sayfalarımızı görüntülerken tarayıcınızın yüklediği yazı tipleri ve simgeler.</td></tr>
@@ -118,7 +132,7 @@
       </section>
 
       <section id="cookies">
-        <h2><span>07</span>Çerezler ve depolama</h2>
+        <h2><span>08</span>Çerezler ve depolama</h2>
         <ul>
           <li><strong>Oturum çerezi:</strong> oturumunuzu açık tutar. Zorunludur.</li>
           <li><strong>“Beni hatırla” çerezi:</strong> yalnızca siz seçerseniz.</li>
@@ -132,7 +146,7 @@
       </section>
 
       <section id="retention">
-        <h2><span>08</span>Saklama süreleri</h2>
+        <h2><span>09</span>Saklama süreleri</h2>
         <ul>
           <li><strong>Hesap ve raporlar:</strong> hesabınız var olduğu sürece. İstediğiniz zaman silebilirsiniz.</li>
           <li><strong>Sayfa önizlemeleri:</strong> 30 gün sonra otomatik olarak silinir.</li>
@@ -141,12 +155,13 @@
           <li><strong>Sunucu kayıtları:</strong> güvenlik amacıyla sınırlı bir süre tutulur ve otomatik olarak döndürülür.</li>
           <li><strong>Yedekler:</strong> günlük veritabanı yedekleri sunucumuzda 14 gün, depolama sağlayıcımızda şifreli kopya olarak 30 gün tutulur. Sildiğiniz veriler yedekler yenilendikçe kaybolur.</li>
           <li><strong>İletişim mesajları:</strong> talebiniz sonuçlanana kadar gereken süre boyunca.</li>
+          <li><strong>İşletme izleme:</strong> çalışma alanı verileri ve kontrol geçmişi çalışma alanı var olduğu sürece saklanır ve sahibinin hesabıyla birlikte silinir. Bir üyenin erişimi ve bekleyen bir davet, sahip onları kaldırdığında veya o kişi hesabını sildiğinde sona erer. Pilot ön kaydınız hesabınızla birlikte veya talep ettiğinizde silinir.</li>
         </ul>
         <p>Süresi dolan veriler silinir, yok edilir veya anonim hâle getirilir.</p>
       </section>
 
       <section id="rights">
-        <h2><span>09</span>KVKK kapsamındaki haklarınız</h2>
+        <h2><span>10</span>KVKK kapsamındaki haklarınız</h2>
         <p>KVKK'nın 11. maddesi uyarınca bize başvurarak:</p>
         <ul>
           <li>kişisel verilerinizin işlenip işlenmediğini öğrenme,</li>
@@ -164,28 +179,28 @@
       </section>
 
       <section id="apply">
-        <h2><span>10</span>Başvuru yöntemi</h2>
+        <h2><span>11</span>Başvuru yöntemi</h2>
         <p>Haklarınıza ilişkin taleplerinizi, Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ'e uygun olarak, hesabınızda kayıtlı e-posta adresinden <a href="mailto:info@myscanners.com">info@myscanners.com</a> adresine gönderebilirsiniz. Başvurunuzda adınızı, soyadınızı, iletişim bilginizi ve talebinizi açıkça belirtin.</p>
         <p>Başvurunuzu en geç <strong>30 gün</strong> içinde ücretsiz olarak sonuçlandırırız; işlemin ayrıca bir maliyet gerektirmesi hâlinde Kişisel Verileri Koruma Kurulunca belirlenen tarifedeki ücret alınabilir. Başvurunuzun reddedilmesi, cevabı yetersiz bulmanız veya süresinde cevap verilmemesi hâlinde Kişisel Verileri Koruma Kuruluna şikâyette bulunabilirsiniz.</p>
       </section>
 
       <section id="security">
-        <h2><span>11</span>Veri güvenliği</h2>
+        <h2><span>12</span>Veri güvenliği</h2>
         <p>Parolalar bcrypt ile özetlenir; bağlantılar HTTPS kullanır; tarayıcılar iç sistemlere erişemeyen yalıtılmış bir ağda çalışır; raporlar ve önizlemeler yalnızca sahibine sunulur; giriş ve parola sıfırlama istekleri hız sınırlıdır ve parolanız değiştiğinde size e-posta ile bildirim gönderilir. Hiçbir sistem kusursuz değildir: bir güvenlik açığı bulursanız lütfen <a href="{{ url_for('contact', topic='Security Report') }}">bildirin</a>.</p>
       </section>
 
       <section id="children">
-        <h2><span>12</span>Çocuklar</h2>
+        <h2><span>13</span>Çocuklar</h2>
         <p>MyScanner 16 yaşından küçükler için tasarlanmamıştır ve bilerek onların verilerini toplamayız. Bir çocuğun hesap oluşturduğunu düşünüyorsanız bize ulaşın, hesabı sileriz.</p>
       </section>
 
       <section id="changes">
-        <h2><span>13</span>Değişiklikler</h2>
+        <h2><span>14</span>Değişiklikler</h2>
         <p>Uygulamalarımız değiştiğinde bu sayfayı güncelleriz ve yukarıdaki yürürlük tarihini değiştiririz. Önemli değişiklikleri oturum açmış kullanıcılara e-posta veya platform üzerinden bildiririz. Türkçe ve İngilizce metinler arasında fark olması hâlinde Türkiye'deki kullanıcılar için bu Türkçe metin esas alınır.</p>
       </section>
 
       <section id="contact">
-        <h2><span>14</span>İletişim</h2>
+        <h2><span>15</span>İletişim</h2>
         <p>Verilerinizle ilgili soru ve talepler: <a href="mailto:info@myscanners.com">info@myscanners.com</a> · <a href="{{ url_for('contact') }}">iletişim formu</a>. Ayrıca <a href="{{ url_for('terms') }}">Kullanım Koşulları</a>'na bakın.</p>
       </section>
     </article>

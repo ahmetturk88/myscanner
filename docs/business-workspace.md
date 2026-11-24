@@ -223,7 +223,8 @@ Next, in this order:
    the content, urgent alert with fix steps. Approved and built.
 6. **Visual fake-page detection**: compare a live look-alike's screenshot with the customer's own site (isolated
    browser already used by the link scanner); a copied design raises the risk to high.
-7. **Agency mode**: one agency account manages many client workspaces (resale channel).
+Dropped (2026-11-24): agency mode (one agency account managing many client workspaces). The plan is to open a
+company and sell directly, so no resale channel is built.
 
 Before testing all of them together: configure the Telegram bot (`docs` above), enable Google Web Risk, then deploy
 with `git pull --ff-only && python3 scripts/init_vps_stack.py && dc up -d --build`.

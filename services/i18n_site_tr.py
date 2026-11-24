@@ -113,6 +113,13 @@ SITE_TR = {
     'Check links, files, emails and domains, and see exactly what was found and what is still unknown.':
         'Bağlantıları, dosyaları, e-postaları ve alan adlarını kontrol et; neyin bulunduğunu ve neyin hâlâ bilinmediğini tam olarak gör.',
     'THE SECURITY EVIDENCE WORKSPACE': 'GÜVENLİK KANITI ÇALIŞMA ALANI',
+    'MYSCANNER FOR ANDROID': 'ANDROID İÇİN MYSCANNER',
+    'The same checks.': 'Aynı kontroller.',
+    'In your pocket.': 'Artık cebinde.',
+    'Scan links, QR codes, files and emails from your phone, read the same plain report and keep your history in one account.': 'Bağlantıları, QR kodları, dosyaları ve e-postaları telefonundan tara, aynı anlaşılır raporu oku ve geçmişini tek hesapta tut.',
+    'GET IT ON': 'HEMEN İNDİR',
+    'Free · Android · English and Turkish': 'Ücretsiz · Android · Türkçe ve İngilizce',
+    'Android app on Google Play': "Google Play'deki Android uygulaması",
     'Before you click.': 'Tıklamadan önce.',
     'Before you trust.': 'Güvenmeden önce.',
     'See the evidence.': 'Kanıtı gör.',

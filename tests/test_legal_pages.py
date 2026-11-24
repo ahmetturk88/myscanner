@@ -28,13 +28,13 @@ class LegalPageTests(unittest.TestCase):
         return BeautifulSoup(response.data, 'html.parser')
 
     def test_pages_render_for_anonymous_visitors_with_working_contents(self):
-        for path, title in (('/privacy', 'Privacy Policy'), ('/terms', 'Terms of Service')):
+        for path, title, count in (('/privacy', 'Privacy Policy', 14), ('/terms', 'Terms of Service', 13)):
             soup = self.soup(path)
             self.assertIn(title, soup.title.text)
             self.assertRegex(soup.text, r'Effective \d{1,2} [A-Z][a-z]+ 20\d\d')
             self.assertIn('info@myscanners.com', soup.text)
             anchors = [a['href'][1:] for a in soup.select('.legal-toc a')]
-            self.assertEqual(len(anchors), 13)
+            self.assertEqual(len(anchors), count)
             for anchor in anchors:
                 self.assertIsNotNone(soup.find(id=anchor), f'{path}#{anchor}')
 
@@ -44,7 +44,7 @@ class LegalPageTests(unittest.TestCase):
 
     def test_privacy_names_key_facts(self):
         text = self.soup('/privacy').text
-        for fact in ('bcrypt', 'k-anonymity', 'never executed', '30 days', '14 days', 'KVKK', 'Resend', 'netcup'):
+        for fact in ('bcrypt', 'k-anonymity', 'never executed', '30 days', '14 days', 'KVKK', 'Resend', 'netcup', 'Business monitoring', 'Telegram', 'never try to sign in'):
             self.assertIn(fact, text)
 
     def test_footer_register_and_contact_link_the_policies(self):

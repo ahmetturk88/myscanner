@@ -8,7 +8,7 @@
 
 {% set sections = [
   ('summary','At a glance'),('who','Who we are'),('collect','What we collect'),('use','How we use it'),
-  ('scans','What happens to what you scan'),('third','Services we rely on'),('cookies','Cookies & storage'),
+  ('scans','What happens to what you scan'),('business','Business monitoring'),('third','Services we rely on'),('cookies','Cookies & storage'),
   ('retention','How long we keep data'),('rights','Your rights'),('security','How we protect data'),
   ('children','Children'),('changes','Changes'),('contact','Contact')
 ] %}
@@ -22,7 +22,7 @@
     <h1>Your data, <em>explained plainly.</em></h1>
     <p class="pg-lead" style="font-size:18px">We built MyScanner to show evidence, not to collect it. This page explains what we keep, why, who else is involved and how to get it deleted.</p>
     <div class="legal-meta">
-      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Effective 23 October 2026</span>
+      <span class="pg-chip"><span class="pg-ic ic-calendar"></span>Effective 24 November 2026</span>
       <span class="pg-chip"><span class="pg-ic ic-clock"></span>About 8 minutes to read</span>
       <button class="pg-mini" type="button" data-print style="margin:0"><span class="pg-ic ic-file"></span><span>Print or save as PDF</span></button>
     </div>
@@ -86,22 +86,36 @@
         <p>Please do not scan content you are not allowed to share, such as private documents or links containing secrets.</p>
       </section>
 
+      <section id="business">
+        <h2><span>06</span>Business monitoring (pilot)</h2>
+        <p>MyScanner İşletme watches a company's own website and brand. It is an invitation-only pilot, and everything below applies only if you or your team use it.</p>
+        <ul>
+          <li><strong>What we store:</strong> the workspace name, the domains you add and their verification token, your team members' email addresses (including invitations not yet accepted), your alert settings and, if you link Telegram, the numeric chat ID of your Telegram chat. We never ask for a phone number.</li>
+          <li><strong>Only domains you prove are yours</strong> are checked. Weekly we read their public DNS and email-security records, TLS certificate and blocklist status, a few of their public pages (the home page and up to six of its own legal pages) for the legal pages checklist, and about 17 well-known addresses (such as <code>/.env</code> or <code>/.git/config</code>) to find files that should not be public. For those we read at most 4 KB, never store the content (only which address answered) and never try to sign in. To watch whether the site is up, its home page is also requested every 5 minutes.</li>
+          <li><strong>Look-alike domains:</strong> we search public Certificate Transparency logs and DNS for names that resemble yours, and look up public registration and hosting records (RDAP) of the ones we find to name their abuse contacts. We never contact them; takedown reports are drafts that you send yourself, from your own email.</li>
+          <li><strong>Results</strong> (check snapshots, changes, uptime counts and the look-alike list) are visible to the workspace owner and its members, and are used for alerts and the monthly report.</li>
+          <li><strong>Alerts</strong> go by email through Resend and, if you link it, by Telegram. A Telegram alert names the domain and the change; Telegram's own privacy policy applies to messages it delivers. Send <code>/stop</code> to the bot or unlink it in the workspace to stop them.</li>
+          <li><strong>Pilot sign-up list:</strong> the email, website and sector you leave on the business page are used only to contact you about the pilot.</li>
+        </ul>
+      </section>
+
       <section id="third">
-        <h2><span>06</span>Services we rely on</h2>
+        <h2><span>07</span>Services we rely on</h2>
         <p>Some checks send the specific item being inspected (for example a URL, domain, IP address or file hash) to an outside service. They do not receive your account details.</p>
         <table class="legal-table">
           <thead><tr><th>Provider</th><th>Purpose</th></tr></thead>
           <tbody>
             <tr><td>netcup GmbH (Germany)</td><td>Server hosting in the EU.</td></tr>
             <tr><td>Cloudflare</td><td>Domain name service, routing of mail sent to our addresses, and storage of encrypted database backups (only we hold the key to decrypt them).</td></tr>
-            <tr><td>Resend</td><td>Delivery of account emails (verification, password reset, notices).</td></tr>
+            <tr><td>Resend</td><td>Delivery of account emails (verification, password reset, notices) and business monitoring alerts and monthly reports.</td></tr>
+            <tr><td>Telegram</td><td>Business monitoring alerts, only if you link a Telegram chat. Telegram receives the alert text.</td></tr>
             <tr><td>Google, GitHub</td><td>Optional sign-in.</td></tr>
             <tr><td>abuse.ch (URLhaus, MalwareBazaar)</td><td>Reputation lookups for URLs and file hashes.</td></tr>
             <tr><td>Phishing databases (e.g. PhishTank)</td><td>Phishing reputation of URLs.</td></tr>
             <tr><td>Google (Web Risk)</td><td>Checks whether a scanned URL, a link found inside a scanned file (up to five per file), a page or link found while checking a website (up to thirteen per check), or the domain of a checked email address, is on Google's lists of phishing, malware and unwanted-software sites. Only the URL or domain is sent, never the file.</td></tr>
             <tr><td>AbuseIPDB</td><td>IP address reputation. Network location comes from the DB-IP Lite database on our own server, so the address is not sent anywhere for it.</td></tr>
             <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Password breach check (on by default, can be switched off) using a hash prefix only.</td></tr>
-            <tr><td>crt.sh, Google Public DNS, registries (RDAP/WHOIS)</td><td>Certificate history, DNS and registration data.</td></tr>
+            <tr><td>crt.sh, Google Public DNS, registries (RDAP/WHOIS, rdap.org)</td><td>Certificate history, DNS and registration data, including the search for look-alike domains in business monitoring.</td></tr>
             <tr><td>Google (Gemini API), Groq</td><td>Optional AI explanations, questions about a report and the site-wide AI assistant, only when you ask. They receive the report's findings (with secrets and images removed), your questions and the earlier messages of the same conversation, not your account details. On free service tiers, Google may use this content to improve its products, so do not include personal information in questions.</td></tr>
             <tr><td>Sentry (Functional Software, Inc.)</td><td>Error reports when something on our servers breaks: the error type, message and code location. Request contents, cookies, account details and stored values are not sent, though an error message can name the address being checked.</td></tr>
             <tr><td>Google Fonts, cdnjs</td><td>Fonts and icons loaded by your browser when you view our pages.</td></tr>
@@ -111,7 +125,7 @@
       </section>
 
       <section id="cookies">
-        <h2><span>07</span>Cookies &amp; storage</h2>
+        <h2><span>08</span>Cookies &amp; storage</h2>
         <ul>
           <li><strong>Session cookie:</strong> keeps you signed in. Strictly necessary.</li>
           <li><strong>“Keep me signed in” cookie:</strong> only if you choose it.</li>
@@ -125,7 +139,7 @@
       </section>
 
       <section id="retention">
-        <h2><span>08</span>How long we keep data</h2>
+        <h2><span>09</span>How long we keep data</h2>
         <ul>
           <li><strong>Account and reports:</strong> while your account exists. Ask us to delete it at any time.</li>
           <li><strong>Page previews:</strong> deleted automatically after 30 days.</li>
@@ -134,11 +148,12 @@
           <li><strong>Server logs:</strong> kept for a limited period for security and rotated automatically.</li>
           <li><strong>Backups:</strong> daily database backups are kept for 14 days on our server, and as encrypted copies with our storage provider for 30 days. Data you delete disappears from backups as they roll over.</li>
           <li><strong>Contact messages:</strong> kept as long as needed to handle your request.</li>
+          <li><strong>Business monitoring:</strong> workspace data and check history are kept while the workspace exists and are deleted with the owner's account. A member's access, and a pending invitation, end when the owner removes them or when that person deletes their account. Your pilot sign-up is deleted with your account or when you ask.</li>
         </ul>
       </section>
 
       <section id="rights">
-        <h2><span>09</span>Your rights</h2>
+        <h2><span>10</span>Your rights</h2>
         <p>Depending on where you live (including under the GDPR and Türkiye's KVKK), you can ask us to:</p>
         <ul>
           <li>tell you what data we hold about you and give you a copy;</li>
@@ -152,22 +167,22 @@
       </section>
 
       <section id="security">
-        <h2><span>10</span>How we protect data</h2>
+        <h2><span>11</span>How we protect data</h2>
         <p>Passwords are hashed with bcrypt; connections use HTTPS; scanners run in an isolated network that cannot reach internal systems; reports and previews are served only to their owner; sign-in and password-reset requests are rate-limited; and we change-notify you by email when your password changes. No system is perfectly secure: if you find a vulnerability, please <a href="{{ url_for('contact', topic='Security Report') }}">report it</a>.</p>
       </section>
 
       <section id="children">
-        <h2><span>11</span>Children</h2>
+        <h2><span>12</span>Children</h2>
         <p>MyScanner is not intended for children under 16, and we do not knowingly collect their data. If you believe a child has created an account, contact us and we will delete it.</p>
       </section>
 
       <section id="changes">
-        <h2><span>12</span>Changes</h2>
+        <h2><span>13</span>Changes</h2>
         <p>We will update this page when our practices change and change the effective date above. For significant changes we will notify signed-in users by email or on the platform.</p>
       </section>
 
       <section id="contact">
-        <h2><span>13</span>Contact</h2>
+        <h2><span>14</span>Contact</h2>
         <p>Questions or requests about your data: <a href="mailto:info@myscanners.com">info@myscanners.com</a> · <a href="{{ url_for('contact') }}">contact form</a>. See also our <a href="{{ url_for('terms') }}">Terms of Service</a>.</p>
       </section>
     </article>

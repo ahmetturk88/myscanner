@@ -77,6 +77,7 @@ from services.pdf_report_generator import generate_vulnerability_report
 # ================================================================
 app = Flask(__name__)
 app.jinja_env.globals['social_links'] = SOCIAL_LINKS
+app.jinja_env.globals['play_store_url'] = 'https://play.google.com/store/apps/details?id=com.myscanners.app'
 from services.error_reporting import init_error_reporting, report_exception
 init_error_reporting('web')
 from logging_config import setup_logging

@@ -427,6 +427,8 @@ def business_check_now(domain_id):
         if domain is None or domain.verified_at is None:
             return {'status': 'skipped'}
         run_domain(domain)
+        from services.business_monitor import run_first_checks
+        run_first_checks(domain)  # KVKK and exposed files, if this domain never had them
         try:  # names found before their facts were read (or whose lookup failed) get them now
             from services.business_lookalike import fill_missing_facts
             fill_missing_facts(domain)

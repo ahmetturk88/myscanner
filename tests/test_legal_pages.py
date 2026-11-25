@@ -44,12 +44,13 @@ class LegalPageTests(unittest.TestCase):
 
     def test_privacy_names_key_facts(self):
         text = self.soup('/privacy').text
-        for fact in ('bcrypt', 'k-anonymity', 'never executed', '30 days', '14 days', 'KVKK', 'Resend', 'netcup', 'Business monitoring', 'Telegram', 'never try to sign in'):
+        for fact in ('bcrypt', 'k-anonymity', 'never executed', '30 days', '14 days', 'KVKK', 'Resend', 'netcup', 'Business monitoring', 'Telegram', 'never try to sign in', 'Cookie policy'):
             self.assertIn(fact, text)
 
     def test_footer_register_and_contact_link_the_policies(self):
         footer = self.soup('/about').select_one('.shell-legal')
         self.assertTrue(footer.select('a[href="/privacy"]') and footer.select('a[href="/terms"]'))
+        self.assertTrue(footer.select('a[href="/privacy#cookies"]'))
         note = self.soup('/register').select_one('.auth-legal')
         self.assertTrue(note.select('a[href="/privacy"]') and note.select('a[href="/terms"]'))
         self.assertTrue(self.soup('/contact').select('form a[href="/privacy"]'))

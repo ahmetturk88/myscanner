@@ -248,6 +248,9 @@ def save_settings():
     workspace.alert_lang = lang if lang in ('tr', 'en') else 'tr'
     workspace.instant_alerts = request.form.get('instant_alerts') == 'on'
     workspace.daily_digest = request.form.get('daily_digest') == 'on'
+    name = ' '.join((request.form.get('company') or '').split())[:80]
+    if name:  # the company name signs reports, emails and the monthly PDF; empty keeps the current one
+        workspace.name = name
     from extensions import db
     db.session.commit()
     return _back('saved_flash')

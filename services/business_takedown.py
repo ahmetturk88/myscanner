@@ -126,9 +126,9 @@ def on_cloudflare(row, records):
 
 REASONS = {
     'en': {'brand': 'its page shows our brand name', 'asks': 'its page asks for a password or card details',
-           'new': 'it was registered only {days} days ago', 'live': 'it is online', 'dns': 'it is registered but shows no website yet'},
+           'new': 'it was registered only {days} days ago', 'live': 'the site is online', 'dns': 'it is registered but shows no website yet'},
     'tr': {'brand': 'sayfasında markamızın adı geçiyor', 'asks': 'sayfası şifre veya kart bilgisi istiyor',
-           'new': 'yalnızca {days} gün önce kaydedilmiş', 'live': 'yayında', 'dns': 'kayıtlı ama henüz web sitesi yok'},
+           'new': 'yalnızca {days} gün önce kaydedilmiş', 'live': 'site yayında', 'dns': 'kayıtlı ama henüz web sitesi yok'},
 }
 
 TEMPLATES = {
@@ -138,7 +138,7 @@ TEMPLATES = {
            'Evidence:\n'
            '- Look-alike address: {url}\n'
            '- Imitates: {own}\n'
-           '- Facts: {reasons}\n'
+           '- Observed: {reasons}\n'
            '{title_line}'
            '- Registered: {registered}\n'
            '- First seen by our monitoring: {first_seen}\n'
@@ -153,7 +153,7 @@ TEMPLATES = {
            'Kanıtlar:\n'
            '- Taklit adres: {url}\n'
            '- Taklit edilen: {own}\n'
-           '- Tespitler: {reasons}\n'
+           '- Gözlenen: {reasons}\n'
            '{title_line}'
            '- Kayıt tarihi: {registered}\n'
            '- İzlememizin ilk gördüğü tarih: {first_seen}\n'

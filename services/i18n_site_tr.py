@@ -105,6 +105,7 @@ SITE_TR = {
     '/ Built by Ahmed Sairafi in Istanbul': "/ Ahmed Sairafi tarafından İstanbul'da geliştirildi",
     'Privacy Policy': 'Gizlilik Politikası',
     'Terms of Service': 'Kullanım Koşulları',
+    'Cookie Policy': 'Çerez Politikası',
     'Inspect responsibly. Use authorized targets.': 'Sorumlu incele. Yalnızca yetkili olduğun hedefleri kullan.',
     'Back to top ↑': 'Başa dön ↑',
 

@@ -144,6 +144,32 @@ class RunTests(unittest.TestCase):
         self.assertIsNone(self.domain.verified_at)
         self.assertIsNone(monitor.run_domain(self.domain, probes(), now=T0 + timedelta(days=4)))
 
+    def test_daily_run_records_when_the_ownership_record_was_read(self):
+        monitor.run_domain(self.domain, probes(), now=T0 + timedelta(days=3))
+        self.assertEqual(self.domain.last_checked_at, T0 + timedelta(days=3))
+        broken = probes(ownership=lambda d: (_ for _ in ()).throw(OSError('dns down')))
+        monitor.run_domain(self.domain, broken, now=T0 + timedelta(days=4))
+        self.assertEqual(self.domain.last_checked_at, T0 + timedelta(days=3))  # not read: the date stays
+
+    def test_check_now_runs_kvkk_and_exposure_only_the_first_time(self):
+        calls = []
+
+        def fake(kind):
+            def run(domain):
+                calls.append(kind)
+                row = BusinessSnapshot(domain_id=domain.id, kind=kind, created_at=T0, results='{}')
+                db.session.add(row)
+                db.session.commit()
+                return row
+            return run
+
+        def broken(domain):
+            raise RuntimeError('site down')
+        self.assertEqual(monitor.run_first_checks(self.domain, compliance=fake('kvkk'), exposure=broken), ['kvkk'])
+        self.assertEqual(monitor.run_first_checks(self.domain, compliance=fake('kvkk'), exposure=fake('exposure')), ['exposure'])
+        self.assertEqual(monitor.run_first_checks(self.domain, compliance=fake('kvkk'), exposure=fake('exposure')), [])
+        self.assertEqual(calls, ['kvkk', 'exposure'])
+
     def test_due_domains(self):
         other = BusinessDomain(workspace_id=self.workspace.id, domain='other.com', token='cd' * 16, verified_at=T0,
                                monitored_at=T0 - timedelta(hours=2))

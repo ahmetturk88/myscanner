@@ -291,6 +291,8 @@ def run_domain(domain_row, probes=None, now=None):
             found.append(('proof_missing', 'warn', {'left': PROOF_GRACE - domain_row.proof_misses}))
     elif ownership == 'ok':
         domain_row.proof_misses = 0
+    if ownership in ('ok', 'warn'):  # the TXT record was actually read today
+        domain_row.last_checked_at = now
     for code, severity, params in found:
         db.session.add(BusinessEvent(domain_id=domain_row.id, snapshot_id=snapshot.id, created_at=now, code=code,
                                      severity=severity, params=json.dumps(params, ensure_ascii=False, sort_keys=True)))
@@ -382,6 +384,26 @@ def domain_view(domain_row, text):
     events = [dict(e, text=event_line(e, text)) for e in recent_events(domain_row.id)]
     return {'score': snapshot.score if snapshot else None, 'last_run': snapshot.created_at if snapshot else None,
             'rows': check_rows(results, text) if snapshot else [], 'events': [e for e in events if e['text']]}
+
+
+def run_first_checks(domain_row, compliance=None, exposure=None):
+    """The KVKK checklist and the exposed-files check for a domain that has never had them.
+
+    They normally ride along with the weekly inspection; "Check now" uses this so a new domain
+    does not wait a week for its first result. Returns the kinds that ran.
+    """
+    from services.business_compliance import run_compliance
+    from services.business_exposure import run_exposure
+    ran = []
+    for kind, run in (('kvkk', compliance or run_compliance), ('exposure', exposure or run_exposure)):
+        if latest_snapshot(domain_row.id, kind=kind) is not None:
+            continue
+        try:
+            if run(domain_row) is not None:
+                ran.append(kind)
+        except Exception:
+            db.session.rollback()
+    return ran
 
 
 # ------------------------------------------------------------------ weekly full site inspection

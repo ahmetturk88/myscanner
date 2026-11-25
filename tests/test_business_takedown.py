@@ -137,6 +137,9 @@ class TakedownTests(unittest.TestCase):
         html = page.get_data(as_text=True)
         soup = BeautifulSoup(html, 'html.parser')
         self.assertIn('Taklit siteyi kapattırın', html)
+        self.assertIn('Göndermeden önce kontrol edin', html)
+        expected = 'Bildirimi yalnızca site markanızı' if self.row.risk != 'high' else 'Bildirim yalnızca doğruysa'
+        self.assertIn(expected, html)
         self.assertIn('abuse@registrar.example', html)
         self.assertIn('hxxps://magazam-giris[.]com/', soup.find('textarea').text)
         self.assertEqual(soup.find('input', id='td-address')['value'], 'https://magazam-giris.com/')
@@ -147,6 +150,18 @@ class TakedownTests(unittest.TestCase):
         db.session.refresh(self.row)
         self.assertIsNotNone(self.row.reported_at)
         self.assertIn('Bildirildi:', owner.get('/isletme/panel?lang=tr').get_data(as_text=True))
+        # the company name the owner sets signs every report
+        token = BeautifulSoup(owner.get('/isletme/panel?lang=tr').get_data(as_text=True), 'html.parser').find(
+            'input', attrs={'name': 'csrf_token'})['value']
+        owner.post('/isletme/panel/settings', data={'csrf_token': token, 'alert_lang': 'tr', 'company': '  Magaza   A.Ş. '})
+        db.session.refresh(self.workspace)
+        self.assertEqual(self.workspace.name, 'Magaza A.Ş.')
+        page = owner.get(f'/isletme/panel/lookalikes/{self.row.id}/takedown?lang=tr').get_data(as_text=True)
+        self.assertIn('Saygılarımızla,\nMagaza A.Ş.', BeautifulSoup(page, 'html.parser').find_all('textarea')[-2].text)
+        owner.post('/isletme/panel/settings', data={'csrf_token': token, 'alert_lang': 'tr', 'company': '   '})
+        db.session.refresh(self.workspace)
+        self.assertEqual(self.workspace.name, 'Magaza A.Ş.')  # an empty field keeps the name
+
 
         member = self.person('member')
         db.session.add(BusinessMember(workspace_id=self.workspace.id, email='member@td.invalid', token='q' * 43,

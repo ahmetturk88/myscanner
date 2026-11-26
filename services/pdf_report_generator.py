@@ -482,7 +482,7 @@ def draw_cover(c, ctx):
     meta = [
         (ctx['t'](ctx.get('scanned_label', 'SCANNED')), ctx['scanned']),
         (ctx['t']('REPORT ID'), ctx['report_id']),
-        (ctx['t']('PREPARED FOR'), ctx['username']),
+        (ctx['t'](ctx.get('prepared_label', 'PREPARED FOR')), ctx['username']),
     ]
     for i, (lab, val) in enumerate(meta):
         x = bx + i * (mw + gap)

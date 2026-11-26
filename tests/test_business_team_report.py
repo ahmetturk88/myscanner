@@ -219,7 +219,7 @@ class TeamTests(unittest.TestCase):
 
         pdf = report.generate_business_report(self.workspace, 'tr', now=T0)
         text = ''.join(page.extract_text() for page in PdfReader(io.BytesIO(pdf.getvalue())).pages)
-        for expected in ('AYLIK GÜVENLİK RAPORU', 'Yapılacaklar', 'magazam-giris[.]com', 'Hafta hafta durum', 'yüksek', 'DÖNEM'):
+        for expected in ('AYLIK GÜVENLİK RAPORU', 'Yapılacaklar', 'magazam-giris[.]com', 'Hafta hafta durum', 'yüksek', 'DÖNEM', 'ŞİRKET', 'ALAN ADLARINIZ'):
             self.assertIn(expected, text)
         self.assertNotIn('magazam-giris.com', text)  # never a clickable imitation in the PDF
         self.assertTrue(report.generate_business_report(self.workspace, 'en', now=T0).getvalue().startswith(b'%PDF'))

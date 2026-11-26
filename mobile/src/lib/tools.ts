@@ -88,3 +88,19 @@ export function findLink(text: string) {
   const match = text.match(/https?:\/\/[^\s<>"']+/i);
   return match ? match[0].replace(/[).,;!?]+$/, '') : null;
 }
+
+/**
+ * Every link in a shared message, at most 10, in order and without repeats. Besides http(s) links it
+ * finds the forms scam texts use to avoid being linked: "www.site.com" and "site.com/path". Email
+ * addresses are not links. Nothing is opened; the result is only offered for scanning.
+ */
+export function findLinks(text: string) {
+  const found: string[] = [];
+  const pattern = /\b(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|(?<![@\w.-])(?:[a-z0-9-]+\.)+[a-z]{2,}\/[^\s<>"']*)/gi;
+  for (const match of text.matchAll(pattern)) {
+    const link = match[0].replace(/[).,;:!?'"]+$/, '');
+    if (link.length > 3 && !found.some((item) => item.toLowerCase() === link.toLowerCase())) found.push(link);
+    if (found.length === 10) break;
+  }
+  return found;
+}

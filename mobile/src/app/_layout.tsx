@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { DarkTheme, router, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
@@ -72,6 +73,16 @@ function Navigator() {
     handled.current = id;
     openReminder(lastResponse, true);
   }, [loaded, lastResponse, user]);
+  // Something shared from another app opens the "shared" screen, after sign-in if needed.
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+  useEffect(() => {
+    if (!loaded || !user || !hasShareIntent) return;
+    const image = (shareIntent.files ?? []).find((f) => f.mimeType?.startsWith('image/'))?.path ?? '';
+    const text = [shareIntent.text, shareIntent.webUrl].filter(Boolean).join('\n').slice(0, 4000);
+    resetShareIntent();
+    if (!text && !image) return;
+    router.push({ pathname: '/shared', params: { text, image: image && !/^[a-z]+:\/\//i.test(image) ? `file://${image}` : image } });
+  }, [loaded, user, hasShareIntent, shareIntent, resetShareIntent]);
   if (!loaded) return null;
   if (appUpdate.kind === 'required') return <UpdateRequired onUpdate={appUpdate.update} />;
   // Keyed by language: picking another language remounts every screen, so all text is drawn again in it.
@@ -86,6 +97,7 @@ function Navigator() {
           <Stack.Screen name="qr" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="delete-account" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="shared" options={{ animation: 'slide_from_bottom' }} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="login" options={{ animation: 'fade' }} />
@@ -100,10 +112,12 @@ function Navigator() {
 export default function RootLayout() {
   return (
     <ThemeProvider value={theme}>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <Navigator />
-      </AuthProvider>
+      <ShareIntentProvider options={{ resetOnBackground: false }}>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <Navigator />
+        </AuthProvider>
+      </ShareIntentProvider>
     </ThemeProvider>
   );
 }

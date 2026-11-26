@@ -18,7 +18,10 @@
   .mc-link code{font:13.5px var(--mono);color:#fbbf24;overflow-wrap:anywhere}
   .mc-link span{font-size:13px;color:#93a7bf}
   .mc-link .mc-state{margin-left:auto;font:12px var(--mono);letter-spacing:.06em}
-  .mc-state.bad{color:#fb7185}.mc-state.warn{color:#fbbf24}.mc-state.ok{color:#5eead4}.mc-state.na{color:#93a7bf}
+  .mc-state.bad{color:#fb7185}.mc-state.warn{color:#fbbf24}.mc-state.ok,.mc-state.official{color:#5eead4}.mc-state.na{color:#93a7bf}
+  .mc-help{margin-top:18px;padding:14px 16px;border-radius:14px;border:1px solid #6b2a3a;background:#1d0f17}
+  .mc-help summary{cursor:pointer;color:#fecdd3;font-weight:700;font-size:15px}
+  .mc-help ol{margin:12px 0 0;padding-left:22px;color:#e5d2d8;line-height:1.7;font-size:14.5px}
 </style>{% endblock %}
 {% block content %}
 <main class="site-workspace">
@@ -33,9 +36,15 @@
 <p id="mc-error" hidden class="site-error" role="alert"></p>
 <div id="mc-plain" class="rp" hidden></div>
 <section id="mc-extra" class="site-card" hidden>
+  <details class="mc-help" id="mc-help" hidden><summary>Already tapped the link, paid or shared a code?</summary><ol>
+    <li>Call your bank now on the number on your card or in its app, and ask them to block the card and stop the payment.</li>
+    <li>If you shared a code, change that account’s password and turn on two-step verification. For WhatsApp: Settings, Account, Two-step verification.</li>
+    <li>If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.</li>
+    <li>Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.</li>
+  </ol></details>
   <div class="mc-ai" id="mc-ai" hidden><h3>What the AI review says</h3><ul id="mc-ai-list"></ul></div>
   <details class="mc-read" id="mc-read" hidden><summary>Text read from the image (personal data hidden)</summary><p id="mc-read-text"></p></details>
   <div class="mc-links" id="mc-links" hidden><h3>Links in the message</h3><div id="mc-link-list"></div></div>
 </section>
 <div class="site-bottom"><article><b>01 / Links</b><p>Each link is looked up in Google Web Risk, URLhaus and our phishing list, without opening it.</p></article><article><b>02 / Tricks</b><p>Parcel fees, blocked accounts, prizes, refunds and requests for codes are the usual lures.</p></article><article><b>03 / What to do</b><p>When in doubt, contact the company through its official app or number, never through the message.</p></article></div>
-</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261126-2') }}" defer></script>{% endblock %}
+</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-1') }}" defer></script>{% endblock %}

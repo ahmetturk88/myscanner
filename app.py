@@ -1613,6 +1613,13 @@ def api_check_message():
         return jsonify(error='Paste the message: 1-6000 characters'), 400
     if image is None and not text.strip():
         return jsonify(error='Paste the message: 1-6000 characters'), 400
+    try:
+        consume_limit('message-check-minute', str(current_user.id), 5, 60)  # on top of the daily quota
+    except AuthRateLimited as error:
+        return jsonify(error='Too many checks in a row. Please wait a minute and try again.', code='too_fast'), 429, \
+            {'Retry-After': str(error.retry_after)}
+    except SQLAlchemyError:
+        return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
     failure = reserve_request_quota('message_check')
     if failure is not None:
         return failure
@@ -1622,8 +1629,10 @@ def api_check_message():
         except OCRError as error:
             messages = {'too_large': 'The image is too large (8 MB at most).', 'bad_image': 'Send a PNG, JPEG or WebP screenshot.',
                         'no_text': 'No text could be read in this image. Paste the message text instead.',
+                        'busy': 'Many screenshots are being read right now. Please try again in a moment.',
                         'unavailable': 'Reading images is unavailable right now. Paste the message text instead.'}
-            return jsonify(error=messages[str(error)], code=f'ocr_{error}'), 503 if str(error) == 'unavailable' else 400
+            status = {'unavailable': 503, 'busy': 429}.get(str(error), 400)
+            return jsonify(error=messages[str(error)], code=f'ocr_{error}'), status
         text = (text.strip() + '\n' + read).strip() if text.strip() else read
     try:
         from services.message_check import assess, redact

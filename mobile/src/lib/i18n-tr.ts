@@ -519,5 +519,11 @@ export const TR: Record<string, string> = {
   "What the AI review says": "Yapay zekâ incelemesi ne diyor",
   "Links in the message": "Mesajdaki bağlantılar",
   "Full report for this link": "Bu bağlantı için tam rapor",
+  "Official site": "Resmi site",
+  "Already tapped the link, paid or shared a code?": "Bağlantıya dokundun, ödeme yaptın ya da kod mu paylaştın?",
+  "Call your bank now on the number on your card or in its app, and ask them to block the card and stop the payment.": "Hemen kartının üzerindeki ya da uygulamasındaki numaradan bankanı ara; kartı kapatmalarını ve ödemeyi durdurmalarını iste.",
+  "If you shared a code, change that account’s password and turn on two-step verification. For WhatsApp: Settings, Account, Two-step verification.": "Bir kod paylaştıysan o hesabın şifresini değiştir ve iki adımlı doğrulamayı aç. WhatsApp için: Ayarlar, Hesap, İki adımlı doğrulama.",
+  "If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.": "Mesajdan bir uygulama yüklediysen uçak modunu aç, uygulamayı kaldır ve bankana haber ver.",
+  "Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.": "usom.gov.tr'ye bildir ve ekran görüntülerini sakla; para kaybettiysen polise ya da savcılığa şikâyette bulun.",
   "Text read from the image (personal data hidden)": "Görselden okunan metin (kişisel veriler gizli)",
 };

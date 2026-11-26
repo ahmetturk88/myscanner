@@ -27,9 +27,16 @@ import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
 type Shot = { uri: string; name: string; mimeType?: string | null };
-type Link = { link: string; shown: string; state: 'bad' | 'warn' | 'ok' | 'na' };
-const STATE = () => ({ bad: t('Listed as dangerous'), warn: t('Suspicious'), ok: t('Not listed'), na: t('Not checked') });
-const TONE = { bad: colors.red, warn: colors.amber, ok: colors.green, na: colors.faint };
+type Link = { link: string; shown: string; state: 'bad' | 'warn' | 'ok' | 'official' | 'na' };
+const STATE = () => ({ bad: t('Listed as dangerous'), warn: t('Suspicious'), ok: t('Not listed'), official: t('Official site'), na: t('Not checked') });
+const TONE = { bad: colors.red, warn: colors.amber, ok: colors.green, official: colors.green, na: colors.faint };
+/** What to do right away when the message already got to you. */
+const HELP = () => [
+  t('Call your bank now on the number on your card or in its app, and ask them to block the card and stop the payment.'),
+  t('If you shared a code, change that account’s password and turn on two-step verification. For WhatsApp: Settings, Account, Two-step verification.'),
+  t('If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.'),
+  t('Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.'),
+];
 
 /** QR codes in a screenshot, decoded on the phone. */
 async function codesIn(uri: string) {
@@ -45,6 +52,7 @@ export default function MessageCheck() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState<string | null>(null);
+  const [help, setHelp] = useState(false);
   const started = useRef(false);
 
   async function check(current = text, image = shot) {
@@ -93,7 +101,8 @@ export default function MessageCheck() {
     try { await startUrlScan(link); } catch (e: any) { setError(e.message); } finally { setScanning(null); }
   }
 
-  const again = () => { setResult(null); setText(''); setShot(null); setError(null); };
+  const again = () => { setResult(null); setText(''); setShot(null); setError(null); setHelp(false); };
+  const risky = result?.plain?.tone === 'danger' || result?.plain?.tone === 'caution';
   const links: Link[] = result?.links ?? [];
   const reasons: string[] = result?.plain?.ai_reasons ?? [];
 
@@ -125,6 +134,14 @@ export default function MessageCheck() {
       {busy ? <Working steps={[t('Reading the message'), t('Hiding personal data'), t('Checking the links'), t('Looking for scam tricks')]} every={2500} /> : null}
       {result && hasPlain(result.plain) ? (
         <PlainReport plain={result.plain} haptic plainShare again={{ label: t('Check another message'), onPress: again }}>
+          {risky ? (
+            <Animated.View entering={enter(5)} style={[s.card, s.help]}>
+              <Text onPress={() => setHelp(!help)} accessibilityRole="button" style={s.helpTitle}>
+                {help ? '▾ ' : '▸ '}{t('Already tapped the link, paid or shared a code?')}
+              </Text>
+              {help ? HELP().map((step, i) => <Text key={step} style={s.body}>{i + 1}. {step}</Text>) : null}
+            </Animated.View>
+          ) : null}
           {reasons.length ? (
             <Animated.View entering={enter(6)} style={s.card}>
               <Text style={s.title}>{t('What the AI review says')}</Text>
@@ -168,5 +185,7 @@ const s = StyleSheet.create({
   state: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 0.6 },
   picked: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.line },
   pickedText: { flex: 1, color: colors.soft, fontSize: 14, fontFamily: fonts.regular },
+  help: { borderColor: 'rgba(251,113,133,.45)', backgroundColor: 'rgba(40,14,24,.92)' },
+  helpTitle: { color: '#fecdd3', fontSize: 15.5, fontFamily: fonts.bold, paddingVertical: 4 },
   remove: { color: colors.cyan, fontSize: 14, fontFamily: fonts.semibold },
 });

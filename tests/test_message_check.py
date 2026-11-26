@@ -56,13 +56,15 @@ class EngineTests(unittest.TestCase):
 
         def ai(system, turns):
             seen.append(turns[0]['text'])
-            return 'Sure: {"verdict": "scam", "reasons": ["Gerçek PTT mesajı ücret istemez."], "actions": ["Linke tıklama."]}'
+            return 'Sure: {"verdict": "scam", "reasons": ["Gerçek PTT mesajı ücret istemez."], "actions": ["Linke tıkla."]}'
         result = mc.assess('Merhaba, yarın 0532 123 45 67 numaradan arar mısın?', language='tr', analyzer=FakeAnalyzer(), ai=ai)
         self.assertNotIn('123 45 67', seen[0])
         self.assertIn('[phone]', seen[0])
-        self.assertEqual(result['plain']['tone'], 'danger')  # rules said safe, the AI raised it
+        self.assertEqual(result['plain']['tone'], 'caution')  # rules said safe; without evidence the AI raises one step only
         self.assertEqual(result['plain']['ai_reasons'], ['Gerçek PTT mesajı ücret istemez.'])
-        self.assertEqual(result['plain']['actions'], ['Linke tıklama.'])
+        self.assertEqual(result['plain']['actions'], mc.ACTIONS['caution'])  # advice is always ours, never the AI's
+        strong = mc.assess('Hesabınız askıya alındı, lütfen bizi arayın.', analyzer=FakeAnalyzer(), ai=ai)
+        self.assertEqual(strong['plain']['tone'], 'danger')  # a strong sign found by the rules lets the AI go all the way
         mild = mc.assess(PARCEL, analyzer=FakeAnalyzer(), ai=lambda s, t: '{"verdict": "safe", "reasons": [], "actions": []}')
         self.assertEqual(mild['plain']['tone'], 'danger')  # parcel + fee + pressure + link: the AI can't lower it
 
@@ -72,6 +74,63 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(mc.assess('Toplantı saat 3te.', analyzer=FakeAnalyzer(), ai=lambda s, t: '{"verdict": "maybe"}')['ai'])
         caution = mc.assess('Tebrikler, çekilişi kazandınız!', analyzer=FakeAnalyzer(), ai=False)
         self.assertEqual(caution['plain']['tone'], 'caution')
+
+    def test_one_time_codes_are_masked(self):
+        for text in ('Doğrulama kodunuz 482913. Kimseyle paylaşmayın.', '482913 is your WhatsApp code', 'رمز التحقق 556677'):
+            masked, counts = mc.redact(text)
+            self.assertNotIn('482913', masked)
+            self.assertNotIn('556677', masked)
+            self.assertEqual(counts, {'code': 1})
+        self.assertEqual(mc.redact('Toplantı 2026 yılında, saat 1530')[1], {})
+
+    def test_a_real_code_message_is_not_a_scam_but_asking_for_the_code_is(self):
+        real = mc.assess('Garanti BBVA: Doğrulama kodunuz 482913. Kimseyle paylaşmayın.', analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual(real['plain']['tone'], 'safe')
+        self.assertEqual(real['plain']['actions'], mc.CODE_NOTICE_ACTIONS)
+        for text in ('Merhaba, yanlışlıkla sana bir kod gönderdim, gelen 6 haneli kodu bana atar mısın?',
+                     'Please send me the code I sent you by mistake', 'ابعتلي الكود اللي وصلك'):
+            self.assertEqual(mc.assess(text, analyzer=FakeAnalyzer(), ai=False)['plain']['tone'], 'danger', text)
+        self.assertEqual(mc.find_signals('Telefonunuza gelen kodu uygulamaya girin.'), [])
+
+    def test_debts_fines_and_official_addresses(self):
+        hgs = 'HGS geçiş ihlali nedeniyle 245 TL borcunuz bulunmaktadır. Ceza almamak için hemen ödeyin: hgs-odeme.com/tr'
+        self.assertEqual(mc.assess(hgs, analyzer=FakeAnalyzer(), ai=False)['plain']['tone'], 'danger')
+        real = mc.assess('PTT: Gönderiniz dağıtıma çıkmıştır. Takip: https://gonderitakip.ptt.gov.tr/Track?q=1', analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual((real['links'][0]['state'], real['plain']['tone']), ('official', 'safe'))
+        for host in ('ptt.gov.tr.kargo-takip.com', 'ptt-gov.tr', 'xptt.gov.tr.evil.com'):
+            self.assertFalse(mc.is_official(host), host)
+        listed = mc.assess('Takip: https://ptt.gov.tr/x', analyzer=FakeAnalyzer(listed={'ptt.gov.tr'}), ai=False)
+        self.assertEqual(listed['links'][0]['state'], 'bad')  # a threat list still wins over the name
+
+    def test_no_signs_only_when_every_link_was_looked_up(self):
+        many = mc.assess('a.com/1 b.com/2 c.com/3 d.com/4 e.com/5', analyzer=FakeAnalyzer(), ai=False)['plain']
+        self.assertEqual(many['tone'], 'unknown')
+        self.assertIn('We checked 3 of the 5 links.', [r['detail'] for r in many['reasons']])
+        self.assertEqual(many['checks'][0]['result'], '3 of 5 checked')
+
+        class Down(FakeAnalyzer):
+            def check_osint_sources(self, url):
+                raise TimeoutError
+        down = mc.assess('Bak: site.com/x', analyzer=Down(), ai=False)
+        self.assertEqual((down['links'][0]['state'], down['plain']['tone']), ('na', 'unknown'))
+
+    def test_ai_is_off_unless_switched_on(self):
+        asked = []
+        with patch.dict('os.environ', {'MESSAGE_CHECK_AI': ''}), patch('services.ai_assistant.enabled', return_value=True), \
+                patch('services.ai_assistant.stream', side_effect=lambda *a: asked.append(a) or iter(())):
+            result = mc.assess('Toplantı saat 3te.', analyzer=FakeAnalyzer())
+        self.assertEqual((asked, result['ai']), ([], False))
+        self.assertEqual(result['plain']['checks'][2]['result'], 'Off')
+        with patch.dict('os.environ', {'MESSAGE_CHECK_AI': '1'}):
+            self.assertTrue(mc.ai_switched_on())
+
+    def test_the_warning_to_share_never_carries_the_message(self):
+        plain = mc.assess(PARCEL, analyzer=FakeAnalyzer(listed={'ptt-kargo.info'}), ai=False)['plain']
+        self.assertEqual(plain['share_text'], mc.SHARE['danger'])
+        for part in ('ptt-kargo', '0532', 'Kargonuz'):
+            self.assertNotIn(part, plain['share_text'])
+        self.assertTrue(translate_plain(plain, 'tr')['share_text'].startswith('Dikkat:'))
+        self.assertEqual(mc.assess('Toplantı saat 3te.', analyzer=FakeAnalyzer(), ai=False)['plain']['share_text'], '')
 
     def test_report_reads_in_turkish(self):
         plain = mc.assess(PARCEL, analyzer=FakeAnalyzer(listed={'ptt-kargo.info'}), ai=False)['plain']
@@ -114,6 +173,25 @@ class OcrTests(unittest.TestCase):
         self.assertFalse(seen['path'].exists())
 
 
+    def test_animated_images_and_too_many_at_once_are_refused(self):
+        import io
+        from PIL import Image
+        from services import message_ocr as ocr
+        buffer = io.BytesIO()
+        Image.new('RGB', (60, 60), 'red').save(buffer, 'WEBP', save_all=True, append_images=[Image.new('RGB', (60, 60), 'blue')])
+        with self.assertRaises(ocr.OCRError) as caught:
+            ocr.read_text(buffer.getvalue(), run=lambda path: 'never')
+        self.assertEqual(str(caught.exception), 'bad_image')
+        with patch.object(ocr, '_SLOTS') as slots:
+            slots.acquire.return_value = False
+            with self.assertRaises(ocr.OCRError) as caught:
+                ocr.read_text(png(), run=lambda path: 'never')
+        self.assertEqual(str(caught.exception), 'busy')
+        command = ocr._command('/tmp/x.png')
+        if command[0].endswith('prlimit'):
+            self.assertIn(f'--as={ocr.MEMORY}', command)
+
+
 class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -124,6 +202,8 @@ class ApiTests(unittest.TestCase):
     def setUp(self):
         self.context = self.app.app_context()
         self.context.push()
+        from models import AuthRateLimit
+        AuthRateLimit.query.delete()  # the per-minute limit starts fresh for every test
         User.query.filter(User.email.like('%@msg.invalid')).delete(synchronize_session=False)
         db.session.commit()
         self.user = User(username='msguser', email='u@msg.invalid', password_hash='unused', is_verified=True)
@@ -185,6 +265,13 @@ class ApiTests(unittest.TestCase):
             refused = self.client.post('/api/check-message', data={'image': (io.BytesIO(png()), 'shot.png')},
                                        content_type='multipart/form-data', headers={'X-CSRFToken': token})
         self.assertEqual((refused.status_code, refused.get_json()['code']), (400, 'ocr_no_text'))
+
+    def test_five_checks_a_minute_at_most(self):
+        quiet = {'plain': {'tone': 'safe'}, 'links': []}
+        with patch('services.message_check.assess', return_value=quiet):
+            codes = [self.post({'text': 'Toplantı saat 3te.'}).status_code for _ in range(6)]
+        self.assertEqual(codes[:5], [200] * 5)
+        self.assertEqual(codes[5], 429)
 
     def test_the_app_reaches_it_as_a_tool(self):
         from routes.mobile_api import TOOLS

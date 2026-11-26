@@ -3,11 +3,24 @@
 
 {% block head_extra %}
 <meta name="robots" content="noindex">
+<script>
+/* Coming back from an action on this panel: keep the reader where they were, with no fade-in, so only the notice changes. */
+(function () {
+  try {
+    var y = sessionStorage.getItem('bzp-scroll');
+    if (y === null) return;
+    document.documentElement.classList.add('bzp-return');
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
 <script src="{{ url_for('static', filename='pages.js', v='20261031-1') }}" defer></script>
 <style>
   .bzp-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px;margin:20px 0 34px}
   .bzp-head p{max-width:680px;margin-top:12px}
+  .bzp-return .pg-reveal{opacity:1!important;transform:none!important;transition:none!important}
   .bzt{position:fixed;z-index:1200;top:96px;right:24px;width:min(400px,calc(100vw - 32px));display:flex;align-items:flex-start;gap:12px;padding:14px 14px 14px 16px;border-radius:16px;border:1px solid rgba(94,234,212,.4);background:rgba(10,24,38,.96);box-shadow:0 18px 50px rgba(0,0,0,.45);backdrop-filter:blur(10px);animation:bzt-in .28s ease-out}
   .bzt.error{border-color:rgba(251,191,36,.55)}
   .bzt p{margin:2px 0 0;flex:1;font-size:14.5px;line-height:1.55;color:#e3f1ff}
@@ -108,7 +121,7 @@
 {% block content %}
   {% if notice and (notice.startswith('error:') or notice in t) %}
     {% set failed = notice.startswith('error:') %}
-    <div class="bzt{{ ' error' if failed }}" id="bzt" role="{{ 'alert' if failed else 'status' }}" data-hide="{{ 12000 if failed else 6000 }}">
+    <div class="bzt{{ ' error' if failed }}" id="bzt" role="{{ 'alert' if failed else 'status' }}" data-hide="{{ 8000 if failed else 3500 }}">
       <span class="bzt-icon" aria-hidden="true">{{ '!' if failed else '✓' }}</span>
       <p>{{ t.errors.get(notice[6:], t.errors.dns_unavailable) if failed else t[notice] }}</p>
       <button type="button" class="bzt-close" aria-label="{{ t.close }}">×</button>
@@ -322,11 +335,29 @@
 {% include '_business_confirm.html' %}
 <script>
 (function () {
+  try {
+    var y = sessionStorage.getItem('bzp-scroll');
+    if (y !== null) {
+      sessionStorage.removeItem('bzp-scroll');
+      var to = parseInt(y, 10) || 0;
+      var restore = function () { window.scrollTo(0, to); };
+      restore();  // and again after the browser's own jump to the #section, which happens on load
+      window.addEventListener('load', function () { restore(); requestAnimationFrame(restore); });
+    }
+  } catch (e) {}
+  document.querySelectorAll('.pg form[method="post"]:not([target])').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      if (event.defaultPrevented) return;  // a confirmation is still open; it submits again when accepted
+      try { sessionStorage.setItem('bzp-scroll', String(Math.round(window.scrollY))); } catch (e) {}
+    });
+  });
+})();
+(function () {
   var toast = document.getElementById('bzt');
   if (!toast) return;
   var hide = function () { toast.classList.add('out'); setTimeout(function () { toast.remove(); }, 260); };
   toast.querySelector('.bzt-close').addEventListener('click', hide);
-  var timer = setTimeout(hide, parseInt(toast.dataset.hide, 10) || 6000);
+  var timer = setTimeout(hide, parseInt(toast.dataset.hide, 10) || 3500);
   toast.addEventListener('mouseenter', function () { clearTimeout(timer); });
 })();
 document.querySelectorAll('.bzp-copy').forEach(function (button) {

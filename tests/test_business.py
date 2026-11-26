@@ -166,6 +166,29 @@ class BusinessTests(unittest.TestCase):
             self.assertEqual(str(caught.exception), 'not_found_yet')
             self.assertIsNone(domain.verified_at)
 
+    def test_the_operator_hears_about_each_newly_verified_domain_once(self):
+        with self.app.app_context():
+            workspace = BusinessWorkspace(owner_id=self.ids['pilot'], name='Magaza')
+            db.session.add(workspace)
+            db.session.commit()
+            domain = business.add_domain(workspace, 'magazam.com')
+            proof = business.record_value(domain)
+            with patch('celery_app.require_broker'), patch('celery_app.celery.send_task') as send:
+                business.verify_domain(domain, lookup=lambda name: [proof])
+                business.verify_domain(domain, lookup=lambda name: [proof])  # already verified: no second notice
+            send.assert_called_once_with('business_admin_notice', args=[domain.id])
+            # the notice reaches administrators who linked Telegram, and nobody else
+            from models import BusinessChat
+            from services import business_telegram
+            db.session.add_all([BusinessChat(user_id=self.ids['bossadmin'], chat_id=501),
+                                BusinessChat(user_id=self.ids['stranger'], chat_id=502)])
+            db.session.commit()
+            sent = []
+            business_telegram.notify_admins('hello', call=lambda method, payload: sent.append(payload['chat_id']) or {})
+            self.assertEqual(sent, [501])
+            BusinessChat.query.delete()
+            db.session.commit()
+
     def test_another_company_cannot_touch_my_domain(self):
         with self.app.app_context():
             mine = BusinessWorkspace(owner_id=self.ids['pilot'], name='pilot')

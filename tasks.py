@@ -440,6 +440,21 @@ def business_check_now(domain_id):
         return {'status': 'done'}
 
 
+@celery.task(name='business_test_alert', soft_time_limit=60, time_limit=90)
+def business_test_alert(workspace_id, user_id):
+    """A test alert the owner asked for from the workspace settings."""
+    from app import app
+    from extensions import db
+    from models import BusinessWorkspace, User
+    from services.business_alerts import send_test
+    with app.app_context():
+        workspace = db.session.get(BusinessWorkspace, int(workspace_id))
+        user = db.session.get(User, int(user_id))
+        if workspace is None or user is None or workspace.owner_id != user.id:
+            return {'status': 'skipped'}
+        return {'status': 'done', **send_test(workspace, user)}
+
+
 @celery.task(name='business_weekly_due', soft_time_limit=1500, time_limit=1560)
 def business_weekly_due():
     """MyScanner İşletme: the weekly full site inspection, a few domains per hour."""

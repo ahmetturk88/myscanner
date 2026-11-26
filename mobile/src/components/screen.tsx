@@ -15,6 +15,9 @@ import { t, upper } from '@/lib/i18n';
 import { colors, fonts } from '@/lib/theme';
 import type { Tool } from '@/lib/tools';
 
+/** On tablets and foldables the content stays a readable column instead of stretching edge to edge. */
+const MAX_WIDTH = 760;
+
 /** Space the floating tab bar takes at the bottom of tab screens. */
 export const TAB_SPACE = 104;
 
@@ -75,7 +78,7 @@ export function Screen({ title, eyebrow, subtitle, back, right, children, tabs =
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <NetworkBackground />
       <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: top, paddingHorizontal: 18, paddingBottom: (tabs ? TAB_SPACE : 30) + insets.bottom, gap }}
+        contentContainerStyle={{ paddingTop: top, paddingHorizontal: 18, paddingBottom: (tabs ? TAB_SPACE : 30) + insets.bottom, gap, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' }}
         refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.cyan} colors={[colors.cyan]}
           progressBackgroundColor="#10233a" progressViewOffset={top} /> : undefined}>
         <Animated.View style={[{ gap: 6, transformOrigin: 'left' }, big]} entering={FadeIn.duration(400)}>

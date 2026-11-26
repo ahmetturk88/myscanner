@@ -110,7 +110,7 @@ SIGNALS = (
     ('payment', 2, r'\biban\b|\[IBAN\]|ödeme yap|ödeyin|ödeyiniz|ücret(?:i)? öde|gümrük (?:vergisi|ücreti)|ek ücret|hizmet bedeli|'
                    r'pay (?:a|the) fee|customs fee|transfer (?:the )?money|ادفع|رسوم|تحويل'),
     ('account', 2, r'hesab(?:ınız|iniz)?\s+(?:askıya|bloke|kapatıl|dondurul|kısıtlan)|kartınız\s+(?:bloke|iptal)|'
-                   r'account (?:has been )?(?:suspended|locked|blocked)|unusual activity|تم (?:إيقاف|تعليق) حسابك'),
+                   r'account (?:has been )?(?:suspended|locked|blocked)|unusual activity|şüpheli işlem|suspicious transaction|تم (?:إيقاف|تعليق) حسابك'),
     ('prize', 2, r'kazandınız|ödül|hediye çeki|çekiliş|ücretsiz (?:iphone|telefon)|you(?:\'ve| have)? won|prize|'
                  r'gift card|ربحت|جائزة|فزت'),
     ('parcel', 1, r'kargo(?:nuz)?|paket(?:iniz)?|teslimat|adres(?:iniz)? (?:eksik|hatalı)|gönderi(?:niz)?|\bptt\b|\baras kargo|yurtiçi|'
@@ -121,6 +121,7 @@ SIGNALS = (
     ('refund', 1, r'iade|e-?devlet|vergi iadesi|sgk|tazminat|refund|tax return|استرداد'),
     ('urgent', 1, r'son gün|hemen|acil|24 saat|bugün içinde|aksi halde|kapatılacak|iptal edilecek|urgent|immediately|'
                   r'within 24 hours|last chance|عاجل|فوراً|خلال 24'),
+    ('call', 1, r'\b(?:arayın|arayınız|arayiniz|arayin)\b|call (?:us|this number|the number|now|back)|اتصل (?:بنا|على|بالرقم)'),
     ('click', 1, r'tıkla(?:yın|yınız)?|linke gir|bağlantıya|click (?:here|the link)|اضغط|انقر'),
     ('bank', 1, r'\bbanka\b|ziraat|garanti|akbank|yapı kredi|iş ?bankası|halkbank|vakıfbank|qnb|enpara|papara|bank'),
 )
@@ -136,6 +137,7 @@ SIGNAL_TEXT = {
     'parcel': ('Talks about a parcel', 'Fake delivery notices are the most common scam text in Türkiye.'),
     'refund': ('Promises a refund', 'Fake e-Devlet, tax and insurance refunds are a common lure.'),
     'urgent': ('Puts you under time pressure', '“Today only” and “or your account will be closed” are pressure tactics.'),
+    'call': ('Asks you to call a number', 'Scammers often skip links and ask you to call, then talk you into a code or a transfer.'),
     'click': ('Pushes you to tap a link', 'The message is built around getting you to open the link.'),
     'bank': ('Mentions a bank', 'Scam texts often borrow a bank’s name; your bank’s app shows its real messages.'),
 }
@@ -250,6 +252,83 @@ def ai_opinion(masked, signals, links, language, ask=None):
 
 # ------------------------------------------------------------------ the verdict
 
+# ------------------------------------------------------------------ what to check, and where
+
+# Where to check the claim yourself: our own list, never an address from the message.
+# (key, what the message is about, official address or None, how to check it there)
+_EDEVLET = 'https://www.turkiye.gov.tr'
+_PARCEL_HOW = 'Track it with the number from your order, on the company’s own site or app.'
+_BANK_HOW = 'Open your bank’s own app, or call the number on the back of your card.'
+VERIFY = (
+    ('hgs', r'\bhgs\b|\bogs\b|geçiş ihlali|gecis ihlali|köprü (?:ve )?otoyol|ihlalli geçiş', 'HGS / OGS toll', _EDEVLET,
+     'Log in to e-Devlet yourself and search for “İhlalli Geçiş” to see any real toll debt.'),
+    ('fine', r'trafik cezas|traffic fine|مخالفة مرور', 'Traffic fine', _EDEVLET,
+     'Log in to e-Devlet yourself and search for “Trafik Cezası” to see any real fine.'),
+    ('court', r'\bicra\b|haciz|\buyap\b|mahkeme|savcılık|dava dosya', 'Court or enforcement case', _EDEVLET,
+     'Log in to e-Devlet yourself and search for “UYAP” to see any real case. Courts don’t collect money by SMS.'),
+    ('state', r'e-?devlet|vergi iade|\bsgk\b|\bgib\b|tazminat|tax refund', 'e-Devlet, tax or SGK', _EDEVLET,
+     'Real notices and refunds appear inside e-Devlet. Type turkiye.gov.tr yourself and log in there.'),
+    ('ptt', r'\bptt\b', 'PTT', 'https://gonderitakip.ptt.gov.tr', _PARCEL_HOW),
+    ('yurtici', r'yurt ?içi kargo|yurtici kargo', 'Yurtiçi Kargo', 'https://www.yurticikargo.com', _PARCEL_HOW),
+    ('aras', r'aras kargo', 'Aras Kargo', 'https://www.araskargo.com.tr', _PARCEL_HOW),
+    ('mng', r'\bmng\b', 'MNG Kargo', 'https://www.mngkargo.com.tr', _PARCEL_HOW),
+    ('surat', r'sürat kargo|surat kargo', 'Sürat Kargo', 'https://www.suratkargo.com.tr', _PARCEL_HOW),
+    ('trendyol', r'trendyol', 'Trendyol', 'https://www.trendyol.com', 'Check the order in the Trendyol app or site, opened yourself.'),
+    ('hepsiburada', r'hepsiburada', 'Hepsiburada', 'https://www.hepsiburada.com', 'Check the order in the Hepsiburada app or site, opened yourself.'),
+    ('ziraat', r'ziraat', 'Ziraat Bankası', 'https://www.ziraatbank.com.tr', _BANK_HOW),
+    ('garanti', r'garanti', 'Garanti BBVA', 'https://www.garantibbva.com.tr', _BANK_HOW),
+    ('akbank', r'akbank', 'Akbank', 'https://www.akbank.com', _BANK_HOW),
+    ('yapikredi', r'yapı ?kredi|yapi ?kredi', 'Yapı Kredi', 'https://www.yapikredi.com.tr', _BANK_HOW),
+    ('isbank', r'iş ?bankası|is ?bankasi|isbank', 'İş Bankası', 'https://www.isbank.com.tr', _BANK_HOW),
+    ('halkbank', r'halkbank|halk bankası', 'Halkbank', 'https://www.halkbank.com.tr', _BANK_HOW),
+    ('vakifbank', r'vakıfbank|vakifbank', 'VakıfBank', 'https://www.vakifbank.com.tr', _BANK_HOW),
+    ('qnb', r'\bqnb\b', 'QNB', 'https://www.qnb.com.tr', _BANK_HOW),
+    ('enpara', r'enpara', 'Enpara', 'https://www.enpara.com', _BANK_HOW),
+    ('papara', r'papara', 'Papara', 'https://www.papara.com', _BANK_HOW),
+    ('parcel', r'kargo|paket|teslimat|gönderi|parcel|delivery|package|شحنة|طرد', 'A parcel', None,
+     'Look up the order in the app or site where you bought it: the real tracking number is there.'),
+    ('bank', r'\bbanka\b|\bbank\b|بنك|مصرف', 'Your bank', None, _BANK_HOW),
+)
+_VERIFY_RE = [(key, re.compile(pattern, re.I), name, url, how) for key, pattern, name, url, how in VERIFY]
+COURIER_OR_SHOP = {'ptt', 'yurtici', 'aras', 'mng', 'surat', 'trendyol', 'hepsiburada'}
+BANKS = {key for key, _, _, _, how in VERIFY if how == _BANK_HOW and key != 'bank'}
+
+
+def where_to_check(text, limit=2):
+    """[{key, name, url, how}]: the official place to check what the message claims, from our own list."""
+    found = []
+    for key, pattern, name, url, how in _VERIFY_RE:
+        if not pattern.search(text):
+            continue
+        if key == 'parcel' and any(f['key'] in COURIER_OR_SHOP for f in found):
+            continue  # a named company already covers "a parcel"
+        if key == 'bank' and any(f['key'] in BANKS for f in found):
+            continue
+        if url and not is_official(urlparse(url).hostname):
+            continue  # never show an address that is not on our official list
+        found.append({'key': key, 'name': name, 'url': url, 'how': how})
+        if len(found) >= limit:
+            break
+    return found
+
+
+# What the message wants the reader to do; a scam without a link is still a request.
+ASKS = (
+    ('code_ask', 'Send a code that came to your phone'),
+    ('secret', 'Give a password, code or card details'),
+    ('payment', 'Send money or pay a fee'),
+    ('call', 'Call a number'),
+    ('click', 'Tap a link'),
+)
+
+
+def what_it_asks(signals, links):
+    asks = [text for key, text in ASKS if key in signals]
+    if links and 'Tap a link' not in asks:
+        asks.append('Tap a link')
+    return asks
+
+
 RANK = {'unknown': 0, 'safe': 1, 'caution': 2, 'danger': 3}
 BY_RANK = {rank: tone for tone, rank in RANK.items()}
 FROM_AI = {'scam': 'danger', 'suspicious': 'caution', 'safe': 'safe', 'unsure': 'unknown'}
@@ -361,6 +440,10 @@ def assess(text, language='en', analyzer=None, ai=None):
                                   'It sends you a code and says not to share it, as real ones do. Anyone who asks you for it is a scammer.'))
         else:
             reasons.append(reason('bad' if WEIGHT[key] >= 2 else 'warn', *SIGNAL_TEXT[key]))
+    asks = what_it_asks(signals, links)
+    if not found and tone in ('danger', 'caution') and any(k in signals for k in ('code_ask', 'secret', 'payment', 'call')):
+        reasons.insert(0, reason('bad', 'No link, but it asks you to act',
+                              'Scams without a link ask you to call, send a code or pay. That request is the risk.'))
     if not reasons:
         reasons.append(reason('ok' if tone == 'safe' else 'na', 'No scam signs found', 'No risky link and no request for money, codes or passwords.'))
 
@@ -384,4 +467,8 @@ def assess(text, language='en', analyzer=None, ai=None):
              'checks': checks, 'tally': tally(checks), 'share_text': SHARE.get(tone, '')}
     if opinion and opinion['reasons']:
         plain['ai_reasons'] = opinion['reasons']
-    return {'plain': plain, 'links': links, 'signals': signals, 'masked': masked_counts, 'ai': bool(opinion)}
+    from services.report_i18n import translate
+    say = lambda value: translate(value, language) if language != 'en' else value  # noqa: E731
+    verify = [{**v, 'how': say(v['how']), 'name': say(v['name'])} for v in where_to_check(masked)] if tone != 'safe' else []
+    return {'plain': plain, 'links': links, 'signals': signals, 'masked': masked_counts, 'ai': bool(opinion),
+            'asks': [say(a) for a in asks], 'verify': verify}

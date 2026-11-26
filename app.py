@@ -1649,6 +1649,30 @@ def api_check_message():
         return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
 
 
+@app.route('/api/message-feedback', methods=['POST'])
+@login_required
+def api_message_feedback():
+    """"This result is wrong": our verdict, the reader's answer and the sign keys. Never any text."""
+    from models import MessageFeedback
+    from services.message_check import RANK, WEIGHT
+    data = request.get_json(silent=True)
+    data = data if isinstance(data, dict) else {}
+    tone, answer, signals = data.get('tone'), data.get('answer'), data.get('signals')
+    known = set(WEIGHT) | {'code_notice'}
+    if tone not in RANK or answer not in ('real', 'scam') or not isinstance(signals, list) \
+            or len(signals) > 20 or any(s not in known for s in signals):
+        return jsonify(error='Choose whether the message was real or a scam.'), 400
+    try:
+        consume_limit('message-feedback', str(current_user.id), 20, 3600)
+    except AuthRateLimited:
+        return jsonify(ok=True)  # quietly ignore the excess: nothing to fix for the reader
+    except SQLAlchemyError:
+        return jsonify(error='Please try again later.'), 503
+    db.session.add(MessageFeedback(tone=tone, answer=answer, signals=','.join(sorted(set(signals)))))
+    db.session.commit()
+    return jsonify(ok=True)
+
+
 # ================================================================
 # Subdomain Finder
 # ================================================================

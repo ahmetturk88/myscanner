@@ -19,6 +19,13 @@
   .mc-link span{font-size:13px;color:#93a7bf}
   .mc-link .mc-state{margin-left:auto;font:12px var(--mono);letter-spacing:.06em}
   .mc-state.bad{color:#fb7185}.mc-state.warn{color:#fbbf24}.mc-state.ok,.mc-state.official{color:#5eead4}.mc-state.na{color:#93a7bf}
+  .mc-asks ul{margin:0;padding-left:20px;color:#fde68a;line-height:1.8;font-size:14.5px}
+  .mc-verify p,.mc-fb span{color:#a9bbd2;font-size:13.5px}
+  .mc-src{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid #1f5a52;background:#0b1f22;margin-bottom:8px}
+  .mc-src b{color:#e3f1ff;font-size:14.5px}.mc-src span{flex:1 1 260px;color:#c9d8ea;font-size:14px;line-height:1.55}
+  .mc-src a{color:#5eead4;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}.mc-src a:hover{text-decoration:underline}
+  .mc-fb{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid #1d3248}
+  .mc-ai,.mc-links,.mc-asks,.mc-verify{margin-top:18px}.mc-asks h3,.mc-verify h3{font-size:16px;margin:0 0 10px;color:#e3f1ff}
   .mc-help{margin-top:18px;padding:14px 16px;border-radius:14px;border:1px solid #6b2a3a;background:#1d0f17}
   .mc-help summary{cursor:pointer;color:#fecdd3;font-weight:700;font-size:15px}
   .mc-help ol{margin:12px 0 0;padding-left:22px;color:#e5d2d8;line-height:1.7;font-size:14.5px}
@@ -42,9 +49,12 @@
     <li>If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.</li>
     <li>Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.</li>
   </ol></details>
+  <div class="mc-asks" id="mc-asks" hidden><h3>What the message asks you to do</h3><ul id="mc-asks-list"></ul></div>
+  <div class="mc-verify" id="mc-verify" hidden><h3>Check it yourself, at the source</h3><p>From our own list of official sites, never from the message. Open them yourself.</p><div id="mc-verify-list"></div></div>
   <div class="mc-ai" id="mc-ai" hidden><h3>What the AI review says</h3><ul id="mc-ai-list"></ul></div>
   <details class="mc-read" id="mc-read" hidden><summary>Text read from the image (personal data hidden)</summary><p id="mc-read-text"></p></details>
   <div class="mc-links" id="mc-links" hidden><h3>Links in the message</h3><div id="mc-link-list"></div></div>
+  <div class="mc-fb" id="mc-fb"><span>Was this result right?</span><button type="button" data-answer="real">The message was real</button><button type="button" data-answer="scam">It was a scam</button><span id="mc-fb-done" hidden>Thank you. We keep only the verdict and the signs we found, never the message.</span></div>
 </section>
 <div class="site-bottom"><article><b>01 / Links</b><p>Each link is looked up in Google Web Risk, URLhaus and our phishing list, without opening it.</p></article><article><b>02 / Tricks</b><p>Parcel fees, blocked accounts, prizes, refunds and requests for codes are the usual lures.</p></article><article><b>03 / What to do</b><p>When in doubt, contact the company through its official app or number, never through the message.</p></article></div>
-</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-1') }}" defer></script>{% endblock %}
+</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-2') }}" defer></script>{% endblock %}

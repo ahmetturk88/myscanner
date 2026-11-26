@@ -22,10 +22,13 @@ import { Button, ErrorText, Field, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
 import { api, upload } from '@/lib/api';
 import { lang, t } from '@/lib/i18n';
+import { openLink } from '@/lib/open-link';
 import { startUrlScan } from '@/lib/scan';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
+type Source = { key: string; name: string; url: string | null; how: string };
+const OFFICIAL_URL = /^https:\/\/[a-z0-9.-]+\/?$/;
 type Shot = { uri: string; name: string; mimeType?: string | null };
 type Link = { link: string; shown: string; state: 'bad' | 'warn' | 'ok' | 'official' | 'na' };
 const STATE = () => ({ bad: t('Listed as dangerous'), warn: t('Suspicious'), ok: t('Not listed'), official: t('Official site'), na: t('Not checked') });
@@ -53,6 +56,7 @@ export default function MessageCheck() {
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
+  const [answered, setAnswered] = useState(false);
   const started = useRef(false);
 
   async function check(current = text, image = shot) {
@@ -67,7 +71,7 @@ export default function MessageCheck() {
       const data: any = image
         ? await upload('/tools/message', image, undefined, { field: 'image', fields: { text: message.slice(0, 6000), lang: lang() } })
         : await api.tool('message', { text: message.slice(0, 6000), lang: lang() });
-      setResult(data);
+      setResult(data); setAnswered(false);
       Haptics.notificationAsync(data?.plain?.tone === 'danger' ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
       setError(e.message);
@@ -101,7 +105,14 @@ export default function MessageCheck() {
     try { await startUrlScan(link); } catch (e: any) { setError(e.message); } finally { setScanning(null); }
   }
 
-  const again = () => { setResult(null); setText(''); setShot(null); setError(null); setHelp(false); };
+  const again = () => { setResult(null); setText(''); setShot(null); setError(null); setHelp(false); setAnswered(false); };
+  // "Was this right?": only our verdict, the answer and the sign keys go back; never the message.
+  const answer = (value: 'real' | 'scam') => {
+    setAnswered(true);
+    api.tool('message-feedback', { tone: result?.plain?.tone, answer: value, signals: result?.signals ?? [] }).catch(() => {});
+  };
+  const asks: string[] = result?.asks ?? [];
+  const sources: Source[] = result?.verify ?? [];
   const risky = result?.plain?.tone === 'danger' || result?.plain?.tone === 'caution';
   const links: Link[] = result?.links ?? [];
   const reasons: string[] = result?.plain?.ai_reasons ?? [];
@@ -142,6 +153,27 @@ export default function MessageCheck() {
               {help ? HELP().map((step, i) => <Text key={step} style={s.body}>{i + 1}. {step}</Text>) : null}
             </Animated.View>
           ) : null}
+          {asks.length ? (
+            <Animated.View entering={enter(5)} style={s.card}>
+              <Text style={s.title}>{t('What the message asks you to do')}</Text>
+              {asks.map((a) => <Text key={a} style={[s.body, { color: colors.amber }]}>• {a}</Text>)}
+            </Animated.View>
+          ) : null}
+          {sources.length ? (
+            <Animated.View entering={enter(5)} style={[s.card, s.source]}>
+              <Text style={s.title}>{t('Check it yourself, at the source')}</Text>
+              <Muted>{t('From our own list of official sites, never from the message. Open them yourself.')}</Muted>
+              {sources.map((v) => (
+                <View key={v.key} style={{ gap: 6 }}>
+                  <Text style={[s.body, { color: colors.text, fontFamily: fonts.bold }]}>{v.name}</Text>
+                  <Text style={s.body}>{v.how}</Text>
+                  {v.url && OFFICIAL_URL.test(v.url) ? (
+                    <Button label={t('Open the official site')} icon="external" kind="secondary" onPress={() => openLink(v.url!)} />
+                  ) : null}
+                </View>
+              ))}
+            </Animated.View>
+          ) : null}
           {reasons.length ? (
             <Animated.View entering={enter(6)} style={s.card}>
               <Text style={s.title}>{t('What the AI review says')}</Text>
@@ -169,6 +201,19 @@ export default function MessageCheck() {
               <Text selectable style={s.body}>{result.text}</Text>
             </Animated.View>
           ) : null}
+          <Animated.View entering={enter(9)} style={s.card}>
+            {answered ? (
+              <Muted>{t('Thank you. We keep only the verdict and the signs we found, never the message.')}</Muted>
+            ) : (
+              <>
+                <Text style={s.title}>{t('Was this result right?')}</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Button label={t('The message was real')} kind="secondary" flex={1} onPress={() => answer('real')} />
+                  <Button label={t('It was a scam')} kind="secondary" flex={1} onPress={() => answer('scam')} />
+                </View>
+              </>
+            )}
+          </Animated.View>
           <ErrorText>{error}</ErrorText>
         </PlainReport>
       ) : null}
@@ -185,6 +230,7 @@ const s = StyleSheet.create({
   state: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 0.6 },
   picked: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.line },
   pickedText: { flex: 1, color: colors.soft, fontSize: 14, fontFamily: fonts.regular },
+  source: { borderColor: 'rgba(94,234,212,.35)', backgroundColor: 'rgba(10,30,32,.92)' },
   help: { borderColor: 'rgba(251,113,133,.45)', backgroundColor: 'rgba(40,14,24,.92)' },
   helpTitle: { color: '#fecdd3', fontSize: 15.5, fontFamily: fonts.bold, paddingVertical: 4 },
   remove: { color: colors.cyan, fontSize: 14, fontFamily: fonts.semibold },

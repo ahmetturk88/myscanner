@@ -35,6 +35,20 @@
     catch (e) { text.focus(); }
   });
 
+  let last = null;
+  const fb = document.getElementById('mc-fb');
+  fb.querySelectorAll('[data-answer]').forEach((b) => b.addEventListener('click', async () => {
+    if (!last) return;
+    const token = document.querySelector('meta[name="csrf-token"]');
+    fb.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+    try {
+      await fetch('/api/message-feedback', {method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: {'Content-Type': 'application/json', ...(token ? {'X-CSRFToken': token.content} : {})},
+        body: JSON.stringify({tone: last.tone, answer: b.dataset.answer, signals: last.signals})});
+    } catch (e) { /* nothing to tell the reader */ }
+    document.getElementById('mc-fb-done').hidden = false;
+  }));
+
   function hide() {
     error.hidden = true; extra.hidden = true;
     if (window.PlainReport) window.PlainReport.unmount('mc');
@@ -63,6 +77,17 @@
       if (window.PlainReport) window.PlainReport.mount('mc', data.plain, {plainShare: true, again: {href: '/message-check', label: say('Check another message', 'Başka bir mesaj kontrol et')}});
       const risky = data.plain && (data.plain.tone === 'danger' || data.plain.tone === 'caution');
       document.getElementById('mc-help').hidden = !risky;
+      last = {tone: data.plain && data.plain.tone, signals: Array.isArray(data.signals) ? data.signals : []};
+      fb.querySelectorAll('button').forEach((x) => { x.disabled = false; });
+      document.getElementById('mc-fb-done').hidden = true;
+      const asks = Array.isArray(data.asks) ? data.asks : [];
+      document.getElementById('mc-asks').hidden = !asks.length;
+      document.getElementById('mc-asks-list').innerHTML = asks.map((a) => `<li>${esc(a)}</li>`).join('');
+      const sources = (Array.isArray(data.verify) ? data.verify : []);
+      document.getElementById('mc-verify').hidden = !sources.length;
+      document.getElementById('mc-verify-list').innerHTML = sources.map((v) => `<div class="mc-src"><b>${esc(v.name)}</b><span>${esc(v.how)}</span>`
+        + (/^https:\/\/[a-z0-9.-]+\/?$/.test(v.url || '') ? `<a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">${esc(say('Open the official site ↗', 'Resmi siteyi aç ↗'))}</a>` : '')
+        + '</div>').join('');
       const ai = (data.plain && data.plain.ai_reasons) || [];
       document.getElementById('mc-ai').hidden = !ai.length;
       document.getElementById('mc-ai-list').innerHTML = ai.map((r) => `<li>${esc(r)}</li>`).join('');
@@ -73,7 +98,7 @@
       const read = document.getElementById('mc-read');
       read.hidden = !data.text;
       document.getElementById('mc-read-text').textContent = data.text || '';
-      extra.hidden = !ai.length && !links.length && !data.text && !risky;
+      extra.hidden = false;  // the "was this right?" answer is always offered
       const plain = document.getElementById('mc-plain');
       if (plain && !plain.hidden) plain.scrollIntoView({behavior: 'smooth', block: 'start'});
     } catch (e) {

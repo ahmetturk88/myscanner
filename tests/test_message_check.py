@@ -132,6 +132,29 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(translate_plain(plain, 'tr')['share_text'].startswith('Dikkat:'))
         self.assertEqual(mc.assess('Toplantı saat 3te.', analyzer=FakeAnalyzer(), ai=False)['plain']['share_text'], '')
 
+    def test_where_to_check_comes_from_our_own_official_list(self):
+        hgs = mc.assess('HGS geçiş ihlali nedeniyle borcunuz var, hemen ödeyin: hgs-odeme.com/tr', language='tr',
+                        analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual([(v['key'], v['url']) for v in hgs['verify']], [('hgs', 'https://www.turkiye.gov.tr')])
+        self.assertIn('İhlalli Geçiş', hgs['verify'][0]['how'])
+        self.assertTrue(hgs['verify'][0]['how'].startswith('Gerçek'))  # in the reader's language
+        bank = mc.assess('Ziraat: hesabınızda şüpheli işlem var, hemen arayın', analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual([v['key'] for v in bank['verify']], ['ziraat'])  # the named bank, not "your bank" too
+        parcel = mc.assess(PARCEL, analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual([v['key'] for v in parcel['verify']], ['ptt'])
+        for key, _, _, url, _ in mc.VERIFY:
+            self.assertTrue(url is None or (url.startswith('https://') and mc.is_official(mc.urlparse(url).hostname)), key)
+        self.assertEqual(mc.assess('Toplantı saat 3te.', analyzer=FakeAnalyzer(), ai=False)['verify'], [])
+
+    def test_a_message_without_a_link_still_says_what_it_wants(self):
+        result = mc.assess('Hesabınızda şüpheli işlem tespit edildi. Hemen 0850 222 00 00 numarayı arayın.',
+                           analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual(result['plain']['tone'], 'danger')
+        self.assertEqual(result['asks'], ['Call a number'])
+        self.assertEqual(result['plain']['reasons'][0]['title'], 'No link, but it asks you to act')
+        iban = mc.assess('Annen hastanede, acil IBAN TR12 0006 2000 1234 0006 2954 32 hesabına para gönder', analyzer=FakeAnalyzer(), ai=False)
+        self.assertIn('Send money or pay a fee', iban['asks'])
+
     def test_report_reads_in_turkish(self):
         plain = mc.assess(PARCEL, analyzer=FakeAnalyzer(listed={'ptt-kargo.info'}), ai=False)['plain']
         turkish = translate_plain(plain, 'tr')
@@ -273,9 +296,31 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(codes[:5], [200] * 5)
         self.assertEqual(codes[5], 429)
 
+    def test_was_this_right_keeps_no_text_and_no_account(self):
+        from flask import g
+        from models import MessageFeedback
+        MessageFeedback.query.delete()
+        db.session.commit()
+
+        def send(body):
+            g.pop('csrf_token', None)
+            page = self.client.get('/message-check').get_data(as_text=True)
+            token = page.split('name="csrf-token" content="')[1].split('"')[0]
+            return self.client.post('/api/message-feedback', data=json.dumps(body), content_type='application/json',
+                                    headers={'X-CSRFToken': token})
+        self.assertEqual(send({'tone': 'safe', 'answer': 'scam', 'signals': ['bank', 'code_notice']}).status_code, 200)
+        row = MessageFeedback.query.one()
+        self.assertEqual((row.tone, row.answer, row.signals), ('safe', 'scam', 'bank,code_notice'))
+        self.assertFalse(hasattr(row, 'user_id'))
+        for bad in ({'tone': 'safe', 'answer': 'maybe', 'signals': []}, {'tone': 'x', 'answer': 'real', 'signals': []},
+                    {'tone': 'safe', 'answer': 'real', 'signals': ['Kargonuz 0532 123 45 67']}):
+            self.assertEqual(send(bad).status_code, 400)
+        self.assertEqual(MessageFeedback.query.count(), 1)
+
     def test_the_app_reaches_it_as_a_tool(self):
         from routes.mobile_api import TOOLS
         self.assertEqual(TOOLS['message'], 'api_check_message')
+        self.assertEqual(TOOLS['message-feedback'], 'api_message_feedback')
 
 
 if __name__ == '__main__':

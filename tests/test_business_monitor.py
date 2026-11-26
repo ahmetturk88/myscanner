@@ -208,7 +208,8 @@ class WorkspaceTests(RunTests):
         send.assert_called_with('business_check_now', args=[self.domain.id])
         page = client.get('/isletme/panel?lang=tr').get_data(as_text=True)
         self.assertIn('elle kontrol hakkınız doldu', page)
-        self.assertIn('class="bzt error" id="bzt" role="alert"', page)  # a floating card, not a banner at the top
+        self.assertIn('class="bzt error" id="bzt" role="alert" data-hide="8000"', page)  # a floating card, not a banner
+        self.assertIn("sessionStorage.getItem('bzp-scroll')", page)  # back at the same scroll position, no fade-in
         self.assertIn(f'id="domain-{self.domain.id}"', page)
         response = client.post(f'/isletme/panel/domains/{self.domain.id}/check', data={'csrf_token': token})
         self.assertTrue(response.headers['Location'].endswith(f'/isletme/panel#domain-{self.domain.id}'))  # back where the click was

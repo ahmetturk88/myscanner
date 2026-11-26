@@ -27,13 +27,12 @@ test('each tool points to the other checks, never to itself', () => {
   assert.match(html('safe', '/ip-check'), /Got a suspicious message\?/);
 });
 
-test('Pro is shown on safe and careful reports, with its source, but never on dangerous ones', () => {
-  assert.match(html('safe', '/file-scanner'), /href="\/pro\?ref=report-file">Get notified/);
-  assert.match(html('caution', '/dashboard'), /\/pro\?ref=report-url/);
-  assert.match(html('unknown', '/qr-scanner'), /\/pro\?ref=report-qr/);
-  const danger = html('danger', '/file-scanner');
-  assert.match(danger, /Next step/);
-  assert.doesNotMatch(danger, /\/pro|Pro · coming soon/);
+test('every report (dangerous ones too) offers the free message check, with its source, but never on itself', () => {
+  assert.match(html('safe', '/file-scanner'), /href="\/message-check\?ref=report-file">Check a message/);
+  assert.match(html('caution', '/dashboard'), /\/message-check\?ref=report-url/);
+  assert.match(html('danger', '/qr-scanner'), /\/message-check\?ref=report-qr/);
+  assert.doesNotMatch(html('danger', '/file-scanner'), /\/pro/);
+  assert.doesNotMatch(html('safe', '/message-check'), /rp-pro/);
 });
 
 test('no card on a password check or inside a dialog', () => {

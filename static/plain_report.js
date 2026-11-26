@@ -33,7 +33,7 @@
     '/message-check': ['Did it come with a file or from an email?', 'Check the file and the sender’s address too.', [CHECK_FILE, CHECK_SENDER], 'message'],
   };
   const NEXT_OTHER = ['Got a suspicious message?', 'Check its link, file or sender before you act.', [CHECK_LINK, CHECK_FILE, CHECK_SENDER], 'other'];
-  // Never on a password check, and Pro never next to a "dangerous" verdict: no selling to someone who may have just been scammed.
+  // Never on a password check. The free message check is offered on every verdict (it sells nothing).
   function nextCard(href, tone) {
     if (href === '/password-check') return '';
     const [title, detail, links, ref] = NEXT[href] || NEXT_OTHER;

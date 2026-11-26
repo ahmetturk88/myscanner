@@ -199,3 +199,18 @@ def send_alert(workspace, text, groups, panel_url, call=None):
         if call('sendMessage', {'chat_id': chat_id, 'text': message, 'link_preview_options': {'is_disabled': True}}) is not None:
             sent += 1
     return sent
+
+
+def admin_chats():
+    """Linked chats of administrators (verified accounts), for operator notices."""
+    from models import BusinessChat, User
+    rows = (BusinessChat.query.join(User, User.id == BusinessChat.user_id)
+            .filter(User.is_admin.is_(True), User.is_verified.is_(True), BusinessChat.chat_id.isnot(None)).all())
+    return list(dict.fromkeys(row.chat_id for row in rows))
+
+
+def notify_admins(text, call=None):
+    """Send a short operator notice to every administrator chat. Returns how many got it."""
+    call = call or api
+    return sum(1 for chat_id in admin_chats()
+               if call('sendMessage', {'chat_id': chat_id, 'text': text, 'link_preview_options': {'is_disabled': True}}) is not None)

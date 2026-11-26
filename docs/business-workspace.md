@@ -11,8 +11,9 @@ in-app digital subscriptions, so the business plan is sold on the website only).
   is stored with the lead.
 - **Admin view** `/admin/business-leads`: pre-registrations by business type and the latest 50.
 - **Workspace** `/isletme/panel` (login required, `Cache-Control: private, no-store`, `noindex`): open to
-  administrators and to email-verified accounts listed in `BUSINESS_PILOT_EMAILS`. A workspace is
-  created on first visit (one per account).
+  every account with a verified email (free early access, self-serve since 2026-11-26) and to
+  administrators. A workspace is created on first visit (one per account). When a domain is verified
+  for the first time, administrators who linked Telegram get a short notice (`business_admin_notice`).
 - **Domain ownership proof**: add up to 3 domains (pilot limit); each gets a random 128-bit token.
   The owner adds `TXT _myscanner.<domain> = myscanner-business=<token>`. Verification reads that exact
   name (2 s timeout, 4 s lifetime, at most 32 values of 256 bytes) and compares in constant time.
@@ -22,8 +23,8 @@ in-app digital subscriptions, so the business plan is sold on the website only).
   administrator, gets 404 for someone else's domain. All changes are CSRF-protected POSTs.
 
 ## Configuration
-`BUSINESS_PILOT_EMAILS=owner@company.com,second@company.com` in the server environment
-(`.env.vps.rehearsal`), then `dc up -d web`. Empty means only administrators can open a workspace.
+No allow-list: `BUSINESS_PILOT_EMAILS` is no longer read. Safety comes from the DNS ownership proof,
+the limits (3 domains, 5 people per workspace) and the rate limits below.
 
 ## Data and privacy
 New tables (migration `b7e2c4a9d1f6`): `business_workspace`, `business_domain`, `business_lead`.

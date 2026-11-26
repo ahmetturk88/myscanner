@@ -22,7 +22,7 @@ SCAN_TASKS = ('scan_url_task', 'expire_url_scan_jobs', 'prune_url_screenshots', 
 # Multi-item jobs run on their own queue so one batch cannot delay single scans.
 BULK_TASKS = ('batch_scan_task', 'bulk_email_task', 'business_monitor_due', 'business_check_now',
               'business_weekly_due', 'business_send_digests', 'business_lookalike_due',
-              'business_monthly_reports', 'business_uptime_due', 'business_telegram_poll', 'business_test_alert')
+              'business_monthly_reports', 'business_uptime_due', 'business_telegram_poll', 'business_test_alert', 'business_admin_notice')
 TIP_TASKS = ('fetch_ioc_source_task', 'fetch_all_ioc_sources', 'cleanup_expired_iocs',
              'misp_pull_task', 'misp_push_task', 'initialize_tip_sources')
 

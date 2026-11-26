@@ -3,8 +3,6 @@
 {% block description %}{{ t.description }}{% endblock %}
 
 {% block head_extra %}
-{# Hidden until the planned pilot opens: not linked from the site and not indexed. #}
-<meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="{{ url_for('static', filename='pages.css', v='20261022-2') }}">
 <script src="{{ url_for('static', filename='pages.js', v='20261031-1') }}" defer></script>
 <style>
@@ -35,7 +33,7 @@
   .bz-steps li:before{counter-increment:s;content:counter(s);width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:700 17px var(--sans);color:#05202d;background:linear-gradient(120deg,#7fe1ff,#5eead4)}
   .bz-price{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center}
   .bz-amount{font:800 64px var(--sans);letter-spacing:-.04em;line-height:1;color:#e3f1ff}
-  .bz-amount small{font-size:18px;font-weight:600;color:var(--soft);margin-left:8px}
+  .bz-amount small{font-size:16px;font-weight:600;letter-spacing:.02em;color:var(--soft);margin-left:12px}
   .bz-list{list-style:none;padding:0;margin:0;display:grid;gap:12px}
   .bz-list li{display:flex;gap:12px;align-items:flex-start;color:var(--soft);line-height:1.55}
   .bz-list .pg-ic{color:var(--green);flex-shrink:0;margin-top:3px}
@@ -65,15 +63,15 @@
       <h1>{{ t.heading | safe }}</h1>
       <p class="pg-lead">{{ t.lead }}</p>
       <div class="pg-actions" style="display:flex;flex-wrap:wrap;gap:12px">
-        {% if panel %}<a class="pg-btn primary" href="{{ url_for('business.panel') }}">{{ t.cta_panel }} →</a>{% endif %}
-        <a class="pg-btn {{ '' if panel else 'primary' }}" href="#notify">{{ t.cta }} →</a>
+        <a class="pg-btn primary" href="{{ url_for('business.panel') }}">{{ t.cta_panel if panel else t.cta }} →</a>
+        <a class="pg-btn" href="#notify">{{ t.cta_help }}</a>
       </div>
       <div class="pg-hero-meta">{% for item in t.trust %}<span class="pg-pill"><span class="pg-ic ic-check"></span>{{ item }}</span>{% endfor %}</div>
     </div>
     <div class="pg-reveal" aria-label="{{ t.demo_label }}">
       <div class="bz-demo">
         <div class="pg-scanbeam" aria-hidden="true"></div>
-        <div class="bz-demo-head"><b>MYSCANNER · İŞLETME</b><span class="pg-badge" style="white-space:nowrap">{{ t.demo_label }}</span></div>
+        <div class="bz-demo-head"><b>MYSCANNER · İŞLETME</b><span class="pg-pill muted" style="white-space:nowrap">{{ t.demo_label }}</span></div>
         <div class="bz-score">
           <div class="bz-ring" style="--p:86"><span>86</span></div>
           <div><h3>{{ t.demo_score }}</h3><p>magazam.com</p></div>
@@ -119,6 +117,7 @@
         <h3>{{ t.price_name }}</h3>
         <div class="bz-amount" style="margin:14px 0 10px">{{ t.price }}<small>{{ t.price_period }}</small></div>
         <p>{{ t.price_note }}</p>
+        <a class="pg-btn primary" style="margin-top:18px" href="{{ url_for('business.panel') }}">{{ t.cta_panel if panel else t.cta }} →</a>
       </div>
       <ul class="bz-list">{% for item in t.price_items %}<li><span class="pg-ic ic-check"></span><span>{{ item }}</span></li>{% endfor %}</ul>
     </div>

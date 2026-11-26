@@ -1,9 +1,8 @@
-"""MyScanner Business (İşletme): pilot access, workspaces, domain ownership proof and pre-registrations.
+"""MyScanner Business (İşletme): access, workspaces, domain ownership proof and setup-help requests.
 
-Nothing is sold here. During the pilot only invited accounts (BUSINESS_PILOT_EMAILS)
-and administrators open a workspace; everyone else can pre-register on the public
-page. A domain is monitored only after its owner proves control with a DNS TXT
-record, so nobody can watch a company's domain without its consent.
+Nothing is sold here: early access is free. Any account with a verified email opens a
+workspace by itself (administrators too). A domain is monitored only after its owner proves
+control with a DNS TXT record, so nobody can watch a company's domain without its consent.
 """
 import os
 import re
@@ -31,19 +30,18 @@ def _now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def pilot_emails(environ=None):
-    env = os.environ if environ is None else environ
-    return {item.strip().lower() for item in env.get('BUSINESS_PILOT_EMAILS', '').split(',') if item.strip()}
-
-
 def pilot_allowed(user, environ=None):
-    """Administrators and invited, email-verified accounts may open a workspace during the pilot."""
+    """Who may own a workspace: every account with a verified email (early access is open to all), and administrators.
+
+    Opening is safe without a manual approval: nothing is checked until the owner proves a domain is theirs
+    with a DNS TXT record, and a workspace holds at most 3 domains and 5 people.
+    """
     if not getattr(user, 'is_authenticated', False):
         return False
     if getattr(user, 'is_admin', False) or getattr(user, 'role', None) == 'admin':
         return True
-    email = (getattr(user, 'email', '') or '').strip().lower()
-    return bool(email) and getattr(user, 'is_verified', False) is True and email in pilot_emails(environ)
+    email = (getattr(user, 'email', '') or '').strip()
+    return bool(email) and getattr(user, 'is_verified', False) is True
 
 
 def workspace_for(user, create=False):
@@ -129,9 +127,22 @@ def verify_domain(domain, lookup=None):
     if not any(isinstance(v, str) and secrets.compare_digest(v.strip(), expected) for v in values):
         db.session.commit()
         raise BusinessError('not_found_yet')
+    first_time = domain.verified_at is None
     domain.verified_at = domain.last_checked_at
     db.session.commit()
+    if first_time:
+        _tell_admins(domain)
     return domain
+
+
+def _tell_admins(domain):
+    """Let the operator know a company proved a domain (Telegram, through the bulk worker). Never blocks the owner."""
+    try:
+        from celery_app import celery, require_broker
+        require_broker(celery)
+        celery.send_task('business_admin_notice', args=[domain.id])
+    except Exception:
+        pass
 
 
 def remove_domain(domain):
@@ -189,19 +200,20 @@ MEMBERS_PER_WORKSPACE = 4  # plus the owner: five people
 def access(user, environ=None):
     """(workspace, 'owner' | 'member') for this account, or (None, None).
 
-    Pilot accounts own a workspace; anyone else gets in only through an accepted invitation.
+    An accepted invitation wins; otherwise every verified account owns a workspace of its own.
     """
     from models import BusinessMember, BusinessWorkspace
     if not getattr(user, 'is_authenticated', False):
         return None, None
-    if pilot_allowed(user, environ):
-        return workspace_for(user, create=True), 'owner'
+    # A teammate who accepted an invitation works in that team's workspace (one workspace per person).
     member = (BusinessMember.query.filter(BusinessMember.user_id == user.id, BusinessMember.accepted_at.isnot(None))
               .order_by(BusinessMember.accepted_at).first())
-    if member is None:
-        return None, None
-    workspace = db.session.get(BusinessWorkspace, member.workspace_id)
-    return (workspace, 'member') if workspace else (None, None)
+    workspace = db.session.get(BusinessWorkspace, member.workspace_id) if member else None
+    if workspace is not None:
+        return workspace, 'member'
+    if pilot_allowed(user, environ):
+        return workspace_for(user, create=True), 'owner'
+    return None, None
 
 
 def invite(workspace, owner, value):
@@ -235,12 +247,20 @@ def accept(token, user):
         return 'unverified'
     if (user.email or '').strip().lower() != member.email:
         return 'wrong_account'
+    if member.accepted_at is None and _owns_domains(user):
+        return 'own_workspace'  # joining would hide their own monitored domains: one workspace per person
     if member.accepted_at is None:
         member.user_id, member.accepted_at = user.id, _now()
         db.session.commit()
     elif member.user_id != user.id:
         return 'invalid'
     return 'accepted'
+
+
+def _owns_domains(user):
+    from models import BusinessDomain, BusinessWorkspace
+    own = BusinessWorkspace.query.filter_by(owner_id=user.id).first()
+    return own is not None and BusinessDomain.query.filter_by(workspace_id=own.id).count() > 0
 
 
 def members(workspace):

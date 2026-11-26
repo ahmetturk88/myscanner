@@ -455,6 +455,24 @@ def business_test_alert(workspace_id, user_id):
         return {'status': 'done', **send_test(workspace, user)}
 
 
+@celery.task(name='business_admin_notice', soft_time_limit=60, time_limit=90)
+def business_admin_notice(domain_id):
+    """Tell administrators on Telegram that a company proved a domain (a new customer)."""
+    from app import app
+    from extensions import db
+    from models import BusinessDomain, BusinessWorkspace
+    from services.business_alerts import defang
+    from services.business_telegram import notify_admins
+    with app.app_context():
+        domain = db.session.get(BusinessDomain, int(domain_id))
+        if domain is None or domain.verified_at is None:
+            return {'status': 'skipped'}
+        workspace = db.session.get(BusinessWorkspace, domain.workspace_id)
+        text = (f'🆕 MyScanner İşletme: yeni doğrulanmış alan adı\n{defang(domain.domain)}'
+                f' · {workspace.name if workspace else "?"}')
+        return {'status': 'done', 'sent': notify_admins(text)}
+
+
 @celery.task(name='business_weekly_due', soft_time_limit=1500, time_limit=1560)
 def business_weekly_due():
     """MyScanner İşletme: the weekly full site inspection, a few domains per hour."""

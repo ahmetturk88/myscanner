@@ -4,7 +4,7 @@ import { lang, t } from '@/lib/i18n';
 export type ToolField = { label: string; placeholder: string; secure?: boolean; keyboard?: 'default' | 'email-address' | 'url' };
 export type Tool = {
   name: string; title: string; short: string; menu: string; category: 'links' | 'identity' | 'files' | 'network';
-  icon: IconName; aiTool: string; route?: '/qr' | '/file' | 'url';
+  icon: IconName; aiTool: string; route?: '/qr' | '/file' | '/message' | 'url';
   kicker: string; heading: string; accent?: string; lead: string; chips: string[]; steps: [string, string][];
   field?: ToolField; body?: (value: string) => unknown; action?: string;
 };
@@ -32,6 +32,11 @@ function build(): Tool[] {
     lead: t('A small square can carry a link, a password or an action. Reveal what is inside, then inspect web evidence on your terms.'),
     chips: [t('Camera decoding'), t('Explicit URL inspection'), t('Evidence first')],
     steps: [[t('Reveal'), t('Decode the first readable QR payload without opening it.')], [t('Decide'), t('Links are only inspected when you choose to.')], [t('Inspect'), t('Run the full URL report on the decoded link.')]] },
+  { name: 'message', title: t('Message Check'), short: t('Message'), menu: t('Is this SMS or WhatsApp a scam?'), category: 'links', icon: 'send', aiTool: 'message', route: '/message',
+    kicker: t('Paste · read · decide'), heading: t('Got a strange message?'), accent: t('message?'),
+    lead: t('Paste an SMS, WhatsApp or email message, or choose a screenshot. We check every link in it and the tricks scam messages use.'),
+    chips: [t('Links checked, never opened'), t('Personal data hidden'), t('Screenshots too')],
+    steps: [[t('Paste'), t('Paste the message or choose a screenshot of it.')], [t('Check'), t('Its links and scam tricks are checked; personal data is hidden first.')], [t('Decide'), t('A plain verdict, the reasons and what to do.')]] },
   { name: 'email', title: t('Email Checker'), short: t('Email'), menu: t('Routing, authentication & reputation'), category: 'identity', icon: 'mail', aiTool: 'email',
     kicker: t('Email intelligence / Evidence first'), heading: t('Know more. Trust with evidence.'), accent: t('Trust with evidence.'),
     lead: t("Explore an email address's routing, sender protections and domain signals. One clear assessment, with every finding and every limitation explained. SPF dependencies, published DMARC policy and sampled mail infrastructure are audited."),

@@ -1591,6 +1591,89 @@ def api_check_password():
             analyzer.close()
 
 # ================================================================
+# Message check (is this SMS / WhatsApp / email a scam?)
+# ================================================================
+
+@app.route('/message-check')
+@login_required
+def message_check():
+    return render_template('message_check.html')
+
+
+@app.route('/api/check-message', methods=['POST'])
+@login_required
+def api_check_message():
+    """JSON {text, lang}, or a form with an `image` (a screenshot, read on this server) and optional `text`."""
+    from services.message_ocr import MAX_BYTES, OCRError, read_text
+    image = request.files.get('image')
+    data = request.form if image is not None else (request.get_json(silent=True) or {})
+    data = data if hasattr(data, 'get') else {}
+    text = data.get('text') or ''
+    if not isinstance(text, str) or len(text) > 6000:
+        return jsonify(error='Paste the message: 1-6000 characters'), 400
+    if image is None and not text.strip():
+        return jsonify(error='Paste the message: 1-6000 characters'), 400
+    try:
+        consume_limit('message-check-minute', str(current_user.id), 5, 60)  # on top of the daily quota
+    except AuthRateLimited as error:
+        return jsonify(error='Too many checks in a row. Please wait a minute and try again.', code='too_fast'), 429, \
+            {'Retry-After': str(error.retry_after)}
+    except SQLAlchemyError:
+        return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
+    failure = reserve_request_quota('message_check')
+    if failure is not None:
+        return failure
+    if image is not None:
+        try:
+            read = read_text(image.stream.read(MAX_BYTES + 1))
+        except OCRError as error:
+            messages = {'too_large': 'The image is too large (8 MB at most).', 'bad_image': 'Send a PNG, JPEG or WebP screenshot.',
+                        'no_text': 'No text could be read in this image. Paste the message text instead.',
+                        'busy': 'Many screenshots are being read right now. Please try again in a moment.',
+                        'unavailable': 'Reading images is unavailable right now. Paste the message text instead.'}
+            status = {'unavailable': 503, 'busy': 429}.get(str(error), 400)
+            return jsonify(error=messages[str(error)], code=f'ocr_{error}'), status
+        text = (text.strip() + '\n' + read).strip() if text.strip() else read
+    try:
+        from services.message_check import assess, redact
+        from services.site_i18n import current_language
+        lang = data.get('lang')
+        result = assess(text, language=lang if lang in ('tr', 'en', 'ar') else current_language())
+        if image is not None:
+            result['text'] = redact(text[:6000])[0]  # what was read, with personal data hidden
+        log_activity(current_user.username, 'message_check', f'Checked a message: {result["plain"]["tone"]}')
+        return jsonify(result), 200, {'Cache-Control': 'no-store'}
+    except Exception as error:
+        report_exception(error, sensitive=True)
+        app.logger.error('Message check unavailable')
+        return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
+
+
+@app.route('/api/message-feedback', methods=['POST'])
+@login_required
+def api_message_feedback():
+    """"This result is wrong": our verdict, the reader's answer and the sign keys. Never any text."""
+    from models import MessageFeedback
+    from services.message_check import RANK, WEIGHT
+    data = request.get_json(silent=True)
+    data = data if isinstance(data, dict) else {}
+    tone, answer, signals = data.get('tone'), data.get('answer'), data.get('signals')
+    known = set(WEIGHT) | {'code_notice'}
+    if tone not in RANK or answer not in ('real', 'scam') or not isinstance(signals, list) \
+            or len(signals) > 20 or any(s not in known for s in signals):
+        return jsonify(error='Choose whether the message was real or a scam.'), 400
+    try:
+        consume_limit('message-feedback', str(current_user.id), 20, 3600)
+    except AuthRateLimited:
+        return jsonify(ok=True)  # quietly ignore the excess: nothing to fix for the reader
+    except SQLAlchemyError:
+        return jsonify(error='Please try again later.'), 503
+    db.session.add(MessageFeedback(tone=tone, answer=answer, signals=','.join(sorted(set(signals)))))
+    db.session.commit()
+    return jsonify(ok=True)
+
+
+# ================================================================
 # Subdomain Finder
 # ================================================================
 

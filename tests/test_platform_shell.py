@@ -10,7 +10,7 @@ class ShellTests(unittest.TestCase):
  def test_anonymous_navigation_and_brand(self):
   html=self.render();self.assertIn('Sign in',html);self.assertNotIn('Sign out',html)
   self.assertIn('brand/myscanner-mark.svg',html);self.assertIn('brand/myscanner-logo.png',html)
-  self.assertEqual(html.count('data-shell-tool '),10)
+  self.assertEqual(html.count('data-shell-tool '),11)
  def test_authenticated_logout_is_post_and_escaped(self):
   html=self.render(True);self.assertIn('method="POST" action="/logout"',html)
   self.assertIn('value="csrf-fixture"',html);self.assertNotIn('<img src=x',html);self.assertIn('&lt;img',html)

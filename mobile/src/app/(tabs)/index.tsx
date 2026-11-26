@@ -18,7 +18,7 @@ import { startUrlScan } from '@/lib/scan';
 import { colors, fonts, gradients, tone } from '@/lib/theme';
 import { findLink, toolByName, tools } from '@/lib/tools';
 
-const quick = (): [string, IconName, string][] => [['qr', 'qr', t('QR code')], ['file', 'file', t('File')], ['email', 'mail', t('Email')], ['password', 'key', t('Password')]];
+const quick = (): [string, IconName, string][] => [['qr', 'qr', t('QR code')], ['file', 'file', t('File')], ['email', 'mail', t('Email')], ['message', 'send', t('Message')]];
 
 function greeting() {
   const h = new Date().getHours();

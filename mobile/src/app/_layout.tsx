@@ -73,7 +73,7 @@ function Navigator() {
     handled.current = id;
     openReminder(lastResponse, true);
   }, [loaded, lastResponse, user]);
-  // Something shared from another app opens the "shared" screen, after sign-in if needed.
+  // A message, link or screenshot shared from another app opens the message check, after sign-in if needed.
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   useEffect(() => {
     if (!loaded || !user || !hasShareIntent) return;
@@ -81,7 +81,7 @@ function Navigator() {
     const text = [shareIntent.text, shareIntent.webUrl].filter(Boolean).join('\n').slice(0, 4000);
     resetShareIntent();
     if (!text && !image) return;
-    router.push({ pathname: '/shared', params: { text, image: image && !/^[a-z]+:\/\//i.test(image) ? `file://${image}` : image } });
+    router.push({ pathname: '/message', params: { text, image: image && !/^[a-z]+:\/\//i.test(image) ? `file://${image}` : image } });
   }, [loaded, user, hasShareIntent, shareIntent, resetShareIntent]);
   if (!loaded) return null;
   if (appUpdate.kind === 'required') return <UpdateRequired onUpdate={appUpdate.update} />;
@@ -97,7 +97,7 @@ function Navigator() {
           <Stack.Screen name="qr" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="delete-account" />
           <Stack.Screen name="settings" />
-          <Stack.Screen name="shared" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="message" options={{ animation: 'slide_from_bottom' }} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="login" options={{ animation: 'fade' }} />

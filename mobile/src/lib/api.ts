@@ -202,9 +202,10 @@ export function uploadName(name: string) {
  * (content:// or file://) without loading it into memory.
  */
 export function upload<T = any>(path: string, file: { uri: string; name: string; mimeType?: string | null },
-  onProgress?: (fraction: number) => void): Promise<T> {
+  onProgress?: (fraction: number) => void, options: { field?: string; fields?: Record<string, string> } = {}): Promise<T> {
   const form = new FormData();
-  form.append('file', { uri: file.uri, name: uploadName(file.name), type: file.mimeType || 'application/octet-stream' } as any);
+  form.append(options.field ?? 'file', { uri: file.uri, name: uploadName(file.name), type: file.mimeType || 'application/octet-stream' } as any);
+  for (const [key, value] of Object.entries(options.fields ?? {})) form.append(key, value);
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', BASE + path);

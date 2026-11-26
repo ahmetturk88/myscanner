@@ -21,6 +21,14 @@
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const update = () => { count.textContent = `${text.value.length} / 6000`; };
   text.addEventListener('input', update);
+  const picker = document.getElementById('mc-image');
+  const picked = document.getElementById('mc-picked');
+  picker.addEventListener('change', () => {
+    const file = picker.files && picker.files[0];
+    picked.hidden = !file;
+    document.getElementById('mc-picked-name').textContent = file ? `🖼 ${file.name}` : '';
+  });
+  document.getElementById('mc-unpick').addEventListener('click', () => { picker.value = ''; picked.hidden = true; });
 
   document.getElementById('mc-paste').addEventListener('click', async () => {
     try { text.value = (await navigator.clipboard.readText()).slice(0, 6000); update(); text.focus(); }
@@ -34,13 +42,18 @@
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!text.value.trim()) { text.focus(); return; }
+    const file = picker.files && picker.files[0];
+    if (!text.value.trim() && !file) { text.focus(); return; }
     hide(); button.disabled = true; loading.hidden = false;
     try {
       const token = document.querySelector('meta[name="csrf-token"]');
-      const response = await fetch('/api/check-message', {method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: {'Content-Type': 'application/json', ...(token ? {'X-CSRFToken': token.content} : {})},
-        body: JSON.stringify({text: text.value, lang: tr ? 'tr' : 'en'})});
+      let body, headers = token ? {'X-CSRFToken': token.content} : {};
+      if (file) {
+        body = new FormData(); body.append('image', file); body.append('text', text.value); body.append('lang', tr ? 'tr' : 'en');
+      } else {
+        body = JSON.stringify({text: text.value, lang: tr ? 'tr' : 'en'}); headers = {...headers, 'Content-Type': 'application/json'};
+      }
+      const response = await fetch('/api/check-message', {method: 'POST', credentials: 'same-origin', cache: 'no-store', headers, body});
       const data = await response.json().catch(() => ({}));
       if (response.status === 429) throw Error(say('Today’s message-check allowance is used up. It resets at 00:00 UTC.', 'Bugünkü mesaj kontrolü hakkın doldu. 00:00 UTC’de yenilenir.'));
       if (!response.ok || data.error) throw Error(typeof data.error === 'string' ? data.error : say('The check is unavailable right now. Please retry.', 'Kontrol şu an yapılamıyor. Lütfen tekrar dene.'));
@@ -52,7 +65,10 @@
       document.getElementById('mc-links').hidden = !links.length;
       document.getElementById('mc-link-list').innerHTML = links.map((l) => `<div class="mc-link"><code>${esc(l.shown)}</code>`
         + `<span>${esc((l.notes || []).map(note).join(' · '))}</span><b class="mc-state ${esc(l.state)}">${esc(STATE[l.state] || '')}</b></div>`).join('');
-      extra.hidden = !ai.length && !links.length;
+      const read = document.getElementById('mc-read');
+      read.hidden = !data.text;
+      document.getElementById('mc-read-text').textContent = data.text || '';
+      extra.hidden = !ai.length && !links.length && !data.text;
       const plain = document.getElementById('mc-plain');
       if (plain && !plain.hidden) plain.scrollIntoView({behavior: 'smooth', block: 'start'});
     } catch (e) {

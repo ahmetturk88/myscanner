@@ -2,6 +2,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONUTF8=1
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends libarchive-tools libimage-exiftool-perl \
+    tesseract-ocr tesseract-ocr-tur tesseract-ocr-ara tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements-source.txt
 # The repository lock file has a Windows UTF-16 BOM. Normalize only inside this image.

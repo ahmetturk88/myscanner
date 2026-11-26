@@ -1603,17 +1603,35 @@ def message_check():
 @app.route('/api/check-message', methods=['POST'])
 @login_required
 def api_check_message():
-    data = request.get_json(silent=True)
-    text = data.get('text') if isinstance(data, dict) else None
-    if not isinstance(text, str) or not text.strip() or len(text) > 6000:
+    """JSON {text, lang}, or a form with an `image` (a screenshot, read on this server) and optional `text`."""
+    from services.message_ocr import MAX_BYTES, OCRError, read_text
+    image = request.files.get('image')
+    data = request.form if image is not None else (request.get_json(silent=True) or {})
+    data = data if hasattr(data, 'get') else {}
+    text = data.get('text') or ''
+    if not isinstance(text, str) or len(text) > 6000:
+        return jsonify(error='Paste the message: 1-6000 characters'), 400
+    if image is None and not text.strip():
         return jsonify(error='Paste the message: 1-6000 characters'), 400
     failure = reserve_request_quota('message_check')
     if failure is not None:
         return failure
+    if image is not None:
+        try:
+            read = read_text(image.stream.read(MAX_BYTES + 1))
+        except OCRError as error:
+            messages = {'too_large': 'The image is too large (8 MB at most).', 'bad_image': 'Send a PNG, JPEG or WebP screenshot.',
+                        'no_text': 'No text could be read in this image. Paste the message text instead.',
+                        'unavailable': 'Reading images is unavailable right now. Paste the message text instead.'}
+            return jsonify(error=messages[str(error)], code=f'ocr_{error}'), 503 if str(error) == 'unavailable' else 400
+        text = (text.strip() + '\n' + read).strip() if text.strip() else read
     try:
-        from services.message_check import assess
+        from services.message_check import assess, redact
         from services.site_i18n import current_language
-        result = assess(text, language=data.get('lang') if data.get('lang') in ('tr', 'en', 'ar') else current_language())
+        lang = data.get('lang')
+        result = assess(text, language=lang if lang in ('tr', 'en', 'ar') else current_language())
+        if image is not None:
+            result['text'] = redact(text[:6000])[0]  # what was read, with personal data hidden
         log_activity(current_user.username, 'message_check', f'Checked a message: {result["plain"]["tone"]}')
         return jsonify(result), 200, {'Cache-Control': 'no-store'}
     except Exception as error:

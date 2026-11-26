@@ -80,6 +80,40 @@ class EngineTests(unittest.TestCase):
         self.assertIn('ptt-kargo[.]info/takip?no=1 tehlikeli olarak listelenmiş.', [r['detail'] for r in turkish['reasons']])
 
 
+def png(color=(255, 255, 255), size=(400, 120)):
+    import io
+    from PIL import Image
+    buffer = io.BytesIO()
+    Image.new('RGB', size, color).save(buffer, 'PNG')
+    return buffer.getvalue()
+
+
+class OcrTests(unittest.TestCase):
+    def test_only_real_images_of_a_sane_size_are_read(self):
+        from services import message_ocr as ocr
+        for data, reason in ((b'%PDF-1.7 not an image', 'bad_image'), (b'x' * (ocr.MAX_BYTES + 1), 'too_large')):
+            with self.assertRaises(ocr.OCRError) as caught:
+                ocr.read_text(data, run=lambda path: 'never')
+            self.assertEqual(str(caught.exception), reason)
+        with self.assertRaises(ocr.OCRError) as caught:
+            ocr.read_text(png(), run=lambda path: '  ')
+        self.assertEqual(str(caught.exception), 'no_text')
+
+    def test_dark_screenshots_are_inverted_and_the_file_is_gone_after(self):
+        from PIL import Image, ImageStat
+        from services import message_ocr as ocr
+        seen = {}
+
+        def run(path):
+            seen['path'] = path
+            with Image.open(path) as image:
+                seen['mean'] = ImageStat.Stat(image).mean[0]
+            return 'Kargonuz   bekliyor\n\n ptt-kargo.info/takip '
+        self.assertEqual(ocr.read_text(png((17, 24, 39)), run=run), 'Kargonuz bekliyor\nptt-kargo.info/takip')
+        self.assertGreater(seen['mean'], 128)  # inverted: dark text on light, as Tesseract reads best
+        self.assertFalse(seen['path'].exists())
+
+
 class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -127,6 +161,30 @@ class ApiTests(unittest.TestCase):
         self.assertNotIn('45 67', json.dumps(data))  # the reply never repeats masked personal data
         self.assertEqual(self.post({'text': '   '}).status_code, 400)
         self.assertEqual(self.post({'text': 'x' * 6001}).status_code, 400)
+
+    def test_a_screenshot_is_read_and_checked(self):
+        from flask import g
+        g.pop('csrf_token', None)
+        page = self.client.get('/message-check?lang=tr').get_data(as_text=True)
+        token = page.split('name="csrf-token" content="')[1].split('"')[0]
+        import io
+        fake = FakeAnalyzer()
+        fake.session = type('S', (), {'close': lambda self: None})()
+        with patch('services.message_ocr.read_text', return_value=PARCEL), \
+                patch('services.url_analyzer.URLDeepAnalyzer', lambda: fake), \
+                patch('services.ai_assistant.enabled', return_value=False):
+            response = self.client.post('/api/check-message', data={'image': (io.BytesIO(png()), 'shot.png'), 'lang': 'tr'},
+                                        content_type='multipart/form-data', headers={'X-CSRFToken': token})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['plain']['tone'], 'danger')
+        self.assertIn('[phone]', data['text'])  # what was read is shown back with personal data hidden
+        self.assertNotIn('45 67', data['text'])
+        from services.message_ocr import OCRError
+        with patch('services.message_ocr.read_text', side_effect=OCRError('no_text')):
+            refused = self.client.post('/api/check-message', data={'image': (io.BytesIO(png()), 'shot.png')},
+                                       content_type='multipart/form-data', headers={'X-CSRFToken': token})
+        self.assertEqual((refused.status_code, refused.get_json()['code']), (400, 'ocr_no_text'))
 
     def test_the_app_reaches_it_as_a_tool(self):
         from routes.mobile_api import TOOLS

@@ -196,6 +196,7 @@ class TelegramTests(unittest.TestCase):
         self.assertEqual(mails[0][1], '✅ MyScanner İşletme: deneme uyarısı')
         self.assertEqual([chat for chat, _ in bot.sent()], [7])
         self.assertIn('Bu bir deneme uyarısıdır', bot.sent()[0][1])
+        self.assertTrue(bot.sent()[0][1].startswith('✅'))
         self.assertIn('magazam.com', bot.sent()[0][1])
 
         client = self.app.test_client()

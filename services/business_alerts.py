@@ -215,7 +215,7 @@ def send_test(workspace, user, sender=None, telegram=None, now=None):
     if row and row.chat_id:
         from services import business_telegram
         call = telegram or business_telegram.api
-        message = business_telegram.alert_text(text, groups, _panel_url())
+        message = business_telegram.alert_text(text, groups, _panel_url()).replace('⚠️', '✅', 1)  # a test is not a warning
         result['telegram'] = call('sendMessage', {'chat_id': row.chat_id, 'text': message,
                                                   'link_preview_options': {'is_disabled': True}}) is not None
     return result

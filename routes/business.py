@@ -93,9 +93,10 @@ def panel():
     return response, 200, {'Cache-Control': 'private, no-store'}
 
 
-def _back(notice):
+def _back(notice, anchor=None):
+    """Back to the panel with a notice, at the section the action came from (not the top of the page)."""
     session[NOTICE] = notice
-    return redirect(url_for('business.panel'))
+    return redirect(url_for('business.panel') + (f'#{anchor}' if anchor else ''))
 
 
 @business_bp.route('/isletme/panel/domains', methods=['POST'])
@@ -109,10 +110,10 @@ def add_domain():
         consume_limit('business-domain-add', str(current_user.id), 20, 3600)
         business.add_domain(workspace, request.form.get('domain', ''))
     except AuthRateLimited:
-        return _back('error:rate_limited')
+        return _back('error:rate_limited', 'domains')
     except business.BusinessError as error:
-        return _back('error:' + str(error))
-    return _back('added_flash')
+        return _back('error:' + str(error), 'domains')
+    return _back('added_flash', 'domains')
 
 
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/verify', methods=['POST'])
@@ -130,10 +131,10 @@ def verify_domain(domain_id):
         consume_limit('business-verify-minute', str(current_user.id), 5, 60)
         business.verify_domain(domain)
     except AuthRateLimited:
-        return _back('error:rate_limited')
+        return _back('error:rate_limited', f'domain-{domain_id}')
     except business.BusinessError as error:
-        return _back('error:' + str(error))
-    return _back('verified_flash')
+        return _back('error:' + str(error), f'domain-{domain_id}')
+    return _back('verified_flash', f'domain-{domain_id}')
 
 
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/check', methods=['POST'])
@@ -149,15 +150,15 @@ def check_now(domain_id):
     try:
         consume_limit('business-check-day', str(current_user.id), 5, 86400)
     except AuthRateLimited:
-        return _back('error:check_limit')
+        return _back('error:check_limit', f'domain-{domain_id}')
     try:
         from celery_app import celery, require_broker
         require_broker(celery)
         celery.send_task('business_check_now', args=[domain.id])
     except Exception:
         current_app.logger.exception('Business check could not be queued')
-        return _back('error:check_unavailable')
-    return _back('check_queued')
+        return _back('error:check_unavailable', f'domain-{domain_id}')
+    return _back('check_queued', f'domain-{domain_id}')
 
 
 @business_bp.route('/isletme/panel/lookalikes/<int:lookalike_id>/dismiss', methods=['POST'])
@@ -196,7 +197,7 @@ def takedown(lookalike_id):
     try:
         consume_limit('business-takedown-hour', str(current_user.id), 30, 3600)
     except AuthRateLimited:
-        return _back('error:rate_limited')
+        return _back('error:rate_limited', 'domains')
     records = business_takedown.gather(row)
     domain = db.session.get(BusinessDomain, row.domain_id)
     owner = db.session.get(User, workspace.owner_id)
@@ -219,7 +220,7 @@ def lookalike_reported(lookalike_id):
     from extensions import db
     row.reported_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.session.commit()
-    return _back('td_reported_flash')
+    return _back('td_reported_flash', f'domain-{row.domain_id}')
 
 
 def _mark_lookalike(lookalike_id, status, notice):
@@ -235,7 +236,7 @@ def _mark_lookalike(lookalike_id, status, notice):
         abort(404)
     row.status = status
     db.session.commit()
-    return _back(notice)
+    return _back(notice, f'domain-{row.domain_id}')
 
 
 @business_bp.route('/isletme/panel/settings', methods=['POST'])
@@ -253,7 +254,7 @@ def save_settings():
         workspace.name = name
     from extensions import db
     db.session.commit()
-    return _back('saved_flash')
+    return _back('saved_flash', 'settings')
 
 
 @business_bp.route('/isletme/panel/alerts/test', methods=['POST'])
@@ -266,15 +267,15 @@ def test_alert():
     try:
         consume_limit('business-test-alert', str(current_user.id), 3, 3600)
     except AuthRateLimited:
-        return _back('error:test_limit')
+        return _back('error:test_limit', 'settings')
     try:
         from celery_app import celery, require_broker
         require_broker(celery)
         celery.send_task('business_test_alert', args=[workspace.id, current_user.id])
     except Exception:
         current_app.logger.exception('Business test alert could not be queued')
-        return _back('error:check_unavailable')
-    return _back('test_queued')
+        return _back('error:check_unavailable', 'settings')
+    return _back('test_queued', 'settings')
 
 
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/remove', methods=['POST'])
@@ -287,7 +288,7 @@ def remove_domain(domain_id):
     if domain is None:
         abort(404)
     business.remove_domain(domain)
-    return _back('removed_flash')
+    return _back('removed_flash', 'domains')
 
 
 # ------------------------------------------------------------------ team
@@ -303,12 +304,12 @@ def invite_member():
         consume_limit('business-invite-day', str(current_user.id), 20, 86400)
         member = business.invite(workspace, current_user, request.form.get('email', ''))
     except AuthRateLimited:
-        return _back('error:invite_limit')
+        return _back('error:invite_limit', 'team')
     except business.BusinessError as error:
-        return _back('error:' + str(error))
+        return _back('error:' + str(error), 'team')
     if member.accepted_at is not None:
-        return _back('invited_flash')
-    return _back('invited_flash' if _send_invitation(workspace, member) else 'invite_mail_failed')
+        return _back('invited_flash', 'team')
+    return _back('invited_flash' if _send_invitation(workspace, member) else 'invite_mail_failed', 'team')
 
 
 def _send_invitation(workspace, member):
@@ -354,7 +355,7 @@ def remove_member(member_id):
         abort(404)
     db.session.delete(member)
     db.session.commit()
-    return _back('member_removed_flash')
+    return _back('member_removed_flash', 'team')
 
 
 # ------------------------------------------------------------------ Telegram
@@ -371,7 +372,7 @@ def telegram_link():
     try:
         consume_limit('business-telegram-link', str(current_user.id), 10, 3600)
     except AuthRateLimited:
-        return _back('error:rate_limited')
+        return _back('error:rate_limited', 'telegram')
     link = start_link(current_user)
     if link is None:
         abort(404)
@@ -386,7 +387,7 @@ def telegram_unlink():
         return blocked
     from services.business_telegram import unlink
     unlink(current_user.id)
-    return _back('telegram_unlinked_flash')
+    return _back('telegram_unlinked_flash', 'telegram')
 
 
 # ------------------------------------------------------------------ monthly report
@@ -403,7 +404,7 @@ def monthly_report():
     try:
         consume_limit('business-report-hour', str(current_user.id), 10, 3600)
     except AuthRateLimited:
-        return _back('error:report_limit')
+        return _back('error:report_limit', 'report')
     lang = current_language()
     pdf = generate_business_report(workspace, lang)
     response = send_file(pdf, mimetype='application/pdf', as_attachment=True,

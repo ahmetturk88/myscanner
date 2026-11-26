@@ -24,11 +24,13 @@
   const STATES = ['bad', 'warn', 'ok', 'na', 'info'];
   // The next check that fits the tool just used. Scams come as a message plus a link, a file or a code.
   const CHECK_LINK = ['/dashboard', 'Check a link'], CHECK_FILE = ['/file-scanner', 'Check a file'], CHECK_SENDER = ['/email-check', 'Check a sender'];
+  const CHECK_MESSAGE = ['/message-check', 'Check a message'];
   const NEXT = {
     '/dashboard': ['Who sent you this link?', 'Check the sender’s email address too, and any file that came with it.', [CHECK_SENDER, CHECK_FILE], 'url'],
     '/file-scanner': ['Where did this file come from?', 'Check the link or the email address it came with too.', [CHECK_LINK, CHECK_SENDER], 'file'],
     '/email-check': ['Did the email have a link or a file?', 'Check them before you open anything.', [CHECK_LINK, CHECK_FILE], 'email'],
     '/qr-scanner': ['Where did you find this code?', 'Codes on letters, parking meters and messages get swapped. Check who sent it too.', [CHECK_SENDER, CHECK_FILE], 'qr'],
+    '/message-check': ['Did it come with a file or from an email?', 'Check the file and the sender’s address too.', [CHECK_FILE, CHECK_SENDER], 'message'],
   };
   const NEXT_OTHER = ['Got a suspicious message?', 'Check its link, file or sender before you act.', [CHECK_LINK, CHECK_FILE, CHECK_SENDER], 'other'];
   // Never on a password check, and Pro never next to a "dangerous" verdict: no selling to someone who may have just been scammed.
@@ -36,9 +38,9 @@
     if (href === '/password-check') return '';
     const [title, detail, links, ref] = NEXT[href] || NEXT_OTHER;
     const go = links.filter(([path]) => path !== href).map(([path, label]) => `<a class="rp-next-link" href="${path}">${esc(label)}</a>`).join('');
-    const pro = tone === 'danger' ? '' : `<div class="rp-pro"><span class="rp-pro-tag">Pro · coming soon</span>
-      <p>Got this in a message? Pro will check the whole message or a screenshot: every link, IBAN and QR code in it.</p>
-      <a class="rp-pro-link" href="/pro?ref=report-${ref}">Get notified</a></div>`;
+    const pro = href === '/message-check' ? '' : `<div class="rp-pro"><span class="rp-pro-tag">Free</span>
+      <p>Got this in a message? Paste the whole message: we check every link in it and the tricks scam texts use.</p>
+      <a class="rp-pro-link" href="/message-check?ref=report-${ref}">Check a message</a></div>`;
     return `<section class="rp-card rp-next"><h2>Next step</h2><strong>${esc(title)}</strong><p>${esc(detail)}</p><div class="rp-next-links">${go}</div>${pro}</section>`;
   }
 

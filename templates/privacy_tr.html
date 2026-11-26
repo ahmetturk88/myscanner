@@ -88,6 +88,7 @@
           <li><strong>Parolalar</strong> güç açısından analiz edilir; saklanmaz ve raporlara eklenmez. Sızıntı kontrolü varsayılan olarak açıktır ve kapatabilirsiniz; sunucumuzdan yalnızca parolanın SHA-1 özetinin ilk beş karakteri çıkar (k-anonimlik), parolanın kendisi asla.</li>
           <li><strong>E-posta adresleri</strong> DNS kayıtlarıyla kontrol edilir. Doğrudan posta sunucusu kontrolü yalnızca siz işaretlerseniz yapılır ve karşı posta sunucusu adresi görür.</li>
           <li><strong>QR kodlar</strong> tarayıcınızda veya uygulamada telefonunuzda çözülür. Kamera yalnızca tarama sırasında kullanılır ve görüntü telefonunuzdan çıkmaz; yalnızca incelemeyi seçerseniz çözülen metin gönderilir.</li>
+          <li><strong>Mesaj kontrolüne yapıştırdığınız mesajlar:</strong> telefon numaraları, IBAN'lar, kart numaraları, e-posta adresleri ve kimlik numaraları önce gizlenir. İçindeki en fazla üç bağlantı tehdit listelerinde aranır (yalnızca adres; bağlantılar asla açılmaz). Yapay zekâ incelemesi varsa sağlayıcı yalnızca gizlenmiş metni ve bu bulguları alır. Mesajın kendisi kaydedilmez; geçmişinizde yalnızca bir kontrol yapıldığı ve sonucu tutulur.</li>
         </ul>
         <p>Lütfen paylaşma yetkiniz olmayan içerikleri (ör. gizli belgeler veya sır içeren bağlantılar) taramayın.</p>
       </section>
@@ -122,7 +123,7 @@
             <tr><td>AbuseIPDB</td><td>IP adresi itibarı. Ağ konumu kendi sunucumuzdaki DB-IP Lite veritabanından gelir; bunun için adres hiçbir yere gönderilmez.</td></tr>
             <tr><td>Have I Been Pwned (Pwned Passwords)</td><td>Yalnızca özet öneki ile parola sızıntı kontrolü (varsayılan olarak açık, kapatılabilir).</td></tr>
             <tr><td>crt.sh, Google Public DNS, kayıt kuruluşları (RDAP/WHOIS, rdap.org)</td><td>Sertifika geçmişi, DNS ve alan adı kayıt bilgileri; işletme izlemesinde benzer alan adı araması dahil.</td></tr>
-            <tr><td>Google (Gemini API), Groq</td><td>Yalnızca siz istediğinizde yapay zekâ açıklamaları ve soruların yanıtlanması. Raporun bulgularını (sırlar ve görseller çıkarılmış olarak), sorularınızı ve aynı konuşmadaki önceki mesajları alır; hesap bilgilerinizi almaz. Ücretsiz katmanlarda Google bu içeriği ürünlerini geliştirmek için kullanabilir; bu nedenle sorularınıza kişisel bilgi eklemeyin.</td></tr>
+            <tr><td>Google (Gemini API), Groq</td><td>Yalnızca siz istediğinizde yapay zekâ açıklamaları ve soruların yanıtlanması; ayrıca kontrol ettiğiniz bir mesajın yapay zekâ incelemesi (yalnızca gizlenmiş mesaj metnini alır). Raporun bulgularını (sırlar ve görseller çıkarılmış olarak), sorularınızı ve aynı konuşmadaki önceki mesajları alır; hesap bilgilerinizi almaz. Ücretsiz katmanlarda Google bu içeriği ürünlerini geliştirmek için kullanabilir; bu nedenle sorularınıza kişisel bilgi eklemeyin.</td></tr>
             <tr><td>Sentry (Functional Software, Inc.)</td><td>Sunucularımızda bir hata oluştuğunda hata türü, mesajı ve kod konumu. İstek içerikleri, çerezler, hesap bilgileri ve saklanan değerler gönderilmez; ancak bir hata mesajı kontrol edilen adresi içerebilir.</td></tr>
             <tr><td>Google Fonts, cdnjs</td><td>Sayfalarımızı görüntülerken tarayıcınızın yüklediği yazı tipleri ve simgeler.</td></tr>
           </tbody>

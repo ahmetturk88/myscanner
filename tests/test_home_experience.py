@@ -20,7 +20,7 @@ class HomeExperienceTests(unittest.TestCase):
         self.assertIn('id="url-input" name="url"',html)
         self.assertNotIn('<img src=x onerror=alert(1)>',html)
         self.assertIn('&lt;img',html)
-        self.assertEqual(html.count('class="hx-tool"'),10)
+        self.assertEqual(html.count('class="hx-tool"'),11)
     def test_administrator_recent_scope_is_explicit(self):
         self.assertIn('Latest platform scans visible',self.render('index.html',True))
         self.assertIn('Your latest saved scans',self.render('index.html'))

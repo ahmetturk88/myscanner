@@ -1591,6 +1591,38 @@ def api_check_password():
             analyzer.close()
 
 # ================================================================
+# Message check (is this SMS / WhatsApp / email a scam?)
+# ================================================================
+
+@app.route('/message-check')
+@login_required
+def message_check():
+    return render_template('message_check.html')
+
+
+@app.route('/api/check-message', methods=['POST'])
+@login_required
+def api_check_message():
+    data = request.get_json(silent=True)
+    text = data.get('text') if isinstance(data, dict) else None
+    if not isinstance(text, str) or not text.strip() or len(text) > 6000:
+        return jsonify(error='Paste the message: 1-6000 characters'), 400
+    failure = reserve_request_quota('message_check')
+    if failure is not None:
+        return failure
+    try:
+        from services.message_check import assess
+        from services.site_i18n import current_language
+        result = assess(text, language=data.get('lang') if data.get('lang') in ('tr', 'en', 'ar') else current_language())
+        log_activity(current_user.username, 'message_check', f'Checked a message: {result["plain"]["tone"]}')
+        return jsonify(result), 200, {'Cache-Control': 'no-store'}
+    except Exception as error:
+        report_exception(error, sensitive=True)
+        app.logger.error('Message check unavailable')
+        return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
+
+
+# ================================================================
 # Subdomain Finder
 # ================================================================
 

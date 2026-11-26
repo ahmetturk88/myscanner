@@ -212,7 +212,11 @@ SCRIPTS_TR = {
     'Got a suspicious message?': 'Şüpheli bir mesaj mı aldın?',
     'Check its link, file or sender before you act.': 'Bir şey yapmadan önce bağlantısını, dosyasını ya da göndereni kontrol et.',
     'Pro · coming soon': 'Pro · yakında',
-    'Got this in a message? Pro will check the whole message or a screenshot: every link, IBAN and QR code in it.': 'Bunu bir mesajla mı aldın? Pro, mesajın tamamını ya da ekran görüntüsünü kontrol edecek: içindeki her bağlantıyı, IBAN\'ı ve QR kodu.',
+    'Free': 'Ücretsiz',
+    'Got this in a message? Paste the whole message: we check every link in it and the tricks scam texts use.': 'Bunu bir mesajla mı aldın? Mesajın tamamını yapıştır: içindeki her bağlantıyı ve dolandırıcı mesajların kullandığı hileleri kontrol ederiz.',
+    'Check a message': 'Mesajı kontrol et',
+    'Did it come with a file or from an email?': 'Mesajla bir dosya mı geldi, ya da e-postayla mı geldi?',
+    'Check the file and the sender’s address too.': 'Dosyayı ve gönderenin adresini de kontrol et.',
     'Get notified': 'Haber ver',
 
     # ------------------------------------------------------------ shared states and errors

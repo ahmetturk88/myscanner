@@ -42,7 +42,7 @@ export default function Login() {
       <NetworkBackground />
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 22, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 22, paddingBottom: 40, flexGrow: 1, justifyContent: 'center', width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
             <Animated.View entering={enter(0)} style={{ alignItems: 'center', gap: 14 }}>
               <Pulse size={84}>
                 <View style={s.mark}><BrandMark size={50} /></View>

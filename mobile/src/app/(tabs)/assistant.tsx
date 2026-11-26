@@ -96,7 +96,7 @@ export default function Assistant() {
             ) : null}
           </View>
         </View>
-        <ScrollView ref={scroller} contentContainerStyle={{ padding: 18, gap: 12, flexGrow: 1 }} keyboardShouldPersistTaps="handled"
+        <ScrollView ref={scroller} contentContainerStyle={{ padding: 18, gap: 12, flexGrow: 1, width: '100%', maxWidth: 760, alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })} showsVerticalScrollIndicator={false}>
           {!messages.length ? (
             <View style={{ gap: 12, flex: 1, justifyContent: 'center' }}>

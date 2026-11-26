@@ -7,6 +7,7 @@
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/ui": "~57.0.25",
     "expo": "~57.0.30",
+    "expo-build-properties": "~57.0.24",
     "expo-camera": "~57.0.6",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.22",

@@ -206,7 +206,12 @@ class WorkspaceTests(RunTests):
                 client.post(f'/isletme/panel/domains/{self.domain.id}/check', data={'csrf_token': token})
         self.assertEqual(send.call_count, 5)
         send.assert_called_with('business_check_now', args=[self.domain.id])
-        self.assertIn('elle kontrol hakkınız doldu', client.get('/isletme/panel?lang=tr').get_data(as_text=True))
+        page = client.get('/isletme/panel?lang=tr').get_data(as_text=True)
+        self.assertIn('elle kontrol hakkınız doldu', page)
+        self.assertIn('class="bzt error" id="bzt" role="alert"', page)  # a floating card, not a banner at the top
+        self.assertIn(f'id="domain-{self.domain.id}"', page)
+        response = client.post(f'/isletme/panel/domains/{self.domain.id}/check', data={'csrf_token': token})
+        self.assertTrue(response.headers['Location'].endswith(f'/isletme/panel#domain-{self.domain.id}'))  # back where the click was
         self.domain.verified_at = None
         db.session.commit()
         self.assertEqual(client.post(f'/isletme/panel/domains/{self.domain.id}/check', data={'csrf_token': token}).status_code, 404)

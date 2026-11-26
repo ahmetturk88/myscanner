@@ -8,6 +8,18 @@
 <style>
   .bzp-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px;margin:20px 0 34px}
   .bzp-head p{max-width:680px;margin-top:12px}
+  .bzt{position:fixed;z-index:1200;top:96px;right:24px;width:min(400px,calc(100vw - 32px));display:flex;align-items:flex-start;gap:12px;padding:14px 14px 14px 16px;border-radius:16px;border:1px solid rgba(94,234,212,.4);background:rgba(10,24,38,.96);box-shadow:0 18px 50px rgba(0,0,0,.45);backdrop-filter:blur(10px);animation:bzt-in .28s ease-out}
+  .bzt.error{border-color:rgba(251,191,36,.55)}
+  .bzt p{margin:2px 0 0;flex:1;font-size:14.5px;line-height:1.55;color:#e3f1ff}
+  .bzt-icon{flex-shrink:0;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;font:800 14px var(--sans);background:rgba(94,234,212,.16);color:#5eead4}
+  .bzt.error .bzt-icon{background:rgba(251,191,36,.16);color:#fbbf24}
+  .bzt-close{flex-shrink:0;border:0;background:transparent;color:#8ea6c0;font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+  .bzt-close:hover{color:#e3f1ff}
+  .bzt.out{opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .25s}
+  @keyframes bzt-in{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  @media(max-width:640px){.bzt{top:auto;bottom:16px;right:16px;left:16px;width:auto}}
+  @media(prefers-reduced-motion:reduce){.bzt{animation:none}.bzt.out{transition:none}}
+  .pg section[id],.pg article[id]{scroll-margin-top:110px}
   .bzp-notice{margin:0 0 22px;padding:14px 18px;border-radius:14px;border:1px solid rgba(94,234,212,.35);background:rgba(94,234,212,.08);color:#d1fae5}
   .bzp-notice.error{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.08);color:#fde68a}
   .bzp-add{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
@@ -94,6 +106,14 @@
 {% endblock %}
 
 {% block content %}
+  {% if notice and (notice.startswith('error:') or notice in t) %}
+    {% set failed = notice.startswith('error:') %}
+    <div class="bzt{{ ' error' if failed }}" id="bzt" role="{{ 'alert' if failed else 'status' }}" data-hide="{{ 12000 if failed else 6000 }}">
+      <span class="bzt-icon" aria-hidden="true">{{ '!' if failed else '✓' }}</span>
+      <p>{{ t.errors.get(notice[6:], t.errors.dns_unavailable) if failed else t[notice] }}</p>
+      <button type="button" class="bzt-close" aria-label="{{ t.close }}">×</button>
+    </div>
+  {% endif %}
 <div class="pg">
   <div class="pg-aurora" aria-hidden="true"><div class="pg-grid"></div></div>
 
@@ -105,13 +125,6 @@
     </div>
   </header>
 
-  {% if notice %}
-    {% if notice.startswith('error:') %}
-    <p class="bzp-notice error" role="alert">{{ t.errors.get(notice[6:], t.errors.dns_unavailable) }}</p>
-    {% elif notice in t %}
-    <p class="bzp-notice" role="status">{{ t[notice] }}</p>
-    {% endif %}
-  {% endif %}
 
   {% if role == 'member' %}<p class="bzp-notice" role="note">{{ t.team_member_note }}</p>{% endif %}
 
@@ -127,12 +140,12 @@
   </section>
   {% endif %}
 
-  <section style="margin-top:34px">
+  <section id="domains" style="margin-top:34px">
     <h2 class="pg-reveal" style="font-size:clamp(24px,2.6vw,32px);margin-bottom:18px">{{ t.domains_title }}</h2>
     {% if not domains %}<div class="pg-card pg-reveal"><p>{{ t.empty }}</p></div>{% endif %}
     <div style="display:grid;gap:18px">
     {% for d in domains %}
-      <article class="pg-card glow bzp-domain pg-reveal">
+      <article class="pg-card glow bzp-domain pg-reveal" id="domain-{{ d.id }}">
         <div class="bzp-domain-head">
           <h3><span class="pg-ic ic-globe"></span>{{ d.domain }}</h3>
           {% if d.verified %}<span class="bzp-state ok"><span class="pg-ic ic-check"></span>{{ t.verified }}</span>
@@ -279,7 +292,7 @@
   </section>
 
   {% if role == 'owner' %}
-  <section class="pg-card pg-reveal" style="margin-top:34px">
+  <section class="pg-card pg-reveal" id="settings" style="margin-top:34px">
     <h3>{{ t.settings_title }}</h3>
     <p class="bzp-meta" style="margin-top:8px">{{ t.settings_lead.format(email=current_user.email) }}</p>
     <form class="bzs" method="post" action="{{ url_for('business.save_settings') }}">
@@ -308,6 +321,14 @@
 </div>
 {% include '_business_confirm.html' %}
 <script>
+(function () {
+  var toast = document.getElementById('bzt');
+  if (!toast) return;
+  var hide = function () { toast.classList.add('out'); setTimeout(function () { toast.remove(); }, 260); };
+  toast.querySelector('.bzt-close').addEventListener('click', hide);
+  var timer = setTimeout(hide, parseInt(toast.dataset.hide, 10) || 6000);
+  toast.addEventListener('mouseenter', function () { clearTimeout(timer); });
+})();
 document.querySelectorAll('.bzp-copy').forEach(function (button) {
   button.addEventListener('click', function () {
     var label = button.textContent;

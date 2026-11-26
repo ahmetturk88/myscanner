@@ -196,3 +196,26 @@ def send_digest(workspace, sender=None, now=None):
     workspace.last_digest_at = now
     db.session.commit()
     return len(pending)
+
+
+def send_test(workspace, user, sender=None, telegram=None, now=None):
+    """A test alert to the person who asked, by email and (if linked) Telegram. Returns {'email': bool, 'telegram': bool}."""
+    from models import BusinessChat, BusinessDomain
+    from services.business_page import CONTENT
+    text = CONTENT['tr' if workspace.alert_lang == 'tr' else 'en']
+    words = text['alert_mail']
+    domain = BusinessDomain.query.filter_by(workspace_id=workspace.id).order_by(BusinessDomain.id).first()
+    groups = [(domain.domain if domain else workspace.name, None, [('good', words['test_line'], now or _now())])]
+    result = {'email': False, 'telegram': False}
+    email = (getattr(user, 'email', '') or '').strip()
+    if email and getattr(user, 'is_verified', False) is True:
+        _, plain, html = build_email(text, workspace.name, groups, 'instant')
+        result['email'] = bool(_send(email, words['test_subject'], plain, html, sender))
+    row = BusinessChat.query.filter_by(user_id=user.id).first()
+    if row and row.chat_id:
+        from services import business_telegram
+        call = telegram or business_telegram.api
+        message = business_telegram.alert_text(text, groups, _panel_url())
+        result['telegram'] = call('sendMessage', {'chat_id': row.chat_id, 'text': message,
+                                                  'link_preview_options': {'is_disabled': True}}) is not None
+    return result

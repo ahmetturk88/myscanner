@@ -293,6 +293,11 @@
         <select class="pg-input" name="alert_lang" id="bzs-lang"><option value="tr" {{ 'selected' if workspace.alert_lang == 'tr' }}>Türkçe</option><option value="en" {{ 'selected' if workspace.alert_lang == 'en' }}>English</option></select>
         <button class="pg-btn primary" type="submit">{{ t.save }}</button></div>
     </form>
+    <form method="post" action="{{ url_for('business.test_alert') }}" class="bzs-line" style="margin-top:16px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="pg-btn" type="submit"><span class="pg-ic ic-send"></span>{{ t.test_button }}</button>
+      <span class="bzp-meta">{{ t.test_hint }}</span>
+    </form>
   </section>
   {% endif %}
 

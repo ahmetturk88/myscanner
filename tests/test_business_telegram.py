@@ -179,6 +179,39 @@ class TelegramTests(unittest.TestCase):
         self.assertNotIn('magazam-giris.com', sent[0][1])
         self.assertTrue(all(p['link_preview_options'] == {'is_disabled': True} for m, p in bot.calls))
 
+    def test_test_alert_reaches_only_the_person_who_asked(self):
+        from services import business_alerts
+        member = self.person('member')
+        db.session.add(BusinessMember(workspace_id=self.workspace.id, email='member@tg.invalid', token='t' * 43,
+                                      user_id=member.id, accepted_at=T0))
+        db.session.add(BusinessDomain(workspace_id=self.workspace.id, domain='magazam.com', token='ef' * 16, verified_at=T0))
+        self.workspace.alert_lang = 'tr'
+        db.session.commit()
+        self.link(self.owner, 7)
+        self.link(member, 8)
+        mails, bot = [], FakeBot()
+        result = business_alerts.send_test(self.workspace, self.owner, sender=lambda *a: mails.append(a) or True, telegram=bot)
+        self.assertEqual(result, {'email': True, 'telegram': True})
+        self.assertEqual([m[0] for m in mails], ['owner@tg.invalid'])
+        self.assertEqual(mails[0][1], '✅ MyScanner İşletme: deneme uyarısı')
+        self.assertEqual([chat for chat, _ in bot.sent()], [7])
+        self.assertIn('Bu bir deneme uyarısıdır', bot.sent()[0][1])
+        self.assertIn('magazam.com', bot.sent()[0][1])
+
+        client = self.app.test_client()
+        with client.session_transaction() as session:
+            session['_user_id'] = str(self.owner.id)
+            session['_fresh'] = True
+        page = client.get('/isletme/panel?lang=tr').get_data(as_text=True)
+        self.assertIn('Deneme uyarısı gönder', page)
+        token = BeautifulSoup(page, 'html.parser').find('input', attrs={'name': 'csrf_token'})['value']
+        with patch('celery_app.require_broker'), patch('celery_app.celery.send_task') as send:
+            for _ in range(4):
+                client.post('/isletme/panel/alerts/test', data={'csrf_token': token})
+        self.assertEqual(send.call_count, 3)
+        send.assert_called_with('business_test_alert', args=[self.workspace.id, self.owner.id])
+        self.assertIn('en fazla 3 deneme uyarısı', client.get('/isletme/panel?lang=tr').get_data(as_text=True))
+
     def test_workspace_links_and_unlinks(self):
         client = self.app.test_client()
         with client.session_transaction() as session:

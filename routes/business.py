@@ -256,6 +256,27 @@ def save_settings():
     return _back('saved_flash')
 
 
+@business_bp.route('/isletme/panel/alerts/test', methods=['POST'])
+@login_required
+def test_alert():
+    workspace, _, blocked = _access(owner_only=True)
+    if blocked:
+        return blocked
+    from services.auth_rate_limit import AuthRateLimited, consume_limit
+    try:
+        consume_limit('business-test-alert', str(current_user.id), 3, 3600)
+    except AuthRateLimited:
+        return _back('error:test_limit')
+    try:
+        from celery_app import celery, require_broker
+        require_broker(celery)
+        celery.send_task('business_test_alert', args=[workspace.id, current_user.id])
+    except Exception:
+        current_app.logger.exception('Business test alert could not be queued')
+        return _back('error:check_unavailable')
+    return _back('test_queued')
+
+
 @business_bp.route('/isletme/panel/domains/<int:domain_id>/remove', methods=['POST'])
 @login_required
 def remove_domain(domain_id):

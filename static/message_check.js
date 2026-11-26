@@ -28,7 +28,23 @@
     picked.hidden = !file;
     document.getElementById('mc-picked-name').textContent = file ? `🖼 ${file.name}` : '';
   });
-  document.getElementById('mc-unpick').addEventListener('click', () => { picker.value = ''; picked.hidden = true; });
+  function clearScreenshot() {
+    picker.value = '';
+    picked.hidden = true;
+    document.getElementById('mc-picked-name').textContent = '';
+  }
+  document.getElementById('mc-unpick').addEventListener('click', clearScreenshot);
+
+  const read = document.getElementById('mc-read');
+  const readText = document.getElementById('mc-read-text');
+  document.getElementById('mc-edit-read').addEventListener('click', () => {
+    text.value = readText.textContent.slice(0, 6000);
+    clearScreenshot();
+    last = null;
+    hide();
+    update();
+    text.focus();
+  });
 
   document.getElementById('mc-paste').addEventListener('click', async () => {
     try { text.value = (await navigator.clipboard.readText()).slice(0, 6000); update(); text.focus(); }
@@ -95,9 +111,9 @@
       document.getElementById('mc-links').hidden = !links.length;
       document.getElementById('mc-link-list').innerHTML = links.map((l) => `<div class="mc-link"><code>${esc(l.shown)}</code>`
         + `<span>${esc((l.notes || []).map(note).join(' · '))}</span><b class="mc-state ${esc(l.state)}">${esc(STATE[l.state] || '')}</b></div>`).join('');
-      const read = document.getElementById('mc-read');
       read.hidden = !data.text;
-      document.getElementById('mc-read-text').textContent = data.text || '';
+      read.open = false;
+      readText.textContent = data.text || '';
       extra.hidden = false;  // the "was this right?" answer is always offered
       const plain = document.getElementById('mc-plain');
       if (plain && !plain.hidden) plain.scrollIntoView({behavior: 'smooth', block: 'start'});

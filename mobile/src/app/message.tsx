@@ -23,16 +23,21 @@ import { Working } from '@/components/working';
 import { api, upload } from '@/lib/api';
 import { lang, t } from '@/lib/i18n';
 import { openLink } from '@/lib/open-link';
-import { startUrlScan } from '@/lib/scan';
 import { colors, fonts } from '@/lib/theme';
 import { toolByName } from '@/lib/tools';
 
 type Source = { key: string; name: string; url: string | null; how: string };
 const OFFICIAL_URL = /^https:\/\/[a-z0-9.-]+\/?$/;
 type Shot = { uri: string; name: string; mimeType?: string | null };
-type Link = { link: string; shown: string; state: 'bad' | 'warn' | 'ok' | 'official' | 'na' };
+type Link = { shown: string; state: 'bad' | 'warn' | 'ok' | 'official' | 'na'; notes: string[] };
 const STATE = () => ({ bad: t('Listed as dangerous'), warn: t('Suspicious'), ok: t('Not listed'), official: t('Official site'), na: t('Not checked') });
 const TONE = { bad: colors.red, warn: colors.amber, ok: colors.green, official: colors.green, na: colors.faint };
+function linkNote(note: string) {
+  if (note === 'listed as dangerous by a threat list') return t('Listed as dangerous');
+  if (note === 'short link: the real address is hidden') return t('Short link: the real address is hidden');
+  const lookalike = /^Possible typosquatting of (.+)$/.exec(note);
+  return lookalike ? t('May imitate {domain}', { domain: lookalike[1] }) : note;
+}
 /** What to do right away when the message already got to you. */
 const HELP = () => [
   t('Call your bank now on the number on your card or in its app, and ask them to block the card and stop the payment.'),
@@ -54,7 +59,6 @@ export default function MessageCheck() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
   const [answered, setAnswered] = useState(false);
   const started = useRef(false);
@@ -98,11 +102,6 @@ export default function MessageCheck() {
     const asset = picked.assets[0];
     if (asset.size && asset.size > 8 * 1024 * 1024) { setError(t('The image is too large (8 MB at most).')); return; }
     setShot({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType }); setError(null);
-  }
-
-  async function inspect(link: string) {
-    setScanning(link); setError(null);
-    try { await startUrlScan(link); } catch (e: any) { setError(e.message); } finally { setScanning(null); }
   }
 
   const again = () => { setResult(null); setText(''); setShot(null); setError(null); setHelp(false); setAnswered(false); };
@@ -184,13 +183,10 @@ export default function MessageCheck() {
             <Animated.View entering={enter(7)} style={s.card}>
               <Text style={s.title}>{t('Links in the message')}</Text>
               {links.map((l) => (
-                <View key={l.link} style={{ gap: 8 }}>
+                <View key={l.shown} style={{ gap: 8 }}>
                   <Text selectable numberOfLines={2} style={s.link}>{l.shown}</Text>
                   <Text style={[s.state, { color: TONE[l.state] ?? colors.faint }]}>{STATE()[l.state] ?? ''}</Text>
-                  {l.state !== 'bad' ? (
-                    <Button label={t('Full report for this link')} kind="secondary" onPress={() => inspect(l.link)}
-                      busy={scanning === l.link} disabled={!!scanning && scanning !== l.link} />
-                  ) : null}
+                  {l.notes?.map((note, index) => <Text key={index} style={s.body}>{linkNote(note)}</Text>)}
                 </View>
               ))}
             </Animated.View>
@@ -199,6 +195,10 @@ export default function MessageCheck() {
             <Animated.View entering={enter(8)} style={s.card}>
               <Text style={s.title}>{t('Text read from the image (personal data hidden)')}</Text>
               <Text selectable style={s.body}>{result.text}</Text>
+              <Button label={t('Edit the extracted text')} kind="secondary" onPress={() => {
+                again();
+                setText(result.text.slice(0, 6000));
+              }} />
             </Animated.View>
           ) : null}
           <Animated.View entering={enter(9)} style={s.card}>

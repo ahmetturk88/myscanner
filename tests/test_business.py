@@ -1,4 +1,4 @@
-"""MyScanner İşletme: public page and pre-registration, pilot gate, and DNS ownership proof without real DNS."""
+"""MyScanner İşletme: public page and setup-help requests, open access for verified accounts, and DNS ownership proof without real DNS."""
 import unittest
 from unittest.mock import patch
 
@@ -26,14 +26,11 @@ class BusinessTests(unittest.TestCase):
                 model.query.delete()
             User.query.filter(User.email.like('%@biz.invalid')).delete(synchronize_session=False)
             db.session.commit()
-            users = [User(username=name, email=name + '@biz.invalid', password_hash='unused', is_verified=True,
-                          is_admin=name == 'bossadmin') for name in ('pilot', 'stranger', 'bossadmin')]
+            users = [User(username=name, email=name + '@biz.invalid', password_hash='unused', is_verified=name != 'unverified',
+                          is_admin=name == 'bossadmin') for name in ('pilot', 'stranger', 'bossadmin', 'unverified')]
             db.session.add_all(users)
             db.session.commit()
             self.ids = {u.username: u.id for u in users}
-        self.env = patch.dict('os.environ', {'BUSINESS_PILOT_EMAILS': 'Pilot@biz.invalid, someone@else.invalid'})
-        self.env.start()
-        self.addCleanup(self.env.stop)
 
     def login(self, name):
         with self.client.session_transaction() as session:
@@ -46,16 +43,19 @@ class BusinessTests(unittest.TestCase):
 
     # ------------------------------------------------------------- public page
 
-    def test_page_in_both_languages_is_honest_about_price_and_pilot(self):
+    def test_page_in_both_languages_is_honest_about_free_early_access(self):
         turkish = self.client.get('/isletme?lang=tr').get_data(as_text=True)
         self.assertIn('MyScanner İşletme', turkish)
-        self.assertIn('Pilot süresince ücretsiz', turkish)
-        self.assertIn('≈ $25', turkish)
+        self.assertIn('Erken erişim süresince tüm özellikler ücretsiz', turkish)
+        self.assertIn('Ücretsiz başlayın', turkish)
+        self.assertNotIn('$25', turkish)
         english = self.client.get('/isletme?lang=en').get_data(as_text=True)
-        self.assertIn('Free during the pilot', english)
+        self.assertIn('Every feature is free during early access', english)
         self.assertEqual(self.client.get('/business').status_code, 302)
-        # Hidden until the planned pilot: not indexed, every feature listed, nothing described as still coming.
-        self.assertIn('<meta name="robots" content="noindex, nofollow">', turkish)
+        # Public now: indexable, every feature listed, nothing described as still coming, no pilot wording left.
+        self.assertNotIn('noindex', turkish)
+        self.assertNotIn('pilot', turkish.lower())
+        self.assertNotIn('pilot', english.lower())
         for key in business_page.FEATURES:
             self.assertIn(business_page.CONTENT['tr']['features'][key][0], turkish)
         self.assertNotIn('adım adım', turkish)
@@ -74,7 +74,7 @@ class BusinessTests(unittest.TestCase):
         self.assertEqual(refused.status_code, 400)
         data = {'csrf_token': token, 'email': 'Shop@Firma.com.tr', 'website': 'https://www.Firma.com.tr/iletisim',
                 'sector': 'eshop', 'consent': 'yes'}
-        self.assertIn('Ön kaydınız alındı', self.client.post('/isletme?lang=tr', data=data).get_data(as_text=True))
+        self.assertIn('Bilgileriniz alındı', self.client.post('/isletme?lang=tr', data=data).get_data(as_text=True))
         self.assertIn('zaten', self.client.post('/isletme?lang=tr', data=data).get_data(as_text=True))
         with self.app.app_context():
             lead = BusinessLead.query.one()
@@ -92,26 +92,28 @@ class BusinessTests(unittest.TestCase):
         response = self.client.post('/isletme', data={'email': 'x@y.com', 'consent': 'yes'})
         self.assertEqual(response.status_code, 400)
 
-    # ------------------------------------------------------------- pilot gate
+    # ------------------------------------------------------------- open access
 
-    def test_workspace_needs_login_and_a_pilot_invitation(self):
+    def test_workspace_needs_login_and_a_verified_email(self):
         self.assertIn('/login', self.client.get('/isletme/panel').headers['Location'])
-        self.login('stranger')
+        self.login('unverified')
         response = self.client.get('/isletme/panel')
         self.assertEqual(response.status_code, 302)
         self.assertIn('/isletme', response.headers['Location'])
+        self.login('stranger')  # any verified account, no invitation needed
+        self.assertEqual(self.client.get('/isletme/panel').status_code, 200)
         self.login('pilot')
         self.assertEqual(self.client.get('/isletme/panel').status_code, 200)
         self.login('bossadmin')
         self.assertEqual(self.client.get('/isletme/panel').status_code, 200)
 
-    def test_pilot_gate_requires_a_verified_email(self):
+    def test_any_verified_account_may_open_a_workspace(self):
         from types import SimpleNamespace
-        user = SimpleNamespace(is_authenticated=True, is_admin=False, role='user', email='Pilot@biz.invalid', is_verified=False)
-        self.assertFalse(business.pilot_allowed(user, {'BUSINESS_PILOT_EMAILS': 'pilot@biz.invalid'}))
+        user = SimpleNamespace(is_authenticated=True, is_admin=False, role='user', email='anyone@biz.invalid', is_verified=False)
+        self.assertFalse(business.pilot_allowed(user))  # an unverified email never opens one
         user.is_verified = True
-        self.assertTrue(business.pilot_allowed(user, {'BUSINESS_PILOT_EMAILS': 'pilot@biz.invalid'}))
-        self.assertFalse(business.pilot_allowed(user, {}))
+        self.assertTrue(business.pilot_allowed(user))
+        self.assertFalse(business.pilot_allowed(SimpleNamespace(is_authenticated=False)))
 
     # ------------------------------------------------------------- domains and proof
 
@@ -163,6 +165,29 @@ class BusinessTests(unittest.TestCase):
                 business.verify_domain(domain, lookup=lambda name: (_ for _ in ()).throw(dns.resolver.NXDOMAIN()))
             self.assertEqual(str(caught.exception), 'not_found_yet')
             self.assertIsNone(domain.verified_at)
+
+    def test_the_operator_hears_about_each_newly_verified_domain_once(self):
+        with self.app.app_context():
+            workspace = BusinessWorkspace(owner_id=self.ids['pilot'], name='Magaza')
+            db.session.add(workspace)
+            db.session.commit()
+            domain = business.add_domain(workspace, 'magazam.com')
+            proof = business.record_value(domain)
+            with patch('celery_app.require_broker'), patch('celery_app.celery.send_task') as send:
+                business.verify_domain(domain, lookup=lambda name: [proof])
+                business.verify_domain(domain, lookup=lambda name: [proof])  # already verified: no second notice
+            send.assert_called_once_with('business_admin_notice', args=[domain.id])
+            # the notice reaches administrators who linked Telegram, and nobody else
+            from models import BusinessChat
+            from services import business_telegram
+            db.session.add_all([BusinessChat(user_id=self.ids['bossadmin'], chat_id=501),
+                                BusinessChat(user_id=self.ids['stranger'], chat_id=502)])
+            db.session.commit()
+            sent = []
+            business_telegram.notify_admins('hello', call=lambda method, payload: sent.append(payload['chat_id']) or {})
+            self.assertEqual(sent, [501])
+            BusinessChat.query.delete()
+            db.session.commit()
 
     def test_another_company_cannot_touch_my_domain(self):
         with self.app.app_context():

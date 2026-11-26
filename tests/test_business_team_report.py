@@ -106,11 +106,19 @@ class TeamTests(unittest.TestCase):
         self.assertEqual(business.accept(member.token, self.stranger), 'wrong_account')
         unverified = SimpleNamespace(id=999, email='colleague@team.invalid', is_verified=False)
         self.assertEqual(business.accept(member.token, unverified), 'unverified')
-        self.assertEqual(business.access(self.colleague), (None, None))
+        self.assertNotEqual(business.access(self.colleague)[0], self.workspace)  # before accepting: their own, never the team's
         self.assertEqual(business.accept(member.token, self.colleague), 'accepted')
         self.assertEqual(business.accept(member.token, self.colleague), 'accepted')
         self.assertEqual(business.access(self.colleague), (self.workspace, 'member'))
-        self.assertEqual(business.access(self.stranger), (None, None))
+        self.assertNotEqual(business.access(self.stranger)[0], self.workspace)  # someone else: only their own workspace
+
+    def test_an_account_with_its_own_domains_cannot_join_another_team(self):
+        own = business.workspace_for(self.colleague, create=True)
+        db.session.add(BusinessDomain(workspace_id=own.id, domain='kendi.com', token='cd' * 16))
+        db.session.commit()
+        member = business.invite(self.workspace, self.owner, 'colleague@team.invalid')
+        self.assertEqual(business.accept(member.token, self.colleague), 'own_workspace')
+        self.assertEqual(business.access(self.colleague)[0], own)
 
     def test_alerts_reach_accepted_members_who_want_them(self):
         business.invite(self.workspace, self.owner, 'pending@team.invalid')
@@ -185,7 +193,7 @@ class TeamTests(unittest.TestCase):
         self.assertEqual(owner.post(f'/isletme/panel/members/{foreign.id}/remove', data={'csrf_token': token}).status_code, 404)
         owner.post(f'/isletme/panel/members/{member.id}/remove', data={'csrf_token': token})
         self.assertIsNone(db.session.get(BusinessMember, member.id))
-        self.assertEqual(self.client_for(self.colleague).get('/isletme/panel').status_code, 302)
+        self.assertNotEqual(business.access(self.colleague)[0], self.workspace)  # back to a workspace of their own
 
     # ------------------------------------------------------------------ monthly report
 
@@ -239,7 +247,9 @@ class TeamTests(unittest.TestCase):
             self.assertEqual(response.mimetype, 'application/pdf')
             self.assertIn('private', response.headers['Cache-Control'])
             self.assertTrue(response.data.startswith(b'%PDF'))
-        self.assertEqual(self.client_for(self.stranger).get('/isletme/panel/report.pdf').status_code, 302)
+        stranger = self.client_for(self.stranger).get('/isletme/panel/report.pdf?lang=en')  # their own, empty report
+        self.assertEqual(stranger.status_code, 200)
+        self.assertNotEqual(business.access(self.stranger)[0], self.workspace)
 
     def test_monthly_email_goes_once_at_the_start_of_the_month(self):
         self.join()

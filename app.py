@@ -492,7 +492,7 @@ def login():
     return render_template('login.html')
 
 SITE_URL = os.getenv('BASE_URL', 'https://myscanners.com').rstrip('/')
-PUBLIC_PAGES = ('landing', 'about', 'scams', 'pro', 'contact', 'privacy', 'terms', 'register', 'login')
+PUBLIC_PAGES = ('landing', 'about', 'scams', 'business.landing', 'pro', 'contact', 'privacy', 'terms', 'register', 'login')
 
 
 @app.context_processor
@@ -526,7 +526,7 @@ def site_i18n_catalog(lang):
 
 @app.route('/robots.txt')
 def robots_txt():
-    body = '\n'.join(['User-agent: *', 'Disallow: /admin', 'Disallow: /api/', 'Disallow: /result/', '',
+    body = '\n'.join(['User-agent: *', 'Disallow: /admin', 'Disallow: /api/', 'Disallow: /result/', 'Disallow: /isletme/panel', '',
                       f'Sitemap: {SITE_URL}/sitemap.xml', ''])
     return Response(body, mimetype='text/plain')
 

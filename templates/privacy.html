@@ -87,15 +87,15 @@
       </section>
 
       <section id="business">
-        <h2><span>06</span>Business monitoring (pilot)</h2>
-        <p>MyScanner İşletme watches a company's own website and brand. It is an invitation-only pilot, and everything below applies only if you or your team use it.</p>
+        <h2><span>06</span>Business monitoring</h2>
+        <p>MyScanner İşletme watches a company's own website and brand. It is free during early access, and everything below applies only if you or your team use it.</p>
         <ul>
           <li><strong>What we store:</strong> the workspace name, the domains you add and their verification token, your team members' email addresses (including invitations not yet accepted), your alert settings and, if you link Telegram, the numeric chat ID of your Telegram chat. We never ask for a phone number.</li>
           <li><strong>Only domains you prove are yours</strong> are checked. Weekly we read their public DNS and email-security records, TLS certificate and blocklist status, a few of their public pages (the home page and up to six of its own legal pages) for the legal pages checklist, and about 17 well-known addresses (such as <code>/.env</code> or <code>/.git/config</code>) to find files that should not be public. For those we read at most 4 KB, never store the content (only which address answered) and never try to sign in. To watch whether the site is up, its home page is also requested every 5 minutes.</li>
           <li><strong>Look-alike domains:</strong> we search public Certificate Transparency logs and DNS for names that resemble yours, and look up public registration and hosting records (RDAP) of the ones we find to name their abuse contacts. We never contact them; takedown reports are drafts that you send yourself, from your own email.</li>
           <li><strong>Results</strong> (check snapshots, changes, uptime counts and the look-alike list) are visible to the workspace owner and its members, and are used for alerts and the monthly report.</li>
           <li><strong>Alerts</strong> go by email through Resend and, if you link it, by Telegram. A Telegram alert names the domain and the change; Telegram's own privacy policy applies to messages it delivers. Send <code>/stop</code> to the bot or unlink it in the workspace to stop them.</li>
-          <li><strong>Pilot sign-up list:</strong> the email, website and sector you leave on the business page are used only to contact you about the pilot.</li>
+          <li><strong>Setup-help requests:</strong> the email, website and sector you leave on the business page are used only to contact you about setting up MyScanner Business.</li>
         </ul>
       </section>
 
@@ -148,7 +148,7 @@
           <li><strong>Server logs:</strong> kept for a limited period for security and rotated automatically.</li>
           <li><strong>Backups:</strong> daily database backups are kept for 14 days on our server, and as encrypted copies with our storage provider for 30 days. Data you delete disappears from backups as they roll over.</li>
           <li><strong>Contact messages:</strong> kept as long as needed to handle your request.</li>
-          <li><strong>Business monitoring:</strong> workspace data and check history are kept while the workspace exists and are deleted with the owner's account. A member's access, and a pending invitation, end when the owner removes them or when that person deletes their account. Your pilot sign-up is deleted with your account or when you ask.</li>
+          <li><strong>Business monitoring:</strong> workspace data and check history are kept while the workspace exists and are deleted with the owner's account. A member's access, and a pending invitation, end when the owner removes them or when that person deletes their account. Your setup-help request is deleted with your account or when you ask.</li>
         </ul>
       </section>
 

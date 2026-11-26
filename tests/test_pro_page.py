@@ -85,12 +85,16 @@ class ProPageTests(unittest.TestCase):
         for path in ('/privacy', '/terms', '/contact', '/register', '/forgot-password', '/pro', '/login'):
             self.assertNotIn('id="pro-pop"', self.client.get(path).get_data(as_text=True), path)
 
-    def test_top_menu_links_to_pro(self):
+    def test_top_menu_links_to_business_and_the_menu_to_pro(self):
         page = BeautifulSoup(self.client.get('/about?lang=en').data, 'html.parser')
-        self.assertTrue(page.select_one('.shell-nav-links a[href="/pro"]'))
+        self.assertTrue(page.select_one('.shell-nav-links a[href="/isletme"]'))  # Business took Pro's place in the top bar
+        self.assertTrue(page.select_one('.shell-quicknav a[href="/pro"]'))
 
     def test_in_sitemap_and_footer(self):
-        self.assertIn('/pro?lang=tr', self.client.get('/sitemap.xml').get_data(as_text=True))
+        sitemap = self.client.get('/sitemap.xml').get_data(as_text=True)
+        self.assertIn('/pro?lang=tr', sitemap)
+        self.assertIn('/isletme?lang=tr', sitemap)
+        self.assertIn('Disallow: /isletme/panel', self.client.get('/robots.txt').get_data(as_text=True))
         self.assertIn('href="/pro"', self.client.get('/about').get_data(as_text=True))
 
 

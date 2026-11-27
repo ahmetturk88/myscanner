@@ -36,6 +36,9 @@
   .mc-dot.bad{background:#fb7185;box-shadow:0 0 0 4px rgba(251,113,133,.2)}.mc-dot.warn{background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2)}
   .mc-dot.ok,.mc-dot.official{background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.2)}
   .mc-dot.scanning{animation:mcpulse 1.2s ease-in-out infinite}@keyframes mcpulse{50%{opacity:.35}}
+  .mc-edit{width:100%;min-height:140px;margin:10px 0;padding:12px 14px;border-radius:12px;border:1px solid #31506b;background:#060e1a;color:#e7f3ff;font:14px/1.6 var(--sans);resize:vertical}
+  .mc-edit-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .mc-link .mc-notes{flex-basis:100%;font-size:13px;color:#93a7bf}
   .mc-open{font-size:13px;color:#5eead4;font-weight:700;white-space:nowrap}
 </style>{% endblock %}
 {% block content %}
@@ -61,8 +64,13 @@
     <li>If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.</li>
     <li>Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.</li>
   </ol></details>
-  <details class="mc-read" id="mc-read" hidden><summary>Text read from the image (personal data hidden)</summary><p id="mc-read-text"></p></details>
+  <details class="mc-read" id="mc-read" hidden>
+    <summary>Text read from the image (personal data hidden)</summary>
+    <p id="mc-read-text" dir="auto"></p>
+    <textarea id="mc-read-edit" class="mc-edit" dir="auto" maxlength="6000" spellcheck="false" hidden aria-label="Text read from the image (personal data hidden)"></textarea>
+    <div class="mc-edit-row"><button type="button" id="mc-edit-read">Edit the extracted text</button><button type="button" id="mc-recheck" hidden>Check the corrected text</button></div>
+  </details>
   <div class="mc-fb" id="mc-fb"><span>Was this result right?</span><button type="button" data-answer="real">The message was real</button><button type="button" data-answer="scam">It was a scam</button><span id="mc-fb-done" hidden>Thank you. We keep only the verdict and the signs we found, never the message.</span></div>
 </section>
 <div class="site-bottom"><article><b>01 / Read</b><p>The screenshot is read on our server, personal data is hidden and the image is deleted at once.</p></article><article><b>02 / Scan</b><p>Every link is scanned in our isolated browser and checked against threat lists. Tap a link to open its full report.</p></article><article><b>03 / Explain</b><p>Our rules and AI look for parcel fees, blocked accounts, debts, prizes and code requests, and tell you what to do.</p></article></div>
-</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-3') }}" defer></script>{% endblock %}
+</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-4') }}" defer></script>{% endblock %}

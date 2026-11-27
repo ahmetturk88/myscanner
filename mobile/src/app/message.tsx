@@ -19,7 +19,7 @@ import { enter } from '@/components/motion';
 import { hasPlain, PlainReport } from '@/components/report';
 import { Screen } from '@/components/screen';
 import { Accent, ToolBadge, ToolChips } from '@/components/tool-hero';
-import { Button, ErrorText, Muted } from '@/components/ui';
+import { Button, ErrorText, Field, Muted } from '@/components/ui';
 import { Working } from '@/components/working';
 import { api, upload } from '@/lib/api';
 import { lang, t } from '@/lib/i18n';
@@ -29,7 +29,7 @@ import { toolByName } from '@/lib/tools';
 
 type Shot = { uri: string; name: string; mimeType?: string | null };
 type LinkState = 'bad' | 'warn' | 'ok' | 'official' | 'scanning' | 'na';
-type Link = { link: string; shown: string; state: LinkState; scan_id?: number | null };
+type Link = { link: string; shown: string; state: LinkState; scan_id?: number | null; notes?: string[] };
 type Source = { key: string; name: string; url: string | null; how: string };
 const OFFICIAL_URL = /^https:\/\/[a-z0-9.-]+\/?$/;
 const STATE = (): Record<LinkState, string> => ({
@@ -44,6 +44,12 @@ const HELP = () => [
   t('If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.'),
   t('Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.'),
 ];
+function linkNote(note: string) {
+  if (note === 'listed as dangerous by a threat list') return t('Listed as dangerous');
+  if (note === 'short link: the real address is hidden') return t('Short link: the real address is hidden');
+  const lookalike = /^Possible typosquatting of (.+)$/.exec(note);
+  return lookalike ? t('May imitate {domain}', { domain: lookalike[1] }) : note;
+}
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** QR codes in a screenshot, decoded on the phone. */
@@ -60,12 +66,13 @@ export default function MessageCheck() {
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
   const [answered, setAnswered] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const started = useRef(false);
 
   /** One check: a screenshot, or a message's text shared from another app. Waits for the link scans. */
   async function check(image: Shot | null, text = '') {
     if (!image && !text.trim()) return;
-    setBusy(true); setError(null); setResult(null); setHelp(false); setAnswered(false); setShot(image);
+    setBusy(true); setError(null); setResult(null); setHelp(false); setAnswered(false); setEditing(null); setShot(image);
     try {
       let message = text;
       if (image) {
@@ -106,7 +113,7 @@ export default function MessageCheck() {
     check({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType });
   }
 
-  const again = () => { setResult(null); setShot(null); setError(null); setHelp(false); setAnswered(false); };
+  const again = () => { setResult(null); setShot(null); setError(null); setHelp(false); setAnswered(false); setEditing(null); };
   // "Was this right?": only our verdict, the answer and the sign keys go back; never the message.
   const answer = (value: 'real' | 'scam') => {
     setAnswered(true);
@@ -163,6 +170,7 @@ export default function MessageCheck() {
                     <View style={{ flex: 1, gap: 3 }}>
                       <Text numberOfLines={2} style={s.link}>{l.shown}</Text>
                       <Text style={[s.state, { color: DOT[state] }]}>{STATE()[state]}</Text>
+                      {l.notes?.map((note, i) => <Text key={i} style={s.note}>{linkNote(note)}</Text>)}
                     </View>
                     {l.scan_id ? <Icon name="chevron" size={18} color={colors.faint} /> : null}
                   </View>
@@ -206,7 +214,18 @@ export default function MessageCheck() {
           {result.text ? (
             <Animated.View entering={enter(8)} style={s.card}>
               <Text style={s.title}>{t('Text read from the image (personal data hidden)')}</Text>
-              <Text selectable style={s.body}>{result.text}</Text>
+              {editing === null ? (
+                <>
+                  <Text selectable style={s.body}>{result.text}</Text>
+                  <Button label={t('Edit the extracted text')} icon="doc" kind="secondary" onPress={() => setEditing(String(result.text).slice(0, 6000))} />
+                </>
+              ) : (
+                <>
+                  <Field label={t('Correct what was read wrong')} value={editing} onChangeText={setEditing} multiline
+                    style={{ minHeight: 120, textAlignVertical: 'top' }} autoCorrect={false} maxLength={6000} />
+                  <Button label={t('Check the corrected text')} arrow="→" disabled={!editing.trim()} onPress={() => check(null, editing)} />
+                </>
+              )}
             </Animated.View>
           ) : null}
           <Animated.View entering={enter(9)} style={s.card}>
@@ -242,6 +261,7 @@ const s = StyleSheet.create({
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.line },
   dot: { width: 12, height: 12, borderRadius: 6 },
   link: { color: colors.text, fontSize: 14, fontFamily: fonts.mono },
+  note: { color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular },
   state: { fontSize: 11.5, fontFamily: fonts.bold, letterSpacing: 0.6 },
   source: { borderColor: 'rgba(94,234,212,.35)', backgroundColor: 'rgba(10,30,32,.92)' },
   help: { borderColor: 'rgba(251,113,133,.45)', backgroundColor: 'rgba(40,14,24,.92)' },

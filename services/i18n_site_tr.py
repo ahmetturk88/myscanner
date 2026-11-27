@@ -104,6 +104,8 @@ SITE_TR = {
     'Or choose a screenshot': 'Ya da ekran görüntüsü seçin',
     'Remove': 'Kaldır',
     'Text read from the image (personal data hidden)': 'Görselden okunan metin (kişisel veriler gizli)',
+    'Edit the extracted text': 'Okunan metni düzenle',
+    'Check the corrected text': 'Düzeltilen metni kontrol et',
     'Already tapped the link, paid or shared a code?': 'Bağlantıya dokundun, ödeme yaptın ya da kod mu paylaştın?',
     'What the message asks you to do': 'Mesaj senden ne istiyor',
     'Check it yourself, at the source': 'Kaynağından kendin kontrol et',

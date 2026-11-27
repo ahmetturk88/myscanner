@@ -21,6 +21,11 @@
     say('Our AI is reviewing the message', 'Yapay zekâmız mesajı inceliyor'), say('Putting the result together', 'Sonuç hazırlanıyor')];
   const STATE = {bad: say('DANGEROUS', 'TEHLİKELİ'), warn: say('SUSPICIOUS', 'ŞÜPHELİ'), ok: say('NO THREAT FOUND', 'TEHDİT YOK'),
     official: say('OFFICIAL SITE', 'RESMİ SİTE'), scanning: say('STILL SCANNING', 'TARANIYOR'), na: say('NOT CHECKED', 'KONTROL EDİLEMEDİ')};
+  const NOTES = {
+    'listed as dangerous by a threat list': say('listed as dangerous by a threat list', 'bir tehdit listesinde tehlikeli olarak geçiyor'),
+    'short link: the real address is hidden': say('short link: the real address is hidden', 'kısaltılmış bağlantı: gerçek adres gizli'),
+  };
+  const note = (n) => NOTES[n] || (/^Possible typosquatting of /.test(n) ? say(n, n.replace('Possible typosquatting of ', '') + ' adresini taklit ediyor olabilir') : n);
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const csrf = () => { const t = document.querySelector('meta[name="csrf-token"]'); return t ? {'X-CSRFToken': t.content} : {}; };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -47,15 +52,26 @@
     if (busy || !file) return;
     if (!TYPES.includes(file.type)) { show(say('Send a PNG, JPEG or WebP screenshot.', 'PNG, JPEG ya da WebP bir ekran görüntüsü gönder.')); return; }
     if (file.size > 8 * 1024 * 1024) { show(say('The image is too large (8 MB at most).', 'Görsel çok büyük (en fazla 8 MB).')); return; }
+    const body = new FormData(); body.append('image', file); body.append('lang', tr ? 'tr' : 'en');
+    return run(body, false, file);
+  }
+
+  /** The text read from a screenshot, corrected by the reader: checked again without the image. */
+  function recheck(text) {
+    if (!text.trim()) return;
+    return run({text: text.slice(0, 6000), lang: tr ? 'tr' : 'en'}, true, null);
+  }
+
+  async function run(body, json, file) {
+    if (busy) return;
     busy = true; reset(); form.hidden = true; loading.hidden = false;
     const img = document.getElementById('mc-shot-img');
-    img.src = URL.createObjectURL(file); document.getElementById('mc-shot-name').textContent = file.name || '';
-    document.getElementById('mc-shot').hidden = false;
+    if (file) { img.src = URL.createObjectURL(file); document.getElementById('mc-shot-name').textContent = file.name || ''; }
+    document.getElementById('mc-shot').hidden = !file;
     let step = 0; steps.textContent = STEPS[0];
     ticker = setInterval(() => { step = Math.min(step + 1, STEPS.length - 1); steps.textContent = STEPS[step]; }, 2600);
     try {
-      const body = new FormData(); body.append('image', file); body.append('lang', tr ? 'tr' : 'en');
-      let {status, data} = await post('/api/check-message', body, false);
+      let {status, data} = await post('/api/check-message', body, json);
       // The links are being scanned: ask until every scan is done, at most about two minutes.
       for (let round = 0; status === 202 && data.token; round++) {
         const token = data.token;
@@ -68,7 +84,7 @@
       show(e.message); form.hidden = false;
     } finally {
       clearInterval(ticker); busy = false; loading.hidden = true; picker.value = '';
-      URL.revokeObjectURL(img.src);
+      if (file) URL.revokeObjectURL(img.src);
     }
   }
 
@@ -85,7 +101,9 @@
     document.getElementById('mc-links').hidden = !links.length;
     document.getElementById('mc-link-list').innerHTML = links.map((l) => {
       const state = STATE[l.state] ? l.state : 'na';
-      const inner = `<i class="mc-dot ${state}" aria-hidden="true"></i><code>${esc(l.shown)}</code><b class="mc-state ${state}">${esc(STATE[state])}</b>`;
+      const notes = (Array.isArray(l.notes) ? l.notes : []).map(note).join(' · ');
+      const inner = `<i class="mc-dot ${state}" aria-hidden="true"></i><code>${esc(l.shown)}</code><b class="mc-state ${state}">${esc(STATE[state])}</b>`
+        + (notes ? `<span class="mc-notes">${esc(notes)}</span>` : '');
       return Number.isInteger(l.scan_id)
         ? `<a class="mc-link" href="/result/${l.scan_id}">${inner}<span class="mc-open">${esc(say('Open the report →', 'Raporu aç →'))}</span></a>`
         : `<div class="mc-link">${inner}<span>${esc(say('Quick check only', 'Yalnızca hızlı kontrol'))}</span></div>`;
@@ -99,15 +117,27 @@
       + (/^https:\/\/[a-z0-9.-]+\/?$/.test(v.url || '') ? `<a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">${esc(say('Open the official site ↗', 'Resmi siteyi aç ↗'))}</a>` : '')
       + '</div>').join('');
     document.getElementById('mc-help').hidden = !(plain.tone === 'danger' || plain.tone === 'caution');
-    const read = document.getElementById('mc-read');
-    read.hidden = !data.text;
-    document.getElementById('mc-read-text').textContent = data.text || '';
+    read.hidden = !data.text; read.open = false;
+    readText.textContent = data.text || ''; readText.hidden = false;
+    readEdit.hidden = true; recheckButton.hidden = true; editButton.hidden = false;
     fb.querySelectorAll('button').forEach((x) => { x.disabled = false; });
     document.getElementById('mc-fb-done').hidden = true;
     extra.hidden = false;
     const box = document.getElementById('mc-plain');
     if (box && !box.hidden) box.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
+
+  const read = document.getElementById('mc-read');
+  const readText = document.getElementById('mc-read-text');
+  const readEdit = document.getElementById('mc-read-edit');
+  const editButton = document.getElementById('mc-edit-read');
+  const recheckButton = document.getElementById('mc-recheck');
+  editButton.addEventListener('click', () => {
+    readEdit.value = readText.textContent.slice(0, 6000);
+    readText.hidden = true; readEdit.hidden = false; editButton.hidden = true; recheckButton.hidden = false;
+    readEdit.focus();
+  });
+  recheckButton.addEventListener('click', () => recheck(readEdit.value));
 
   picker.addEventListener('change', () => check(picker.files && picker.files[0]));
   ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));

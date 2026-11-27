@@ -271,7 +271,7 @@ class ApiTests(unittest.TestCase):
         page = self.client.get('/message-check?lang=tr').get_data(as_text=True)
         self.assertIn('Garip bir mesaj mı aldınız?', page)
         self.assertIn('Ekran görüntüsünü buraya bırakın', page)
-        self.assertNotIn('<textarea', page)
+        self.assertNotIn('id="mc-text"', page)  # no box to paste the message into: a screenshot only
         fake = FakeAnalyzer()
         fake.session = type('S', (), {'close': lambda self: None})()
         with patch('services.url_analyzer.URLDeepAnalyzer', lambda: fake), \

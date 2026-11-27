@@ -107,8 +107,8 @@ services:
       AI_GEMINI_MODEL: ${AI_GEMINI_MODEL:-gemini-flash-latest}
       AI_GROQ_MODEL: ${AI_GROQ_MODEL:-openai/gpt-oss-120b}
       AI_GEMINI_THINKING_BUDGET: ${AI_GEMINI_THINKING_BUDGET:-0}
-      # Message check: no text goes to an AI unless this is 1 (free AI tiers may keep what they read).
-      MESSAGE_CHECK_AI: ${MESSAGE_CHECK_AI:-0}
+      # Message check AI review (it reads the masked text only, never the image). 0 turns it off.
+      MESSAGE_CHECK_AI: ${MESSAGE_CHECK_AI:-1}
       # The public name of the Telegram bot (no secret): shows the "Link Telegram" card when set.
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key, google_client_secret, github_client_secret, resend_api_key, gemini_api_key, groq_api_key]

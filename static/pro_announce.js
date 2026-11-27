@@ -1,7 +1,7 @@
-// Pro announcement: opens once after a short delay; "Not now" hides it for 14 days, opening Pro for 60.
+// Message-check announcement: opens once after a short delay; "Not now" hides it for 14 days, opening the tool for 60.
 (function () {
   'use strict';
-  var KEY = 'myscanner.proPop', DAY = 86400000;
+  var KEY = 'myscanner.messagePop', DAY = 86400000;
   var dialog = document.getElementById('pro-pop');
   if (!dialog || typeof dialog.showModal !== 'function') return;
   function read() { try { return Number(localStorage.getItem(KEY)) || 0; } catch (e) { return -1; } }

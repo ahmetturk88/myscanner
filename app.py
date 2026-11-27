@@ -1628,24 +1628,78 @@ def api_check_message():
             read = read_text(image.stream.read(MAX_BYTES + 1))
         except OCRError as error:
             messages = {'too_large': 'The image is too large (8 MB at most).', 'bad_image': 'Send a PNG, JPEG or WebP screenshot.',
-                        'no_text': 'No text could be read in this image. Paste the message text instead.',
+                        'no_text': 'No text could be read in this image. Try a sharper screenshot of the whole message.',
                         'busy': 'Many screenshots are being read right now. Please try again in a moment.',
-                        'unavailable': 'Reading images is unavailable right now. Paste the message text instead.'}
+                        'unavailable': 'Reading screenshots is unavailable right now. Please try again later.'}
             status = {'unavailable': 503, 'busy': 429}.get(str(error), 400)
             return jsonify(error=messages[str(error)], code=f'ocr_{error}'), status
         text = (text.strip() + '\n' + read).strip() if text.strip() else read
     try:
-        from services.message_check import assess, redact
+        from services.message_check import as_url, prepare
         from services.site_i18n import current_language
+        from services.url_scan_request import start_quietly
         lang = data.get('lang')
-        result = assess(text, language=lang if lang in ('tr', 'en', 'ar') else current_language())
-        if image is not None:
-            result['text'] = redact(text[:6000])[0]  # what was read, with personal data hidden
-        log_activity(current_user.username, 'message_check', f'Checked a message: {result["plain"]["tone"]}')
-        return jsonify(result), 200, {'Cache-Control': 'no-store'}
+        state = prepare(text, language=lang if lang in ('tr', 'en', 'ar') else current_language())
+        state['shown_text'] = image is not None  # show back what was read, with personal data hidden
+        # Every link also gets the full scan (isolated browser, saved report), from the link-scan allowance.
+        for link in state['links']:
+            link['scan_id'] = start_quietly(as_url(link['link']))
+        state['user'] = current_user.id
+        if any(link.get('scan_id') for link in state['links']):
+            return jsonify(status='scanning', token=_message_token().dumps(state),
+                           links=len(state['links'])), 202, {'Cache-Control': 'no-store'}
+        return _message_result(state)
     except Exception as error:
         report_exception(error, sensitive=True)
         app.logger.error('Message check unavailable')
+        return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
+
+
+def _message_token():
+    from itsdangerous import URLSafeTimedSerializer
+    return URLSafeTimedSerializer(app.config['SECRET_KEY'], salt='message-check-v1')
+
+
+def _message_result(state):
+    from services.message_check import build
+    result = build(state)
+    if state.get('shown_text'):
+        result['text'] = state['masked']
+    log_activity(current_user.username, 'message_check', f'Checked a message: {result["plain"]["tone"]}')
+    return jsonify(result), 200, {'Cache-Control': 'no-store'}
+
+
+@app.route('/api/check-message/finish', methods=['POST'])
+@login_required
+def api_message_finish():
+    """{token, final}: the verdict once the message's link scans are done. 202 while they still run, unless final.
+    The token is the signed state from /api/check-message (masked text, signs, quick lookups, scan ids), so nothing
+    about the message is stored on our side meanwhile."""
+    from itsdangerous import BadSignature
+    from services.message_check import PENDING, merge_scan
+    data = request.get_json(silent=True)
+    data = data if isinstance(data, dict) else {}
+    try:
+        state = _message_token().loads(str(data.get('token') or ''), max_age=900)
+    except BadSignature:
+        return jsonify(error='This check has expired. Please check the screenshot again.'), 400
+    if state.get('user') != current_user.id:
+        return jsonify(error='This check has expired. Please check the screenshot again.'), 400
+    ids = [link['scan_id'] for link in state['links'] if link.get('scan_id')]
+    scans = {scan.id: scan for scan in Scan.query.filter(Scan.id.in_(ids), Scan.user_id == current_user.id).all()} if ids else {}
+    done = sum(1 for i in ids if i in scans and scans[i].status not in PENDING)
+    if done < len(ids) and not data.get('final'):
+        return jsonify(status='scanning', done=done, total=len(ids)), 202, {'Cache-Control': 'no-store'}
+    for link in state['links']:
+        scan = scans.get(link.get('scan_id'))
+        if scan is None:
+            link.pop('scan_id', None)
+        else:
+            merge_scan(link, scan.status, scan.verdict)
+    try:
+        return _message_result(state)
+    except Exception as error:
+        report_exception(error, sensitive=True)
         return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
 
 

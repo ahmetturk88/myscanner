@@ -79,10 +79,11 @@ class ProPageTests(unittest.TestCase):
         for path in ('/', '/about', '/scams'):
             page = self.client.get(path + '?lang=en').get_data(as_text=True)
             self.assertIn('id="pro-pop"', page, path)
-            self.assertIn('utm_source=site_popup', page)
-        self.assertIn('₺199', self.client.get('/scams?lang=tr').get_data(as_text=True))
+            self.assertIn('/message-check?ref=site_popup', page)  # the free message check, nothing to pay
+            self.assertNotIn('₺199', page)
+        self.assertIn('Ücretsiz', self.client.get('/scams?lang=tr').get_data(as_text=True))
         # The app opens these in its browser; a price that leads outside Google Play must not show there.
-        for path in ('/privacy', '/terms', '/contact', '/register', '/forgot-password', '/pro', '/login'):
+        for path in ('/privacy', '/terms', '/contact', '/register', '/forgot-password', '/pro', '/login', '/message-check'):
             self.assertNotIn('id="pro-pop"', self.client.get(path).get_data(as_text=True), path)
 
     def test_top_menu_links_to_business_and_the_menu_to_pro(self):

@@ -399,8 +399,39 @@ def with_ai(tone, opinion, signals, links):
     return BY_RANK[wanted]
 
 
+# A full scan's verdict (services.url_assessment) as a link state.
+FULL_SCAN = {'malicious': 'bad', 'high_risk': 'bad', 'suspicious': 'warn', 'harmless': 'ok'}
+PENDING = ('queued', 'running')
+
+
+def merge_scan(link, status, verdict):
+    """Fold the full scan of a link (isolated browser, saved report) into its quick lookup. The worse one wins."""
+    if status in PENDING:
+        if link['state'] != 'bad':
+            link['state'] = 'scanning'
+        return link
+    full = FULL_SCAN.get(verdict) if status != 'error' else None
+    if full:
+        link['scan_verdict'] = verdict
+    if link['state'] == 'bad' or full == 'bad':
+        link['state'] = 'bad'
+    elif full == 'warn':
+        link['state'] = 'warn'
+    elif full == 'ok':
+        link['state'] = 'official' if link['state'] == 'official' else 'ok'
+    elif link['state'] == 'scanning':
+        link['state'] = 'na'
+    return link
+
+
 def assess(text, language='en', analyzer=None, ai=None):
     """The whole check. `analyzer` and `ai` are replaced in tests; neither ever visits a link."""
+    return build(prepare(text, language, analyzer, ai))
+
+
+def prepare(text, language='en', analyzer=None, ai=None):
+    """Read the message: masking, signs, quick link lookups and the AI opinion. Returns the state build() needs;
+    it holds only the masked text, never the original."""
     text = (text or '').strip()[:MAX_TEXT]
     found = find_links(text)  # from the original: masking must not change an address that gets checked
     masked, masked_counts = redact(text)
@@ -418,14 +449,31 @@ def assess(text, language='en', analyzer=None, ai=None):
         if own is not None:
             own.session.close()
     opinion = ai_opinion(masked, signals, links, language, ask=ai) if ai is not False else None
+    return {'lang': language, 'masked': masked, 'masked_counts': masked_counts, 'signals': signals,
+            'found': len(found), 'links': links, 'opinion': opinion}
 
+
+def build(state):
+    """The result for a prepared message, after any full link scans were merged into state['links']."""
+    language, masked, masked_counts = state['lang'], state['masked'], state['masked_counts']
+    signals, links, opinion = state['signals'], state['links'], state['opinion']
+    found = [None] * state['found']  # only its length matters here
     tone = with_ai(rule_tone(signals, links, len(found)), opinion, signals, links)
     label, headline, summary = VERDICTS[tone]
 
     reasons = []
     for link in links:
-        if link['state'] == 'bad':
+        full = FULL_SCAN.get(link.get('scan_verdict'))
+        if link['state'] == 'bad' and full == 'bad':
+            reasons.append(reason('bad', 'Our link scan found a dangerous link', f'Our full scan of {link["shown"]} found it dangerous.'))
+        elif link['state'] == 'bad':
             reasons.append(reason('bad', 'A link is on a threat list', f'{link["shown"]} is listed as dangerous.'))
+        elif link['state'] == 'warn' and full == 'warn':
+            reasons.append(reason('warn', 'Our link scan found warning signs', f'Our full scan of {link["shown"]} found warning signs.'))
+        elif link['state'] in ('ok', 'official') and full == 'ok':
+            reasons.append(reason('ok', 'Our link scan found no threats', f'Our full scan of {link["shown"]} found no threat signs.'))
+        elif link['state'] == 'scanning':
+            reasons.append(reason('na', 'A link is still being scanned', f'{link["shown"]} is still being checked. Open its report in a moment.'))
         elif link['state'] == 'warn':
             reasons.append(reason('warn', 'A link hides where it goes', f'{link["shown"]} uses a short link or a look-alike name.'))
         elif link['state'] == 'official':
@@ -452,7 +500,7 @@ def assess(text, language='en', analyzer=None, ai=None):
     strong = [s for s in signals if WEIGHT.get(s, 0) >= 2]
     shown_signals = [s for s in signals if s != 'code_notice']
     checks = [check('Links', 'bad' if any(l['state'] == 'bad' for l in links) else 'warn' if any(l['state'] == 'warn' for l in links)
-                    else 'na' if any(l['state'] == 'na' for l in links) or len(found) > MAX_LINKS else 'ok' if links else 'info', link_result),
+                    else 'na' if any(l['state'] in ('na', 'scanning') for l in links) or len(found) > MAX_LINKS else 'ok' if links else 'info', link_result),
               check('Scam signs', 'bad' if strong else 'warn' if shown_signals else 'ok',
                     str(len(shown_signals)) if shown_signals else 'None'),
               check('AI review', {'danger': 'bad', 'caution': 'warn', 'safe': 'ok', 'unknown': 'info'}[FROM_AI[opinion['verdict']]]

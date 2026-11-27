@@ -227,9 +227,10 @@ The assistant explains the evidence; verdicts stay with the scanners. Report
 evidence is sent as delimited, untrusted data with secrets and images removed,
 and answers are validated and rendered as text.
 
-- The message check sends no text to an AI unless `MESSAGE_CHECK_AI=1` is set
-  (off by default: free AI tiers may keep what they read). Without it the rules
-  and the threat lists decide alone.
+- The message check's AI review reads only the masked text (never the image).
+  Compose turns it on (`MESSAGE_CHECK_AI=1`); set it to 0 to let the rules and
+  the link scans decide alone. Free AI tiers may keep what they read: use a paid
+  tier before opening the check to the public.
 - Providers are tried in `AI_PROVIDERS` order (default `gemini,groq`); the next
   one answers when one fails or is rate limited. Models: `AI_GEMINI_MODEL`
   (default `gemini-flash-latest`) and `AI_GROQ_MODEL` (default

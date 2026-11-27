@@ -41,3 +41,31 @@ def queue_url_scan(url):
     return jsonify(scan_id=scan_id, status='queued',
                    status_url=f'/api/scan_status/{scan_id}',
                    result_url=f'/result/{scan_id}'), 202
+
+
+def start_quietly(url):
+    """The id of a full scan of `url` for the current user, or None when it can't start (bad address, no
+    broker, no link-scan allowance left). Used by the message check, which then keeps its quick lookup."""
+    from services.url_tricks import unmask
+    try:
+        url, tricks = unmask((url or '').strip())
+        if not url or len(url) > MAX_URL_LENGTH:
+            return None
+        url = accept_scan_url(url)
+    except Exception:
+        return None
+    from celery_app import celery, require_broker
+    try:
+        require_broker(celery)
+    except RuntimeError:
+        return None
+    if reserve_request_quota('url_analyzer') is not None:
+        return None
+    from services.url_scan_storage import enqueue_url_scan
+    from tasks import scan_url_task
+    try:
+        return enqueue_url_scan(scan_url_task, url, current_user.id, tricks)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.error('URL scan could not be queued')
+        return None

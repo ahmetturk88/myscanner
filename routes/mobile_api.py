@@ -33,6 +33,7 @@ TOOLS = {
     'email': 'api_check_email', 'password': 'api_check_password', 'ip': 'api_check_ip',
     'domain': 'api_domain_lookup', 'subdomain': 'api_subdomain_finder', 'ssl': 'api_ssl_checker',
     'message': 'api_check_message', 'message-feedback': 'api_message_feedback',
+    'message-finish': 'api_message_finish',
 }
 
 

@@ -155,6 +155,21 @@ class EngineTests(unittest.TestCase):
         iban = mc.assess('Annen hastanede, acil IBAN TR12 0006 2000 1234 0006 2954 32 hesabına para gönder', analyzer=FakeAnalyzer(), ai=False)
         self.assertIn('Send money or pay a fee', iban['asks'])
 
+    def test_a_full_link_scan_can_only_make_a_link_worse_or_confirm_it(self):
+        base = lambda state: {'link': 'x.com/a', 'shown': 'x[.]com/a', 'host': 'x.com', 'state': state, 'notes': []}  # noqa: E731
+        self.assertEqual(mc.merge_scan(base('ok'), 'running', 'pending')['state'], 'scanning')
+        self.assertEqual(mc.merge_scan(base('bad'), 'running', 'pending')['state'], 'bad')
+        self.assertEqual(mc.merge_scan(base('ok'), 'completed', 'malicious')['state'], 'bad')
+        self.assertEqual(mc.merge_scan(base('ok'), 'partial', 'suspicious')['state'], 'warn')
+        self.assertEqual(mc.merge_scan(base('bad'), 'completed', 'harmless')['state'], 'bad')  # a threat list still wins
+        self.assertEqual(mc.merge_scan(base('na'), 'completed', 'harmless')['state'], 'ok')
+        self.assertEqual(mc.merge_scan(base('na'), 'error', 'unknown')['state'], 'na')
+        state = mc.prepare('Bak: site.com/x', analyzer=FakeAnalyzer(), ai=False)
+        mc.merge_scan(state['links'][0], 'completed', 'malicious')
+        result = mc.build(state)
+        self.assertEqual(result['plain']['tone'], 'danger')
+        self.assertEqual(result['plain']['reasons'][0]['title'], 'Our link scan found a dangerous link')
+
     def test_report_reads_in_turkish(self):
         plain = mc.assess(PARCEL, analyzer=FakeAnalyzer(listed={'ptt-kargo.info'}), ai=False)['plain']
         turkish = translate_plain(plain, 'tr')
@@ -233,6 +248,9 @@ class ApiTests(unittest.TestCase):
         db.session.add(self.user)
         db.session.commit()
         self.client = self.app.test_client()
+        quiet = patch('services.url_scan_request.start_quietly', return_value=None)  # no job queue in tests
+        quiet.start()
+        self.addCleanup(quiet.stop)
         with self.client.session_transaction() as session:
             session['_user_id'] = str(self.user.id)
             session['_fresh'] = True
@@ -252,6 +270,8 @@ class ApiTests(unittest.TestCase):
     def test_page_and_api(self):
         page = self.client.get('/message-check?lang=tr').get_data(as_text=True)
         self.assertIn('Garip bir mesaj mı aldınız?', page)
+        self.assertIn('Ekran görüntüsünü buraya bırakın', page)
+        self.assertNotIn('<textarea', page)
         fake = FakeAnalyzer()
         fake.session = type('S', (), {'close': lambda self: None})()
         with patch('services.url_analyzer.URLDeepAnalyzer', lambda: fake), \
@@ -317,10 +337,48 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(send(bad).status_code, 400)
         self.assertEqual(MessageFeedback.query.count(), 1)
 
+    def test_links_get_a_full_scan_and_the_verdict_waits_for_it(self):
+        from flask import g
+        from models import Scan
+
+        def send(url, body):
+            g.pop('csrf_token', None)
+            g.pop('_login_user', None)
+            page = self.client.get('/message-check').get_data(as_text=True)
+            token = page.split('name="csrf-token" content="')[1].split('"')[0]
+            return self.client.post(url, data=json.dumps(body), content_type='application/json', headers={'X-CSRFToken': token})
+        scan = Scan(url='http://ptt-kargo.info/takip?no=1', user_id=self.user.id, status='running', verdict='pending', result='x')
+        db.session.add(scan)
+        db.session.commit()
+        fake = FakeAnalyzer()
+        fake.session = type('S', (), {'close': lambda self: None})()
+        with patch('services.url_analyzer.URLDeepAnalyzer', lambda: fake), patch('services.ai_assistant.enabled', return_value=False), \
+                patch('services.url_scan_request.start_quietly', return_value=scan.id) as started:
+            first = send('/api/check-message', {'text': PARCEL, 'lang': 'tr'})
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(started.call_args[0][0], 'http://ptt-kargo.info/takip?no=1')
+        token = first.get_json()['token']
+        self.assertNotIn('45 67', token)
+        self.assertEqual(send('/api/check-message/finish', {'token': token}).status_code, 202)  # still scanning
+        scan.status, scan.verdict = 'completed', 'malicious'
+        db.session.commit()
+        done = send('/api/check-message/finish', {'token': token})
+        self.assertEqual(done.status_code, 200)
+        data = done.get_json()
+        self.assertEqual((data['plain']['tone'], data['links'][0]['state'], data['links'][0]['scan_id']), ('danger', 'bad', scan.id))
+        self.assertEqual(send('/api/check-message/finish', {'token': token + 'x'}).status_code, 400)  # tampered
+        other = User(username='msgother', email='o@msg.invalid', password_hash='unused', is_verified=True)
+        db.session.add(other)
+        db.session.commit()
+        with self.client.session_transaction() as session:
+            session['_user_id'] = str(other.id)
+        self.assertEqual(send('/api/check-message/finish', {'token': token}).status_code, 400)  # someone else's check
+
     def test_the_app_reaches_it_as_a_tool(self):
         from routes.mobile_api import TOOLS
         self.assertEqual(TOOLS['message'], 'api_check_message')
         self.assertEqual(TOOLS['message-feedback'], 'api_message_feedback')
+        self.assertEqual(TOOLS['message-finish'], 'api_message_finish')
 
 
 if __name__ == '__main__':

@@ -1,15 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Message Check · MyScanner{% endblock %}
-{% block description %}Paste a suspicious SMS, WhatsApp or email message. MyScanner checks every link in it and the tricks scam messages use, and tells you plainly whether it looks like a scam.{% endblock %}
+{% block description %}Take a screenshot of a suspicious SMS, WhatsApp or email message. MyScanner reads it, scans every link in it and tells you plainly whether it is a scam.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261030-1') }}"><link rel="stylesheet" href="{{ url_for('static',filename='password_workspace.css',v='20261031-1') }}">
 <style>
-  .mc-text{width:100%;min-height:170px;resize:vertical;padding:14px 16px;border-radius:14px;border:1px solid #31506b;background:#060e1a;color:#e7f3ff;font:15px/1.6 var(--sans)}
-  .mc-text:focus{outline:2px solid #5eead4;outline-offset:2px}
-  .mc-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
-  .mc-count{margin-left:auto;font:12px var(--mono);color:#7d9ab0}
-  .mc-file{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1px dashed #3c7d96;color:#b8eafd;cursor:pointer;font-size:14px}
-  .mc-file:hover{background:#122d41}
-  .mc-picked{margin:10px 0 0;font-size:13.5px;color:#a9bbd2}.mc-picked button{margin-left:8px;font-size:12.5px}
   .mc-read summary{cursor:pointer;color:#b8eafd;font-size:14px}.mc-read p{white-space:pre-wrap;color:#c9d8ea;font-size:14px;line-height:1.6}
   .mc-ai,.mc-links{margin-top:18px}
   .mc-ai h3,.mc-links h3{font-size:16px;margin:0 0 10px;color:#e3f1ff}
@@ -29,32 +22,47 @@
   .mc-help{margin-top:18px;padding:14px 16px;border-radius:14px;border:1px solid #6b2a3a;background:#1d0f17}
   .mc-help summary{cursor:pointer;color:#fecdd3;font-weight:700;font-size:15px}
   .mc-help ol{margin:12px 0 0;padding-left:22px;color:#e5d2d8;line-height:1.7;font-size:14.5px}
+  .mc-drop{display:grid;place-items:center;gap:12px;text-align:center;padding:38px 18px;border-radius:20px;border:2px dashed #3c7d96;background:#081423;cursor:pointer;transition:border-color .2s,background .2s}
+  .mc-drop:hover,.mc-drop.over{border-color:#5eead4;background:#0b1d2c}
+  .mc-drop svg{color:#5eead4}.mc-drop strong{font-size:18px;color:#e7f3ff}.mc-drop span{font-size:14px;color:#a9bbd2;max-width:520px}
+  .mc-choose{display:inline-flex;align-items:center;min-height:46px;padding:0 22px;border-radius:12px;background:linear-gradient(135deg,#5eead4,#38bdf8);color:#04131d;font-weight:800;font-size:15px}
+  .mc-shot{display:flex;gap:14px;align-items:center;margin-top:14px}.mc-shot img{width:64px;height:64px;object-fit:cover;border-radius:12px;border:1px solid #31506b}
+  .mc-shot span{font-size:14px;color:#c9d8ea;overflow-wrap:anywhere}
+  .mc-steps{margin:6px 0 0;font-size:15px;color:#b8eafd;min-height:24px}
+  .mc-ai{padding:16px 18px;border-radius:16px;border:1px solid #2b4f73;background:linear-gradient(135deg,#0d2034,#13183a)}
+  .mc-ai p{margin:0;color:#dbe9f7;line-height:1.7;font-size:15px}
+  a.mc-link{text-decoration:none;transition:border-color .2s}a.mc-link:hover{border-color:#5eead4}
+  .mc-dot{flex:none;width:12px;height:12px;border-radius:50%;background:#64748b;box-shadow:0 0 0 4px rgba(100,116,139,.18)}
+  .mc-dot.bad{background:#fb7185;box-shadow:0 0 0 4px rgba(251,113,133,.2)}.mc-dot.warn{background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2)}
+  .mc-dot.ok,.mc-dot.official{background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.2)}
+  .mc-dot.scanning{animation:mcpulse 1.2s ease-in-out infinite}@keyframes mcpulse{50%{opacity:.35}}
+  .mc-open{font-size:13px;color:#5eead4;font-weight:700;white-space:nowrap}
 </style>{% endblock %}
 {% block content %}
 <main class="site-workspace">
-<header class="site-hero"><div><span class="site-eyebrow">MESSAGE CHECK / FREE</span><h1>Got a strange message?<br><em>Check it before you tap.</em></h1><p>Paste an SMS, WhatsApp or email message. We check every link in it and the tricks scam messages use, and tell you plainly what it looks like.</p><div class="site-tags"><span>Links checked, never opened</span><span>Personal data hidden</span><span>Turkish scam patterns</span></div></div>
+<header class="site-hero"><div><span class="site-eyebrow">MESSAGE CHECK / FREE</span><h1>Got a strange message?<br><em>Screenshot it and check.</em></h1><p>Take a screenshot of the SMS, WhatsApp or email message. We read it, scan every link in it in our isolated browser, and our AI tells you plainly whether it is a scam.</p><div class="site-tags"><span>Links scanned, never opened on your device</span><span>Personal data hidden</span><span>AI review</span></div></div>
 <svg class="site-art" viewBox="0 0 400 290" aria-hidden="true"><rect x="70" y="50" width="220" height="150" rx="26" fill="#11253b" stroke="#5eead4" stroke-width="3"/><path d="M110 200l-10 45 50-45" fill="#11253b" stroke="#5eead4" stroke-width="3" stroke-linejoin="round"/><path d="M105 95h150M105 125h120M105 155h90" stroke="#7dd3fc" stroke-width="8" stroke-linecap="round"/><circle cx="300" cy="190" r="48" fill="#0d1a2a" stroke="#fbbf24" stroke-width="4"/><path d="M300 168v26M300 208h.01" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/></svg></header>
-<form id="mc-form" class="site-card"><label for="mc-text">The message · paste it as it is</label>
-<textarea id="mc-text" class="mc-text" maxlength="6000" spellcheck="false" autocomplete="off" placeholder="e.g. PTT: Kargonuz adres eksikligi nedeniyle bekliyor. 24 saat icinde ek ucret odeyin: ptt-kargo.info/takip"></textarea>
-<div class="mc-row"><button id="mc-paste" type="button">Paste from clipboard</button><label class="mc-file" for="mc-image">Or choose a screenshot</label><input id="mc-image" type="file" accept="image/png,image/jpeg,image/webp" hidden><button id="mc-submit" type="submit">Check the message ↗</button><span class="mc-count" id="mc-count">0 / 6000</span></div>
-<p class="mc-picked" id="mc-picked" hidden><span id="mc-picked-name"></span> <button type="button" id="mc-unpick">Remove</button></p>
-<p class="site-note">Phone numbers, IBANs, card numbers, email addresses and ID numbers are hidden before anything else happens. A screenshot is read on our own server and deleted at once. Links are checked against threat lists and are never opened. If an AI review is available, it reads only the hidden version. The message itself is not saved.</p></form>
-<section id="mc-loading" class="site-card site-loading" hidden role="status"><div class="site-orbit"></div><h2>Reading the message</h2><p>Checking its links and looking for scam tricks.</p></section>
+<form id="mc-form" class="site-card">
+<label class="mc-drop" id="mc-drop" for="mc-image"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
+<strong>Drop the screenshot here</strong><span>Or paste it with Ctrl+V. PNG, JPEG or WebP, up to 8 MB.</span><span class="mc-choose">Choose a screenshot</span></label>
+<input id="mc-image" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+<p class="site-note">Phone numbers, IBANs, card numbers, email addresses, ID numbers and codes are hidden before anything else happens. The screenshot is read on our own server and deleted at once; the AI review reads only the hidden text, never the image. Links are scanned in our isolated browser, never on your device, and each scan is saved to your history. The message itself is not saved.</p></form>
+<section id="mc-loading" class="site-card site-loading" hidden role="status"><div class="site-orbit"></div><div class="mc-shot" id="mc-shot" hidden><img id="mc-shot-img" alt=""><span id="mc-shot-name"></span></div><h2>Checking the screenshot</h2><p class="mc-steps" id="mc-steps">Reading the screenshot</p></section>
 <p id="mc-error" hidden class="site-error" role="alert"></p>
 <div id="mc-plain" class="rp" hidden></div>
 <section id="mc-extra" class="site-card" hidden>
+  <div class="mc-ai" id="mc-ai" hidden><h3>Our AI review</h3><div id="mc-ai-list"></div></div>
+  <div class="mc-links" id="mc-links" hidden><h3>Links in the message</h3><div id="mc-link-list"></div></div>
+  <div class="mc-asks" id="mc-asks" hidden><h3>What the message asks you to do</h3><ul id="mc-asks-list"></ul></div>
+  <div class="mc-verify" id="mc-verify" hidden><h3>Check it yourself, at the source</h3><p>From our own list of official sites, never from the message. Open them yourself.</p><div id="mc-verify-list"></div></div>
   <details class="mc-help" id="mc-help" hidden><summary>Already tapped the link, paid or shared a code?</summary><ol>
     <li>Call your bank now on the number on your card or in its app, and ask them to block the card and stop the payment.</li>
     <li>If you shared a code, change that account’s password and turn on two-step verification. For WhatsApp: Settings, Account, Two-step verification.</li>
     <li>If you installed an app from the message, turn on airplane mode and remove the app, then tell your bank.</li>
     <li>Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.</li>
   </ol></details>
-  <div class="mc-asks" id="mc-asks" hidden><h3>What the message asks you to do</h3><ul id="mc-asks-list"></ul></div>
-  <div class="mc-verify" id="mc-verify" hidden><h3>Check it yourself, at the source</h3><p>From our own list of official sites, never from the message. Open them yourself.</p><div id="mc-verify-list"></div></div>
-  <div class="mc-ai" id="mc-ai" hidden><h3>What the AI review says</h3><ul id="mc-ai-list"></ul></div>
   <details class="mc-read" id="mc-read" hidden><summary>Text read from the image (personal data hidden)</summary><p id="mc-read-text"></p></details>
-  <div class="mc-links" id="mc-links" hidden><h3>Links in the message</h3><div id="mc-link-list"></div></div>
   <div class="mc-fb" id="mc-fb"><span>Was this result right?</span><button type="button" data-answer="real">The message was real</button><button type="button" data-answer="scam">It was a scam</button><span id="mc-fb-done" hidden>Thank you. We keep only the verdict and the signs we found, never the message.</span></div>
 </section>
-<div class="site-bottom"><article><b>01 / Links</b><p>Each link is looked up in Google Web Risk, URLhaus and our phishing list, without opening it.</p></article><article><b>02 / Tricks</b><p>Parcel fees, blocked accounts, prizes, refunds and requests for codes are the usual lures.</p></article><article><b>03 / What to do</b><p>When in doubt, contact the company through its official app or number, never through the message.</p></article></div>
-</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-2') }}" defer></script>{% endblock %}
+<div class="site-bottom"><article><b>01 / Read</b><p>The screenshot is read on our server, personal data is hidden and the image is deleted at once.</p></article><article><b>02 / Scan</b><p>Every link is scanned in our isolated browser and checked against threat lists. Tap a link to open its full report.</p></article><article><b>03 / Explain</b><p>Our rules and AI look for parcel fees, blocked accounts, debts, prizes and code requests, and tell you what to do.</p></article></div>
+</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-3') }}" defer></script>{% endblock %}

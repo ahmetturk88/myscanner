@@ -1,8 +1,6 @@
 /* Site-wide background: a secure network.
-   A fine grid with circuit traces covers the page; its nodes glint softly one
-   after another, and now and then a data packet glides along a trace, easing
-   in and out with a soft comet tail, and the node it reaches answers with a
-   gentle ring. Rarely a packet is a threat and is stopped with a red square.
+   A fine grid with circuit traces covers the page and its nodes glow softly one
+   after another. Nothing travels along the traces: only the glow moves.
    Decorative only (aria-hidden), drawn on one fixed
    canvas behind the page. It pauses in hidden tabs and is static for people
    who prefer reduced motion. */
@@ -12,10 +10,10 @@
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
   const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const CELL = 44, TAIL = 30, ARRIVE = 1.6, GLINT = 8, SHINE = 1.8;
-  const CYAN = '119,220,255', TEAL = '94,234,212', RED = '251,113,133';
+  const CELL = 44, GLINT = 8, SHINE = 1.8;
+  const CYAN = '119,220,255';
   let width = 0, height = 0, cols = 0, rows = 0, ratio = 1;
-  let layer = null, layerUrl = '', routes = [], packets = [], glints = [], frame = 0, last = 0, clock = 0;
+  let layer = null, layerUrl = '', routes = [], glints = [], frame = 0, last = 0, clock = 0;
 
   const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -37,28 +35,6 @@
       lengths.push(lengths[i - 1] + Math.abs(points[i][0] - points[i - 1][0]) + Math.abs(points[i][1] - points[i - 1][1]));
     }
     return { points, lengths, total: lengths[lengths.length - 1] };
-  }
-
-  function at(r, d) {
-    d = Math.max(0, Math.min(r.total, d));
-    let i = 1;
-    while (i < r.lengths.length - 1 && r.lengths[i] < d) i++;
-    const [ax, ay] = r.points[i - 1], [bx, by] = r.points[i];
-    const span = r.lengths[i] - r.lengths[i - 1] || 1, f = (d - r.lengths[i - 1]) / span;
-    return [ax + (bx - ax) * f, ay + (by - ay) * f];
-  }
-
-  function packet(r, index, count) {
-    const travel = r.total / rand(28, 46);  // pixels per second: a calm glide, not a dash
-    const period = travel + ARRIVE + rand(3, 9);
-    // Spread the start times so only a few packets move at any moment.
-    return { route: r, travel, period, offset: (index / count) * period + rand(0, 2), seed: index * 7919, base: Math.random() < 0.35 ? TEAL : CYAN };
-  }
-
-  function threatOn(p, round) {
-    // About one trip in ten is a threat, decided per trip so it shows up on different routes.
-    const h = Math.sin(p.seed + round * 12.9898) * 43758.5453;
-    return h - Math.floor(h) < 0.1;
   }
 
   function drawStatic() {
@@ -94,45 +70,10 @@
     cols = Math.ceil(width / CELL); rows = Math.ceil(height / CELL);
     const area = (width * height) / (1440 * 900);
     routes = Array.from({ length: Math.round(Math.max(8, Math.min(20, 16 * area))) }, route).filter(r => r.total > CELL * 3);
-    packets = routes.map((r, i) => packet(r, i, routes.length));
     // Both ends of every trace glint now and then, each at its own moment.
     glints = routes.flatMap(r => [r.points[0], r.points[r.points.length - 1]]).map(([x, y], i) => ({ x, y, offset: ((i * 0.618) % 1) * GLINT }));
     drawStatic();
     useLayerAsBackground();
-  }
-
-  function drawPacket(p) {
-    const r = p.route, round = Math.floor((clock + p.offset) / p.period);
-    const threat = threatOn(p, round), color = threat ? RED : p.base;
-    let t = (clock + p.offset) % p.period;
-    if (t < p.travel) {
-      // Eased: sets off and arrives gently; the tail stretches with the speed.
-      const k = t / p.travel, d = r.total * (0.5 - 0.5 * Math.cos(Math.PI * k)), pace = Math.sin(Math.PI * k);
-      const [x, y] = at(r, d), fade = Math.min(1, t / 0.8), tail = Math.min(d, TAIL * (0.2 + 0.8 * pace));
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = 'round';
-      for (let s = 0, steps = 5; s < steps; s++) {
-        const a = at(r, d - (tail * s) / steps), b = at(r, d - (tail * (s + 1)) / steps);
-        ctx.strokeStyle = `rgba(${color},${0.6 * fade * (1 - s / steps)})`;
-        ctx.beginPath(); ctx.moveTo(a[0] + 0.5, a[1] + 0.5); ctx.lineTo(b[0] + 0.5, b[1] + 0.5); ctx.stroke();
-      }
-      ctx.fillStyle = `rgba(${color},${0.14 * fade})`;
-      ctx.beginPath(); ctx.arc(x + 0.5, y + 0.5, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = `rgba(${color},${0.95 * fade})`;
-      ctx.beginPath(); ctx.arc(x + 0.5, y + 0.5, 1.8, 0, Math.PI * 2); ctx.fill();
-      return;
-    }
-    t -= p.travel;
-    if (t < ARRIVE) {
-      const k = t / ARRIVE, eased = 1 - (1 - k) * (1 - k);
-      const [ex, ey] = r.points[r.points.length - 1];
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = `rgba(${color},${(threat ? 0.7 : 0.4) * (1 - k)})`;
-      ctx.beginPath();
-      if (threat) { const s = 4 + 12 * eased; ctx.rect(ex - s + 0.5, ey - s + 0.5, s * 2, s * 2); }
-      else ctx.arc(ex + 0.5, ey + 0.5, 3 + 12 * eased, 0, Math.PI * 2);
-      ctx.stroke();
-    }
   }
 
   function drawGlints() {
@@ -170,7 +111,6 @@
     if (layer) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(layer, 0, 0); ctx.restore(); }
     if (still) return;
     drawGlints();
-    packets.forEach(drawPacket);
     frame = requestAnimationFrame(draw);
   }
 

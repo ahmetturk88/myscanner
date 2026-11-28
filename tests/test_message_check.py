@@ -105,7 +105,7 @@ class EngineTests(unittest.TestCase):
     def test_no_signs_only_when_every_link_was_looked_up(self):
         many = mc.assess('a.com/1 b.com/2 c.com/3 d.com/4 e.com/5', analyzer=FakeAnalyzer(), ai=False)['plain']
         self.assertEqual(many['tone'], 'unknown')
-        self.assertIn('We checked 3 of the 5 links.', [r['detail'] for r in many['reasons']])
+        self.assertIn('Its links go to 5 sites; we checked 3.', [r['detail'] for r in many['reasons']])
         self.assertEqual(many['checks'][0]['result'], '3 of 5 checked')
 
         class Down(FakeAnalyzer):
@@ -390,6 +390,26 @@ class ApiTests(unittest.TestCase):
         self.assertIn('Answers: <b>3</b>', page)
         self.assertIn('Agreed with us: <b>1</b>', page)
         self.assertIn('<td>hidden_cta</td>', page)
+
+    def test_an_adult_pages_screenshot_is_never_served(self):
+        import tempfile
+        from flask import g
+        from models import Scan
+        raw = {'local_analysis': {}, 'deep_analysis': {'page_content': {'scam_signals': ['adult_content', 'adult_continue']}}}
+        scans = [Scan(url='https://x.example/a', user_id=self.user.id, status='completed', verdict='high_risk', result='x',
+                      raw_report=json.dumps(raw)),
+                 Scan(url='https://y.example/b', user_id=self.user.id, status='completed', verdict='harmless', result='x',
+                      raw_report=json.dumps({'local_analysis': {}, 'deep_analysis': {'page_content': {'scam_signals': []}}}))]
+        db.session.add_all(scans)
+        db.session.commit()
+        with tempfile.TemporaryDirectory() as folder, patch.dict('os.environ', {'SCREENSHOT_DIR': folder}):
+            from services.url_screenshot import screenshot_path
+            for scan in scans:
+                screenshot_path(scan.id).write_bytes(png())
+            g.pop('_login_user', None)
+            adult, normal = (self.client.get(f'/api/scan_screenshot/{s.id}') for s in scans)
+            self.assertEqual((adult.status_code, normal.status_code), (404, 200))
+            self.assertIsNone(self.client.get(f'/api/scan_result/{scans[0].id}').get_json()['screenshot_url'])
 
     def test_the_app_reaches_it_as_a_tool(self):
         from routes.mobile_api import TOOLS

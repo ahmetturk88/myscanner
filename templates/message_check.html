@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Message Check · MyScanner{% endblock %}
 {% block description %}Take a screenshot of a suspicious SMS, WhatsApp or email message. MyScanner reads it, scans every link in it and tells you plainly whether it is a scam.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261030-1') }}"><link rel="stylesheet" href="{{ url_for('static',filename='password_workspace.css',v='20261031-1') }}">
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261128-2') }}"><link rel="stylesheet" href="{{ url_for('static',filename='password_workspace.css',v='20261031-1') }}">
 <style>
   .mc-drop{display:grid;place-items:center;gap:12px;text-align:center;padding:38px 18px;border-radius:20px;border:2px dashed #3c7d96;background:#081423;cursor:pointer;transition:border-color .2s,background .2s}
   .mc-drop:hover,.mc-drop.over{border-color:#5eead4;background:#0b1d2c}
@@ -19,6 +19,7 @@
   .mc-steps li i{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid #2c4560;display:grid;place-items:center;font:700 11px var(--sans);font-style:normal}
   .mc-steps li.now{color:#e3f1ff}.mc-steps li.now i{border-color:#5eead4;border-top-color:transparent;animation:site-spin 1s linear infinite}
   .mc-steps li.done{color:#9fd8c8}.mc-steps li.done i{border-color:#5eead4;background:#5eead4;color:#04131d}
+  .mc-with{margin:0 0 14px;padding:10px 14px;border-radius:12px;border:1px solid #1f5a52;background:#0b1f22;color:#9fe8d6;font-size:14px}
   .mc-sum{padding:18px 20px;border-radius:18px;border:1px solid #2b4f73;background:linear-gradient(135deg,#0d2034,#13183a)}
   .mc-sum h3{font-size:16px;margin:0 0 8px;color:#e3f1ff}.mc-sum .mc-from{font-size:13px;color:#7dd3fc;margin:0 0 8px}
   .mc-sum p{margin:0 0 6px;color:#dbe9f7;line-height:1.7;font-size:15px}
@@ -76,6 +77,7 @@
 <p id="mc-error" hidden class="site-error" role="alert"></p>
 <div id="mc-plain" class="rp" hidden></div>
 <section id="mc-extra" class="site-card" hidden>
+  <p class="mc-with" id="mc-with-email" hidden>✓ Checked again with the original email: its real links and sender are below.</p>
   <div class="mc-sum" id="mc-sum" hidden><h3>Summary</h3><p class="mc-from" id="mc-from" hidden></p><div id="mc-sum-text"></div></div>
   <div class="mc-block mc-eml" id="mc-eml" hidden><h3>The link is hidden behind a button</h3>
     <p>A screenshot can’t show where an email’s button leads. Send us the original email and we will check its real links and its sender.</p>
@@ -99,4 +101,4 @@
   <div class="mc-fb" id="mc-fb"><span>Was this result right?</span><button type="button" data-answer="real">The message was real</button><button type="button" data-answer="scam">It was a scam</button><p class="mc-fb-reply" id="mc-fb-reply" hidden></p></div>
 </section>
 <div class="site-bottom"><article><b>01 / Read</b><p>The screenshot is read on our server, personal data is hidden and the image is deleted at once.</p></article><article><b>02 / Scan</b><p>Every link is scanned in our isolated browser and checked against threat lists. Tap a link to open its full report.</p></article><article><b>03 / Explain</b><p>We look at who the message claims to come from and what it wants, and tell you plainly what to do.</p></article></div>
-</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261128-1') }}" defer></script>{% endblock %}
+</main><script src="{{ url_for('static', filename='plain_report.js', v='20261128-2') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261128-2') }}" defer></script>{% endblock %}

@@ -802,9 +802,15 @@ def api_scan_result(scan_id):
         "id": scan.id, "url": scan.url,
         "status": scan.status, "verdict": scan.verdict,
         "result_html": scan.result, "raw_report": raw,
-        "screenshot_url": f"/api/scan_screenshot/{scan.id}" if screenshot_path(scan.id).is_file() else None,
+        "screenshot_url": f"/api/scan_screenshot/{scan.id}" if screenshot_path(scan.id).is_file() and not _adult_scan(raw) else None,
         "date": scan.date_posted.strftime("%Y-%m-%d %H:%M:%S")
     })
+
+
+def _adult_scan(raw):
+    """Adult content on the scanned page: its screenshot is never served (site, app or shared report)."""
+    from services.url_report_view import adult_page
+    return isinstance(raw, dict) and adult_page(raw.get('deep_analysis') if isinstance(raw.get('deep_analysis'), dict) else {})
 
 
 @app.route('/api/scan_screenshot/<int:scan_id>')
@@ -817,6 +823,12 @@ def api_scan_screenshot(scan_id):
     path = screenshot_path(scan.id)
     if not path.is_file():
         return jsonify({"error": "Not found"}), 404
+    try:
+        raw = json.loads(scan.raw_report) if scan.raw_report else {}
+    except (TypeError, ValueError):
+        raw = {}
+    if _adult_scan(raw):
+        return jsonify({"error": "This page shows adult content, so its preview is not shown."}), 404
     response = send_file(path, mimetype='image/jpeg', max_age=0)
     response.headers['Cache-Control'] = 'private, no-store'
     return response
@@ -1647,15 +1659,28 @@ def api_check_message():
             return jsonify(error=messages[str(error)], code=f'ocr_{error}'), status
         text = (text.strip() + '\n' + read).strip() if text.strip() else read
     try:
-        from services.message_check import as_url, prepare
+        from services.message_check import as_url, prepare, redact
         from services.site_i18n import current_language
         from services.url_scan_request import start_quietly
         lang = data.get('lang')
         from services.message_ai import vision_for
+        previous = None
+        if email_info is not None and data.get('previous'):
+            # The original email of a message whose screenshot was just checked: it builds on that check.
+            from itsdangerous import BadSignature
+            from services.message_check import build, summary_of
+            try:
+                before = _message_token().loads(str(data.get('previous')), max_age=3600)
+                if before.get('user') == current_user.id:
+                    previous = summary_of(build(before))
+            except (BadSignature, KeyError, TypeError, ValueError):
+                previous = None
         state = prepare(text, language=lang if lang in ('tr', 'en', 'ar') else current_language(),
-                        image=picture if vision_for(current_user) else None, email=email_info)
+                        image=picture if vision_for(current_user) else None, email=email_info, previous=previous)
         picture = None  # the image is not kept or passed on
         state['shown_text'] = image is not None or email_info is not None  # what was read, personal data hidden
+        if email_info is not None:
+            state['shown'] = redact(email_info['shown'])[0]  # sender, subject and body: the links have their own list
         # Every link also gets the full scan (isolated browser, saved report), from the link-scan allowance.
         for link in state['links']:
             link['scan_id'] = start_quietly(as_url(link['link']))
@@ -1679,7 +1704,8 @@ def _message_result(state):
     from services.message_check import build
     result = build(state)
     if state.get('shown_text'):
-        result['text'] = state['masked']
+        result['text'] = state.get('shown') or state['masked']
+    result['token'] = _message_token().dumps(state)  # lets the original email build on this check
     log_activity(current_user.username, 'message_check', f'Checked a message: {result["plain"]["tone"]}')
     return jsonify(result), 200, {'Cache-Control': 'no-store'}
 

@@ -91,6 +91,7 @@ SITE_TR = {
     'Outlook: open the email, then ⋯ › Save as (or Download).': 'Outlook: e-postayı aç, sonra ⋯ › Farklı kaydet (ya da İndir).',
     'On a phone, open Gmail in the browser, or forward the email to yourself and download it on a computer.': 'Telefonda Gmail\'i tarayıcıda aç ya da e-postayı kendine iletip bilgisayarda indir.',
     'Choose the email file (.eml)': 'E-posta dosyasını seç (.eml)',
+    '✓ Checked again with the original email: its real links and sender are below.': '✓ Orijinal e-postayla yeniden kontrol edildi: gerçek bağlantıları ve göndereni aşağıda.',
     'Didn’t we read it right? See and fix the text': 'Doğru okuyamadık mı? Metni gör ve düzelt',
     'We look at who the message claims to come from and what it wants, and tell you plainly what to do.': 'Mesajın kimden geldiğini iddia ettiğine ve ne istediğine bakar, ne yapman gerektiğini sade bir dille söyleriz.',
     'Take a screenshot of the SMS, WhatsApp or email message. We read it, scan every link in it in our isolated browser, and our AI tells you plainly whether it is a scam.': 'SMS, WhatsApp ya da e-posta mesajının ekran görüntüsünü alın. Okuruz, içindeki her bağlantıyı yalıtılmış tarayıcımızda tararız ve yapay zekâmız dolandırıcılık olup olmadığını sade bir dille söyler.',

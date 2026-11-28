@@ -6,7 +6,8 @@ const vm = require('node:vm');
 
 const script = fs.readFileSync(path.join(__dirname, '../static/message_check.js'), 'utf8');
 
-function page() {
+function page(saved) {
+  const storage = new Map(saved ? [['myscanner.messageCheck', JSON.stringify(saved)]] : []);
   const elements = new Map();
   const requests = [];
   const replies = [];
@@ -14,7 +15,8 @@ function page() {
   function element(id) {
     if (!elements.has(id)) {
       elements.set(id, {
-        id, listeners: {}, files: [], hidden: true, value: '', textContent: '', innerHTML: '', classList: {add() {}, remove() {}},
+        id, listeners: {}, files: [], hidden: true, value: '', textContent: '', innerHTML: '', dataset: {},
+        classList: {add() {}, remove() {}, toggle() {}}, click() { this.clicked = true; },
         addEventListener(event, listener) { this.listeners[event] = listener; },
         querySelectorAll() { return []; }, scrollIntoView() {}, focus() { this.focused = true; },
       });
@@ -22,18 +24,20 @@ function page() {
     return elements.get(id);
   }
   vm.runInNewContext(script, {
-    document: { documentElement: { lang: 'tr' }, getElementById: element, querySelector: () => null, addEventListener() {} },
+    document: { documentElement: { lang: 'tr' }, getElementById: element, querySelector: () => null, querySelectorAll: () => [], addEventListener() {} },
+    sessionStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: (k) => storage.delete(k) },
+    location: { search: '', pathname: '/message-check' }, history: { replaceState() {} },
     window: { PlainReport: { mount() { reportVisible = true; }, unmount() { reportVisible = false; } } },
     FormData: class { fields = new Map(); append(name, value) { this.fields.set(name, value); } },
     URL: { createObjectURL: () => 'blob:x', revokeObjectURL() {} },
-    setTimeout: (fn) => { fn(); return 0; }, setInterval: () => 0, clearInterval() {},
     async fetch(url, options) {
       requests.push({ url, ...options });
       const reply = replies.shift() || { status: 200, body: { plain: { tone: 'caution' } } };
       return { ok: reply.status < 300, status: reply.status, json: async () => reply.body };
     },
+    setTimeout: (fn) => { fn(); return 0; }, clearTimeout() {},
   });
-  return { element, requests, replies, report: () => reportVisible };
+  return { element, requests, replies, storage, report: () => reportVisible };
 }
 
 test('a screenshot waits for its link scans, then links open our saved reports, never the message links', async () => {
@@ -54,7 +58,25 @@ test('a screenshot waits for its link scans, then links open our saved reports, 
   assert.match(links, /href="\/result\/7"/);
   assert.match(links, /tehlikeli olarak geçiyor/);
   assert.doesNotMatch(links, /href="(?!\/result\/7")/);  // only our own report is a link; a non-numeric id is not
-  assert.equal(element('mc-read-text').textContent, 'Pay: examp1e[.]test');
+  assert.equal(element('mc-read-text').dataset.text, 'Pay: examp1e[.]test');
+  assert.match(element('mc-read-text').innerHTML, /<div dir="auto">Pay: examp1e\[\.\]test<\/div>/);
+});
+
+test('coming back from a link report shows the last result again', () => {
+  const saved = { plain: { tone: 'danger' }, links: [{ shown: 'x[.]top', state: 'bad', scan_id: 3 }] };
+  const { element, report } = page(saved);
+  assert.equal(report(), true);
+  assert.match(element('mc-link-list').innerHTML, /href="\/result\/3"/);
+  assert.equal(element('mc-form').hidden, true);
+});
+
+test('an original email goes up as an email, not as an image', async () => {
+  const { element, requests } = page();
+  const picker = element('mc-image');
+  picker.files = [{ name: 'message.eml', type: '', size: 100 }];
+  await picker.listeners.change();
+  assert.equal(requests[0].body.fields.get('email').name, 'message.eml');
+  assert.equal(requests[0].body.fields.has('image'), false);
 });
 
 test('the text read from a screenshot can be corrected and checked again without the image', async () => {

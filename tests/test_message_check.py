@@ -60,13 +60,13 @@ class EngineTests(unittest.TestCase):
         result = mc.assess('Merhaba, yarın 0532 123 45 67 numaradan arar mısın?', language='tr', analyzer=FakeAnalyzer(), ai=ai)
         self.assertNotIn('123 45 67', seen[0])
         self.assertIn('[phone]', seen[0])
-        self.assertEqual(result['plain']['tone'], 'caution')  # rules said safe; without evidence the AI raises one step only
+        self.assertEqual(result['plain']['tone'], 'danger')  # the reviewer decides; rules are only hints
         self.assertEqual(result['plain']['ai_reasons'], ['Gerçek PTT mesajı ücret istemez.'])
-        self.assertEqual(result['plain']['actions'], mc.ACTIONS['caution'])  # advice is always ours, never the AI's
+        self.assertEqual(result['plain']['actions'], mc.ACTIONS['danger'])  # advice is always ours, never the AI's
         strong = mc.assess('Hesabınız askıya alındı, lütfen bizi arayın.', analyzer=FakeAnalyzer(), ai=ai)
         self.assertEqual(strong['plain']['tone'], 'danger')  # a strong sign found by the rules lets the AI go all the way
         mild = mc.assess(PARCEL, analyzer=FakeAnalyzer(), ai=lambda s, t: '{"verdict": "safe", "reasons": [], "actions": []}')
-        self.assertEqual(mild['plain']['tone'], 'danger')  # parcel + fee + pressure + link: the AI can't lower it
+        self.assertEqual(mild['plain']['tone'], 'caution')  # parcel + fee + pressure + link: the reviewer can't call it safe
 
     def test_without_ai_the_rules_decide_and_nonsense_from_the_ai_is_ignored(self):
         self.assertEqual(mc.assess(PARCEL, analyzer=FakeAnalyzer(), ai=False)['plain']['tone'], 'danger')
@@ -373,6 +373,23 @@ class ApiTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session['_user_id'] = str(other.id)
         self.assertEqual(send('/api/check-message/finish', {'token': token}).status_code, 400)  # someone else's check
+
+    def test_the_answers_page_is_for_admins_and_groups_the_misses_by_sign(self):
+        from flask import g
+        from models import MessageFeedback
+        MessageFeedback.query.delete()
+        db.session.add_all([MessageFeedback(tone='safe', answer='scam', signals='hidden_cta,romance'),
+                            MessageFeedback(tone='danger', answer='real', signals='parcel'),
+                            MessageFeedback(tone='danger', answer='scam', signals='parcel')])
+        db.session.commit()
+        self.assertEqual(self.client.get('/admin/message-feedback').status_code, 404)
+        self.user.is_admin = True
+        db.session.commit()
+        g.pop('_login_user', None)
+        page = self.client.get('/admin/message-feedback').get_data(as_text=True)
+        self.assertIn('Answers: <b>3</b>', page)
+        self.assertIn('Agreed with us: <b>1</b>', page)
+        self.assertIn('<td>hidden_cta</td>', page)
 
     def test_the_app_reaches_it_as_a_tool(self):
         from routes.mobile_api import TOOLS

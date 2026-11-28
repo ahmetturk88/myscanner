@@ -3,61 +3,87 @@
 {% block description %}Take a screenshot of a suspicious SMS, WhatsApp or email message. MyScanner reads it, scans every link in it and tells you plainly whether it is a scam.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='plain_report.css', v='20261030-1') }}"><link rel="stylesheet" href="{{ url_for('static',filename='password_workspace.css',v='20261031-1') }}">
 <style>
-  .mc-read summary{cursor:pointer;color:#b8eafd;font-size:14px}.mc-read p{white-space:pre-wrap;color:#c9d8ea;font-size:14px;line-height:1.6}
-  .mc-ai,.mc-links{margin-top:18px}
-  .mc-ai h3,.mc-links h3{font-size:16px;margin:0 0 10px;color:#e3f1ff}
-  .mc-ai ul{margin:0;padding-left:20px;color:#c9d8ea;line-height:1.7}
-  .mc-link{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid #263e55;background:#0d1a2a;margin-bottom:8px}
-  .mc-link code{font:13.5px var(--mono);color:#fbbf24;overflow-wrap:anywhere}
-  .mc-link span{font-size:13px;color:#93a7bf}
-  .mc-link .mc-state{margin-left:auto;font:12px var(--mono);letter-spacing:.06em}
-  .mc-state.bad{color:#fb7185}.mc-state.warn{color:#fbbf24}.mc-state.ok,.mc-state.official{color:#5eead4}.mc-state.na{color:#93a7bf}
-  .mc-asks ul{margin:0;padding-left:20px;color:#fde68a;line-height:1.8;font-size:14.5px}
-  .mc-verify p,.mc-fb span{color:#a9bbd2;font-size:13.5px}
-  .mc-src{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid #1f5a52;background:#0b1f22;margin-bottom:8px}
-  .mc-src b{color:#e3f1ff;font-size:14.5px}.mc-src span{flex:1 1 260px;color:#c9d8ea;font-size:14px;line-height:1.55}
-  .mc-src a{color:#5eead4;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}.mc-src a:hover{text-decoration:underline}
-  .mc-fb{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid #1d3248}
-  .mc-ai,.mc-links,.mc-asks,.mc-verify{margin-top:18px}.mc-asks h3,.mc-verify h3{font-size:16px;margin:0 0 10px;color:#e3f1ff}
-  .mc-help{margin-top:18px;padding:14px 16px;border-radius:14px;border:1px solid #6b2a3a;background:#1d0f17}
-  .mc-help summary{cursor:pointer;color:#fecdd3;font-weight:700;font-size:15px}
-  .mc-help ol{margin:12px 0 0;padding-left:22px;color:#e5d2d8;line-height:1.7;font-size:14.5px}
   .mc-drop{display:grid;place-items:center;gap:12px;text-align:center;padding:38px 18px;border-radius:20px;border:2px dashed #3c7d96;background:#081423;cursor:pointer;transition:border-color .2s,background .2s}
   .mc-drop:hover,.mc-drop.over{border-color:#5eead4;background:#0b1d2c}
-  .mc-drop svg{color:#5eead4}.mc-drop strong{font-size:18px;color:#e7f3ff}.mc-drop span{font-size:14px;color:#a9bbd2;max-width:520px}
-  .mc-choose{display:inline-flex;align-items:center;min-height:46px;padding:0 22px;border-radius:12px;background:linear-gradient(135deg,#5eead4,#38bdf8);color:#04131d;font-weight:800;font-size:15px}
-  .mc-shot{display:flex;gap:14px;align-items:center;margin-top:14px}.mc-shot img{width:64px;height:64px;object-fit:cover;border-radius:12px;border:1px solid #31506b}
-  .mc-shot span{font-size:14px;color:#c9d8ea;overflow-wrap:anywhere}
-  .mc-steps{margin:6px 0 0;font-size:15px;color:#b8eafd;min-height:24px}
-  .mc-ai{padding:16px 18px;border-radius:16px;border:1px solid #2b4f73;background:linear-gradient(135deg,#0d2034,#13183a)}
-  .mc-ai p{margin:0;color:#dbe9f7;line-height:1.7;font-size:15px}
+  .mc-drop svg{color:#5eead4}.mc-drop strong{font-size:18px;color:#e7f3ff}.mc-drop .mc-hint{font-size:14px;color:#a9bbd2;max-width:540px}
+  .mc-drop .mc-choose{display:inline-flex;align-items:center;min-height:48px;padding:0 24px;border-radius:12px;background:linear-gradient(135deg,#5eead4,#38bdf8);color:#03131c;font-weight:800;font-size:15.5px;box-shadow:0 8px 24px rgba(56,189,248,.25)}
+  .mc-scan{display:grid;justify-items:center;gap:18px;text-align:center;padding:34px 22px}
+  .mc-frame{position:relative;width:min(230px,62vw);aspect-ratio:3/4;border-radius:22px;overflow:hidden;border:1px solid #2f5a78;background:#081423;box-shadow:0 18px 40px rgba(2,10,20,.6)}
+  .mc-frame img{width:100%;height:100%;object-fit:cover;opacity:.92}
+  .mc-frame.doc{display:grid;place-items:center;color:#7dd3fc}
+  .mc-beam{position:absolute;left:0;right:0;height:46px;top:-46px;background:linear-gradient(180deg,transparent,rgba(94,234,212,.35),rgba(94,234,212,.9) 92%,transparent);animation:mcbeam 2.2s ease-in-out infinite}
+  @keyframes mcbeam{to{top:100%}}
+  .mc-scan h2{font-size:21px;margin:0}
+  .mc-steps{list-style:none;margin:0;padding:0;display:grid;gap:9px;text-align:left;width:min(360px,100%)}
+  .mc-steps li{display:flex;gap:10px;align-items:center;color:#6f87a3;font-size:14.5px;transition:color .3s}
+  .mc-steps li i{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid #2c4560;display:grid;place-items:center;font:700 11px var(--sans);font-style:normal}
+  .mc-steps li.now{color:#e3f1ff}.mc-steps li.now i{border-color:#5eead4;border-top-color:transparent;animation:site-spin 1s linear infinite}
+  .mc-steps li.done{color:#9fd8c8}.mc-steps li.done i{border-color:#5eead4;background:#5eead4;color:#04131d}
+  .mc-sum{padding:18px 20px;border-radius:18px;border:1px solid #2b4f73;background:linear-gradient(135deg,#0d2034,#13183a)}
+  .mc-sum h3{font-size:16px;margin:0 0 8px;color:#e3f1ff}.mc-sum .mc-from{font-size:13px;color:#7dd3fc;margin:0 0 8px}
+  .mc-sum p{margin:0 0 6px;color:#dbe9f7;line-height:1.7;font-size:15px}
+  .mc-block{margin-top:20px}.mc-block h3{font-size:16px;margin:0 0 10px;color:#e3f1ff}.mc-block>p{color:#a9bbd2;font-size:13.5px;margin:0 0 10px}
+  .mc-link{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid #263e55;background:#0d1a2a;margin-bottom:8px}
+  .mc-link code{font:13.5px var(--mono);color:#e7f3ff;overflow-wrap:anywhere}
+  .mc-link .mc-state{margin-left:auto;font:12px var(--mono);letter-spacing:.06em}
+  .mc-link .mc-notes{flex-basis:100%;font-size:13px;color:#93a7bf}
   a.mc-link{text-decoration:none;transition:border-color .2s}a.mc-link:hover{border-color:#5eead4}
+  .mc-open{font-size:13px;color:#5eead4;font-weight:700;white-space:nowrap}
+  .mc-state.bad{color:#fb7185}.mc-state.warn{color:#fbbf24}.mc-state.ok,.mc-state.official{color:#5eead4}.mc-state.na,.mc-state.scanning{color:#93a7bf}
   .mc-dot{flex:none;width:12px;height:12px;border-radius:50%;background:#64748b;box-shadow:0 0 0 4px rgba(100,116,139,.18)}
   .mc-dot.bad{background:#fb7185;box-shadow:0 0 0 4px rgba(251,113,133,.2)}.mc-dot.warn{background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2)}
   .mc-dot.ok,.mc-dot.official{background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.2)}
   .mc-dot.scanning{animation:mcpulse 1.2s ease-in-out infinite}@keyframes mcpulse{50%{opacity:.35}}
+  .mc-eml{padding:16px 18px;border-radius:16px;border:1px solid #7a5a1f;background:#1f1708}
+  .mc-eml h3{color:#fde68a}.mc-eml ol{margin:8px 0 12px;padding-left:22px;color:#f1e3bd;line-height:1.7;font-size:14.5px}
+  .mc-asks ul{margin:0;padding-left:20px;color:#fde68a;line-height:1.8;font-size:14.5px}
+  .mc-src{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid #1f5a52;background:#0b1f22;margin-bottom:8px}
+  .mc-src b{color:#e3f1ff;font-size:14.5px}.mc-src span{flex:1 1 260px;color:#c9d8ea;font-size:14px;line-height:1.55}
+  .mc-src a{color:#5eead4;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}.mc-src a:hover{text-decoration:underline}
+  .mc-help{margin-top:20px;padding:14px 16px;border-radius:14px;border:1px solid #6b2a3a;background:#1d0f17}
+  .mc-help summary{cursor:pointer;color:#fecdd3;font-weight:700;font-size:15px}
+  .mc-help ol{margin:12px 0 0;padding-left:22px;color:#e5d2d8;line-height:1.7;font-size:14.5px}
+  .mc-read{margin-top:16px}.mc-read summary{cursor:pointer;color:#7dd3fc;font-size:13.5px}
+  .mc-lines{margin:10px 0;padding:12px 14px;border-radius:12px;background:#081321;color:#c9d8ea;font-size:14px;line-height:1.65}
+  .mc-lines div{min-height:1em;overflow-wrap:anywhere}
   .mc-edit{width:100%;min-height:140px;margin:10px 0;padding:12px 14px;border-radius:12px;border:1px solid #31506b;background:#060e1a;color:#e7f3ff;font:14px/1.6 var(--sans);resize:vertical}
-  .mc-edit-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-  .mc-link .mc-notes{flex-basis:100%;font-size:13px;color:#93a7bf}
-  .mc-open{font-size:13px;color:#5eead4;font-weight:700;white-space:nowrap}
+  .mc-edit-row{display:flex;flex-wrap:wrap;gap:10px}
+  .mc-fb{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:22px;padding-top:16px;border-top:1px solid #1d3248}
+  .mc-fb>span{color:#a9bbd2;font-size:13.5px}
+  .mc-fb-reply{flex-basis:100%;margin:4px 0 0;padding:12px 14px;border-radius:12px;background:#0b1f22;border:1px solid #1f5a52;color:#d5f5ec;font-size:14px;line-height:1.6}
+  .mc-fb-reply a{color:#5eead4}
+  @media(prefers-reduced-motion:reduce){.mc-beam,.mc-steps li.now i{animation:none}}
 </style>{% endblock %}
 {% block content %}
 <main class="site-workspace">
-<header class="site-hero"><div><span class="site-eyebrow">MESSAGE CHECK / FREE</span><h1>Got a strange message?<br><em>Screenshot it and check.</em></h1><p>Take a screenshot of the SMS, WhatsApp or email message. We read it, scan every link in it in our isolated browser, and our AI tells you plainly whether it is a scam.</p><div class="site-tags"><span>Links scanned, never opened on your device</span><span>Personal data hidden</span><span>AI review</span></div></div>
+<header class="site-hero"><div><span class="site-eyebrow">MESSAGE CHECK / FREE</span><h1>Got a strange message?<br><em>Screenshot it and check.</em></h1><p>Take a screenshot of the SMS, WhatsApp or email message. We read it, scan every link in it in our isolated browser, and tell you plainly whether it is a scam.</p><div class="site-tags"><span>Links scanned, never opened on your device</span><span>Personal data hidden</span><span>Plain-language summary</span></div></div>
 <svg class="site-art" viewBox="0 0 400 290" aria-hidden="true"><rect x="70" y="50" width="220" height="150" rx="26" fill="#11253b" stroke="#5eead4" stroke-width="3"/><path d="M110 200l-10 45 50-45" fill="#11253b" stroke="#5eead4" stroke-width="3" stroke-linejoin="round"/><path d="M105 95h150M105 125h120M105 155h90" stroke="#7dd3fc" stroke-width="8" stroke-linecap="round"/><circle cx="300" cy="190" r="48" fill="#0d1a2a" stroke="#fbbf24" stroke-width="4"/><path d="M300 168v26M300 208h.01" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/></svg></header>
 <form id="mc-form" class="site-card">
 <label class="mc-drop" id="mc-drop" for="mc-image"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
-<strong>Drop the screenshot here</strong><span>Or paste it with Ctrl+V. PNG, JPEG or WebP, up to 8 MB.</span><span class="mc-choose">Choose a screenshot</span></label>
-<input id="mc-image" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-<p class="site-note">Phone numbers, IBANs, card numbers, email addresses, ID numbers and codes are hidden before anything else happens. The screenshot is read on our own server and deleted at once; the AI review reads only the hidden text, never the image. Links are scanned in our isolated browser, never on your device, and each scan is saved to your history. The message itself is not saved.</p></form>
-<section id="mc-loading" class="site-card site-loading" hidden role="status"><div class="site-orbit"></div><div class="mc-shot" id="mc-shot" hidden><img id="mc-shot-img" alt=""><span id="mc-shot-name"></span></div><h2>Checking the screenshot</h2><p class="mc-steps" id="mc-steps">Reading the screenshot</p></section>
+<strong>Drop the screenshot here</strong><span class="mc-hint">Or paste it with Ctrl+V. PNG, JPEG or WebP, up to 8 MB. An original email (.eml) works too.</span><span class="mc-choose">Choose a screenshot</span></label>
+<input id="mc-image" type="file" accept="image/png,image/jpeg,image/webp,.eml,message/rfc822" hidden>
+<p class="site-note">Phone numbers, IBANs, card numbers, email addresses, ID numbers and codes are hidden before anything else happens. The screenshot is read on our own server and deleted at once. Links are scanned in our isolated browser, never on your device, and each scan is saved to your history. The message itself is not saved.</p></form>
+<section id="mc-loading" class="site-card mc-scan" hidden role="status" aria-live="polite">
+  <div class="mc-frame" id="mc-frame"><img id="mc-shot-img" alt=""><span class="mc-beam" aria-hidden="true"></span></div>
+  <h2>Checking your screenshot</h2>
+  <ol class="mc-steps" id="mc-steps">
+    <li data-step="0"><i aria-hidden="true"></i>Reading the screenshot</li>
+    <li data-step="1"><i aria-hidden="true"></i>Hiding personal data</li>
+    <li data-step="2"><i aria-hidden="true"></i>Scanning the links in our isolated browser</li>
+    <li data-step="3"><i aria-hidden="true"></i>Writing the summary</li>
+  </ol>
+</section>
 <p id="mc-error" hidden class="site-error" role="alert"></p>
 <div id="mc-plain" class="rp" hidden></div>
 <section id="mc-extra" class="site-card" hidden>
-  <div class="mc-ai" id="mc-ai" hidden><h3>Our AI review</h3><div id="mc-ai-list"></div></div>
-  <div class="mc-links" id="mc-links" hidden><h3>Links in the message</h3><div id="mc-link-list"></div></div>
-  <div class="mc-asks" id="mc-asks" hidden><h3>What the message asks you to do</h3><ul id="mc-asks-list"></ul></div>
-  <div class="mc-verify" id="mc-verify" hidden><h3>Check it yourself, at the source</h3><p>From our own list of official sites, never from the message. Open them yourself.</p><div id="mc-verify-list"></div></div>
+  <div class="mc-sum" id="mc-sum" hidden><h3>Summary</h3><p class="mc-from" id="mc-from" hidden></p><div id="mc-sum-text"></div></div>
+  <div class="mc-block mc-eml" id="mc-eml" hidden><h3>The link is hidden behind a button</h3>
+    <p>A screenshot can’t show where an email’s button leads. Send us the original email and we will check its real links and its sender.</p>
+    <ol><li>Gmail on a computer: open the email, then ⋮ › Download message.</li><li>Outlook: open the email, then ⋯ › Save as (or Download).</li><li>On a phone, open Gmail in the browser, or forward the email to yourself and download it on a computer.</li></ol>
+    <button type="button" id="mc-eml-pick">Choose the email file (.eml)</button></div>
+  <div class="mc-block" id="mc-links" hidden><h3>Links in the message</h3><div id="mc-link-list"></div></div>
+  <div class="mc-block mc-asks" id="mc-asks" hidden><h3>What the message asks you to do</h3><ul id="mc-asks-list"></ul></div>
+  <div class="mc-block" id="mc-verify" hidden><h3>Check it yourself, at the source</h3><p>From our own list of official sites, never from the message. Open them yourself.</p><div id="mc-verify-list"></div></div>
   <details class="mc-help" id="mc-help" hidden><summary>Already tapped the link, paid or shared a code?</summary><ol>
     <li>Call your bank now on the number on your card or in its app, and ask them to block the card and stop the payment.</li>
     <li>If you shared a code, change that account’s password and turn on two-step verification. For WhatsApp: Settings, Account, Two-step verification.</li>
@@ -65,12 +91,12 @@
     <li>Report it to usom.gov.tr and keep screenshots; for money lost, file a complaint with the police or the prosecutor’s office.</li>
   </ol></details>
   <details class="mc-read" id="mc-read" hidden>
-    <summary id="mc-read-title">Text read from the image (personal data hidden)</summary>
-    <p id="mc-read-text" dir="auto"></p>
+    <summary id="mc-read-title">Didn’t we read it right? See and fix the text</summary>
+    <div class="mc-lines" id="mc-read-text"></div>
     <textarea id="mc-read-edit" class="mc-edit" dir="auto" maxlength="6000" spellcheck="false" hidden aria-labelledby="mc-read-title"></textarea>
     <div class="mc-edit-row"><button type="button" id="mc-edit-read">Edit the extracted text</button><button type="button" id="mc-recheck" hidden>Check the corrected text</button></div>
   </details>
-  <div class="mc-fb" id="mc-fb"><span>Was this result right?</span><button type="button" data-answer="real">The message was real</button><button type="button" data-answer="scam">It was a scam</button><span id="mc-fb-done" hidden>Thank you. We keep only the verdict and the signs we found, never the message.</span></div>
+  <div class="mc-fb" id="mc-fb"><span>Was this result right?</span><button type="button" data-answer="real">The message was real</button><button type="button" data-answer="scam">It was a scam</button><p class="mc-fb-reply" id="mc-fb-reply" hidden></p></div>
 </section>
-<div class="site-bottom"><article><b>01 / Read</b><p>The screenshot is read on our server, personal data is hidden and the image is deleted at once.</p></article><article><b>02 / Scan</b><p>Every link is scanned in our isolated browser and checked against threat lists. Tap a link to open its full report.</p></article><article><b>03 / Explain</b><p>Our rules and AI look for parcel fees, blocked accounts, debts, prizes and code requests, and tell you what to do.</p></article></div>
-</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261127-4') }}" defer></script>{% endblock %}
+<div class="site-bottom"><article><b>01 / Read</b><p>The screenshot is read on our server, personal data is hidden and the image is deleted at once.</p></article><article><b>02 / Scan</b><p>Every link is scanned in our isolated browser and checked against threat lists. Tap a link to open its full report.</p></article><article><b>03 / Explain</b><p>We look at who the message claims to come from and what it wants, and tell you plainly what to do.</p></article></div>
+</main><script src="{{ url_for('static', filename='plain_report.js', v='20261126-1') }}" defer></script><script src="{{ url_for('static',filename='message_check.js',v='20261128-1') }}" defer></script>{% endblock %}

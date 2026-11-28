@@ -50,6 +50,7 @@ function linkNote(note: string) {
   const lookalike = /^Possible typosquatting of (.+)$/.exec(note);
   return lookalike ? t('May imitate {domain}', { domain: lookalike[1] }) : note;
 }
+const isEmail = (file: { name?: string | null; mimeType?: string | null }) => /\.eml$/i.test(file.name ?? '') || file.mimeType === 'message/rfc822';
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** QR codes in a screenshot, decoded on the phone. */
@@ -65,22 +66,24 @@ export default function MessageCheck() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
-  const [answered, setAnswered] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [showRead, setShowRead] = useState(false);
+  const [answered, setAnsweredText] = useState<string | null>(null);
   const started = useRef(false);
 
   /** One check: a screenshot, or a message's text shared from another app. Waits for the link scans. */
   async function check(image: Shot | null, text = '') {
     if (!image && !text.trim()) return;
-    setBusy(true); setError(null); setResult(null); setHelp(false); setAnswered(false); setEditing(null); setShot(image);
+    setBusy(true); setError(null); setResult(null); setHelp(false); setAnsweredText(null); setEditing(null); setShowRead(false);
+    setShot(image && !isEmail(image) ? image : null);
     try {
       let message = text;
-      if (image) {
+      if (image && !isEmail(image)) {
         const codes = await codesIn(image.uri);
         if (codes.length) message = [message, ...codes].filter(Boolean).join('\n');
       }
       let data: any = image
-        ? await upload('/tools/message', image, undefined, { field: 'image', fields: { text: message.slice(0, 6000), lang: lang() } })
+        ? await upload('/tools/message', image, undefined, { field: isEmail(image) ? 'email' : 'image', fields: { text: message.slice(0, 6000), lang: lang() } })
         : await api.tool('message', { text: message.slice(0, 6000), lang: lang() });
       // The links are being scanned in the isolated browser: ask until all are done (about two minutes at most).
       for (let round = 0; data?.status === 'scanning' && data?.token; round++) {
@@ -105,24 +108,34 @@ export default function MessageCheck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function choose() {
-    const picked = await DocumentPicker.getDocumentAsync({ type: ['image/png', 'image/jpeg', 'image/webp'], copyToCacheDirectory: true, multiple: false });
+  async function choose(emailOnly = false) {
+    const picked = await DocumentPicker.getDocumentAsync({ type: emailOnly ? ['message/rfc822', 'application/octet-stream'] : ['image/png', 'image/jpeg', 'image/webp', 'message/rfc822'],
+      copyToCacheDirectory: true, multiple: false });
     if (picked.canceled || !picked.assets?.[0]) return;
     const asset = picked.assets[0];
-    if (asset.size && asset.size > 8 * 1024 * 1024) { setError(t('The image is too large (8 MB at most).')); return; }
+    if (asset.size && asset.size > 8 * 1024 * 1024) { setError(t('The file is too large (8 MB at most).')); return; }
+    if (emailOnly && !isEmail(asset)) { setError(t('Choose the email file that ends in .eml.')); return; }
     check({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType });
   }
 
-  const again = () => { setResult(null); setShot(null); setError(null); setHelp(false); setAnswered(false); setEditing(null); };
+  const again = () => { setResult(null); setShot(null); setError(null); setHelp(false); setAnsweredText(null); setEditing(null); setShowRead(false); };
   // "Was this right?": only our verdict, the answer and the sign keys go back; never the message.
   const answer = (value: 'real' | 'scam') => {
-    setAnswered(true);
+    const warned = result?.plain?.tone === 'danger' || result?.plain?.tone === 'caution';
+    if (value === 'scam' && !warned) {
+      setHelp(true);
+      setAnsweredText(t('Thank you, we will look into it to improve the check. If you already tapped, paid or shared a code, follow the steps above now.'));
+    } else if (value === 'real' && warned) {
+      setAnsweredText(t('Thank you, we will look into it. To be sure, open the company’s official app or site yourself, never through the message.'));
+    } else {
+      setAnsweredText(t('Thank you, that confirms the check got it right.'));
+    }
     api.tool('message-feedback', { tone: result?.plain?.tone, answer: value, signals: result?.signals ?? [] }).catch(() => {});
   };
   const open = (id: number) => router.push({ pathname: '/scan/[id]', params: { id: String(id) } });
   const risky = result?.plain?.tone === 'danger' || result?.plain?.tone === 'caution';
   const links: Link[] = result?.links ?? [];
-  const reasons: string[] = result?.plain?.ai_reasons ?? [];
+  const reasons: string[] = [result?.plain?.ai_summary, ...(result?.plain?.ai_reasons ?? [])].filter((r) => typeof r === 'string' && r);
   const asks: string[] = result?.asks ?? [];
   const sources: Source[] = result?.verify ?? [];
 
@@ -133,14 +146,14 @@ export default function MessageCheck() {
         <>
           <ToolChips tool={TOOL} />
           <Animated.View entering={enter(2)}>
-            <Pressable onPress={choose} accessibilityRole="button" accessibilityLabel={t('Choose a screenshot')} style={s.drop}>
+            <Pressable onPress={() => choose()} accessibilityRole="button" accessibilityLabel={t('Choose a screenshot')} style={s.drop}>
               <Icon name="image" size={44} color={colors.cyan} />
               <Text style={s.dropTitle}>{t('Choose a screenshot of the message')}</Text>
               <Text style={s.dropText}>{t('Or share a message or a screenshot to MyScanner from WhatsApp, Messages or your gallery.')}</Text>
-              <View style={{ alignSelf: 'stretch' }}><Button label={t('Choose a screenshot')} icon="image" onPress={choose} /></View>
+              <View style={{ alignSelf: 'stretch' }}><Button label={t('Choose a screenshot')} icon="image" onPress={() => choose()} /></View>
             </Pressable>
           </Animated.View>
-          <Muted>{t('Personal data is hidden first. The screenshot is read on our server and deleted at once; the AI reads only the hidden text. Links are scanned in our isolated browser, never on your phone.')}</Muted>
+          <Muted>{t('Personal data is hidden first. The screenshot is read on our server and deleted at once. Links are scanned in our isolated browser, never on your phone.')}</Muted>
           <ErrorText>{error}</ErrorText>
         </>
       ) : null}
@@ -148,15 +161,25 @@ export default function MessageCheck() {
         <>
           {shot ? <Image source={{ uri: shot.uri }} style={s.thumb} resizeMode="cover" /> : null}
           <Working steps={[t('Reading the screenshot'), t('Hiding personal data'), t('Scanning the links in our isolated browser'),
-            t('Our AI is reviewing the message'), t('Putting the result together')]} every={2600} />
+            t('Writing the summary')]} every={3000} />
         </>
       ) : null}
       {result && hasPlain(result.plain) ? (
         <PlainReport plain={result.plain} haptic plainShare again={{ label: t('Check another screenshot'), onPress: again }}>
           {reasons.length ? (
             <Animated.View entering={enter(4)} style={[s.card, s.ai]}>
-              <Text style={s.title}>✦ {t('Our AI review')}</Text>
+              <Text style={s.title}>{t('Summary')}</Text>
+              {result.sender ? <Text style={s.from}>{t('Claims to be from: {name}', { name: result.sender })}</Text> : null}
               {reasons.map((r) => <Text key={r} style={s.body}>{r}</Text>)}
+            </Animated.View>
+          ) : null}
+          {result.hidden_link ? (
+            <Animated.View entering={enter(4)} style={[s.card, s.eml]}>
+              <Text style={[s.title, { color: '#fde68a' }]}>{t('The link is hidden behind a button')}</Text>
+              <Text style={s.body}>{t('A screenshot can’t show where an email’s button leads. Send us the original email and we will check its real links and its sender.')}</Text>
+              <Text style={s.body}>1. {t('In the Gmail app this isn’t possible: open gmail.com in your phone’s browser, or forward the email to yourself and download it on a computer (⋮ › Download message).')}</Text>
+              <Text style={s.body}>2. {t('Save the .eml file, then choose it here.')}</Text>
+              <Button label={t('Choose the email file (.eml)')} icon="doc" kind="secondary" onPress={() => choose(true)} />
             </Animated.View>
           ) : null}
           {links.length ? (
@@ -211,8 +234,11 @@ export default function MessageCheck() {
               {help ? HELP().map((step, i) => <Text key={step} style={s.body}>{i + 1}. {step}</Text>) : null}
             </Animated.View>
           ) : null}
-          {result.text ? (
-            <Animated.View entering={enter(8)} style={s.card}>
+          {result.text && !showRead ? (
+            <Text onPress={() => setShowRead(true)} accessibilityRole="button" style={s.readLink}>{t('Didn’t we read it right? See and fix the text')}</Text>
+          ) : null}
+          {result.text && showRead ? (
+            <Animated.View entering={enter(1)} style={s.card}>
               <Text style={s.title}>{t('Text read from the image (personal data hidden)')}</Text>
               {editing === null ? (
                 <>
@@ -230,7 +256,10 @@ export default function MessageCheck() {
           ) : null}
           <Animated.View entering={enter(9)} style={s.card}>
             {answered ? (
-              <Muted>{t('Thank you. We keep only the verdict and the signs we found, never the message.')}</Muted>
+              <>
+                <Text style={s.body}>{answered}</Text>
+                <Muted>{t('We keep only the verdict and the signs we found, never the message.')}</Muted>
+              </>
             ) : (
               <>
                 <Text style={s.title}>{t('Was this result right?')}</Text>
@@ -264,6 +293,9 @@ const s = StyleSheet.create({
   note: { color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular },
   state: { fontSize: 11.5, fontFamily: fonts.bold, letterSpacing: 0.6 },
   source: { borderColor: 'rgba(94,234,212,.35)', backgroundColor: 'rgba(10,30,32,.92)' },
+  from: { color: colors.cyan, fontSize: 13, fontFamily: fonts.semibold },
+  eml: { borderColor: 'rgba(251,191,36,.45)', backgroundColor: 'rgba(36,26,8,.92)' },
+  readLink: { color: colors.cyan, fontSize: 13.5, fontFamily: fonts.semibold, textAlign: 'center', paddingVertical: 6 },
   help: { borderColor: 'rgba(251,113,133,.45)', backgroundColor: 'rgba(40,14,24,.92)' },
   helpTitle: { color: '#fecdd3', fontSize: 15.5, fontFamily: fonts.bold, paddingVertical: 4 },
 });

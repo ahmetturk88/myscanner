@@ -8,7 +8,7 @@ from services.url_scan_coverage import apply_phishing_evidence
 from services.url_tricks import (IMPERSONATED, address_signals, brands_in_text, email_in_link, kit_path, login_path, other_site,
                                  program_in_address, risky_ending)
 
-POLICY_VERSION = 'url-evidence-v16'
+POLICY_VERSION = 'url-evidence-v17'
 PROVIDER_REVIEW = 'A provider reports a threat; confirmation details require review'
 # v10: url.vet's own overall verdict is a threshold over signals we already read
 # one by one (and includes a traffic-rank heuristic that flags small, honest
@@ -146,8 +146,11 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
         deep_link=False
     status=page.get('status_code')
     text=page.get('visible_text_length')
+    short=isinstance(text,int) and not isinstance(text,bool) and text<80
+    # v17: a "not found" page with real text is a site's own error page (a mistyped or cut-off link), not a page
+    # hiding from us; a bare 404, a 403/410 or an empty page still counts.
     if usable(page) and deep_link and not established and (
-            status in (403,404,410) or (isinstance(text,int) and not isinstance(text,bool) and text<80 and not page.get('forms'))):
+            status in (403,410) or (status==404 and (short or not isinstance(text,int))) or (short and not page.get('forms'))):
         weak.add('content_hidden')
         signal('content','content_hidden',10,'The page showed our scanner an error or an empty page. Scam pages do this to hide from security checks.')
     scam=set(page.get('scam_signals') or []) if isinstance(page.get('scam_signals'),list) else set()

@@ -109,6 +109,10 @@ services:
       AI_GEMINI_THINKING_BUDGET: ${AI_GEMINI_THINKING_BUDGET:-0}
       # Message check AI review (it reads the masked text only, never the image). 0 turns it off.
       MESSAGE_CHECK_AI: ${MESSAGE_CHECK_AI:-1}
+      # The reviewer also sees the screenshot itself: 0 (off), admins (admin accounts only, for testing) or 1 (everyone:
+      # only on a provider tier that does not train on the data, and with the privacy page updated).
+      MESSAGE_CHECK_VISION: ${MESSAGE_CHECK_VISION:-0}
+      MESSAGE_AI_PROVIDERS: ${MESSAGE_AI_PROVIDERS:-gemini,groq}
       # The public name of the Telegram bot (no secret): shows the "Link Telegram" card when set.
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     secrets: [db_app_password, redis_password, session_key, abuseipdb_api_key, google_client_secret, github_client_secret, resend_api_key, gemini_api_key, groq_api_key]

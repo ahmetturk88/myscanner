@@ -231,6 +231,13 @@ and answers are validated and rendered as text.
   Compose turns it on (`MESSAGE_CHECK_AI=1`); set it to 0 to let the rules and
   the link scans decide alone. Free AI tiers may keep what they read: use a paid
   tier before opening the check to the public.
+- `MESSAGE_CHECK_VISION` lets the reviewer see the screenshot itself (re-encoded,
+  without location data): `0` off, `admins` for admin accounts only (testing),
+  `1` for everyone. Use `1` only on a provider tier that does not train on the
+  data, and update the privacy page first. `MESSAGE_AI_PROVIDERS` sets the
+  order (default `gemini,groq`); models: `MESSAGE_AI_GEMINI_VISION_MODEL`,
+  `MESSAGE_AI_GROQ_VISION_MODEL` and the text-only `MESSAGE_AI_*_MODEL`.
+- Readers' "was this right?" answers: `/admin/message-feedback`.
 - Providers are tried in `AI_PROVIDERS` order (default `gemini,groq`); the next
   one answers when one fails or is rate limited. Models: `AI_GEMINI_MODEL`
   (default `gemini-flash-latest`) and `AI_GROQ_MODEL` (default

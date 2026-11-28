@@ -1604,14 +1604,17 @@ def message_check():
 @login_required
 def api_check_message():
     """JSON {text, lang}, or a form with an `image` (a screenshot, read on this server) and optional `text`."""
+    from services.message_email import EmailError, read_email
     from services.message_ocr import MAX_BYTES, OCRError, read_text
     image = request.files.get('image')
-    data = request.form if image is not None else (request.get_json(silent=True) or {})
+    # An original email (.eml): its real links, not a picture of them. A screenshot wins if both are sent.
+    original_email = request.files.get('email') if image is None else None
+    data = request.form if image is not None or original_email is not None else (request.get_json(silent=True) or {})
     data = data if hasattr(data, 'get') else {}
     text = data.get('text') or ''
     if not isinstance(text, str) or len(text) > 6000:
         return jsonify(error='Paste the message: 1-6000 characters'), 400
-    if image is None and not text.strip():
+    if image is None and original_email is None and not text.strip():
         return jsonify(error='Paste the message: 1-6000 characters'), 400
     try:
         consume_limit('message-check-minute', str(current_user.id), 5, 60)  # on top of the daily quota
@@ -1623,9 +1626,18 @@ def api_check_message():
     failure = reserve_request_quota('message_check')
     if failure is not None:
         return failure
-    if image is not None:
+    picture, email_info = None, None
+    if original_email is not None:
         try:
-            read = read_text(image.stream.read(MAX_BYTES + 1))
+            text, email_info = read_email(original_email.stream.read(MAX_BYTES + 1))
+        except EmailError as error:
+            message = 'The email file is too large (8 MB at most).' if str(error) == 'too_large' else \
+                'This file could not be read as an email. In Gmail open the email, then ⋮ › Download message.'
+            return jsonify(error=message, code=f'email_{error}'), 400
+    if image is not None:
+        picture = image.stream.read(MAX_BYTES + 1)
+        try:
+            read = read_text(picture)
         except OCRError as error:
             messages = {'too_large': 'The image is too large (8 MB at most).', 'bad_image': 'Send a PNG, JPEG or WebP screenshot.',
                         'no_text': 'No text could be read in this image. Try a sharper screenshot of the whole message.',
@@ -1639,8 +1651,11 @@ def api_check_message():
         from services.site_i18n import current_language
         from services.url_scan_request import start_quietly
         lang = data.get('lang')
-        state = prepare(text, language=lang if lang in ('tr', 'en', 'ar') else current_language())
-        state['shown_text'] = image is not None  # show back what was read, with personal data hidden
+        from services.message_ai import vision_for
+        state = prepare(text, language=lang if lang in ('tr', 'en', 'ar') else current_language(),
+                        image=picture if vision_for(current_user) else None, email=email_info)
+        picture = None  # the image is not kept or passed on
+        state['shown_text'] = image is not None or email_info is not None  # what was read, personal data hidden
         # Every link also gets the full scan (isolated browser, saved report), from the link-scan allowance.
         for link in state['links']:
             link['scan_id'] = start_quietly(as_url(link['link']))
@@ -1676,7 +1691,7 @@ def api_message_finish():
     The token is the signed state from /api/check-message (masked text, signs, quick lookups, scan ids), so nothing
     about the message is stored on our side meanwhile."""
     from itsdangerous import BadSignature
-    from services.message_check import PENDING, merge_scan
+    from services.message_check import PENDING, merge_scan, refresh_review
     data = request.get_json(silent=True)
     data = data if isinstance(data, dict) else {}
     try:
@@ -1697,7 +1712,7 @@ def api_message_finish():
         else:
             merge_scan(link, scan.status, scan.verdict)
     try:
-        return _message_result(state)
+        return _message_result(refresh_review(state))
     except Exception as error:
         report_exception(error, sensitive=True)
         return jsonify(error='The message check is temporarily unavailable. Please retry later.'), 503
@@ -1842,6 +1857,32 @@ def admin_pro_interest():
         abort(404)
     from services import pro_page
     return render_template('admin_pro_interest.html', stats=pro_page.stats(min(max(request.args.get('days', 30, type=int) or 30, 1), 365)))
+
+
+@app.route('/admin/message-feedback')
+@login_required
+def admin_message_feedback():
+    """What readers said about message-check verdicts, grouped by the signs that were found."""
+    if not current_user.is_admin:
+        abort(404)
+    from datetime import datetime, timedelta, timezone
+    from models import MessageFeedback
+    days = min(max(request.args.get('days', 30, type=int) or 30, 1), 365)
+    since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    rows = MessageFeedback.query.filter(MessageFeedback.created_at >= since).all()
+    stats = {'days': days, 'total': len(rows), 'agreed': 0, 'missed': 0, 'false_alarms': 0}
+    signs = {}
+    for row in rows:
+        warned = row.tone in ('danger', 'caution')
+        wrong = 'missed' if row.answer == 'scam' and not warned else 'false_alarm' if row.answer == 'real' and warned else None
+        if wrong is None:
+            stats['agreed'] += 1
+            continue
+        stats['missed' if wrong == 'missed' else 'false_alarms'] += 1
+        for sign in (row.signals.split(',') if row.signals else ['(no sign)']):
+            signs.setdefault(sign, {'missed': 0, 'false_alarm': 0})[wrong] += 1
+    stats['signs'] = sorted(signs.items(), key=lambda item: -(item[1]['missed'] + item[1]['false_alarm']))
+    return render_template('admin_message_feedback.html', stats=stats)
 
 
 @app.route('/terms')

@@ -89,9 +89,7 @@ export default function SettingsScreen() {
         <Toggle icon="vibrate" label={t('Vibration')} hint={t('A short buzz when a result arrives and on taps.')}
           value={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} />
         <Toggle icon="code" label={t('Show technical evidence')} hint={t('Open the full evidence under every report by default.')}
-          value={settings.evidenceOpen} onChange={(v) => updateSettings({ evidenceOpen: v })} />
-        <Toggle icon="spark" label={t('Animated background')} hint={t('Turns off by itself on phones where it is not smooth.')}
-          value={settings.backgroundMotion} onChange={(v) => updateSettings({ backgroundMotion: v, motionChecked: true })} last={Platform.OS === 'web'} />
+          value={settings.evidenceOpen} onChange={(v) => updateSettings({ evidenceOpen: v })} last={Platform.OS === 'web'} />
         {Platform.OS !== 'web' ? (
           <Toggle icon="bell" label={t('Safety reminders')} hint={t('Three short tips a day: morning, afternoon and evening. Never at night.')}
             value={settings.reminders} onChange={(v) => { setReminders(v).catch(() => {}); }} last />

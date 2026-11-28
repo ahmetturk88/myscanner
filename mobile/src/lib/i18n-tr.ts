@@ -479,8 +479,6 @@ export const TR: Record<string, string> = {
   "This file is empty.": "Bu dosya boş.",
   "The file could not be uploaded. Check your internet and try again.": "Dosya yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.",
   "Uploading {percent}%": "Yükleniyor %{percent}",
-  "Animated background": "Hareketli arka plan",
-  "Turns off by itself on phones where it is not smooth.": "Akıcı çalışmadığı telefonlarda kendiliğinden kapanır.",
   "No web browser found": "Web tarayıcısı bulunamadı",
   "Install or turn on a web browser (for example Chrome), or open this address on another device:": "Bir web tarayıcısı yükle veya etkinleştir (örneğin Chrome) ya da bu adresi başka bir cihazda aç:",
   "Google and GitHub sign-in need a web browser on your phone. Install or turn one on (for example Chrome), or sign in with your email and password.": "Google ve GitHub ile giriş için telefonunda bir web tarayıcısı gerekir. Bir tarayıcı yükle veya etkinleştir (örneğin Chrome) ya da e-posta ve şifrenle giriş yap.",

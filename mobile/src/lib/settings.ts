@@ -18,10 +18,6 @@ export type Settings = {
   skippedBuild: number;
   /** The oldest build the server last said it supports, so start-up needn't wait for it. */
   minBuild: number;
-  /** The moving background; switched off by itself when the phone can't keep it smooth. */
-  backgroundMotion: boolean;
-  /** Whether that smoothness check has already run on this phone. */
-  motionChecked: boolean;
   /** Safety reminders three times a day (lib/reminders.ts); off until the user turns them on. */
   reminders: boolean;
   /** Whether the reminders card was already shown, so it is offered once. */
@@ -29,8 +25,7 @@ export type Settings = {
 };
 
 const KEY = 'myscanner.settings';
-const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0, minBuild: 0, backgroundMotion: true, motionChecked: false,
-  reminders: false, remindersAsked: false };
+const DEFAULTS: Settings = { haptics: true, evidenceOpen: false, language: 'en', skippedBuild: 0, minBuild: 0, reminders: false, remindersAsked: false };
 
 /** The phone's own language on a first start: Turkish phones start in Turkish, every other one in English. */
 function phoneLanguage(): Language {
@@ -58,8 +53,6 @@ export async function loadSettings() {
       language: saved.language === 'tr' || saved.language === 'en' ? saved.language : phoneLanguage(),
       skippedBuild: Number.isInteger(saved.skippedBuild) ? saved.skippedBuild : 0,
       minBuild: Number.isInteger(saved.minBuild) ? saved.minBuild : 0,
-      backgroundMotion: typeof saved.backgroundMotion === 'boolean' ? saved.backgroundMotion : DEFAULTS.backgroundMotion,
-      motionChecked: saved.motionChecked === true,
       reminders: saved.reminders === true,
       remindersAsked: saved.remindersAsked === true,
     };

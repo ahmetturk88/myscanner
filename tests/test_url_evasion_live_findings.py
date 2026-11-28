@@ -221,6 +221,23 @@ class BlindRunFindingTests(unittest.TestCase):
         local, deep = evidence('https://lingering-cloud-8a93.zinhoooo.workers.dev/cbbcpznzn', age=6000, rank=900, page=hidden)
         self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')
 
+    def test_adult_content_behind_continue_on_a_new_site_is_a_trap_and_its_preview_is_hidden(self):
+        from services.scam_content import scam_signals
+        from services.url_report_view import adult_page, plain_report
+        signals = scam_signals('UYARI! Çıplak fotoğraflar göreceksiniz. Lütfen tedbirli olun. DEVAM', [])
+        self.assertEqual(signals, ['adult_content', 'adult_continue'])
+        self.assertEqual(scam_signals('Sex education in schools: a new study', []), [])
+        page = {'title': 'UYARI', 'content_risk_score': 0, 'status_code': 200, 'visible_text_length': 300, 'scam_signals': signals}
+        local, deep = evidence('https://v0z14a4acn2c0drjhj.piluflua.biz/w928qwrb7jitwv5j', age=33, rank=0, page=page)
+        result = assess_url(local, deep)
+        self.assertEqual(result['verdict'], 'high_risk')
+        self.assertIn('adult_trap', [r['code'] for r in result['reasons']])
+        self.assertTrue(adult_page(deep))
+        plain = plain_report(result, local, deep, 'https://v0z14a4acn2c0drjhj.piluflua.biz/w928qwrb7jitwv5j')
+        self.assertEqual(plain['no_preview'], 'This page shows adult content, so its preview is not shown.')
+        known = evidence('https://adult-site.example/enter', age=6000, rank=500, page=page)
+        self.assertNotIn('adult_trap', [r['code'] for r in assess_url(*known)['reasons']])  # an established site asking for age
+
     def test_a_new_sites_own_not_found_page_is_not_hiding(self):
         # myscanners.com/messag, cut off by the browser's address bar: a 4-month-old, little-known site's real 404 page.
         not_found = {'title': 'Page not found', 'content_risk_score': 0, 'status_code': 404, 'visible_text_length': 900, 'scam_signals': []}

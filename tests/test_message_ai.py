@@ -131,8 +131,10 @@ class EmailTests(unittest.TestCase):
         self.assertIn('https://voice-msg.example.top/play?id=1', text)
         self.assertNotIn('javascript:', text)
         self.assertNotIn('alert(1)', text)  # the script was dropped, never run
-        self.assertEqual(info, {'sender_domain': 'whatsapp-notify.top', 'auth': {'spf': 'fail', 'dkim': 'none', 'dmarc': 'fail'},
-                                'attachments': 1})
+        self.assertEqual({k: info[k] for k in ('sender_domain', 'sender_name', 'auth', 'attachments')},
+                         {'sender_domain': 'whatsapp-notify.top', 'sender_name': 'WhatsApp',
+                          'auth': {'spf': 'fail', 'dkim': 'none', 'dmarc': 'fail'}, 'attachments': 1})
+        self.assertNotIn('voice-msg', info['shown'])  # what the reader sees has no list of long addresses
         result = mc.assess(text, analyzer=FakeAnalyzer(), ai=False, email=info)
         self.assertEqual(result['links'][0]['link'], 'https://voice-msg.example.top/play?id=1')
         self.assertIn('auth_fail', result['signals'])
@@ -144,6 +146,41 @@ class EmailTests(unittest.TestCase):
     def test_the_app_around_a_screenshot_is_left_out(self):
         screen = 'isem x # (c) + 5# (c)\nKalıcı olarak sil  Spam değil\nAHMET TÜRK merhaba, teklifimiz bugün bitiyor\n) © Yanıtla () Yönlendir |'
         self.assertEqual(mc.tidy(screen), 'AHMET TÜRK merhaba, teklifimiz bugün bitiyor')
+
+
+class EmailFollowUpTests(unittest.TestCase):
+    def test_a_known_name_from_an_unrelated_address_is_a_fake_sender(self):
+        self.assertEqual(mc.sender_check('🟢 Whats App', 'piluflua.biz'), 'sender_fake')
+        self.assertEqual(mc.sender_check('WhatsApp', 'whatsapp-notify.top'), 'sender_lookalike')
+        self.assertIsNone(mc.sender_check('WhatsApp', 'facebookmail.com'))
+        self.assertIsNone(mc.sender_check('Yurtiçi Kargo', 'bildirim.yurticikargo.com'))
+        self.assertIsNone(mc.sender_check('Ali Yılmaz', 'gmail.com'))
+        self.assertIsNone(mc.sender_check('Captain Cook', 'example.com'))  # "ptt" only as a word
+
+    def test_many_random_addresses_on_one_site_are_checked_once_and_are_a_sign(self):
+        links = ' '.join(f'https://{name}.piluflua.biz/x{i}?t=1' for i, name in enumerate(('v0z14a4acn', 'lyghwihhba', '9zlitcoi0a', 'ia6woqtrlz')))
+        result = mc.assess('WhatsApp: You have been sent a request for correspondence. Open ' + links + ' https://ptt.gov.tr/a',
+                           analyzer=FakeAnalyzer(), ai=False)
+        self.assertEqual([mc.site_of(l['link']) for l in result['links']], ['piluflua.biz', 'ptt.gov.tr'])
+        self.assertEqual(result['links'][0]['same_site'], 3)
+        self.assertIn('random_subdomains', result['signals'])
+        long = mc.assess('Bak: https://site.example/' + 'a' * 200, analyzer=FakeAnalyzer(listed={'site.example'}), ai=False)
+        self.assertLessEqual(max(len(r['detail']) for r in long['plain']['reasons']), 140)  # long addresses are shortened
+
+    def test_the_original_email_builds_on_the_screenshot_check(self):
+        from services import message_email
+        shot = mc.assess('WhatsApp\nWhit sent you a voice note\nListen to the full message', analyzer=FakeAnalyzer(),
+                         ai=lambda s, t: answer(verdict='scam', hidden_link=True, summary='Fake WhatsApp voice note.'))
+        self.assertEqual((shot['plain']['tone'], shot['hidden_link']), ('danger', True))
+        text, info = message_email.read_email(EML)
+        mild = lambda s, t: answer(verdict='suspicious', hidden_link=True)  # noqa: E731
+        result = mc.assess(text, analyzer=FakeAnalyzer(), ai=mild, email=info, previous=mc.summary_of(shot))
+        self.assertEqual(result['plain']['tone'], 'danger')  # the email never lowers the screenshot's verdict
+        self.assertFalse(result['hidden_link'])  # its real links are known now
+        titles = [r['title'] for r in result['plain']['reasons']]
+        self.assertNotIn('The link is hidden behind a button', titles)
+        self.assertIn('The sender’s address only looks like the company’s', titles)
+        self.assertEqual(result['source'], 'email')
 
 
 if __name__ == '__main__':

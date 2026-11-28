@@ -29,7 +29,7 @@ import { toolByName } from '@/lib/tools';
 
 type Shot = { uri: string; name: string; mimeType?: string | null };
 type LinkState = 'bad' | 'warn' | 'ok' | 'official' | 'scanning' | 'na';
-type Link = { link: string; shown: string; state: LinkState; scan_id?: number | null; notes?: string[] };
+type Link = { link: string; shown: string; state: LinkState; scan_id?: number | null; notes?: string[]; same_site?: number };
 type Source = { key: string; name: string; url: string | null; how: string };
 const OFFICIAL_URL = /^https:\/\/[a-z0-9.-]+\/?$/;
 const STATE = (): Record<LinkState, string> => ({
@@ -72,7 +72,7 @@ export default function MessageCheck() {
   const started = useRef(false);
 
   /** One check: a screenshot, or a message's text shared from another app. Waits for the link scans. */
-  async function check(image: Shot | null, text = '') {
+  async function check(image: Shot | null, text = '', previous?: string) {
     if (!image && !text.trim()) return;
     setBusy(true); setError(null); setResult(null); setHelp(false); setAnsweredText(null); setEditing(null); setShowRead(false);
     setShot(image && !isEmail(image) ? image : null);
@@ -83,7 +83,9 @@ export default function MessageCheck() {
         if (codes.length) message = [message, ...codes].filter(Boolean).join('\n');
       }
       let data: any = image
-        ? await upload('/tools/message', image, undefined, { field: isEmail(image) ? 'email' : 'image', fields: { text: message.slice(0, 6000), lang: lang() } })
+        ? await upload('/tools/message', image, undefined, { field: isEmail(image) ? 'email' : 'image',
+          // The original email of the message just checked builds on that check instead of starting again.
+          fields: { text: message.slice(0, 6000), lang: lang(), ...(isEmail(image) && previous ? { previous } : {}) } })
         : await api.tool('message', { text: message.slice(0, 6000), lang: lang() });
       // The links are being scanned in the isolated browser: ask until all are done (about two minutes at most).
       for (let round = 0; data?.status === 'scanning' && data?.token; round++) {
@@ -115,7 +117,7 @@ export default function MessageCheck() {
     const asset = picked.assets[0];
     if (asset.size && asset.size > 8 * 1024 * 1024) { setError(t('The file is too large (8 MB at most).')); return; }
     if (emailOnly && !isEmail(asset)) { setError(t('Choose the email file that ends in .eml.')); return; }
-    check({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType });
+    check({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType }, '', typeof result?.token === 'string' ? result.token : undefined);
   }
 
   const again = () => { setResult(null); setShot(null); setError(null); setHelp(false); setAnsweredText(null); setEditing(null); setShowRead(false); };
@@ -166,6 +168,9 @@ export default function MessageCheck() {
       ) : null}
       {result && hasPlain(result.plain) ? (
         <PlainReport plain={result.plain} haptic plainShare again={{ label: t('Check another screenshot'), onPress: again }}>
+          {result.with_email ? (
+            <Text style={s.withEmail}>✓ {t('Checked again with the original email: its real links and sender are below.')}</Text>
+          ) : null}
           {reasons.length ? (
             <Animated.View entering={enter(4)} style={[s.card, s.ai]}>
               <Text style={s.title}>{t('Summary')}</Text>
@@ -194,6 +199,7 @@ export default function MessageCheck() {
                       <Text numberOfLines={2} style={s.link}>{l.shown}</Text>
                       <Text style={[s.state, { color: DOT[state] }]}>{STATE()[state]}</Text>
                       {l.notes?.map((note, i) => <Text key={i} style={s.note}>{linkNote(note)}</Text>)}
+                      {l.same_site ? <Text style={s.note}>{t('+{n} more links to the same site', { n: l.same_site })}</Text> : null}
                     </View>
                     {l.scan_id ? <Icon name="chevron" size={18} color={colors.faint} /> : null}
                   </View>
@@ -243,7 +249,9 @@ export default function MessageCheck() {
               {editing === null ? (
                 <>
                   <Text selectable style={s.body}>{result.text}</Text>
-                  <Button label={t('Edit the extracted text')} icon="doc" kind="secondary" onPress={() => setEditing(String(result.text).slice(0, 6000))} />
+                  {result.source !== 'email' ? (
+                    <Button label={t('Edit the extracted text')} icon="doc" kind="secondary" onPress={() => setEditing(String(result.text).slice(0, 6000))} />
+                  ) : null}
                 </>
               ) : (
                 <>
@@ -293,6 +301,8 @@ const s = StyleSheet.create({
   note: { color: colors.faint, fontSize: 12.5, fontFamily: fonts.regular },
   state: { fontSize: 11.5, fontFamily: fonts.bold, letterSpacing: 0.6 },
   source: { borderColor: 'rgba(94,234,212,.35)', backgroundColor: 'rgba(10,30,32,.92)' },
+  withEmail: { color: '#9fe8d6', fontSize: 14, fontFamily: fonts.semibold, padding: 12, borderRadius: 14, borderWidth: 1,
+    borderColor: 'rgba(94,234,212,.35)', backgroundColor: 'rgba(10,30,32,.92)' },
   from: { color: colors.cyan, fontSize: 13, fontFamily: fonts.semibold },
   eml: { borderColor: 'rgba(251,191,36,.45)', backgroundColor: 'rgba(36,26,8,.92)' },
   readLink: { color: colors.cyan, fontSize: 13.5, fontFamily: fonts.semibold, textAlign: 'center', paddingVertical: 6 },

@@ -24,7 +24,7 @@ LISTED = MALWARE | SCAM
 LOOK_ALIKE = {'typosquatting', 'homoglyph', 'punycode', 'brand_mismatch', 'homograph_name', 'lookalike_name', 'brand_in_subdomain', 'brand_in_name'}
 ADDRESS = {'ip_url', 'shortener', 'url_phishing_patterns', 'domain_randomness', 'risky_tld', 'userinfo_trick', 'encoded_ip', 'encoded_host', 'free_hosting', 'credential_bait', 'server_hostname', 'random_name', 'victim_email', 'scheme_in_name', 'login_path'}
 TRICKS = {'userinfo_trick', 'encoded_ip', 'encoded_host', 'homograph_name', 'brand_in_subdomain', 'scheme_in_name'}
-PAGE_WARNINGS = {'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path', 'brand_in_page', 'gambling_site'}
+PAGE_WARNINGS = {'adult_trap', 'content_indicators', 'hidden_iframe', 'scam_content', 'content_hidden', 'download_flagged', 'risky_download', 'kit_path', 'brand_in_page', 'gambling_site'}
 # code: (tone, title, detail). Tones: bad, warn, info.
 REASONS = {
     'domain_missing': ('info', 'This address doesn’t exist', 'No website uses this name: the internet’s address book (DNS) has no entry for it, so nothing opens.'),
@@ -49,6 +49,7 @@ REASONS = {
     'content_indicators': ('warn', 'The page shows warning signs', 'The page has a form or wording that scam pages often use.'),
     'gambling_site': ('warn', 'An online gambling site', 'Casino or betting content. We didn’t verify a licence; unlicensed betting is illegal in Turkey and deposits are often never paid out.'),
     'scam_content': ('bad', 'It promises free money or prizes', 'The page offers cash or gifts “for everyone”, or shows fake comments from happy winners. This is how prize scams work.'),
+    'adult_trap': ('bad', 'An adult-content trap', 'The page shows adult content behind a “continue” button on a new or little-known site. These pages lead to paid subscriptions, fake apps or blackmail.'),
     'content_hidden': ('warn', 'The page hid itself from our check', 'It showed our scanner an error or an empty page, but may show something else on your phone. Scam pages do this to avoid security checks.'),
     'risky_tld': ('warn', 'A domain ending often used by scams', 'The address ends in a cheap domain type that scam sites use a lot.'),
     'new_domain': ('warn', 'A very new site', 'The site was registered less than a year ago. Scam sites are usually new.'),
@@ -148,12 +149,22 @@ NO_PREVIEW = {
     'certificate': 'Our browser didn’t open the page because its security certificate is invalid. Your browser would show a warning too.',
     'not_loaded': 'The page didn’t load for our browser. The site may be down, or it may hide itself from security checks.',
     'other': 'We couldn’t take a preview of this page this time. The checks above don’t depend on it.',
+    'adult': 'This page shows adult content, so its preview is not shown.',
 }
+
+
+def adult_page(deep):
+    """True when our browser found adult content on the page: its screenshot is never shown or shared."""
+    page = mapping(mapping(deep).get('page_content'))
+    signals = page.get('scam_signals') if isinstance(page.get('scam_signals'), list) else []
+    return 'adult_content' in signals or 'adult_continue' in signals
 
 
 def no_preview(codes, local, deep):
     """Why a report may have no page preview, in one sentence; shown only when the screenshot is missing."""
     behavior, page = mapping(deep.get('behavior')), mapping(deep.get('page_content'))
+    if adult_page(deep):
+        return NO_PREVIEW['adult']
     if local.get('reputation_only') is True:
         return NO_PREVIEW['not_opened']
     if mapping(page.get('download')):
@@ -358,6 +369,7 @@ def plain_report(assessment, local, deep, url):
         check('Page content', 'bad', 'Virus found') if codes & {'download_malware', 'page_malware'} else
         check('Page content', 'warn', 'Downloads a program') if 'risky_download' in codes else
         check('Page content', 'bad', 'Scam signs') if 'scam_content' in codes else
+        check('Page content', 'bad', 'Adult-content trap') if 'adult_trap' in codes else
         check('Page content', 'warn', 'Gambling site') if 'gambling_site' in codes else
         check('Page content', 'warn', 'Hidden from us') if 'content_hidden' in codes else
         check('Page content', 'warn', 'Asks for password' if login else 'Warning signs') if codes & PAGE_WARNINGS else

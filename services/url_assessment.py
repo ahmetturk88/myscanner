@@ -159,6 +159,11 @@ def throwaway_signals(local, deep, provider, provider_flag, reasons, signal):
         signal('content','scam_content',20,'The page promises free money or prizes, or shows fake comments, the way scam pages do.')
     elif 'collects_phone_or_card' in scam:
         weak.add('collects_details')
+    if 'adult_continue' in scam and not established:
+        # v17: "nude photos, tap continue" on a new or unknown site: the trap that leads to paid subscriptions,
+        # fake apps or blackmail. Established adult sites ask for age too and are not flagged for it.
+        weak.add('adult_trap')
+        signal('content','adult_trap',25,'The page shows adult content behind a “continue” button on a new or little-known site, the way subscription and blackmail traps start.')
     if 'gambling' in scam and not (rank is not None and 0<rank<=TOP_RANK):  # a top site quoting betting words is news
         signal('content','gambling_site',10,'Casino or betting content. We didn’t verify a licence; unlicensed betting is illegal in Turkey and deposits are often never paid out.')
     return weak,strong,established
@@ -479,6 +484,8 @@ def _assess(local, deep):
     # v14: betting is a warning for our users, not a neutral category: unlicensed betting is illegal in Turkey
     # and often keeps deposits. It is never 'dangerous' on its own (that needs a listing or malware).
     if not confirmed and not escalated and 'gambling_site' in reasons:escalated='suspicious'
+    if not confirmed and 'adult_trap' in weak and escalated!='high_risk':
+        escalated='high_risk' if {'new_domain','redirect_loop','risky_tld','domain_randomness','unranked'}&weak else 'suspicious'
     rank_order=['harmless','unknown','suspicious','high_risk','malicious']
     if escalated and rank_order.index(escalated)>rank_order.index(verdict):
         verdict=escalated

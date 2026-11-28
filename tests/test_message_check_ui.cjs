@@ -96,3 +96,21 @@ test('the text read from a screenshot can be corrected and checked again without
   assert.equal(requests[1].headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(requests[1].body), { text: 'Pay here: example.test', lang: 'tr' });
 });
+
+test('an original email sent after a screenshot builds on that check', async () => {
+  const { element, requests, replies } = page();
+  replies.push({ status: 200, body: { plain: { tone: 'danger' }, hidden_link: true, token: 'first-check' } },
+    { status: 200, body: { plain: { tone: 'danger' }, source: 'email', with_email: true, text: 'Email from: x',
+      links: [{ shown: 'x[.]piluflua[.]biz/a', state: 'warn', scan_id: 4, same_site: 10 }] } });
+  const picker = element('mc-image');
+  picker.files = [{ name: 'shot.png', type: 'image/png', size: 100 }];
+  await picker.listeners.change();
+  assert.equal(element('mc-eml').hidden, false);
+  picker.files = [{ name: 'message.eml', type: 'message/rfc822', size: 100 }];
+  await picker.listeners.change();
+  assert.equal(requests[1].body.fields.get('previous'), 'first-check');
+  assert.equal(element('mc-eml').hidden, true);
+  assert.equal(element('mc-with-email').hidden, false);
+  assert.equal(element('mc-edit-read').hidden, true);
+  assert.match(element('mc-link-list').innerHTML, /Aynı siteye 10 bağlantı daha/);
+});

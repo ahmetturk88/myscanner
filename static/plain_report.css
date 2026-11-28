@@ -54,3 +54,7 @@
 .rp.rp-spaced{margin:24px 0}.rp.rp-dialog{grid-template-columns:1fr;margin-bottom:22px}.rp.rp-dialog .rp-pair{grid-template-columns:1fr}
 
 .rp .rp-nopreview{display:flex;gap:14px;align-items:flex-start;padding:18px;border:1px dashed #2a3d57;border-radius:12px;background:rgba(15,27,44,.55);color:#8ea2bc}.rp .rp-nopreview svg{flex:none;color:#6f86a3;margin-top:2px}.rp .rp-nopreview strong{display:block;color:#d7e3f2;font-size:15px;margin-bottom:4px}.rp .rp-nopreview span{display:block;font-size:13.5px;line-height:1.55}
+
+.rp .rp-shot{position:relative;overflow:hidden;border-radius:12px}.rp .rp-blurred img{filter:blur(22px) brightness(.55);transform:scale(1.08)}
+.rp .rp-reveal{position:absolute;inset:auto 50% 50% auto;transform:translate(50%,50%);min-height:44px;padding:0 18px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(8,18,32,.85);color:#e7f3ff;font-weight:700;cursor:pointer}
+.rp .rp-why li div,.rp .rp-why strong,.rp .rp-why span{min-width:0;overflow-wrap:anywhere}

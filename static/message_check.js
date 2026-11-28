@@ -34,7 +34,7 @@
     set(value) { try { sessionStorage.setItem(KEY, JSON.stringify(value)); } catch (e) { /* private mode: not kept */ } },
     clear() { try { sessionStorage.removeItem(KEY); } catch (e) { /* nothing kept */ } },
   };
-  let last = null, busy = false;
+  let last = null, busy = false, lastData = null;
 
   async function post(url, body, json) {
     const response = await fetch(url, {method: 'POST', credentials: 'same-origin', cache: 'no-store',
@@ -67,6 +67,8 @@
     if (!email && !IMAGES.includes(file.type)) { show(say('Send a PNG, JPEG or WebP screenshot, or an .eml email file.', 'PNG, JPEG ya da WebP bir ekran görüntüsü ya da .eml e-posta dosyası gönder.')); return; }
     if (file.size > 8 * 1024 * 1024) { show(say('The file is too large (8 MB at most).', 'Dosya çok büyük (en fazla 8 MB).')); return; }
     const body = new FormData(); body.append(email ? 'email' : 'image', file); body.append('lang', tr ? 'tr' : 'en');
+    // The original email of the message just checked builds on that check instead of starting again.
+    if (email && lastData && typeof lastData.token === 'string') body.append('previous', lastData.token);
     return run(body, false, email ? null : file);
   }
 
@@ -108,6 +110,7 @@
   function show(message) { error.textContent = message; error.hidden = false; }
 
   function render(data) {
+    lastData = data;
     const plain = data.plain || {};
     form.hidden = true;
     last = {tone: plain.tone, signals: Array.isArray(data.signals) ? data.signals : [], verify: Array.isArray(data.verify) && data.verify.length > 0};
@@ -124,8 +127,11 @@
     $('mc-link-list').innerHTML = links.map((l) => {
       const state = STATE[l.state] ? l.state : 'na';
       const notes = (Array.isArray(l.notes) ? l.notes : []).map(note).join(' · ');
-      const inner = `<i class="mc-dot ${state}" aria-hidden="true"></i><code>${esc(l.shown)}</code><b class="mc-state ${state}">${esc(STATE[state])}</b>`
-        + (notes ? `<span class="mc-notes">${esc(notes)}</span>` : '');
+      const more = Number.isInteger(l.same_site) && l.same_site > 0
+        ? say(`+${l.same_site} more links to the same site`, `Aynı siteye ${l.same_site} bağlantı daha`) : '';
+      const shown = String(l.shown || '');
+      const inner = `<i class="mc-dot ${state}" aria-hidden="true"></i><code title="${esc(shown)}">${esc(shown.length > 70 ? shown.slice(0, 69) + '…' : shown)}</code><b class="mc-state ${state}">${esc(STATE[state])}</b>`
+        + (notes || more ? `<span class="mc-notes">${esc([notes, more].filter(Boolean).join(' · '))}</span>` : '');
       return Number.isInteger(l.scan_id)
         ? `<a class="mc-link" href="/result/${l.scan_id}">${inner}<span class="mc-open">${esc(say('Open the report →', 'Raporu aç →'))}</span></a>`
         : `<div class="mc-link">${inner}<span class="mc-notes">${esc(say('Quick check only', 'Yalnızca hızlı kontrol'))}</span></div>`;
@@ -142,7 +148,9 @@
     read.hidden = !data.text; read.open = false;
     readText.innerHTML = String(data.text || '').split('\n').map((line) => `<div dir="auto">${esc(line)}</div>`).join('');
     readText.dataset.text = data.text || '';
-    readText.hidden = false; readEdit.hidden = true; recheckButton.hidden = true; editButton.hidden = false;
+    readText.hidden = false; readEdit.hidden = true; recheckButton.hidden = true;
+    editButton.hidden = data.source === 'email';  // an email file is read exactly; only a screenshot can be misread
+    $('mc-with-email').hidden = !data.with_email;
     fb.querySelectorAll('button').forEach((x) => { x.disabled = false; x.hidden = false; });
     $('mc-fb-reply').hidden = true;
     extra.hidden = false;

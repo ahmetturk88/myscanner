@@ -21,6 +21,23 @@ COLLECT_FIELDS = re.compile(r'phone|mobile|gsm|telefon|tel\b|card|cvv|cvc|expir|
 FAKE_SOCIAL = re.compile(r'(?:like\s*·?\s*reply|beğen\s*·?\s*yanıtla|يحب\s*·?\s*رد|رد\s*·?\s*يحب)', re.I)
 
 
+# Adult content (English, Turkish, Arabic). A strong word alone, or two distinct milder ones, mark an adult page:
+# its preview is never shown, and on a new or unknown site it is the "adult content, tap continue" trap.
+ADULT_STRONG = re.compile(r'\bporn|\bxxx\b|\bnudes?\b|naked (?:photos?|pics?|girls?)|nude (?:photos?|pics?)|çıplak (?:foto|resim|kız)|'
+                          r'\bseks\b|sex (?:video|chat|cam)|\bescort|\bonlyfans|\berotik|\berotic|إباحي|عاري(?:ة)?|صور ساخنة', re.I)
+ADULT_MILD = re.compile(r'\+18|18\+|\bsexy\b|\bhot (?:girls?|singles?)|\bsingles? (?:near|in your)|yetişkin içerik|adult content|'
+                        r'\bdating\b|\bflört|\bmilf\b|\bwebcam|\bsex\b|للكبار|بنات', re.I)
+# The button such pages put in front of you.
+CONTINUE = re.compile(r'\b(?:devam(?: et)?|continue|enter|giriş yap|18 yaşından büyüğüm|i am (?:over )?18|i\'m (?:over )?18|'
+                      r'yes,? i am 18|متابعة|دخول|أنا فوق 18)\b', re.I)
+
+
+def adult_content(text):
+    text = text if isinstance(text, str) else ''
+    mild = {m.group(0).lower() for m in ADULT_MILD.finditer(text)}
+    return bool(ADULT_STRONG.search(text)) or len(mild) >= 2
+
+
 # Casino and betting words (English, Turkish, Chinese, Vietnamese): one may be news, three distinct
 # ones make a gambling site. Unlicensed betting is illegal in Turkey and often never pays out.
 GAMBLING = re.compile(
@@ -93,4 +110,8 @@ def scam_signals(text, inputs):
         signals.append('collects_phone_or_card')
     if len(FAKE_SOCIAL.findall(text)) >= 3:
         signals.append('fake_comments')
+    if adult_content(text):
+        signals.append('adult_content')
+        if CONTINUE.search(text):
+            signals.append('adult_continue')  # "UYARI! Çıplak fotoğraflar göreceksiniz… DEVAM"
     return signals

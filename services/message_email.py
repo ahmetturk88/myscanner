@@ -36,14 +36,27 @@ def _auth(message):
     return found
 
 
+# Footer links every mailing has; the button the reader is meant to press comes first.
+_FOOTER = re.compile(r'unsubscribe|abonelik|aboneliği|privacy|gizlilik|terms|koşullar|view (?:it )?in (?:your )?browser|'
+                     r'tarayıcıda görüntüle|manage (?:alerts|preferences|notifications)|tercih|إلغاء الاشتراك', re.I)
+
+
 def _html_text_and_links(html):
+    """(the page's text, its http(s) links with the main buttons first and footer links last)."""
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html[:MAX_HTML], 'html.parser')
-    links = []
-    for tag in soup.find_all(['a', 'area'], href=True):
+    ranked = []
+    for order, tag in enumerate(soup.find_all(['a', 'area'], href=True)):
         href = str(tag['href']).strip()
-        if re.match(r'^https?://', href, re.I) and href not in links:
-            links.append(href[:500])
+        if not re.match(r'^https?://', href, re.I):
+            continue
+        label = ' '.join(tag.get_text(' ').split())[:80]
+        footer = bool(_FOOTER.search(label) or _FOOTER.search(href))
+        ranked.append((footer, order, href[:500]))
+    links = []
+    for _, _, href in sorted(ranked):
+        if href not in links:
+            links.append(href)
     for tag in soup(['script', 'style', 'head', 'title']):
         tag.decompose()
     return soup.get_text('\n'), links
@@ -94,4 +107,6 @@ def read_email(data):
     if attachments:
         head.append(f'Attachments: {attachments} (not opened)')
     text = '\n'.join(head) + '\n\n' + body
-    return text[:6000], {'sender_domain': domain, 'auth': _auth(message), 'attachments': attachments}
+    shown = '\n'.join(head[:2]) + '\n\n' + body  # what the reader sees: no list of long addresses
+    return text[:6000], {'sender_domain': domain, 'sender_name': name.strip()[:80], 'auth': _auth(message),
+                         'attachments': attachments, 'shown': shown[:6000]}

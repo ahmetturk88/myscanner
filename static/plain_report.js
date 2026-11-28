@@ -83,7 +83,8 @@
     // Without a screenshot, say why (bad certificate, a download, the site down…) instead of hiding the card.
     const why = typeof plain.no_preview === 'string' ? plain.no_preview : '';
     const missing = `<div class="rp-nopreview">${NO_CAMERA}<div><strong>No preview</strong><span>${esc(why)}</span></div></div>`;
-    const preview = shot ? `<section class="rp-card rp-preview"><h2>Page preview</h2><img src="${esc(shot)}" alt="Screenshot of the scanned page" loading="lazy"><p>Taken in an isolated browser on our server. Your device never opened the page. A normal-looking page is not proof of safety.</p></section>`
+    // Blurred until asked for: a scanned page can show anything, and reports are opened in public or shared.
+    const preview = shot ? `<section class="rp-card rp-preview"><h2>Page preview</h2><div class="rp-shot rp-blurred"><img src="${esc(shot)}" alt="Screenshot of the scanned page" loading="lazy"><button type="button" class="rp-reveal" data-rp-reveal>Show the preview</button></div><p>Hidden until you ask: scanned pages can show anything. Taken in an isolated browser on our server; your device never opened the page. A normal-looking page is not proof of safety.</p></section>`
       : why ? `<section class="rp-card rp-preview"><h2>Page preview</h2>${missing}</section>` : '';
     const checked = typeof opts.checked === 'string' ? opts.checked : typeof plain.checked === 'string' ? plain.checked : '';
     box.dataset.tone = tone;
@@ -103,6 +104,9 @@
       if (!why) { card.remove(); return; }
       card.innerHTML = `<h2>Page preview</h2>${missing}`;
     });
+    box.querySelectorAll('[data-rp-reveal]').forEach(button => button.addEventListener('click', () => {
+      button.parentElement.classList.remove('rp-blurred'); button.remove();
+    }));
     box.querySelectorAll('[data-rp-pdf]').forEach(button => button.addEventListener('click', () => opts.pdf()));
     box.querySelectorAll('[data-rp-share]').forEach(button => button.addEventListener('click', () => shareText(plain.share_text, opts.feedback)));
     box.hidden = false;

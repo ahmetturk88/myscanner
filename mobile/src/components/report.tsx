@@ -207,17 +207,24 @@ function NoPreview({ text, start }: { text: string; start: number }) {
 function Preview({ source, start, why }: { source: { uri: string; headers?: Record<string, string> }; start: number; why: string }) {
   const [failed, setFailed] = useState(false);
   const [ratio, setRatio] = useState(16 / 10);
+  // Blurred until asked for: a scanned page can show anything, and phones are looked at in public.
+  const [shown, setShown] = useState(false);
   if (failed) return why ? <NoPreview text={why} start={start} /> : null;
   return (
     <Animated.View entering={enter(start)} style={s.card}>
       <SectionTitle>{t('Page preview')}</SectionTitle>
       <View style={{ borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.input }}>
         <Image source={source} style={{ width: '100%', aspectRatio: ratio }} contentFit="cover" contentPosition="top" transition={350}
-          cachePolicy="none" accessibilityLabel={t('Screenshot of the scanned page')}
+          cachePolicy="none" accessibilityLabel={t('Screenshot of the scanned page')} blurRadius={shown ? 0 : 45}
           onLoad={(e) => { const { width, height } = e.source; if (width && height) setRatio(Math.max(width / height, 0.75)); }}
           onError={() => setFailed(true)} />
+        {!shown ? (
+          <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(4,10,18,.55)' }]}>
+            <Button label={t('Show the preview')} icon="image" kind="secondary" onPress={() => setShown(true)} />
+          </View>
+        ) : null}
       </View>
-      <Text style={s.small}>{t('Taken in an isolated browser on our server. Your phone never opened the page. A normal-looking page is not proof of safety.')}</Text>
+      <Text style={s.small}>{t('Hidden until you ask: scanned pages can show anything. Taken in an isolated browser on our server; your phone never opened the page.')}</Text>
     </Animated.View>
   );
 }

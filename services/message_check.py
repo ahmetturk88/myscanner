@@ -159,7 +159,13 @@ SIGNAL_TEXT = {
 }
 
 
-WEIGHT = {key: weight for key, weight, _ in SIGNALS} | {'auth_fail': 2}  # auth_fail: from an original email's headers
+WEIGHT = {key: weight for key, weight, _ in SIGNALS} | {'auth_fail': 2, 'sender_fake': 4, 'sender_lookalike': 2, 'random_subdomains': 2}
+SIGNAL_TEXT['sender_fake'] = ('The sender pretends to be a known company',
+                              'The name shows a known company, but the email comes from an unrelated address. Real companies send from their own domain.')
+SIGNAL_TEXT['sender_lookalike'] = ('The sender’s address only looks like the company’s',
+                                   'The address contains the company’s name but is not one of its real domains.')
+SIGNAL_TEXT['random_subdomains'] = ('Its links use random addresses on one site',
+                                    'Each link goes to a different random address on the same site, a trick to slip past blocklists.')
 SIGNAL_TEXT['auth_fail'] = ('The sender’s address failed its checks',
                             'The receiving mail server could not confirm that this email really came from the address it shows.')
 
@@ -428,9 +434,76 @@ def merge_scan(link, status, verdict):
     return link
 
 
-def assess(text, language='en', analyzer=None, ai=None, image=None, email=None):
+def assess(text, language='en', analyzer=None, ai=None, image=None, email=None, previous=None):
     """The whole check. `analyzer` and `ai` are replaced in tests; neither ever visits a link."""
-    return build(prepare(text, language, analyzer, ai, image, email))
+    return build(prepare(text, language, analyzer, ai, image, email, previous))
+
+
+def summary_of(result):
+    """What a finished check passes on to the next one about the same message (its original email): no text."""
+    plain = result.get('plain') or {}
+    return {'tone': plain.get('tone'), 'summary': plain.get('ai_summary') or plain.get('headline'),
+            'reasons': [r for r in plain.get('reasons') or [] if isinstance(r, dict)][:6]}
+
+
+# Companies whose names scam emails borrow, and the domains they really send from.
+SENDER_BRANDS = {
+    'whatsapp': ('whatsapp.com', 'whatsapp.net', 'facebookmail.com'), 'instagram': ('instagram.com', 'facebookmail.com'),
+    'facebook': ('facebook.com', 'facebookmail.com'), 'google': ('google.com', 'youtube.com'), 'apple': ('apple.com', 'icloud.com'),
+    'microsoft': ('microsoft.com', 'outlook.com', 'live.com', 'office.com'), 'paypal': ('paypal.com', 'paypal.com.tr'),
+    'netflix': ('netflix.com',), 'amazon': ('amazon.com', 'amazon.com.tr', 'amazon.de'), 'ptt': ('ptt.gov.tr', 'ptt.com.tr'),
+    'edevlet': ('turkiye.gov.tr',), 'trendyol': ('trendyol.com', 'trendyolmail.com'), 'hepsiburada': ('hepsiburada.com',),
+    'yurticikargo': ('yurticikargo.com',), 'araskargo': ('araskargo.com.tr',), 'mngkargo': ('mngkargo.com.tr',),
+    'ziraat': ('ziraatbank.com.tr',), 'garantibbva': ('garantibbva.com.tr',), 'akbank': ('akbank.com',),
+    'yapikredi': ('yapikredi.com.tr',), 'isbankasi': ('isbank.com.tr',), 'halkbank': ('halkbank.com.tr',),
+    'vakifbank': ('vakifbank.com.tr',), 'enpara': ('enpara.com',), 'papara': ('papara.com',), 'turkcell': ('turkcell.com.tr',),
+    'vodafone': ('vodafone.com.tr', 'vodafone.com'), 'turktelekom': ('turktelekom.com.tr',),
+}
+_SQUASH = str.maketrans('ıİçÇşŞğĞöÖüÜ', 'iicCsSgGoOuU')
+
+
+def sender_check(name, domain):
+    """'sender_fake' when an email's display name borrows a company's name ("🟢 Whats App") but comes from an unrelated
+    domain, 'sender_lookalike' when the domain merely contains the name, None otherwise."""
+    squashed = re.sub(r'[^a-z]', '', (name or '').translate(_SQUASH).lower())
+    domain = (domain or '').lower().rstrip('.')
+    if not squashed or not domain:
+        return None
+    for brand, real in SENDER_BRANDS.items():
+        if brand == 'ptt':
+            named = re.search(r'(?<![a-z])ptt(?![a-z])', (name or '').lower()) is not None
+        else:
+            named = brand in squashed
+        if not named:
+            continue
+        if any(domain == d or domain.endswith('.' + d) for d in real):
+            return None
+        return 'sender_lookalike' if brand in re.sub(r'[^a-z]', '', domain) else 'sender_fake'
+    return None
+
+
+_SECOND_LEVEL = {'com.tr', 'gov.tr', 'org.tr', 'net.tr', 'edu.tr', 'gen.tr', 'bel.tr', 'co.uk', 'org.uk', 'com.au', 'co.jp', 'com.br'}
+
+
+def site_of(link):
+    """The registrable site of a link (a.b.piluflua.biz -> piluflua.biz), to check one link per site."""
+    host = (urlparse(as_url(link)).hostname or '').lower().rstrip('.')
+    parts = host.split('.')
+    if len(parts) >= 3 and '.'.join(parts[-2:]) in _SECOND_LEVEL:
+        return '.'.join(parts[-3:])
+    return '.'.join(parts[-2:]) if len(parts) >= 2 else host
+
+
+def by_site(found):
+    """[(the first link of each site, how many links that site has, how many different addresses)], in order."""
+    groups = {}
+    for link in found:
+        groups.setdefault(site_of(link) or link, []).append(link)
+    return [(links[0], len(links), len({(urlparse(as_url(l)).hostname or '').lower() for l in links})) for links in groups.values()]
+
+
+def short(shown, limit=60):
+    return shown if len(shown) <= limit else shown[:limit - 1] + '…'
 
 
 _LINKISH = re.compile(r'^(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$', re.I)
@@ -455,27 +528,44 @@ def _lookups(found, analyzer):
             own.session.close()
 
 
-def prepare(text, language='en', analyzer=None, ai=None, image=None, email=None):
+def prepare(text, language='en', analyzer=None, ai=None, image=None, email=None, previous=None):
     """Read the message: masking, signs, quick link lookups and the reviewer's answer. Returns the state build()
     needs; it holds only the masked text, never the original or the image."""
     from services import message_ai
     text = (text or '').strip()[:MAX_TEXT]
-    found = find_links(text, limit=6)  # from the original: masking must not change an address that gets checked
+    # From the original: masking must not change an address that gets checked. One link per site is looked up.
+    sites = by_site(find_links(text, limit=30))
+    found = [first for first, _, _ in sites]
     masked, masked_counts = redact(text)
     signals = find_signals(masked)
     masked = tidy(masked)
     auth = (email or {}).get('auth') or {}
     if any(auth.get(k) in ('fail', 'softfail', 'permerror') for k in ('spf', 'dkim', 'dmarc')):
         signals.append('auth_fail')
-    links = _lookups(found, analyzer)
+    if email:
+        signals = [k for k in signals if k != 'hidden_cta']  # the original email shows where its buttons go
+        sender = sender_check(email.get('sender_name'), email.get('sender_domain'))
+        if sender:
+            signals.append(sender)
+    if any(addresses >= 3 for _, _, addresses in sites):
+        signals.append('random_subdomains')
+    links = _lookups(found[:6], analyzer)
+    for link, (_, count, _) in zip(links, sites):
+        if count > 1:
+            link['same_site'] = count - 1
     opinion = None
     if ai is not False:
         ask = None if ai is None else (lambda system, body, picture: ai(system, [{'role': 'user', 'text': body}]))
         evidence = message_ai.facts(signals, links, masked_counts)
         if email:
-            evidence['original_email'] = {'sender_domain': email.get('sender_domain'), 'sender_checks': auth,
-                                          'attachments_not_opened': email.get('attachments', 0)}
+            evidence['original_email'] = {'sender_name': email.get('sender_name'), 'sender_domain': email.get('sender_domain'),
+                                          'sender_checks': auth, 'attachments_not_opened': email.get('attachments', 0),
+                                          'links_are_the_real_addresses_behind_its_buttons': True}
+        if previous:
+            evidence['screenshot_check_of_the_same_message'] = {'verdict': previous.get('tone'), 'summary': previous.get('summary')}
         opinion = message_ai.review(masked, evidence, language, image=image, ask=ask)
+    if opinion and email:
+        opinion['hidden_link'] = False  # the original email's links are the real ones
     if opinion:
         # A link on a threat list is kept whatever the reviewer says. Otherwise a web page or an app screen has no
         # message links, and an address the reviewer names as not part of the message (the browser's address bar,
@@ -492,8 +582,9 @@ def prepare(text, language='en', analyzer=None, ai=None, image=None, email=None)
             links += _lookups(extra[:max(0, MAX_LINKS - len(links))], analyzer)
     return {'lang': language, 'masked': masked, 'masked_counts': masked_counts, 'signals': signals,
             'found': len(found), 'links': links[:MAX_LINKS], 'opinion': opinion,
-            'email': {'sender_domain': email.get('sender_domain'), 'sender_checks': auth,
+            'email': {'sender_name': email.get('sender_name'), 'sender_domain': email.get('sender_domain'), 'sender_checks': auth,
                       'attachments_not_opened': email.get('attachments', 0)} if email else None,
+            'previous': previous or None,
             'reviewer': opinion is not None or (ai is not False and message_ai.ai_on())}
 
 
@@ -530,34 +621,37 @@ def build(state):
     signals, links, opinion = state['signals'], state['links'], state['opinion']
     found = [None] * state['found']  # only its length matters here
     tone = decide(signals, links, len(found), opinion)
+    previous = state.get('previous') or {}
+    if previous.get('tone') in RANK and RANK[previous['tone']] > RANK[tone]:
+        tone = previous['tone']  # the original email can confirm or raise the screenshot's verdict, never lower it
     not_message = bool(opinion) and not opinion['is_message'] and tone != 'danger'
     label, headline, summary = NOT_MESSAGE if not_message else VERDICTS[tone]
     # When the reviewer read it, our word-matching signs are shown only where they agree with its verdict.
     shown = [] if not_message else signals if not opinion or tone in ('danger', 'caution') else \
         [k for k in signals if k == 'code_notice']
-    hidden = bool(opinion and opinion['hidden_link']) or ('hidden_cta' in signals and not links)
+    hidden = not state.get('email') and (bool(opinion and opinion['hidden_link']) or ('hidden_cta' in signals and not links))
 
     reasons = []
     for link in links:
         full = FULL_SCAN.get(link.get('scan_verdict'))
         if link['state'] == 'bad' and full == 'bad':
-            reasons.append(reason('bad', 'Our link scan found a dangerous link', f'Our full scan of {link["shown"]} found it dangerous.'))
+            reasons.append(reason('bad', 'Our link scan found a dangerous link', f'Our full scan of {short(link["shown"])} found it dangerous.'))
         elif link['state'] == 'bad':
-            reasons.append(reason('bad', 'A link is on a threat list', f'{link["shown"]} is listed as dangerous.'))
+            reasons.append(reason('bad', 'A link is on a threat list', f'{short(link["shown"])} is listed as dangerous.'))
         elif link['state'] == 'warn' and full == 'warn':
-            reasons.append(reason('warn', 'Our link scan found warning signs', f'Our full scan of {link["shown"]} found warning signs.'))
+            reasons.append(reason('warn', 'Our link scan found warning signs', f'Our full scan of {short(link["shown"])} found warning signs.'))
         elif link['state'] in ('ok', 'official') and full == 'ok':
-            reasons.append(reason('ok', 'Our link scan found no threats', f'Our full scan of {link["shown"]} found no threat signs.'))
+            reasons.append(reason('ok', 'Our link scan found no threats', f'Our full scan of {short(link["shown"])} found no threat signs.'))
         elif link['state'] == 'scanning':
-            reasons.append(reason('na', 'A link is still being scanned', f'{link["shown"]} is still being checked. Open its report in a moment.'))
+            reasons.append(reason('na', 'A link is still being scanned', f'{short(link["shown"])} is still being checked. Open its report in a moment.'))
         elif link['state'] == 'warn':
-            reasons.append(reason('warn', 'A link hides where it goes', f'{link["shown"]} uses a short link or a look-alike name.'))
+            reasons.append(reason('warn', 'A link hides where it goes', f'{short(link["shown"])} uses a short link or a look-alike name.'))
         elif link['state'] == 'official':
-            reasons.append(reason('ok', 'A link is the real company’s address', f'{link["shown"]} is the official site.'))
+            reasons.append(reason('ok', 'A link is the real company’s address', f'{short(link["shown"])} is the official site.'))
         elif link['state'] == 'na':
-            reasons.append(reason('na', 'A link could not be checked', f'{link["shown"]} could not be looked up right now.'))
+            reasons.append(reason('na', 'A link could not be checked', f'{short(link["shown"])} could not be looked up right now.'))
     if len(found) > MAX_LINKS:
-        reasons.append(reason('na', 'Not every link was checked', f'We checked {MAX_LINKS} of the {len(found)} links.'))
+        reasons.append(reason('na', 'Not every link was checked', f'Its links go to {len(found)} sites; we checked {MAX_LINKS}.'))
     if hidden and not not_message:
         reasons.insert(0, reason('warn', 'The link is hidden behind a button',
                                  'A screenshot can’t show where the button leads. Send us the original email to check its real links.'))
@@ -577,6 +671,10 @@ def build(state):
                                                         or (opinion and set(opinion['asks_for']) & {'code', 'password', 'card', 'money', 'call'})):
         reasons.insert(0, reason('bad', 'No link, but it asks you to act',
                                  'Scams without a link ask you to call, send a code or pay. That request is the risk.'))
+    if previous.get('reasons'):
+        # Built on the screenshot check of the same message: its findings stay, except the one the email answered.
+        seen = {r['title'] for r in reasons} | {'The link is hidden behind a button', 'A button hides where it goes', 'No scam signs found'}
+        reasons += [r for r in previous['reasons'] if r.get('title') not in seen]
     if state.get('reviewer') and not opinion:
         reasons.append(reason('na', 'Summary unavailable', 'Our summary could not be written right now, so only our checks decided.'))
     if not reasons:
@@ -602,7 +700,7 @@ def build(state):
         actions = CODE_NOTICE_ACTIONS if is_code_notice(signals) and tone == 'safe' else ACTIONS[tone]
     plain = {'tone': tone, 'label': label, 'headline': headline, 'summary': summary,
              'url': {'prefix': '', 'host': 'Message', 'rest': ''},
-             'reasons': ordered(reasons), 'actions': list(actions),
+             'reasons': ordered(reasons, limit=6), 'actions': list(actions),
              'checks': checks, 'tally': tally(checks), 'share_text': '' if not_message else SHARE.get(tone, '')}
     if opinion and (opinion['summary'] or opinion['reasons']):
         plain['ai_summary'] = opinion['summary']
@@ -614,4 +712,5 @@ def build(state):
     return {'plain': plain, 'links': links, 'signals': [] if not_message else signals, 'masked': masked_counts,
             'ai': bool(opinion), 'asks': [say(a) for a in asks], 'verify': verify,
             'hidden_link': hidden and not not_message, 'not_message': not_message,
-            'sender': opinion['claimed_sender'] if opinion and not not_message else None}
+            'sender': opinion['claimed_sender'] if opinion and not not_message else None,
+            'source': 'email' if state.get('email') else 'message', 'with_email': bool(state.get('email') and previous)}

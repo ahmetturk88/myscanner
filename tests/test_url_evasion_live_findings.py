@@ -221,6 +221,14 @@ class BlindRunFindingTests(unittest.TestCase):
         local, deep = evidence('https://lingering-cloud-8a93.zinhoooo.workers.dev/cbbcpznzn', age=6000, rank=900, page=hidden)
         self.assertEqual(assess_url(local, deep)['verdict'], 'suspicious')
 
+    def test_a_new_sites_own_not_found_page_is_not_hiding(self):
+        # myscanners.com/messag, cut off by the browser's address bar: a 4-month-old, little-known site's real 404 page.
+        not_found = {'title': 'Page not found', 'content_risk_score': 0, 'status_code': 404, 'visible_text_length': 900, 'scam_signals': []}
+        local, deep = evidence('https://myscanners.com/messag', age=130, rank=0, page=not_found)
+        result = assess_url(local, deep)
+        self.assertNotIn('content_hidden', [r['code'] for r in result['reasons']])
+        self.assertNotIn(result['verdict'], ('suspicious', 'high_risk', 'malicious'))
+
     def test_sign_in_page_on_a_cloud_workstation_preview(self):
         login = {'title': 'Sign in', 'content_risk_score': 45, 'status_code': 200, 'visible_text_length': 400, 'scam_signals': [],
                  'has_password_field': True, 'has_login_form': True}
